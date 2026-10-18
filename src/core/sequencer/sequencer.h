@@ -334,6 +334,16 @@ private:
     void sendCcFx(int t, uint8_t letter, uint8_t value, const NoteRec& rec);
     void sendPitchBendFx(uint8_t instr, uint8_t value);
 
+    // [I] MIDI LFO (model/instrument.h MidiLfo), one per MIDI instrument.
+    // Evaluated every µstep while playing; sends only changed values, within
+    // an output budget so the LFOs never take more than half of a DIN port.
+    void midiLfoUpdate(float elapsedUs);
+    int midiLfoValue(int i, const MidiLfo& l) const;   // CC/pressure 0..127, pitch bend 0..16383
+    void sendMidiLfo(int i, uint8_t target, int value);
+    void midiLfoReset(bool sendCenter);
+    // A CC / pitch bend / pressure FX on the LFO's target moves its center.
+    void midiLfoFxCenter(uint8_t instr, uint8_t target, int value);
+
     bool liveTargetStep(int t, int& target) const;
     static bool cellFree(const Step& s);
 
@@ -428,6 +438,20 @@ private:
     uint8_t ovSlot_[kTracks] = {};
     uint8_t ovNum_[kTracks] = {};
     uint16_t freshCommit_ = 0;             // tracks committed during this µstep (bit per track)
+
+    // [I] MIDI LFO runtime state, index = MIDI instrument 0..15.
+    uint32_t lfoOrigin_[kMidiInstrumentCount] = {};   // tick_ the phase counts from
+    int16_t lfoSent_[kMidiInstrumentCount] = {};      // last value sent, -1 = none
+    int16_t lfoCenter_[kMidiInstrumentCount] = {};    // FX center override, -1 = none
+    uint8_t lfoNext_ = 0;                              // round-robin start
+    float lfoBudgetUs_ = 0;
+
+public:
+    // [I] Output budget: one 3-byte message on DIN takes 960 µs; LFOs may
+    // use half of that bandwidth, with a burst of a few messages.
+    static constexpr float kLfoMsgUs = 960.0f;
+    static constexpr float kLfoBudgetShare = 0.5f;
+    static constexpr float kLfoBudgetMaxUs = 4.0f * kLfoMsgUs;
 };
 
 }  // namespace ot
