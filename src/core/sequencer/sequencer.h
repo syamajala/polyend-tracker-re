@@ -49,6 +49,16 @@ struct PerfPatternMemory {
 };
 static_assert(sizeof(Track) == 769, "track record is 769 bytes (spec 02 §4.2)");
 
+// [I] MIDI LFO runtime state, index = MIDI instrument 0..15. On the device it
+// lives in SDRAM (the SRAM stack headroom has no room for it).
+struct MidiLfoState {
+    uint32_t origin[kMidiInstrumentCount];   // tick_ the phase counts from
+    int16_t sent[kMidiInstrumentCount];      // last value sent, -1 = none
+    int16_t center[kMidiInstrumentCount];    // FX center override, -1 = none
+    uint8_t next;                            // round-robin start
+    float budgetUs;
+};
+
 class Sequencer {
 public:
     // 2.x: 16 tracks (spec 2x-01 §6). Tracks 8..15 play MIDI and synths; synths
@@ -56,7 +66,7 @@ public:
     static constexpr int kTracks = kTrackCount;   // 16
     static constexpr int kVoiceTracks = 8;        // tracks 0..7 own a sample voice
 
-    Sequencer() { resetState(); }
+    Sequencer() : lfo_(lfoStorage()) { resetState(); }
 
     // --- wiring -------------------------------------------------------------
     // bufA becomes the current pattern, bufB the preload buffer. stage
@@ -439,12 +449,13 @@ private:
     uint8_t ovNum_[kTracks] = {};
     uint16_t freshCommit_ = 0;             // tracks committed during this µstep (bit per track)
 
-    // [I] MIDI LFO runtime state, index = MIDI instrument 0..15.
-    uint32_t lfoOrigin_[kMidiInstrumentCount] = {};   // tick_ the phase counts from
-    int16_t lfoSent_[kMidiInstrumentCount] = {};      // last value sent, -1 = none
-    int16_t lfoCenter_[kMidiInstrumentCount] = {};    // FX center override, -1 = none
-    uint8_t lfoNext_ = 0;                              // round-robin start
-    float lfoBudgetUs_ = 0;
+    // [I] MIDI LFO runtime state (device: SDRAM, never touched before
+    // midiLfoReset(), i.e. after the SDRAM is up).
+    MidiLfoState* lfoStorage();
+    MidiLfoState* lfo_;
+#if !defined(OT_TARGET_DEVICE)
+    MidiLfoState lfoOwn_{};
+#endif
 
 public:
     // [I] Output budget: one 3-byte message on DIN takes 960 µs; LFOs may
