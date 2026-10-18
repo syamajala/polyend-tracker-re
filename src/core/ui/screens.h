@@ -706,6 +706,10 @@ public:
         return m > reading ? m : reading;
     }
     bool sourceOk = true;
+    // [I] Source "Resample" (list entry 4): live resampling settings instead
+    // of an input. A screen state only; cfg.recSource keeps the last input.
+    bool resample = false;
+    uint32_t resampleShown_ = 0xFFFFFFFFu;   // state / bar last drawn
     char folder[32] = {};
     char fileName[40] = {};
     WaveZoom view;
