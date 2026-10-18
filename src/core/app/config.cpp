@@ -137,6 +137,7 @@ void Config::sanitize() {
     if (radioFreq10 < 760 || radioFreq10 > 1080) radioFreq10 = 875;
     clampField<uint8_t>(cpuMeter, 2, 0);
     if (synthVoices < 1 || synthVoices > kMaxSynthVoices) synthVoices = kDefaultSynthVoices;
+    clampField<uint8_t>(noteNames, 2, 0);
     validateImage(image);
 }
 
@@ -163,6 +164,7 @@ void Config::toExt(uint8_t* out) const {
     out[4] = uint8_t(kExtPayload);
     out[5] = cpuMeter;
     out[6] = synthVoices;
+    out[7] = noteNames;
     uint8_t sum = 0;
     for (uint32_t i = 0; i < kExtPayload; ++i) sum = uint8_t(sum + out[5 + i]);
     out[5 + kExtPayload] = sum;
@@ -178,6 +180,7 @@ bool Config::fromExt(const uint8_t* in, uint32_t len) {
     // Newer versions only append fields: read the ones this build knows.
     cpuMeter = in[5] <= 2 ? in[5] : 0;
     synthVoices = (n >= 2 && in[6] >= 1 && in[6] <= kMaxSynthVoices) ? in[6] : kDefaultSynthVoices;
+    noteNames = (n >= 3 && in[7] <= 2) ? in[7] : 0;
     return true;
 }
 
@@ -194,6 +197,7 @@ bool Config::fromImage(const uint8_t* img) {
     c.radioFreq10 = radioFreq10;
     c.cpuMeter = cpuMeter;   // extension record, not in the image
     c.synthVoices = synthVoices;
+    c.noteNames = noteNames;
     c.sanitize();
     *this = c;
     toImage();
@@ -207,8 +211,13 @@ bool Config::load(INvStore& nv) {
     uint8_t ext[kExtSize];
     cpuMeter = 0;
     synthVoices = kDefaultSynthVoices;
-    if (nv.size() >= kExtOffset + kExtSize && nv.read(kExtOffset, ext, kExtSize)) fromExt(ext, kExtSize);
-    else if (nv.size() >= kExtOffset + kExtSize - 1 && nv.read(kExtOffset, ext, kExtSize - 1)) fromExt(ext, kExtSize - 1);   // v1 record
+    noteNames = 0;
+    // Shorter stores may only hold an older (shorter payload) record.
+    for (uint32_t len = kExtSize; len >= 6; --len)
+        if (nv.size() >= kExtOffset + len) {
+            if (nv.read(kExtOffset, ext, len)) fromExt(ext, len);
+            break;
+        }
     return true;
 }
 
@@ -219,7 +228,7 @@ bool Config::save(INvStore& nv) {
     // default; a store that never had one keeps its erased bytes past 0xF4.
     if (nv.size() < kExtOffset + kExtSize) return true;
     uint8_t ext[kExtSize];
-    if (cpuMeter == 0 && synthVoices == kDefaultSynthVoices) {
+    if (cpuMeter == 0 && synthVoices == kDefaultSynthVoices && noteNames == 0) {
         Config probe;
         if (!nv.read(kExtOffset, ext, kExtSize) || !probe.fromExt(ext, kExtSize)) return true;
     }
@@ -243,6 +252,7 @@ bool Config::load(IStorage& fs) {
         if (!fromImage(buf + 8)) return false;
         cpuMeter = 0;
         synthVoices = kDefaultSynthVoices;
+        noteNames = 0;
         fromExt(buf + 8 + kImageSize, avail - kImageSize);
         return true;
     }
