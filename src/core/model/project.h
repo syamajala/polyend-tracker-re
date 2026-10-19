@@ -134,6 +134,12 @@ struct Project {
     // [I] MIDI LFO per MIDI instrument 0..15 (midi_lfo.bin, not project.mt).
     MidiLfo midiLfo[kMidiInstrumentCount];
 
+    // [I] Performance scenes A / B: the stored row (0 = off, 1..3) of each of
+    // the 12 Performance slots (perf_scenes.bin, not project.mt).
+    static constexpr int kPerfScenes = 2;
+    static constexpr int kPerfSceneSlots = 12;
+    uint8_t perfScene[kPerfScenes][kPerfSceneSlots] = {};
+
     Project() { setDefault(); }
 
     // New Project values (spec 07 Q6 table; FW:0x234DC), plus the Tracker

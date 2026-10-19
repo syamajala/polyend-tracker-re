@@ -97,6 +97,7 @@ void Project::setLoadPrefill() {
         setMidiInstrument(i, m);
     }
     for (MidiLfo& l : midiLfo) l = MidiLfo{};
+    std::memset(perfScene, 0, sizeof(perfScene));
     setU16(mt::kU16_5FE, 20000);
     for (int i = 0; i < 8; ++i) {
         std::snprintf(buf, sizeof(buf), "Midi %d", i + 9);

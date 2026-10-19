@@ -6,6 +6,7 @@
 
 #include "formats/bytes.h"
 #include "formats/midi_lfo.h"
+#include "formats/perf_scenes.h"
 #include "formats/patterns_metadata.h"
 #include "sdram_bss.h"
 
@@ -89,11 +90,23 @@ bool savedInstrumentPath(char* out, size_t cap, const char* base, int n, const c
     return fmt(out, cap, std::snprintf(out, cap, "%s/instruments/%d %s.pti", base, n, name));
 }
 
-// [I] midi_lfo.bin next to a ".../project.mt" path; false for other paths.
-static bool midiLfoPath(char* out, size_t cap, const char* projectPath) {
+// [I] An OpenTracker side file `name` next to a ".../project.mt" path; false for other paths.
+static bool sideFilePath(char* out, size_t cap, const char* projectPath, const char* name) {
     const size_t n = std::strlen(projectPath), k = std::strlen("/project.mt");
     if (n < k || std::strcmp(projectPath + n - k, "/project.mt") != 0) return false;
-    return fmt(out, cap, std::snprintf(out, cap, "%.*s/%s", int(n - k), projectPath, mlfo::kFileName));
+    return fmt(out, cap, std::snprintf(out, cap, "%.*s/%s", int(n - k), projectPath, name));
+}
+
+// [I] Writes side file `name` (encoded by `encode` into g_io) when `used`,
+// else removes it.
+template <class Encode>
+static FmtStatus saveSideFile(IStorage& fs, const char* projectPath, const char* name, bool used, Encode encode,
+                              uint32_t size) {
+    char sp[352];
+    if (!sideFilePath(sp, sizeof(sp), projectPath, name)) return FmtStatus::Ok;
+    if (!used) return fs.exists(sp) && !fs.remove(sp) ? FmtStatus::IoError : FmtStatus::Ok;
+    encode(g_io);
+    return writeWholeFile(fs, sp, g_io, size);
 }
 
 FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoadInfo* info) {
@@ -102,12 +115,16 @@ FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoa
     if (st != FmtStatus::Ok) return st;
     st = decodeProject(g_io, got, p, info);
     if (st != FmtStatus::Ok) return st;
-    // [I] MIDI LFOs: a missing or damaged file leaves them all default.
+    // [I] OpenTracker side files: a missing or damaged one leaves its data default.
     for (MidiLfo& l : p.midiLfo) l = MidiLfo{};
-    char lp[352];
-    if (midiLfoPath(lp, sizeof(lp), path) && fs.exists(lp) &&
-        readWholeFile(fs, lp, g_io, mlfo::kFileSize, &got) == FmtStatus::Ok)
+    std::memset(p.perfScene, 0, sizeof(p.perfScene));
+    char sp[352];
+    if (sideFilePath(sp, sizeof(sp), path, mlfo::kFileName) && fs.exists(sp) &&
+        readWholeFile(fs, sp, g_io, mlfo::kFileSize, &got) == FmtStatus::Ok)
         decodeMidiLfos(g_io, got, p);
+    if (sideFilePath(sp, sizeof(sp), path, pscn::kFileName) && fs.exists(sp) &&
+        readWholeFile(fs, sp, g_io, pscn::kFileSize, &got) == FmtStatus::Ok)
+        decodePerfScenes(g_io, got, p);
     return FmtStatus::Ok;
 }
 
@@ -115,16 +132,13 @@ FmtStatus saveProjectFile(IStorage& fs, const char* path, const Project& p) {
     encodeProject(p, g_io);
     const FmtStatus st = writeWholeFile(fs, path, g_io, mt::kFileSize);
     if (st != FmtStatus::Ok) return st;
-    // [I] midi_lfo.bin only while an LFO is set, so unused projects keep
-    // exactly the stock file set.
-    char lp[352];
-    if (!midiLfoPath(lp, sizeof(lp), path)) return st;
-    if (!midiLfosUsed(p)) {
-        if (fs.exists(lp) && !fs.remove(lp)) return FmtStatus::IoError;
-        return st;
-    }
-    encodeMidiLfos(p, g_io);
-    return writeWholeFile(fs, lp, g_io, mlfo::kFileSize);
+    // [I] OpenTracker side files (midi_lfo.bin, perf_scenes.bin), each only
+    // while it holds something, so other projects keep exactly the stock file set.
+    const FmtStatus side = saveSideFile(fs, path, mlfo::kFileName, midiLfosUsed(p),
+                                  [&](uint8_t* out) { encodeMidiLfos(p, out); }, mlfo::kFileSize);
+    const FmtStatus scn = saveSideFile(fs, path, pscn::kFileName, perfScenesUsed(p),
+                                       [&](uint8_t* out) { encodePerfScenes(p, out); }, pscn::kFileSize);
+    return side != FmtStatus::Ok ? side : scn;
 }
 
 // 2.x: pattern files are the Tracker Mini 16-track layout (spec 21 §4):
