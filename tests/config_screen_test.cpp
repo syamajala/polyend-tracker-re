@@ -130,6 +130,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
         {"Pattern arrangement", 3, 0, 3, 0, 0}, {"Pattern top info", 3, 0, 3, 0, 0},
         {"Line in channel", 3, 0, 3, 0, 0},   {"CPU meter", 3, 0, 3, 0, 0},   // 2.x [I]
         {"Synth voices", 2, 0, 8, 1, 3},                                     // 2.x [I], default 4
+        {"Note names", 3, 0, 3, 0, 0},                                       // [I] Sharps
     };
     const Want midi[] = {
         {"Clock in", 3, 0, 3, 0, 0},          {"Clock out", 3, 0, 4, 0, 0},
@@ -162,7 +163,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
         int n;
     };
     const CatWant cats[] = {
-        {"Project Settings", project, 10}, {"General", general, 13}, {"MIDI", midi, 11},
+        {"Project Settings", project, 10}, {"General", general, 14}, {"MIDI", midi, 11},
         {"USB", usb, 2},                   // [I] 2.x (Tracker Mini order)
         {"Metronome", metro, 5},           {"Firmware", firmware, 4}, {"Info", info, 4},
     };
@@ -183,7 +184,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
             if (w.def >= 0) CHECK_EQ(c.optionIndex(k, i), w.def);
         }
     }
-    CHECK_EQ(total, 49);   // stock 42 + 2.x CPU meter, Synth voices, three Info lines, USB Storage, Remote control
+    CHECK_EQ(total, 50);   // stock 42 + 2.x CPU meter, Synth voices, Note names, three Info lines, USB Storage, Remote control
     char t[48];
     c.optionText(3, 0, t, sizeof t);   // USB Storage: Off
     CHECK_STR(t, "Off");
@@ -204,7 +205,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
             CHECK_EQ(o.help != nullptr, want);
             helps += o.help != nullptr;
         }
-    CHECK_EQ(helps, 29);   // stock 25 + 2.x CPU meter, Synth voices, USB Storage and Remote control
+    CHECK_EQ(helps, 30);   // stock 25 + 2.x CPU meter, Synth voices, Note names, USB Storage and Remote control
     CHECK_EQ(configHelpCount(), 29);
     c.optionText(5, 1, t, sizeof t);
     CHECK(std::strlen(t) > 0);
