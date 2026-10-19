@@ -117,9 +117,11 @@ uint8_t BottomBar::separatorMask() const {
     return m;
 }
 
-void BottomBar::drawStrip(Gfx& g, const Theme& th) const {
-    wg::bottomStrip(g, th, separatorMask(), stripBg == wg::kThemeColour ? wg::stripColour(th, stripStyle) : stripBg);
+uint32_t BottomBar::stripColour(const Theme& th) const {
+    return stripBg == wg::kThemeColour ? wg::stripColour(th, stripStyle) : stripBg;
 }
+
+void BottomBar::drawStrip(Gfx& g, const Theme& th) const { wg::bottomStrip(g, th, separatorMask(), stripColour(th)); }
 
 void BottomBar::drawLabels(Gfx& g, const Theme& th) const {
     // spec 20 §1.2: text-only labels centred at 50 + 100 i (wide: 100 + 100 i)
@@ -1058,17 +1060,19 @@ void Ui::drawTitle(Gfx& g, const char* title, const char* right, bool status) {
     lastTitleValid_ = true;
 }
 
-uint8_t Ui::overlayBits() const {
-    return uint8_t((kb.isOpen() ? 1 : 0) | (picker.isOpen() ? 2 : 0) | (usb.active() ? 4 : 0) |
-                   (factory.active() ? 8 : 0) | (askOpen_ ? 16 : 0) | (progressOpen_ ? 32 : 0) |
-                   (popupKind_ != PopupHeader::kNone ? 64 : 0));
+uint32_t Ui::overlayBits() const {
+    const Screen* s = current();
+    return uint32_t((kb.isOpen() ? 1 : 0) | (picker.isOpen() ? 2 : 0) | (usb.active() ? 4 : 0) |
+                    (factory.active() ? 8 : 0) | (askOpen_ ? 16 : 0) | (progressOpen_ ? 32 : 0) |
+                    (popupKind_ != PopupHeader::kNone ? 64 : 0)) |
+           (s ? uint32_t(s->detailKey()) << 8 : 0u);
 }
 
 void Ui::render() {
     if (!display_) return;
     // Low-detail fallback stays on while the screen and its overlays stay
     // the same (set by an overflowing frame below).
-    const uint8_t ov = overlayBits();
+    const uint32_t ov = overlayBits();
     if (lowDetail_ && (lowDetailGen_ != gen_ || lowDetailOverlays_ != ov)) lowDetail_ = false;
     dirty_ = false;
     titleDrawn_ = false;
@@ -1105,7 +1109,12 @@ void Ui::render() {
     // first: panel fades end on top of its edge row); labels go on top.
     const bool barShown = !factory.active() && !usbPage && !kb.isOpen() && ph != PopupHeader::kFull &&
                           (askOpen_ || !s || !s->fullScreen());
-    if (barShown) (askOpen_ ? BottomBar{} : bar).drawStrip(g, t);
+    stripUnder_ = barShown;
+    if (barShown) {
+        const BottomBar& sb = askOpen_ ? BottomBar{} : bar;
+        stripUnderC_ = sb.stripColour(t);
+        sb.drawStrip(g, t);
+    }
     if (factory.active()) {
         factory.draw(g);
     } else if (usbPage) {
