@@ -5,7 +5,7 @@
 # make perf-gate  -> bench-m4 instruction counts vs tests/perf_baseline.txt (+5 % max), engine
 #                    limits, flash <= 720,000 B, host bench, telemetry thresholds on LOG=<device log>
 #                    (docs/HARDWARE_TESTING.md)
-# OT_GAMES=0      -> image without Games (NES player, screen, menu entry; build dir build/nogames)
+# OT_GAMES=1      -> image with Games (NES player, screen, menu entry; build dir build/games)
 # OT_SDRAM_CACHE=0 -> image without the LMEM system cache for the SDRAM (build dir build/nocache)
 # OT_FASTRUN=0    -> image with all audio code in flash (no .fastrun in SRAM_L; build dir build/nofastrun)
 # OT_USB_MSC=0    -> image without the USB mass-storage interface (old MIDI + Serial descriptors;
@@ -42,11 +42,15 @@ OT_FASTRUN ?= 1
 ifeq ($(OT_FASTRUN),0)
 BUILD     := $(BUILD)/nofastrun
 endif
-# Games (spec 14): 1 = NES player + Games screen + menu entry (2.0.0 default),
-# 0 = compiled out (docs/OPTIMIZATION_2X.md OP-4). Own build dir.
-OT_GAMES ?= 1
-ifeq ($(OT_GAMES),0)
-BUILD     := $(BUILD)/nogames
+# Games (spec 14): 1 = NES player + Games screen + menu entry (stock 2.0.0
+# default), 0 = compiled out (docs/OPTIMIZATION_2X.md OP-4). [I] This fork
+# defaults to 0: the emulator's hot state is 5.8 KB of SRAM held even when
+# no game runs, and the SRAM stack headroom (make perf-gate) had 64 B left
+# with it (92,224 B vs 98,016 B without). Games builds use their own dir.
+# The simulator and host tests always build Games (screen_games.h default).
+OT_GAMES ?= 0
+ifeq ($(OT_GAMES),1)
+BUILD     := $(BUILD)/games
 endif
 # USB Storage mode (docs/PLAN_2X.md, Tracker Mini manual §13.10): 1 = the USB
 # device adds a mass-storage interface (third_party/teensy3/usb_msc.h) next to
