@@ -1396,3 +1396,139 @@ TEST(tracks16_track16_perf_length_keeps_song_advance) {
     if (!r.host.endTicks.empty()) CHECK_EQ(r.host.endTicks[0], uint64_t(12 + (4 * 48 - 1) * 12));
     CHECK_EQ(r.seq.patternPosition(), 0);
 }
+
+// --- [I] MIDI LFO (model/instrument.h MidiLfo) -------------------------------
+
+namespace {
+MidiLfo lfo(int target, int shape, int rate, int depth = 100, int center = 64, int retrig = 0) {
+    MidiLfo l;
+    l.target = uint8_t(target);
+    l.shape = uint8_t(shape);
+    l.rate = uint8_t(rate);
+    l.depth = uint8_t(depth);
+    l.center = uint8_t(center);
+    l.retrig = uint8_t(retrig);
+    return l;
+}
+std::vector<int> ccValues(const FakeSink& s, int status, int cc) {
+    std::vector<int> v;
+    for (const auto& e : s.ev)
+        if (e.kind == Ev::Midi && e.a == status && e.b == cc) v.push_back(e.c);
+    return v;
+}
+constexpr int kRate8Steps = 8, kRate1Step = 14, kRate8thStep = 22;
+}  // namespace
+
+TEST(midi_lfo_cc_saw_follows_tempo) {
+    Rig r(120.0f);
+    r.project.midiLfo[1] = lfo(74 + 1, 1, kRate8Steps);   // MIDI 2 -> ch 2, CC 74, saw over 8 steps
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 3 && r.seq.microStep(0) == 48; });   // just before the half cycle
+    const auto v = ccValues(r.sink, 0xB1, 74);
+    CHECK(v.size() >= 60u);   // ~128 values per cycle, under the budget: none skipped
+    bool rising = true;
+    for (size_t i = 1; i < v.size(); ++i) rising = rising && v[i] == v[i - 1] + 1;
+    CHECK(rising);
+    if (!v.empty()) {
+        CHECK(v.front() <= 1);
+        CHECK(v.back() >= 60 && v.back() <= 64);
+    }
+    // Nothing on other channels / CCs, and nothing while stopped.
+    CHECK_EQ(r.sink.midiStatus(0xB0).size(), 0u);
+    r.seq.stop();
+    const auto after = ccValues(r.sink, 0xB1, 74);
+    CHECK(!after.empty() && after.back() == 64);   // stop leaves the target at the center
+    const size_t n = r.sink.ev.size();
+    r.blocks(200);
+    CHECK_EQ(r.sink.ev.size(), n);
+}
+
+TEST(midi_lfo_retrigger_note_vs_free) {
+    for (int retrig = 0; retrig < 2; ++retrig) {
+        Rig r(120.0f);
+        r.project.midiLfo[1] = lfo(74 + 1, 1, kRate8Steps, 100, 64, retrig);
+        r.setNote(8, 0, 60, 49);
+        r.setNote(8, 2, 62, 49);
+        r.seq.play(0);
+        r.runUntil([&] { return r.seq.step(0) == 3; });
+        // First LFO value after the second note-on.
+        int noteOns = 0, after = -1;
+        for (const auto& e : r.sink.ev) {
+            if (e.kind != Ev::Midi) continue;
+            if ((e.a & 0xF0) == 0x90) ++noteOns;
+            else if (noteOns == 2 && e.a == 0xB1 && e.b == 74) {
+                after = e.c;
+                break;
+            }
+        }
+        CHECK(after >= 0);
+        if (retrig == 1) CHECK(after <= 2);          // Note: the saw restarts at the bottom
+        else CHECK(after >= 30 && after <= 36);       // Free: a quarter cycle in (64 - 32)
+    }
+}
+
+TEST(midi_lfo_cc_fx_moves_center) {
+    Rig r(120.0f);
+    r.project.midiLfo[1] = lfo(1 + 1, 3, kRate1Step, 50);   // CC 1 (CC A's default), square +-32
+    r.setNote(8, 0, 60, 49);
+    r.fxA(8, 0, 8, 100);                                     // CC A = 100 on step 0
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 3; });
+    const auto v = ccValues(r.sink, 0xB1, 1);
+    bool hi = false, lo = false;
+    for (int x : v) {
+        hi = hi || x == 127;   // 100 + 32, clamped
+        lo = lo || x == 68;    // 100 - 32
+    }
+    CHECK(hi);
+    CHECK(lo);
+    r.seq.stop();
+    const auto s = ccValues(r.sink, 0xB1, 1);
+    CHECK(!s.empty() && s.back() == 100);   // the FX value is the center now
+    // The next play starts from the stored center again.
+    r.sink.ev.clear();
+    r.setNote(8, 0, 60, 49);
+    r.fxA(8, 0, 0, 0);
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 1; });
+    const auto v2 = ccValues(r.sink, 0xB1, 1);
+    CHECK(!v2.empty() && v2.front() == 96);   // 64 + 32
+}
+
+TEST(midi_lfo_pitch_bend_and_pressure) {
+    Rig r(120.0f);
+    r.project.midiLfo[0] = lfo(MidiLfo::kTargetPitchBend, 3, kRate1Step, 50);   // square, +-4096
+    r.project.midiLfo[2] = lfo(MidiLfo::kTargetPressure, 2, kRate1Step, 0, 90);   // depth 0: one value
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 2; });
+    std::vector<int> pb;
+    for (const auto& e : r.sink.midiStatus(0xE0)) pb.push_back(e.b | (e.c << 7));
+    CHECK(pb.size() >= 3u);
+    for (int x : pb) CHECK(x == 8192 + 4096 || x == 8192 - 4096);
+    const auto at = r.sink.midiStatus(0xD2);
+    CHECK_EQ(at.size(), 1u);
+    if (!at.empty()) { CHECK_EQ(at[0].b, 90); CHECK_EQ(at[0].len, 2); }
+}
+
+TEST(midi_lfo_output_budget_round_robin) {
+    Rig r(240.0f);
+    for (int i = 0; i < kMidiInstrumentCount; ++i) r.project.midiLfo[i] = lfo(74 + 1, 4, kRate8thStep);   // random
+    r.seq.play(0);
+    const int nBlocks = int(2.0 / kBlockS);   // 2 s
+    r.blocks(nBlocks);
+    int total = 0, per[kMidiInstrumentCount] = {};
+    for (const auto& e : r.sink.ev)
+        if (e.kind == Ev::Midi && (e.a & 0xF0) == 0xB0) {
+            ++total;
+            ++per[e.a & 0x0F];
+        }
+    // Half of DIN: 2 s * 0.5 / 960 µs, plus the burst.
+    CHECK(total <= int(2e6 * Sequencer::kLfoBudgetShare / Sequencer::kLfoMsgUs) + 5);
+    CHECK(total >= int(2e6 * Sequencer::kLfoBudgetShare / Sequencer::kLfoMsgUs) - 20);
+    for (int i = 0; i < kMidiInstrumentCount; ++i) CHECK(per[i] >= total / kMidiInstrumentCount - 3);
+    // Off: no output.
+    Rig q(120.0f);
+    q.seq.play(0);
+    q.blocks(500);
+    for (const auto& e : q.sink.ev) CHECK(!(e.kind == Ev::Midi && ((e.a & 0xF0) == 0xB0 || (e.a & 0xF0) == 0xE0)));
+}

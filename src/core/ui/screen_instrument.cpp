@@ -31,6 +31,8 @@ const char* kSpeedNames[29] = {"128 steps", "96 steps", "64 steps", "48 steps", 
                                "2 steps",   "3/2 steps", "1 step",  "3/4 step", "1/2 step", "3/8 step",
                                "1/3 step",  "1/4 step", "3/16 step", "1/6 step", "1/8 step", "1/12 step",
                                "1/16 step", "1/24 step", "1/32 step", "1/48 step", "1/64 step"};
+static_assert(MidiLfo::kRateCount <= 29, "MIDI LFO rates are the first kSpeedNames");
+const char* kRetrigNames[MidiLfo::kRetrigCount] = {"Free", "Note"};   // [I] MIDI LFO
 
 // Column -> parameter for the sample-instrument pages (appendix C §4-§6).
 const InstrParam kParamCols[7] = {InstrParam::Volume,     InstrParam::Panning, InstrParam::Tune,
@@ -109,9 +111,9 @@ void InstrumentScreen::start(int opt) {
     const uint8_t ci = app_.currentInstrument();
     // Appendix C §1: MIDI instruments force mode 3; re-entry keeps only
     // modes 0/1 (MIDI Mapping is entered from the Effects page).
-    if (isMidiInstrument(ci)) mode = 3;
+    if (isMidiInstrument(ci)) mode = mode == 4 ? 4 : 3;   // [I] the LFO page stays open
     else if (opt == 2) mode = 1;
-    else if (mode == 3 || mode == 2) mode = 0;
+    else if (mode == 3 || mode == 2 || mode == 4) mode = 0;
     effects = false;
     column = clampi(column, 0, columns() - 1);
     // Appendix C §6 entry fix-up: destination Off -> column <= 1.
@@ -137,6 +139,7 @@ bool InstrumentScreen::selectable(int c) const {
 
 int InstrumentScreen::columns() const {
     if (mode == 3) return 8;
+    if (mode == 4) return 6;
     if (mode == 2) return 2;
     if (mode == 1) return 7;
     return effects ? 4 : 7;
@@ -146,6 +149,34 @@ void InstrumentScreen::valueText(int c, char* out, int cap, float* frac, bool* b
     *bipolar = false;
     *frac = 0;
     const uint8_t ci = app_.currentInstrument();
+    if (mode == 4) {
+        // [I] MIDI LFO: Target, Shape, Rate, Depth, Center, Retrigger.
+        const MidiLfo& l = app_.project.midiLfo[(ci - kFirstMidiInstrument) % kMidiInstrumentCount];
+        switch (c) {
+            case 0:
+                if (l.target == MidiLfo::kTargetOff) std::snprintf(out, size_t(cap), "Off");
+                else if (l.target == MidiLfo::kTargetPitchBend) std::snprintf(out, size_t(cap), "Pitch bnd");
+                else if (l.target == MidiLfo::kTargetPressure) std::snprintf(out, size_t(cap), "Chan AT");
+                else midicc::ccValueName(l.target - 1, out, cap);
+                *frac = float(l.target) / float(MidiLfo::kTargetCount - 1);
+                break;
+            case 1: std::snprintf(out, size_t(cap), "%s", kShapeNames[l.shape % 5]); break;
+            case 2: std::snprintf(out, size_t(cap), "%s", kSpeedNames[l.rate % MidiLfo::kRateCount]); break;
+            case 3:
+                std::snprintf(out, size_t(cap), "%d", l.depth);
+                *frac = float(l.depth) / 100.0f;
+                break;
+            case 4:
+                // Pitch bend: the bend the LFO swings around, -64..63.
+                if (l.target == MidiLfo::kTargetPitchBend) std::snprintf(out, size_t(cap), "%d", l.center - 64);
+                else std::snprintf(out, size_t(cap), "%d", l.center);
+                *frac = float(l.center) / 127.0f;
+                *bipolar = l.target == MidiLfo::kTargetPitchBend;
+                break;
+            default: std::snprintf(out, size_t(cap), "%s", kRetrigNames[l.retrig % MidiLfo::kRetrigCount]); break;
+        }
+        return;
+    }
     if (mode == 3) {
         MidiInstrument m = app_.project.midiInstrument(ci - kFirstMidiInstrument);
         // Appendix C §7: col0 Velocity (rec+0), col1 Offset (rec+7 = the
@@ -264,6 +295,22 @@ void InstrumentScreen::edit(int c, int d, bool tap) {
     App& a = app_;
     const uint8_t ci = a.currentInstrument();
     if (mode == 2) return;
+    if (mode == 4) {
+        if (!isMidiInstrument(ci)) return;
+        MidiLfo& l = a.project.midiLfo[ci - kFirstMidiInstrument];
+        // Lists (Shape, Rate, Retrigger): a tap wraps.
+        auto list = [&](uint8_t& v, int n) { v = uint8_t(tap ? (v + d + n) % n : clampi(v + d, 0, n - 1)); };
+        switch (c) {
+            case 0: l.target = uint8_t(clampi(l.target + clampi(d, -10, 10), 0, MidiLfo::kTargetCount - 1)); break;
+            case 1: list(l.shape, MidiLfo::kShapeCount); break;
+            case 2: list(l.rate, MidiLfo::kRateCount); break;
+            case 3: l.depth = uint8_t(clampi(l.depth + d, 0, 100)); break;
+            case 4: l.center = uint8_t(clampi(l.center + d, 0, 127)); break;
+            default: list(l.retrig, MidiLfo::kRetrigCount); break;
+        }
+        a.markProjectDirty();
+        return;
+    }
     if (mode == 3) {
         const int idx = ci - kFirstMidiInstrument;
         MidiInstrument m = a.project.midiInstrument(idx);
@@ -298,6 +345,21 @@ void InstrumentScreen::reset(int c) {
     App& a = app_;
     const uint8_t ci = a.currentInstrument();
     if (mode == 2) return;
+    if (mode == 4) {
+        if (!isMidiInstrument(ci)) return;
+        MidiLfo& l = a.project.midiLfo[ci - kFirstMidiInstrument];
+        const MidiLfo def;
+        switch (c) {
+            case 0: l.target = def.target; break;
+            case 1: l.shape = def.shape; break;
+            case 2: l.rate = def.rate; break;
+            case 3: l.depth = def.depth; break;
+            case 4: l.center = def.center; break;
+            default: l.retrig = def.retrig; break;
+        }
+        a.markProjectDirty();
+        return;
+    }
     if (mode == 3) {
         const int idx = ci - kFirstMidiInstrument;
         MidiInstrument m = a.project.midiInstrument(idx), def;
@@ -363,6 +425,15 @@ void InstrumentScreen::refreshBar() {
         }
         return;
     }
+    if (mode == 4) {
+        static const char* kMidiLfo[6] = {"Target", "Shape", "Rate", "Depth", "Center", "Retrigger"};
+        const bool on = app_.project.midiLfo[(app_.currentInstrument() - kFirstMidiInstrument) % kMidiInstrumentCount].active();
+        for (int i = 0; i < 6; ++i) {
+            valueText(i, v, sizeof(v), &fr, &bi);
+            b.set(i, kMidiLfo[i], v, i == 0 || on);
+        }
+        return;
+    }
     if (mode == 1) {
         const Instrument& in = app_.instruments[app_.currentInstrument() % kSampleInstrumentCount];
         const int type = in.env[dest].enabled ? (in.env[dest].loop ? 2 : 1) : 0;
@@ -397,7 +468,10 @@ void InstrumentScreen::onButton(uint8_t id, uint8_t state) {
     App& a = app_;
     if (id == btn::InstrParams) {
         // Own module key toggles Parameters <-> Automation (appendix C §1).
-        if (state == kPress && mode != 3) {
+        if (state == kPress && (mode == 3 || mode == 4)) {
+            mode = mode == 3 ? 4 : 3;   // [I] MIDI: Parameters <-> LFO
+            column = 0;
+        } else if (state == kPress) {
             mode = mode == 0 ? 1 : 0;
             effects = false;
             column = 0;
@@ -450,7 +524,8 @@ void InstrumentScreen::onButton(uint8_t id, uint8_t state) {
                     const Instrument& ins = a.instruments[a.currentInstrument() % kSampleInstrumentCount];
                     const bool lfo = ins.env[dest].enabled && ins.env[dest].loop;
                     const bool listCol = mode == 0 ? (!effects && c == 4)
-                                                   : mode == 1 ? (c == 1 || (lfo && (c == 2 || c == 3))) : false;
+                                         : mode == 1 ? (c == 1 || (lfo && (c == 2 || c == 3)))
+                                         : mode == 4 ? (c == 1 || c == 2 || c == 5) : false;
                     if (mode == 1 && c == 0 && column == 0) {
                         // P23: F1 = previous, F2 = next destination (clamped 0..5).
                         dest = clampi(dest + (f == 0 ? -1 : 1), 0, 5);
@@ -489,6 +564,7 @@ void InstrumentScreen::onButton(uint8_t id, uint8_t state) {
             if (mode == 0 && !effects) inv = column == 4;
             else if (mode == 1 && ci < kSampleInstrumentCount) inv = column == 3 && iedit::autoType(a.instruments[ci], dest) == 2;
             else if (mode == 3) inv = column >= 2;
+            else if (mode == 4) inv = column == 1 || column == 2 || column == 5;   // lists
             const int d = id == btn::Up ? 1 : -1;
             edit(column, inv ? -d : d, false);
             break;
@@ -654,6 +730,7 @@ void InstrumentScreen::draw(Gfx& g) {
     const uint8_t ci = a.currentInstrument();
     char title[48], sub[48];
     if (mode == 3) std::snprintf(title, sizeof(title), "MIDI Instrument Parameters");
+    else if (mode == 4) std::snprintf(title, sizeof(title), "MIDI Instrument LFO");
     else if (mode == 1) std::snprintf(title, sizeof(title), "Instrument Automation 2/2");
     else if (effects) std::snprintf(title, sizeof(title), "Instrument Effects");
     else std::snprintf(title, sizeof(title), "Instrument Parameters 1/2");
@@ -699,6 +776,13 @@ void InstrumentScreen::draw(Gfx& g) {
             if (mode == 0 && !effects && c == 4) {
                 const int ft = in.filterEnabled ? in.filterType + 1 : 0;
                 listColumn(g, th, c, 1, kFilterNames, 4, clampi(ft, 0, 3));
+                continue;
+            }
+            if (mode == 4 && (c == 1 || c == 2 || c == 5)) {
+                const MidiLfo& l = a.project.midiLfo[(ci - kFirstMidiInstrument) % kMidiInstrumentCount];
+                if (c == 1) listColumn(g, th, c, 1, kShapeNames, MidiLfo::kShapeCount, l.shape % MidiLfo::kShapeCount);
+                else if (c == 2) listColumn(g, th, c, 1, kSpeedNames, MidiLfo::kRateCount, l.rate % MidiLfo::kRateCount);
+                else listColumn(g, th, c, 1, kRetrigNames, MidiLfo::kRetrigCount, l.retrig % MidiLfo::kRetrigCount);
                 continue;
             }
             valueText(c, v, sizeof(v), &fr, &bi);

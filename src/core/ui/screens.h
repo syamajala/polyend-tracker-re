@@ -225,7 +225,7 @@ public:
     void onPad(uint8_t pad, uint8_t state) override;
     void padLeds(uint8_t* levels) override;
 
-    // 0 params, 1 automation, 2 MIDI Mapping, 3 MIDI instrument; effects = mode 0 + effects flag
+    // 0 params, 1 automation, 2 MIDI Mapping, 3 MIDI instrument, 4 MIDI LFO ([I]); effects = mode 0 + effects flag
     int mode = 0;
     bool effects = false;
     int column = 0;        // mode 2: 0 = CC list pane, 1 = Instruments pane

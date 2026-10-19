@@ -1,6 +1,9 @@
 // Sequencer engine (spec 03). See sequencer.h.
 #include "sequencer/sequencer.h"
 
+#include "audio/audio_tables.h"
+#include "sdram_bss.h"
+
 namespace ot {
 
 using namespace seq;
@@ -363,6 +366,7 @@ void Sequencer::microStep() {
         }
     }
     if (stepEnd) advanceMaster();
+    if (playing_) midiLfoUpdate(tickPeriodUs() * float(kTicksPerMicro));
 }
 
 // ---------------------------------------------------------------------------
@@ -758,6 +762,8 @@ void Sequencer::triggerNote(int t, const NoteRec& rec, bool chord, uint8_t chord
     }
     // MIDI instrument (spec 03 §4.4).
     const uint8_t ch = uint8_t(rec.instr - 47);
+    // [I] MIDI LFO in Note mode restarts its cycle on every note.
+    if (project_ && project_->midiLfo[rec.instr - 48].retrig == 1) lfo_->origin[rec.instr - 48] = tick_;
     int note = rec.note;
     if (perfMode_ && tr.transposeOn) note = clampi(note + tr.transpose, 0, 127);
     const int sent = midiNoteNumber(note);
@@ -1099,6 +1105,7 @@ void Sequencer::startPlayback(int startStep, bool keepSongMode, bool afterCountI
     }
     playing_ = true;
     tick_ = 1;
+    midiLfoReset(false);
     masterMicro_ = 1;
     accUs_ = 0;  // OT: deterministic start phase
     breakPending_ = breakPreloadDone_ = false;
@@ -1179,6 +1186,7 @@ void Sequencer::stop() {
     dropPreload();
     resetPositions(0);
     if (sink_) sink_->synthTransportStop();   // macro overrides -> page values
+    midiLfoReset(true);   // [I] leave each LFO target at its center
     sendRealtime(settings_.transportOut, 0xFC);
     if (host_->exportActive()) host_->finaliseExport();
 }
@@ -1329,6 +1337,8 @@ void Sequencer::sendCcFx(int t, uint8_t letter, uint8_t value, const NoteRec& re
     const uint8_t cc = mi.cc[letter < 6 ? letter : 0];
     const uint8_t ch = uint8_t(rec.instr - 48);  // status nibble = channel - 1
     const uint8_t v = value > 127 ? 127 : value;
+    if (cc <= 127) midiLfoFxCenter(rec.instr, uint8_t(cc + 1), v);
+    else if (cc == 0x81) midiLfoFxCenter(rec.instr, MidiLfo::kTargetPressure, v);
     if (cc <= 127) {
         sendMidi(uint8_t(0xB0 | ch), cc, v, 3);
     } else if (cc == 0x80) {
@@ -1348,6 +1358,7 @@ void Sequencer::sendPitchBendFx(uint8_t instr, uint8_t value) {
     if (!isMidiInstr(instr)) return;  // 64..66: no output channel defined (spec 03 §7 item 5)
     const int bend = -4000 + (v * 8000) / 198;
     const int raw = clampi(bend + 8192, 0, 16383);
+    midiLfoFxCenter(instr, MidiLfo::kTargetPitchBend, raw);
     sendMidi(uint8_t(0xE0 | (instr - 48)), uint8_t(raw & 0x7F), uint8_t(raw >> 7), 3);
 }
 
@@ -1478,6 +1489,109 @@ void Sequencer::stepEntry(uint8_t note, uint8_t velocity, int step, int track, u
     rec.volume = int8_t(velocity > 127 ? 100 : velocity * 100 / 127);
     triggerNote(track, rec, false, 0);
     tr.last = rec;
+}
+
+// ---------------------------------------------------------------------------
+// [I] MIDI LFO (model/instrument.h MidiLfo)
+// ---------------------------------------------------------------------------
+
+#if defined(OT_TARGET_DEVICE)
+namespace {
+OT_SDRAM_BSS MidiLfoState gMidiLfoState;   // the device has one sequencer
+}
+MidiLfoState* Sequencer::lfoStorage() { return &gMidiLfoState; }
+#else
+MidiLfoState* Sequencer::lfoStorage() { return &lfoOwn_; }
+#endif
+
+void Sequencer::midiLfoReset(bool sendCenter) {
+    for (int i = 0; i < kMidiInstrumentCount; ++i) {
+        if (sendCenter && project_ && lfo_->sent[i] >= 0) {
+            const MidiLfo& l = project_->midiLfo[i];
+            if (l.active()) {
+                const int c = lfo_->center[i] >= 0 ? lfo_->center[i]
+                                                 : (l.target == MidiLfo::kTargetPitchBend ? l.center * 128 : l.center);
+                sendMidiLfo(i, l.target, c);
+            }
+        }
+        lfo_->origin[i] = 1;   // tick_ at play start
+        lfo_->sent[i] = -1;
+        lfo_->center[i] = -1;
+    }
+    lfo_->next = 0;
+    lfo_->budgetUs = kLfoBudgetMaxUs;
+}
+
+void Sequencer::midiLfoFxCenter(uint8_t instr, uint8_t target, int value) {
+    if (!project_ || !isMidiInstr(instr)) return;
+    const MidiLfo& l = project_->midiLfo[instr - 48];
+    if (l.active() && l.target == target) lfo_->center[instr - 48] = int16_t(value);
+}
+
+int Sequencer::midiLfoValue(int i, const MidiLfo& l) const {
+    // Phase in sequencer ticks (576 per step), so the LFO follows the tempo
+    // and an external clock like the sample LFOs (spec 07 Q5).
+    const uint32_t period = uint32_t(audio::lfoRateSteps(l.rate) * float(kTicksPerStep) + 0.5f);
+    const uint32_t pos = tick_ - lfo_->origin[i];
+    const uint32_t cycle = period ? pos / period : 0;
+    const float ph = period ? float(pos % period) / float(period) : 0.0f;
+    float u;   // 0..1, shapes as the sample LFOs (voice.cpp updateLfo)
+    switch (l.shape) {
+        case 0: u = 1.0f - ph; break;                                       // Rev saw
+        case 1: u = ph; break;                                              // Saw
+        case 2: u = ph < 0.5f ? 2.0f * ph : 2.0f - 2.0f * ph; break;        // Triangle
+        case 3: u = ph < 0.5f ? 1.0f : 0.0f; break;                         // Square
+        default: {                                                          // Random: new level per cycle
+            uint32_t h = (cycle + 1u) * 0x9E3779B1u ^ uint32_t(i + 1) * 0x85EBCA77u;
+            h ^= h >> 15;
+            h *= 0x2C1B3C6Du;
+            h ^= h >> 12;
+            u = float(h & 0xFFFF) / 65535.0f;
+            break;
+        }
+    }
+    const float b = (2.0f * u - 1.0f) * float(l.depth) / 100.0f;   // -1..1 scaled by depth
+    if (l.target == MidiLfo::kTargetPitchBend) {
+        const int c = lfo_->center[i] >= 0 ? lfo_->center[i] : l.center * 128;
+        return clampi(c + int(b * 8192.0f + (b >= 0 ? 0.5f : -0.5f)), 0, 16383);
+    }
+    const int c = lfo_->center[i] >= 0 ? lfo_->center[i] : l.center;
+    return clampi(c + int(b * 64.0f + (b >= 0 ? 0.5f : -0.5f)), 0, 127);
+}
+
+void Sequencer::sendMidiLfo(int i, uint8_t target, int value) {
+    const uint8_t ch = uint8_t(i);   // instrument 48 + i plays on channel i + 1
+    if (target == MidiLfo::kTargetPitchBend)
+        sendMidi(uint8_t(0xE0 | ch), uint8_t(value & 0x7F), uint8_t((value >> 7) & 0x7F), 3);
+    else if (target == MidiLfo::kTargetPressure)
+        sendMidi(uint8_t(0xD0 | ch), uint8_t(value), 0, 2);
+    else
+        sendMidi(uint8_t(0xB0 | ch), uint8_t(target - 1), uint8_t(value), 3);
+    lfo_->sent[i] = int16_t(value);
+}
+
+void Sequencer::midiLfoUpdate(float elapsedUs) {
+    if (!project_) return;
+    lfo_->budgetUs = clampf(lfo_->budgetUs + elapsedUs * kLfoBudgetShare, 0.0f, kLfoBudgetMaxUs);
+    // Round robin, so with the budget short every LFO still gets its turn.
+    const int start = lfo_->next;
+    for (int k = 0; k < kMidiInstrumentCount; ++k) {
+        const int i = (start + k) % kMidiInstrumentCount;
+        const MidiLfo& l = project_->midiLfo[i];
+        if (!l.active()) {
+            lfo_->sent[i] = -1;
+            continue;
+        }
+        const int v = midiLfoValue(i, l);
+        if (v == lfo_->sent[i]) continue;
+        if (lfo_->budgetUs < kLfoMsgUs) {
+            lfo_->next = uint8_t(i);
+            return;
+        }
+        lfo_->budgetUs -= kLfoMsgUs;
+        sendMidiLfo(i, l.target, v);
+    }
+    lfo_->next = uint8_t((start + 1) % kMidiInstrumentCount);
 }
 
 }  // namespace ot

@@ -131,6 +131,9 @@ struct Project {
     char name[mt::kNameMax + 1] = {};
     char folder[mt::kFolderMax + 1] = {};
 
+    // [I] MIDI LFO per MIDI instrument 0..15 (midi_lfo.bin, not project.mt).
+    MidiLfo midiLfo[kMidiInstrumentCount];
+
     Project() { setDefault(); }
 
     // New Project values (spec 07 Q6 table; FW:0x234DC), plus the Tracker
