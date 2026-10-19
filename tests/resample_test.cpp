@@ -165,6 +165,38 @@ TEST(resample_track_and_line_sources) {
     CHECK_STR(a.instruments[3].name, "Resample Line in");
 }
 
+// A synth on a track (2.x: Synth 1..3 play on shared slots, not the
+// track's voice): a Track take records the synth the track plays, dry; a
+// take of another track does not pick it up.
+TEST(resample_track_source_synth) {
+    Harness h;
+    App& a = *h.app;
+    setup(h);
+    a.setSynthModel(0, int(SynthModel::ACD));
+    for (int s = 0; s < 64; s += 4) {
+        Step& st = a.pattern().tracks[2].steps[s];
+        st.note = 48;
+        st.instrument = uint8_t(kFirstSynthInstrument);   // Synth 1
+    }
+    a.pattern().tracks[2].lastStep = 63;
+    a.patternEdited();
+    a.resampleCfg.length = 1;
+    a.resampleCfg.source = 3;   // track 3: the synth
+    CHECK(a.resampleToggle() == App::ResampleAction::kArmed);
+    a.seq.play(0);
+    h.audio.pump(blocksFor(2.3));
+    h.run(5);
+    CHECK(a.instrPresent[1]);
+    CHECK(peakOf(a, 1) > 1000);
+    CHECK_STR(a.instruments[1].name, "Resample Track 3");
+    a.resampleCfg.source = 2;   // track 2: silent, Synth 1 still sounding on track 3
+    CHECK(a.resampleToggle() == App::ResampleAction::kArmed);
+    h.audio.pump(blocksFor(4.3));
+    h.run(5);
+    CHECK(a.instrPresent[2]);
+    CHECK_EQ(peakOf(a, 2), 0);
+}
+
 TEST(resample_slot_memory_cancel_and_transport) {
     Harness h;
     App& a = *h.app;

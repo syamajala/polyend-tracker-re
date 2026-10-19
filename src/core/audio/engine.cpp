@@ -560,6 +560,12 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
     IResampleTap* const tap = offline ? nullptr : tap_;
     const int tapTrack = tap && tapSource_ >= 1 && tapSource_ <= kVoices ? tapSource_ - 1 : -1;
     bool tapVoiceOn = false;
+    // Tap buffer: silence, or the Track source's synth slots + its voice.
+    float tapL[kBlock], tapR[kBlock];
+    if (tap) {
+        zeroFloats(tapL, kBlock);
+        zeroFloats(tapR, kBlock);
+    }
     for (int t = 0; t < kVoices; ++t) {
         if (voices_[t].render(vc_[t], vout_[t], dsend_, rsend_, mL_, mR_, stems != nullptr || t == tapTrack)) {
             if (t == tapTrack) tapVoiceOn = true;
@@ -580,7 +586,8 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
         int16_t* synthStems[kSynthSlots] = {};
         if (stems)
             for (int s = 0; s < kSynthSlots; ++s) synthStems[s] = stems->data[StemBlock::kFirstSynthStem + s];
-        anyVoice |= synth_.render(synthIn_, mL_, mR_, dsend_, rsend_, synthStems);
+        anyVoice |= synth_.render(synthIn_, mL_, mR_, dsend_, rsend_, synthStems, tapTrack, tapTrack >= 0 ? tapL : nullptr,
+                                  tapTrack >= 0 ? tapR : nullptr);
         sendsTouched = 3;   // (the slots' send taps: not tracked)
     }
     const uint32_t pc4 = stamp();
@@ -689,15 +696,16 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
     const bool limR = limR_.process(mR_, sc, limOutR);
     if (tap) {
         // [I] Resample tap (see setResampleTap); a source that produced
-        // nothing this block taps silence.
-        float zero[kBlock];
-        zeroFloats(zero, kBlock);
-        const float *tl = zero, *tr = zero;
+        // nothing this block taps silence. A Track source is the track's
+        // sample voice plus the synth slots it plays (in tapL / tapR from
+        // the synth render), dry: no delay / reverb.
+        const float *tl = tapL, *tr = tapR;
         if (tapTrack >= 0) {
-            if (tapVoiceOn) {
-                tl = vout_[tapTrack].l;
-                tr = vout_[tapTrack].r;
-            }
+            if (tapVoiceOn)
+                for (uint32_t i = 0; i < kBlock; ++i) {
+                    tapL[i] += vout_[tapTrack].l[i];
+                    tapR[i] += vout_[tapTrack].r[i];
+                }
         } else if (tapSource_ == kTapLineIn) {
             if (line) {
                 tl = lineL_;
