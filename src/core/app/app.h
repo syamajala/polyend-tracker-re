@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include "app/capture.h"
+#include "app/resample.h"
 #include "app/config.h"
 #include "app/midi_cc.h"
 #include "app/pattern_ops.h"
@@ -481,6 +482,22 @@ public:
     // ---- sample recorder (recorder.cpp; spec 05 §2.11 + appendix C §2) ----
     Capture capture;
     volatile bool inputMonitorMuted = false;
+
+    // [I] Live resampling (app/resample.h). Settings are session values
+    // (Sample Recorder, source "Resample"); Shift + Sample Recorder arms /
+    // stops from any screen.
+    Resampler resampler;
+    ResampleSettings resampleCfg;
+    enum class ResampleAction : uint8_t { kArmed, kCancelled, kStopping, kBusy, kNoSlot, kNoMemory };
+    ResampleAction resampleToggle();
+    void resampleCancel();
+    // First slot above every loaded instrument (committing there moves no
+    // sample), -1 when the last slot is taken.
+    int nextResampleSlot() const;
+    // Steps per bar from the Config time signature.
+    int resampleBarSteps() const { return (cfg.tsNum + 1) * (cfg.tsDen + 1); }
+    // Main loop: a finished recording becomes an instrument.
+    void serviceResample();
     bool selectInput(uint8_t source, uint8_t gain);   // false = source not available
     IRadio* radio() const { return hal_.radio; }
     // Output folder "Recordings" / "Recordings N" (created) and the first
@@ -595,6 +612,11 @@ private:
     bool booted_ = false;
     bool usbActive_ = false;   // USB Storage mode: the computer owns the card
     bool wasPlaying_ = false;
+    // [I] Resample bar tracking (audio context, App::preBlock).
+    bool resampleWasPlaying_ = false;
+    int32_t resampleLastStep_ = 0;
+    void finishResample();
+    void placeResample(int slot, uint32_t bars);
     uint32_t playStart_ = 0;
     uint32_t lastNoCardTry_ = 0;
     // MIDI input parser per port.

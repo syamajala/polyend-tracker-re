@@ -323,6 +323,9 @@ public:
     bool askOpen() const { return askOpen_; }
     // The notice on screen now ("" when none); [I] remote status.
     const char* notice() const { return noteUntil_ ? note_ : ""; }
+    // [I] Live resampling: arm / stop / cancel with a notice (Shift + Sample
+    // Recorder anywhere, Record on the recorder's Resample source).
+    void resampleKey();
     void closeAsk() { askOpen_ = false; dirty(); }
     // Blocking-operation progress: draws a frame immediately.
     void progress(const char* title, int percent);
@@ -471,6 +474,7 @@ public:
 
 private:
     void dispatchButton(uint8_t id, uint8_t state);
+    uint32_t resampleShownAt_ = 0;
     void updateLeds();
     // Module key whose entering press is held back for the new screen
     // (Master / Song hold, see dispatchButton).
