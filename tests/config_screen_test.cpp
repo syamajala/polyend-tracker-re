@@ -206,7 +206,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
             helps += o.help != nullptr;
         }
     CHECK_EQ(helps, 30);   // stock 25 + 2.x CPU meter, Synth voices, Note names, USB Storage and Remote control
-    CHECK_EQ(configHelpCount(), 29);
+    CHECK_EQ(configHelpCount(), 30);
     c.optionText(5, 1, t, sizeof t);
     CHECK(std::strlen(t) > 0);
 }
