@@ -592,13 +592,22 @@ void RecorderScreen::onButton(uint8_t id, uint8_t st) {
         return;
     }
     if (id == btn::Left || id == btn::Right) {
-        sel = arrowSel(sel, id == btn::Right ? 1 : -1, state, a.cfg.recSource == 1);
+        const int d = id == btn::Right ? 1 : -1;
+        // [I] Resample: Source / From / Length / Place on are columns 0..3.
+        if (resample && state == 0) sel = clampi(sel + d, 0, 3);
+        else sel = arrowSel(sel, d, state, a.cfg.recSource == 1);
         if (state == 1 && (sel == 1 || sel == 2)) view.centre = sel == 1 ? startM : endM;
         refreshBar();
         return;
     }
     if (id == btn::Up || id == btn::Down) {
-        change(id == btn::Up ? 1 : -1);
+        // [I] Lists are drawn top to bottom: Up = the item above, Down = the
+        // item below (the encoder's + is the next item down), as in
+        // PlaybackScreen. The Source list and the Resample settings are
+        // lists; Monitor (On above Off) already moves this way with +.
+        const int d = id == btn::Up ? 1 : -1;
+        const bool list = state == 0 && (sel == 0 || (resample && sel <= 3));
+        change(list ? -d : d);
         return;
     }
     if (state == 0 && resample && id >= btn::F2 && id <= btn::F7) {

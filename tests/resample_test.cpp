@@ -253,6 +253,44 @@ TEST(resample_recorder_source) {
     h.enc(9);
     CHECK_EQ(a.resampleCfg.source, 9);   // Line in
     h.enc(-9);
+    // Left / Right step through the four setting columns. They are lists
+    // drawn top to bottom: Up = the item above, Down = the item below.
+    h.tap(btn::Right);
+    h.tap(btn::Down);
+    CHECK_EQ(a.resampleCfg.length, 2);   // 2 bars
+    h.tap(btn::Right);
+    h.tap(btn::Right);   // stays on Place on
+    h.tap(btn::Up);
+    CHECK_EQ(a.resampleCfg.place, 1);
+    h.tap(btn::Left);
+    h.tap(btn::Left);
+    h.tap(btn::Down);
+    CHECK_EQ(a.resampleCfg.source, 1);   // Track 1
+    h.tap(btn::Up);
+    CHECK_EQ(a.resampleCfg.source, 0);   // Master
+    h.tap(btn::Left);
+    h.tap(btn::Left);   // stays on Source
+    h.tap(btn::Down);   // Resample is the last entry
+    CHECK(r.resample);
+    h.tap(btn::Right);
+    h.tap(btn::Right);
+    h.tap(btn::Up);
+    CHECK_EQ(a.resampleCfg.length, 1);
+    h.tap(btn::Right);
+    h.tap(btn::Down);
+    CHECK_EQ(a.resampleCfg.place, 2);
+    // Source column: Up = the input above (Mic HG), Down = back to Resample.
+    h.tap(btn::Left);
+    h.tap(btn::Left);
+    h.tap(btn::Left);
+    h.tap(btn::Up);
+    CHECK(!r.resample);
+    CHECK_EQ(a.cfg.recSource, 3);
+    h.tap(btn::Up);
+    CHECK_EQ(a.cfg.recSource, 2);
+    h.tap(btn::Down);
+    h.tap(btn::Down);
+    CHECK(r.resample);
     // Record arms, records the next bar, the result lands in slot 2.
     h.tap(btn::Rec);
     CHECK(a.resampler.state() == Resampler::kArmed);
