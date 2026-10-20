@@ -25,8 +25,8 @@
       Flash use = .text + .data (Berkeley size): fail above 720,000 B, warn above
       600,000 B (docs/VERIFY_M1.md R4, docs/MINI_PLAN.md §5).
       With nm (default: the size tool's sibling): no double-precision libm in the
-      image, and the stack headroom _estack - _ebss: fail below 90 KiB
-      (docs/OPTIMIZATION_2X.md OP-4 / OP-5).
+      image, and the stack headroom _estack - _ebss: fail below 75 KiB
+      (docs/OPTIMIZATION_2X.md OP-4 / OP-5; was 90 KiB, see STACK_MIN).
   telemetry_check.py cpi <device.log> <bench_m4 output> [--top 5]
       CPI calibration (docs/OPTIMIZATION_2X.md "CPU round 3"): device cycles per bench-m4
       instruction, per phase and over the render, from the device's peak blocks (the `pk`
@@ -67,7 +67,12 @@ DEVICE_CPI = 1.94
 LIMIT_RE = re.compile(r"^\s+((?:acd|vap|fat|perc|pswitch)[\w.]*)\s+(\d+(?:\.\d+)?)\s.*\blimit (\d+)\b")
 FLASH_FAIL = 720000
 FLASH_WARN = 600000
-STACK_MIN = 90 * 1024
+# _estack - _ebss holds the stack and newlib's heap (src/hal/stack_watch.h). Measured on the
+# device (2026-10-20, telemetry "stack peak"): stack peak 18.1 KB over playback, song mode,
+# Sample Editor effects, save, resample and USB storage; the heap ~0.2 KB once the UI screens
+# moved to the SDRAM (it held them, 15 KB, before). 90 KiB -> 75 KiB keeps the stack the room
+# it effectively had (90 KiB less those 15 KB), about 4x the measured peak.
+STACK_MIN = 75 * 1024
 # newlib double-precision libm entry points / kernels (the float ones end in f).
 DOUBLE_LIBM = {"__ieee754_pow", "__ieee754_exp", "__ieee754_log", "__ieee754_log10", "__ieee754_sqrt",
                "__ieee754_rem_pio2", "__kernel_rem_pio2", "__kernel_sin", "__kernel_cos", "pow", "exp", "log",
@@ -440,6 +445,8 @@ def selftest():
     assert not ok
     ok, head = check_symbols(["20030000 B _estack", "20023820 B _ebss"], quiet=True)
     assert not ok and head == 51168
+    ok, head = check_symbols(["20030000 B _estack", "2001c780 B _ebss"], quiet=True)
+    assert ok and head == 80000, head   # passes at 75 KiB (failed at the old 90 KiB)
     print("telemetry_check: selftest ok")
 
 
