@@ -18,11 +18,21 @@ jobs:
   host-tests:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install GCC 14
         run: sudo apt-get update && sudo apt-get install -y g++-14
+      # ASan aborts at start-up under the runners' 32-bit mmap randomisation.
+      - name: Limit mmap randomisation for AddressSanitizer
+        run: sudo sysctl -w vm.mmap_rnd_bits=28
       - name: Host tests
-        run: make -j"$(nproc)" host-test CC=gcc-14 CXX=g++-14
+        run: |
+          set -o pipefail
+          if ! make -j"$(nproc)" host-test CC=gcc-14 CXX=g++-14 2>&1 | tee host-tests.log; then
+            # Errors as annotations: readable on the run page without log access.
+            grep -E "error|Error|FAIL|failures|Sanitizer|DEADLYSIGNAL" host-tests.log | grep -v " 0 failures" \
+              | head -40 | while IFS= read -r line; do echo "::error::${line}"; done
+            exit 1
+          fi
       - name: telemetry_check self-test
         run: python3 tools/telemetry_check.py selftest
 
@@ -33,7 +43,7 @@ jobs:
       matrix:
         games: [0, 1]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: carlosperate/arm-none-eabi-gcc-action@v1
         with:
           release: '14.2.Rel1'
