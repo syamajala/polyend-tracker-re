@@ -113,6 +113,7 @@ App::ResampleAction App::resampleToggle() {
 
 void App::resampleCancel() {
     engine.setResampleTap(nullptr, 0);
+    if (resampler.state() >= Resampler::kRecording) reportResample(ResampleReport::kCancelled, -1);
     resampler.reset();
     bank.setReserved(0);
 }
@@ -123,12 +124,26 @@ void App::serviceResample() {
     // the reserved memory is gone.
     if (sampleBankLent || bank.reserved() == 0) {
         engine.setResampleTap(nullptr, 0);
+        if (resampler.state() >= Resampler::kRecording) reportResample(ResampleReport::kCancelled, -1);
         resampler.reset();
         bank.setReserved(0);
         ui.notify("Resample cancelled");
         return;
     }
     if (resampler.state() == Resampler::kDone) finishResample();
+}
+
+// Snapshot of the take for the diag log. Call after the tap is removed (the
+// audio side writes no more stats) and before resampler.reset().
+void App::reportResample(uint8_t outcome, int slot) {
+    ResampleReport& r = lastResample;
+    ++r.seq;
+    r.source = resampleCfg.source;
+    r.end = resampler.end();
+    r.outcome = outcome;
+    r.slot = int8_t(slot);
+    r.frames = resampler.frames();
+    r.stats = resampler.stats();
 }
 
 void App::finishResample() {
@@ -141,11 +156,13 @@ void App::finishResample() {
         bank.setReserved(0);
     };
     if (n < 441) {   // under 10 ms: nothing worth keeping
+        reportResample(ResampleReport::kEmpty, -1);
         release();
         ui.notify("Resample: nothing recorded");
         return;
     }
     if (slot < 0) {
+        reportResample(ResampleReport::kNoSlot, -1);
         release();
         ui.notify("Resample: no free instrument slot after the last one", 4000);
         return;
@@ -155,9 +172,11 @@ void App::finishResample() {
     int16_t* dst = bank.tail();
     std::memmove(dst, resampler.left(), size_t(n) * sizeof(int16_t));
     std::memmove(dst + n, resampler.right(), size_t(n) * sizeof(int16_t));
+    reportResample(ResampleReport::kOk, slot);
     release();
     // Above every loaded instrument: commitTail() moves no playing sample.
     if (!bank.commitTail(slot, n, true)) {
+        lastResample.outcome = ResampleReport::kFailed;
         ui.notify("Resample failed");
         return;
     }

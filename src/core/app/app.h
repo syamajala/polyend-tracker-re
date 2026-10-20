@@ -471,6 +471,7 @@ public:
     // stops from any screen.
     Resampler resampler;
     ResampleSettings resampleCfg;
+    ResampleReport lastResample;   // [I] last take, for the "resample:" diag log line (src/app_main.cpp)
     enum class ResampleAction : uint8_t { kArmed, kCancelled, kStopping, kBusy, kNoSlot, kNoMemory };
     ResampleAction resampleToggle();
     void resampleCancel();
@@ -599,6 +600,7 @@ private:
     bool resampleWasPlaying_ = false;
     int32_t resampleLastStep_ = 0;
     void finishResample();
+    void reportResample(uint8_t outcome, int slot);
     void placeResample(int slot, uint32_t bars);
     uint32_t playStart_ = 0;
     uint32_t lastNoCardTry_ = 0;
