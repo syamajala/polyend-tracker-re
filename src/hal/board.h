@@ -161,11 +161,14 @@ constexpr bool kSdDirectWriteCheck = true;
 constexpr uint32_t kSdramCheckScratch = kSdramBase + 0x00040000;   // cache test (80 KB)
 constexpr uint32_t kSdramSdScratch    = kSdramBase + 0x00060000;   // SD direct check (65 KB)
 // `.sdram_bss` (core/sdram_bss.h, docs/OPTIMIZATION_2X.md OP-5): the linker
-// region SDRAM_BSS of src/hal/opentracker.ld, below the selftest's buffer in
-// the top 64 KB (selftest.cpp). The app's SDRAM layout (app_main.cpp) ends
-// below it. 2.0.1: 80 KB (was 64 KB) for the FatFs file objects.
+// region SDRAM_BSS of src/hal/opentracker.ld. The app's SDRAM layout
+// (app_main.cpp) ends below it. 2.0.1: 80 KB (was 64 KB) for the FatFs file
+// objects. 96 KB for the UI screens (ui/screens.cpp): its top 16 KB overlap
+// the selftest's SD benchmark buffer (the top 64 KB, selftest.cpp), which is
+// safe because the selftest only runs when the app never started or has
+// returned (main.cpp), never alongside it.
 constexpr uint32_t kSdramBssBase      = kSdramBase + 0x00FDC000;
-constexpr uint32_t kSdramBssSize      = 0x00014000;
+constexpr uint32_t kSdramBssSize      = 0x00018000;
 
 // ---- input (spec 01 §7) ---------------------------------------------------------
 constexpr uint8_t kTeensyButtonsInt = 14;    // spec 01 §7.1: PTD1
