@@ -17,6 +17,7 @@
 #include "hal/radio_si4703.h"
 #include "hal/telemetry.h"
 #include "hal/sd_storage.h"
+#include "hal/stack_watch.h"
 #include "hal/usb_storage.h"
 #include "remote/display_tap.h"
 #include "remote/remote.h"
@@ -255,6 +256,10 @@ void telemetryTick() {
     s.i2c2Errors = ot::hal::i2c2().errorCount();
     s.i2c0Naks = ot::hal::i2c0().nakCount();
     s.i2c2Naks = ot::hal::i2c2().nakCount();
+    s.stackSize = ot::hal::stackSizeBytes();
+    s.stackPeak = ot::hal::stackPeakBytes();
+    s.rxRestarts = ot::hal::Sgtl5000Audio::rxRecoveries();
+    s.rxStale = ot::hal::Sgtl5000Audio::rxStaleBlocks();
     char line[448];
     ot::diag::formatTelemetry(line, sizeof line, s);
     ot::hal::diagLog(line);
