@@ -1,0 +1,51 @@
+# Host unit tests, firmware builds (with and without Games) with the flash /
+# stack-headroom / libm checks, and the .ptf images as downloadable artifacts.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GCC 14
+        run: sudo apt-get update && sudo apt-get install -y g++-14
+      - name: Host tests
+        run: make -j"$(nproc)" host-test CC=gcc-14 CXX=g++-14
+      - name: telemetry_check self-test
+        run: python3 tools/telemetry_check.py selftest
+
+  firmware:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        games: [0, 1]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '14.2.Rel1'
+      - name: Build (OT_GAMES=${{ matrix.games }})
+        run: make -j"$(nproc)" VERSION=2.0.6 OT_GAMES=${{ matrix.games }}
+      - name: Flash, stack headroom and libm checks
+        run: |
+          elf=$(find build -name opentracker.elf | head -1)
+          python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size "$elf"
+      - name: Upload firmware image
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-games${{ matrix.games }}-${{ github.sha }}
+          path: build/**/*.ptf
+          if-no-files-found: error
