@@ -29,8 +29,8 @@ jobs:
           set -o pipefail
           if ! make -j"$(nproc)" host-test CC=gcc-14 CXX=g++-14 2>&1 | tee host-tests.log; then
             # Errors as annotations: readable on the run page without log access.
-            grep -E "error|Error|FAIL|failures|Sanitizer|DEADLYSIGNAL" host-tests.log | grep -v " 0 failures" \
-              | head -40 | while IFS= read -r line; do echo "::error::${line}"; done
+            grep -E "error:|\*\*\*|FAIL|[1-9][0-9]* failures|Sanitizer|DEADLYSIGNAL|runtime error" host-tests.log \
+              | grep -vE "^(g\+\+|gcc|ar|objcopy)" | head -10 | while IFS= read -r line; do echo "::error::${line}"; done
             exit 1
           fi
       - name: telemetry_check self-test
