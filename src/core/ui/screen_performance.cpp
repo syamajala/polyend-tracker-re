@@ -315,10 +315,28 @@ void PerformanceScreen::onPad(uint8_t pad, uint8_t state) {
 
 void PerformanceScreen::padLeds(uint8_t* lv) {
     // One lit pad per column at the selected row (spec 06 §3.4), DIM level.
+    // [I] A column a scene drives lights its scene A and scene B rows (a
+    // scene without it: the off row), each from DIM at no share to FULL at
+    // all of it, so the light slides between them with the fader (stepped
+    // FX switch at the middle, sceneShare); the same row in both: FULL.
     if (!src.valid()) return;
+    App& a = app_;
+    const int dim = a.cfg.padDim(), full = a.cfg.padFull();
     for (int c = 0; c < perf::kSlots; ++c) {
+        const uint8_t rA = a.project.perfScene[0][c], rB = a.project.perfScene[1][c];
+        if (src.type(c) && (rA || rB) && !edit) {
+            auto level = [&](int share) { return uint8_t(dim + (full - dim) * share / kFaderMax); };
+            const int pa = (rA <= 3 ? rA : 0) * 12 + c, pb = (rB <= 3 ? rB : 0) * 12 + c;
+            if (pa == pb) {
+                lv[pa] = uint8_t(full);
+            } else {
+                lv[pa] = level(sceneShare(0, c));
+                lv[pb] = level(sceneShare(1, c));
+            }
+            continue;
+        }
         const int r = src.row(c);
-        if (r < perf::kRows) lv[r * 12 + c] = app_.cfg.padDim();
+        if (r < perf::kRows) lv[r * 12 + c] = uint8_t(dim);
     }
 }
 

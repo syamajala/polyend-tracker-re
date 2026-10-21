@@ -483,3 +483,53 @@ TEST(perf_scene_store_and_clear_one_column) {
     for (int s = 0; s < 12; ++s) CHECK_EQ(a.project.perfScene[1][s], 0);
     (void)p;
 }
+
+// Scene pad LEDs: a scene-driven column lights its A and B rows, the light
+// sliding with the fader; stepped FX switch at the middle; same row = full;
+// other columns keep the single dim pad; edit mode shows the plain rows.
+TEST(perf_scene_pad_leds) {
+    Rig r;
+    App& a = r.a();
+    PerformanceScreen& p = r.p();
+    // Levels as the LED driver gets them (0..31 -> 0..255, Ui::updateLeds).
+    const int dim = a.cfg.padDim() * 255 / 31, full = a.cfg.padFull() * 255 / 31;
+    auto led = [&](int pad) {
+        r.h.run(2);
+        return int(r.h.leds.level[pad]);
+    };
+    // Column 0 (Volume): A row 1, B row 3. Column 10 (Direction, stepped):
+    // A row 1, B row 2. Column 5: same row 2 in both. Column 6: no scene.
+    r.h.pad(12 * 1 + 0);
+    r.h.pad(12 * 1 + 10);
+    r.h.pad(12 * 2 + 5);
+    r.h.pad(12 * 1 + 6);
+    r.store(0);
+    r.h.pad(12 * 3 + 0);
+    r.h.pad(12 * 2 + 10);
+    r.store(1);
+    a.project.perfScene[0][6] = 0;
+    a.project.perfScene[1][6] = 0;
+    r.fade(0);
+    CHECK_EQ(led(12 * 1 + 0), full);   // A
+    CHECK_EQ(led(12 * 3 + 0), dim);    // B
+    CHECK_EQ(led(12 * 2 + 5), full);   // same row in both
+    CHECK_EQ(led(12 * 1 + 6), dim);    // not in a scene: the selected row, dim
+    r.fade(50);
+    const int mid = led(12 * 1 + 0);
+    CHECK(mid > dim && mid < full);
+    CHECK_EQ(led(12 * 3 + 0), mid);
+    r.fade(48);
+    CHECK_EQ(led(12 * 1 + 10), full);  // stepped: still A
+    CHECK_EQ(led(12 * 2 + 10), dim);
+    r.fade(52);
+    CHECK_EQ(led(12 * 1 + 10), dim);   // past the middle: B
+    CHECK_EQ(led(12 * 2 + 10), full);
+    r.fade(100);
+    CHECK_EQ(led(12 * 1 + 0), dim);
+    CHECK_EQ(led(12 * 3 + 0), full);
+    // Edit mode: the plain selected rows.
+    r.h.tap(btn::Rec);
+    CHECK(p.edit);
+    CHECK_EQ(led(12 * 1 + 0), 0);
+    CHECK_EQ(led(12 * 3 + 0), dim);    // the row the B snapshot latched
+}
