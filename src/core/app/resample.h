@@ -23,13 +23,22 @@ struct ResampleSettings {
     uint8_t source = 0;
     uint8_t length = 3;   // index into kResampleBars: Manual, 1, 2, 4, 8, 16 bars
     uint8_t place = 0;    // 0 off, 1..8: put the result on that track
-    uint8_t slices = 0;   // 0 off, 1 one per beat, 2 one per step (Beat Slice, App::resampleSliceGrid)
+    // 0 off; equal slices: 1 one per beat, 2 one per step; at hits: 3 on the
+    // beat grid, 4 on the step grid (Beat Slice, App::resampleSliceSteps).
+    uint8_t slices = 0;
     static constexpr int kSources = 10;
     static constexpr int kLengths = 6;
     static constexpr int kPlaces = 9;
-    static constexpr int kSlices = 3;
+    static constexpr int kSlices = 5;
 };
 constexpr uint8_t kResampleBars[ResampleSettings::kLengths] = {0, 1, 2, 4, 8, 16};
+
+// Sliced takes at hits: of `cells` equal grid cells over a planar take of n
+// frames (r may be null), the cells where a new hit starts, in order; cell 0
+// always. A hit is a jump of the signal's first difference (transients over
+// a ringing tail) in the first ~30 ms of the cell against the ~10 ms before
+// it. Writes at most `max` cell indices to `out`; returns how many it found.
+int findHitCells(const int16_t* l, const int16_t* r, uint32_t n, int cells, uint16_t* out, int max);
 
 class Resampler final : public audio::IResampleTap {
 public:

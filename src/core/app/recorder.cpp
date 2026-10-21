@@ -191,16 +191,17 @@ void App::finishResample() {
     // Whole bars when it ended on a bar: placement repeats every that many.
     const uint32_t bars = end == Resampler::kEndBars ? resampler.bars()
                         : end == Resampler::kEndStopped ? resampler.barsDone() : 0;
-    // Sliced: equal slices on the beat / step grid, Beat Slice (note 24 + i
-    // plays slice i at its own pitch; the pads play slices 1..48).
-    int slices = 0;
-    const int unit = resampleSliceGrid(bars, slices);
-    if (unit) {
+    // Sliced: slices on the beat / step grid (equal, or where hits start),
+    // Beat Slice (note 24 + i plays slice i at its own pitch; the pads play
+    // slices 1..48).
+    uint16_t sliceSteps[kSliceCount];
+    const int slices = resampleSliceSteps(bank.left(slot), bank.right(slot), n, bars, sliceSteps);
+    if (slices > 0) {
         const uint64_t total = uint64_t(bars) * uint64_t(resampleBarSteps());
         ins.playMode = uint8_t(PlayMode::BeatSlice);
         ins.sliceCount = uint8_t(slices);
         for (int i = 0; i < slices; ++i)
-            ins.slices[i] = uint16_t((uint64_t(i) * uint64_t(unit) * 65535u + total / 2) / total);
+            ins.slices[i] = uint16_t((uint64_t(sliceSteps[i]) * 65535u + total / 2) / total);
     }
     instruments[slot] = ins;
     instrPresent[slot] = true;
@@ -220,7 +221,7 @@ void App::finishResample() {
         std::snprintf(msg + l, sizeof(msg) - l, ", not sliced");   // no whole bars
     }
     ui.notify(msg, 3000);
-    placeResample(slot, bars);
+    placeResample(slot, bars, sliceSteps, slices);
     ui.dirty();
 }
 
@@ -228,29 +229,53 @@ int App::resampleSliceGrid(uint32_t bars, int& count) const {
     count = 0;
     if (resampleCfg.slices == 0 || bars == 0) return 0;
     const int total = int(bars) * resampleBarSteps();
-    int unit = resampleCfg.slices == 1 ? cfg.tsDen + 1 : 1;   // a beat / a step
+    const bool beat = resampleCfg.slices == 1 || resampleCfg.slices == 3;
+    int unit = beat ? cfg.tsDen + 1 : 1;
     while (total / unit > kSliceCount) unit *= 2;
     count = total / unit;
     return count > 0 ? unit : 0;
 }
 
-void App::placeResample(int slot, uint32_t bars) {
+int App::resampleSliceSteps(const int16_t* l, const int16_t* r, uint32_t n, uint32_t bars, uint16_t* steps) const {
+    int count = 0;
+    int unit = resampleSliceGrid(bars, count);
+    if (!unit) return 0;
+    if (resampleCfg.slices <= 2) {   // equal
+        for (int i = 0; i < count; ++i) steps[i] = uint16_t(i * unit);
+        return count;
+    }
+    // At hits: the finest grid whose hits fit (more hits than slices: the
+    // grid doubles and only the hits on its cells count).
+    const int total = int(bars) * resampleBarSteps();
+    unit = resampleCfg.slices == 3 ? cfg.tsDen + 1 : 1;
+    for (;; unit *= 2) {
+        uint16_t cells[kSliceCount];
+        const int found = findHitCells(l, r, n, total / unit, cells, kSliceCount);
+        if (found <= kSliceCount || total / unit <= kSliceCount) {
+            const int c = found < kSliceCount ? found : kSliceCount;
+            for (int i = 0; i < c; ++i) steps[i] = uint16_t(cells[i] * unit);
+            return c;
+        }
+    }
+}
+
+void App::placeResample(int slot, uint32_t bars, const uint16_t* sliceSteps, int slices) {
     const int t = int(resampleCfg.place) - 1;
     if (t < 0 || t >= Sequencer::kVoiceTracks) return;
     Pattern& p = pattern();
     const int len = int(p.tracks[0].lastStep) + 1;
     const int every = int(bars) * resampleBarSteps();
-    int slices = 0;
-    const int unit = resampleSliceGrid(bars, slices);
     pushUndo();
     // Note 60 plays the sample at its own pitch (audio_tables kUnityNote).
-    // Sliced: slice i (note 24 + i) on its own grid step, repeating with the
-    // take; the steps after the last whole slice stay empty (it plays on).
+    // Sliced: slice i (note 24 + i) on the step where it starts, repeating
+    // with the take; the steps in between stay empty (the slice plays on).
+    int next = 0;   // the next slice to place within the current repeat
     for (int s = 0; s < len; ++s) {
         const int off = every > 0 ? s % every : s;
+        if (off == 0) next = 0;
         int note = -1;
-        if (unit) {
-            if (off % unit == 0 && off / unit < slices) note = 24 + off / unit;
+        if (slices > 0) {
+            if (next < slices && sliceSteps[next] == off) note = 24 + next++;
         } else if (off == 0) {
             note = 60;
         }

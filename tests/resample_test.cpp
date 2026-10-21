@@ -548,3 +548,109 @@ TEST(resample_sliced_take_per_beat) {
     CHECK_EQ(a.instruments[2].sliceCount, 0);
     for (int s = 0; s < 64; ++s) CHECK_EQ(p.tracks[3].steps[s].note, s % 32 == 0 ? int8_t(60) : kNoteEmpty);
 }
+
+namespace {
+// A decaying burst (sharp attack) of `amp` at frame `at`, `len` frames long.
+void burst(std::vector<int16_t>& x, uint32_t at, uint32_t len, float amp, float hz) {
+    for (uint32_t i = 0; i < len && at + i < x.size(); ++i) {
+        const float env = std::exp(-float(i) / float(len / 4 + 1));
+        const float v = amp * env * std::sin(2.0f * 3.14159265f * hz * float(i) / 44100.0f + 1.0f);
+        x[at + i] = int16_t(std::fmax(-32767.0f, std::fmin(32767.0f, float(x[at + i]) + v)));
+    }
+}
+}  // namespace
+
+// findHitCells: hits at the starts of cells, a hat over a ringing kick tail,
+// nothing in silence or in a steady tone.
+TEST(resample_find_hit_cells) {
+    constexpr int kCells = 16;
+    constexpr uint32_t kCell = 5515, kN = kCell * kCells;
+    std::vector<int16_t> x(kN, 0);
+    burst(x, 0, 20000, 20000.0f, 55.0f);          // kick ringing over cells 0..3
+    burst(x, 4 * kCell, 3000, 12000.0f, 180.0f);  // snare
+    burst(x, 6 * kCell, 800, 3000.0f, 7000.0f);   // hat
+    burst(x, 7 * kCell, 30000, 20000.0f, 55.0f);  // kick ringing on...
+    burst(x, 9 * kCell, 800, 3000.0f, 7000.0f);   // ...with a hat over its tail
+    uint16_t out[48];
+    const int n = findHitCells(x.data(), nullptr, kN, kCells, out, 48);
+    CHECK_EQ(n, 5);
+    const uint16_t want[5] = {0, 4, 6, 7, 9};
+    for (int i = 0; i < 5 && i < n; ++i) CHECK_EQ(out[i], want[i]);
+    // Silence: cell 0 only. A steady tone (a pad): cell 0 only.
+    std::vector<int16_t> z(kN, 0);
+    CHECK_EQ(findHitCells(z.data(), z.data(), kN, kCells, out, 48), 1);
+    for (uint32_t i = 0; i < kN; ++i) z[i] = int16_t(8000.0f * std::sin(2.0f * 3.14159265f * 220.0f * float(i) / 44100.0f));
+    CHECK_EQ(findHitCells(z.data(), z.data(), kN, kCells, out, 48), 1);
+    // More hits than room: the count is still reported, `max` are written.
+    std::vector<int16_t> y(kN, 0);
+    for (int k = 0; k < kCells; ++k) burst(y, uint32_t(k) * kCell, 800, 6000.0f, 3000.0f);
+    CHECK_EQ(findHitCells(y.data(), nullptr, kN, kCells, out, 4), 16);
+}
+
+// Step hits on a beat with empty steps: slices only where a hit starts, the
+// empty steps stay empty, each slice runs to the next hit.
+TEST(resample_sliced_take_step_hits) {
+    Harness h;
+    App& a = *h.app;
+    setup(h);
+    a.cfg.tsNum = 3;
+    a.cfg.tsDen = 3;
+    for (int s = 0; s < 64; ++s) {
+        const int k = s % 16;
+        a.pattern().tracks[0].steps[s].note = (k == 0 || k == 4 || k == 6 || k == 10) ? 60 : kNoteEmpty;
+    }
+    a.patternEdited();
+    a.resampleCfg.length = 1;   // 1 bar
+    a.resampleCfg.slices = 4;   // step hits
+    a.resampleCfg.place = 2;
+    CHECK(a.resampleToggle() == App::ResampleAction::kArmed);
+    a.seq.play(0);
+    h.audio.pump(blocksFor(2.3));
+    h.run(5);
+    CHECK(a.instrPresent[1]);
+    const Instrument& ins = a.instruments[1];
+    CHECK_EQ(ins.playMode, uint8_t(PlayMode::BeatSlice));
+    CHECK_EQ(ins.sliceCount, 4);
+    const int at[4] = {0, 4, 6, 10};
+    for (int i = 0; i < 4; ++i) CHECK(near(ins.slices[i], uint32_t(at[i] * 65535 / 16), 1));
+    const Pattern& p = a.pattern();
+    for (int s = 0; s < 64; ++s) {
+        const int k = s % 16;
+        int8_t want = kNoteEmpty;
+        for (int i = 0; i < 4; ++i)
+            if (k == at[i]) want = int8_t(24 + i);
+        CHECK_EQ(p.tracks[1].steps[s].note, want);
+    }
+    CHECK(h.disp.lastHasText("4 slices"));
+}
+
+// Step hits with a hit on every step over 4 bars (64 > 48): the grid doubles
+// and every other step starts a slice.
+TEST(resample_sliced_take_hits_coarsen) {
+    Harness h;
+    App& a = *h.app;
+    setup(h);   // the saw on every step
+    a.cfg.tsNum = 3;
+    a.cfg.tsDen = 3;
+    a.resampleCfg.length = 3;   // 4 bars
+    a.resampleCfg.slices = 4;
+    CHECK(a.resampleToggle() == App::ResampleAction::kArmed);
+    a.seq.play(0);
+    h.audio.pump(blocksFor(8.3));
+    h.run(5);
+    CHECK(a.instrPresent[1]);
+    CHECK_EQ(a.instruments[1].sliceCount, 32);
+    for (int i = 0; i < 32; ++i) CHECK(near(a.instruments[1].slices[i], uint32_t(i * 2 * 65535 / 64), 1));
+}
+
+// A hit 20 ms late (micro timing, Line in latency) still starts its cell.
+TEST(resample_find_hit_cells_late) {
+    constexpr int kCells = 16;
+    constexpr uint32_t kCell = 5515, kN = kCell * kCells;
+    std::vector<int16_t> x(kN, 0);
+    burst(x, 0, 3000, 12000.0f, 180.0f);
+    burst(x, 4 * kCell + 882, 3000, 12000.0f, 180.0f);   // +20 ms
+    uint16_t out[48];
+    CHECK_EQ(findHitCells(x.data(), nullptr, kN, kCells, out, 48), 2);
+    CHECK_EQ(out[1], 4);
+}

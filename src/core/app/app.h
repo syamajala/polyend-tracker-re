@@ -480,10 +480,16 @@ public:
     int nextResampleSlot() const;
     // Steps per bar from the Config time signature.
     int resampleBarSteps() const { return (cfg.tsNum + 1) * (cfg.tsDen + 1); }
-    // [I] Sliced takes: steps per slice for a take of `bars` whole bars and
-    // the slice count in `count` (0 / 0: Slices Off or no whole bars). The
-    // grid (a beat or a step) doubles until at most kSliceCount slices fit.
+    // [I] Sliced takes, equal slices: steps per slice for a take of `bars`
+    // whole bars and the slice count in `count` (0 / 0: Slices Off or no
+    // whole bars). The grid (a beat or a step) doubles until at most
+    // kSliceCount slices fit.
     int resampleSliceGrid(uint32_t bars, int& count) const;
+    // [I] The slices of a take (planar l / r, n frames, `bars` whole bars) as
+    // step offsets into the take, in `steps` (kSliceCount entries); returns
+    // the count (0: not sliced). Equal slices, or at hits (findHitCells) on
+    // the beat / step grid, which doubles until at most kSliceCount fit.
+    int resampleSliceSteps(const int16_t* l, const int16_t* r, uint32_t n, uint32_t bars, uint16_t* steps) const;
     // Main loop: a finished recording becomes an instrument.
     void serviceResample();
     bool selectInput(uint8_t source, uint8_t gain);   // false = source not available
@@ -605,7 +611,7 @@ private:
     int32_t resampleLastStep_ = 0;
     void finishResample();
     void reportResample(uint8_t outcome, int slot);
-    void placeResample(int slot, uint32_t bars);
+    void placeResample(int slot, uint32_t bars, const uint16_t* sliceSteps, int slices);
     uint32_t playStart_ = 0;
     uint32_t lastNoCardTry_ = 0;
     // MIDI input parser per port.
