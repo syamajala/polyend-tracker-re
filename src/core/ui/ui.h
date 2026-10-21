@@ -39,7 +39,8 @@ enum Module : int8_t {
     kModSynth = 10,          // 2.x synth slots (Tracker Mini; Instrument Params on S1..S3)
     kModGames = 11,          // spec 14 §1.1 (no module key; File F7)
     kModMaster = 12,
-    kModCount = 13,
+    kModResample = 13,       // [I] live resampling (no module key; Sample Recorder prompt)
+    kModCount = 14,
     kModNone = -1,
 };
 
@@ -315,7 +316,7 @@ public:
              void* ctx);
     bool askOpen() const { return askOpen_; }
     // [I] Live resampling: arm / stop / cancel with a notice (Shift + Sample
-    // Recorder anywhere, Record on the recorder's Resample source).
+    // Recorder anywhere, Record on the Resample screen).
     void resampleKey();
     void closeAsk() { askOpen_ = false; dirty(); }
     // Blocking-operation progress: draws a frame immediately.

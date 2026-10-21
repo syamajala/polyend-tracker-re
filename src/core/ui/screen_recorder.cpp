@@ -19,14 +19,7 @@ namespace ot {
 
 namespace {
 int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
-const char* const kSources[5] = {"Line in", "Radio", "Mic LG", "Mic HG", "Resample"};   // [I] 5th
-constexpr int kResampleSource = 4;
-// [I] Resample settings (App::resampleCfg).
-const char* const kResFrom[ResampleSettings::kSources] = {"Master",  "Track 1", "Track 2", "Track 3", "Track 4",
-                                                          "Track 5", "Track 6", "Track 7", "Track 8", "Line in"};
-const char* const kResLength[ResampleSettings::kLengths] = {"Manual", "1 bar", "2 bars", "4 bars", "8 bars", "16 bars"};
-const char* const kResPlace[ResampleSettings::kPlaces] = {"Off",     "Track 1", "Track 2", "Track 3", "Track 4",
-                                                          "Track 5", "Track 6", "Track 7", "Track 8"};
+const char* const kSources[4] = {"Line in", "Radio", "Mic LG", "Mic HG"};
 // spec 05 appendix C §2.8 region table: band minimum and step (max 108 MHz).
 const float kRadioMin[4] = {87.5f, 87.5f, 87.5f, 76.0f};
 const float kRadioStep[4] = {0.1f, 0.2f, 0.2f, 0.1f};
@@ -91,15 +84,14 @@ void RecorderScreen::start(int opt) {
         refreshBar();
         return;
     }
-    if (a.seq.isPlaying() && !resample) {
+    if (a.seq.isPlaying()) {
         // appendix C §2.2: "this will stop the pattern" -- b6 leaves, b7 stops and enters.
-        // [I] b5 "Resample": enter on the Resample source, the pattern keeps playing.
+        // [I] b5 "Resample": the Resample screen, the pattern keeps playing.
         ui_.ask("Sample Recorder", "This will stop the pattern. Continue?", "Resample", "Cancel", "Yes",
                 [](void* c, int key) {
                     auto* s = static_cast<RecorderScreen*>(c);
                     if (key == btn::F6) {
-                        s->resample = true;
-                        s->enter();
+                        s->ui_.switchTo(kModResample);
                         return;
                     }
                     if (key != btn::F8) {
@@ -131,7 +123,7 @@ void RecorderScreen::enter() {
     playNote = -1;
     playPad_ = -1;
     sel = 0;
-    setSource(resample ? kResampleSource : a.cfg.recSource);
+    setSource(a.cfg.recSource);
     refreshBar();
 }
 
@@ -151,12 +143,7 @@ void RecorderScreen::stop() {
 
 void RecorderScreen::setSource(int s) {
     App& a = app_;
-    s = clampi(s, 0, kResampleSource);
-    resample = s == kResampleSource;
-    if (resample) {   // [I] no input to route
-        sourceOk = true;
-        return;
-    }
+    s = clampi(s, 0, 3);
     if (s != a.cfg.recSource) {
         a.cfg.recSource = uint8_t(s);
         a.markConfigDirty();
@@ -185,18 +172,6 @@ void RecorderScreen::refreshBar() {
     if (a.capture.active()) {   // recording: only Stop (appendix C §2.3)
         b.set(7, "Stop");
         b.highlight(7, true);
-        return;
-    }
-    if (state == 0 && resample) {
-        // [I] Resample: From / Length / Place on, Record arms / stops.
-        const ResampleSettings& r = a.resampleCfg;
-        b.set(0, "Source", kSources[kResampleSource]);
-        b.set(1, "From", kResFrom[r.source % ResampleSettings::kSources]);
-        b.set(2, "Length", kResLength[r.length % ResampleSettings::kLengths]);
-        b.set(3, "Place on", kResPlace[r.place % ResampleSettings::kPlaces]);
-        const Resampler::State st = a.resampler.state();
-        b.set(7, st == Resampler::kIdle ? "Record" : st == Resampler::kArmed ? "Cancel" : "Stop");
-        b.fill(7, true);
         return;
     }
     if (state == 0) {
@@ -426,22 +401,10 @@ bool RecorderScreen::save(const char* name, bool load, bool overwrite) {
 
 void RecorderScreen::change(int d) {
     App& a = app_;
-    if (state == 0 && resample) {
-        ResampleSettings& r = a.resampleCfg;
-        switch (sel) {
-            case 0: setSource(clampi(kResampleSource + d, 0, kResampleSource)); break;
-            case 1: r.source = uint8_t(clampi(r.source + d, 0, ResampleSettings::kSources - 1)); break;
-            case 2: r.length = uint8_t(clampi(r.length + d, 0, ResampleSettings::kLengths - 1)); break;
-            case 3: r.place = uint8_t(clampi(r.place + d, 0, ResampleSettings::kPlaces - 1)); break;
-            default: break;
-        }
-        refreshBar();
-        return;
-    }
     if (state == 0) {
         const int src = a.cfg.recSource;
         switch (sel) {
-            case 0: setSource(clampi(src + d, 0, kResampleSource)); break;   // encoder: clamp, no wrap
+            case 0: setSource(clampi(src + d, 0, 3)); break;   // encoder: clamp, no wrap
             case 1:
                 if (src == 1 && sourceOk) {
                     const int r = a.cfg.radioRegion & 3;
@@ -574,13 +537,7 @@ void RecorderScreen::onButton(uint8_t id, uint8_t st) {
     }
     if (st != kPress) return;
     if (id == btn::Play) {   // stops the sequencer (appendix C §2.13)
-        if (resample && state == 0) a.togglePlay(ui_.shift());   // [I] Resample: Play starts it too
-        else if (a.seq.isPlaying()) a.togglePlay(false);
-        return;
-    }
-    if (resample && state == 0 && (id == btn::Rec || id == btn::F8)) {
-        ui_.resampleKey();
-        refreshBar();
+        if (a.seq.isPlaying()) a.togglePlay(false);
         return;
     }
     if (rec) {
@@ -592,46 +549,24 @@ void RecorderScreen::onButton(uint8_t id, uint8_t st) {
         return;
     }
     if (id == btn::Left || id == btn::Right) {
-        const int d = id == btn::Right ? 1 : -1;
-        // [I] Resample: Source / From / Length / Place on are columns 0..3.
-        if (resample && state == 0) sel = clampi(sel + d, 0, 3);
-        else sel = arrowSel(sel, d, state, a.cfg.recSource == 1);
+        sel = arrowSel(sel, id == btn::Right ? 1 : -1, state, a.cfg.recSource == 1);
         if (state == 1 && (sel == 1 || sel == 2)) view.centre = sel == 1 ? startM : endM;
         refreshBar();
         return;
     }
     if (id == btn::Up || id == btn::Down) {
-        // [I] Lists are drawn top to bottom: Up = the item above, Down = the
-        // item below (the encoder's + is the next item down), as in
-        // PlaybackScreen. The Source list and the Resample settings are
-        // lists; Monitor (On above Off) already moves this way with +.
+        // [I] The Source list is drawn top to bottom: Up = the item above,
+        // Down = the item below (the encoder's + is the next item down), as
+        // in PlaybackScreen. Monitor (On above Off) already moves this way.
         const int d = id == btn::Up ? 1 : -1;
-        const bool list = state == 0 && (sel == 0 || (resample && sel <= 3));
-        change(list ? -d : d);
-        return;
-    }
-    if (state == 0 && resample && id >= btn::F2 && id <= btn::F7) {
-        // [I] F2..F4 select From / Length / Place on; a tap on the selected
-        // one steps its list with wrap.
-        const int c = id - btn::F1;
-        if (c <= 3) {
-            if (sel == c) {
-                ResampleSettings& r = a.resampleCfg;
-                if (c == 1) r.source = uint8_t((r.source + 1) % ResampleSettings::kSources);
-                if (c == 2) r.length = uint8_t((r.length + 1) % ResampleSettings::kLengths);
-                if (c == 3) r.place = uint8_t((r.place + 1) % ResampleSettings::kPlaces);
-            }
-            sel = c;
-        }
-        refreshBar();
+        change(state == 0 && sel == 0 ? -d : d);
         return;
     }
     if (state == 0) {
         const int src = a.cfg.recSource;
         switch (id) {
             case btn::F1:
-                // Already selected: next source, wrapping ([I] Resample included).
-                if (sel == 0) setSource(resample ? 0 : (src + 1) % (kResampleSource + 1));
+                if (sel == 0) setSource((src + 1) % 4);   // already selected: next source, wrapping
                 sel = 0;
                 break;
             case btn::F2:
@@ -724,15 +659,6 @@ int RecorderScreen::arrowSel(int sel, int dir, int state, bool radio) {
 
 void RecorderScreen::update(uint32_t now) {
     App& a = app_;
-    // [I] Resample: follow its state (bar count, Record / Cancel / Stop).
-    if (resample && state == 0) {
-        const uint32_t key = uint32_t(a.resampler.state()) << 16 | a.resampler.barsDone();
-        if (key != resampleShown_) {
-            resampleShown_ = key;
-            refreshBar();
-            ui_.dirty();
-        }
-    }
     // Recording finished by the tap itself (memory full, appendix C §2.10).
     if (recording_ && !a.capture.active()) {
         stopRecording();
@@ -804,45 +730,9 @@ void RecorderScreen::draw(Gfx& g) {
                 double(a.capture.capacity() - l) / 44100.0);
         return;
     }
-    if (state == 0 && resample) {
-        // [I] Resample source: three setting lists, the state in the middle.
-        const ResampleSettings& r = a.resampleCfg;
-        list(g, th, 0, kSources, kResampleSource + 1, kResampleSource);
-        list(g, th, 1, kResFrom, ResampleSettings::kSources, r.source % ResampleSettings::kSources);
-        list(g, th, 2, kResLength, ResampleSettings::kLengths, r.length % ResampleSettings::kLengths);
-        list(g, th, 3, kResPlace, ResampleSettings::kPlaces, r.place % ResampleSettings::kPlaces);
-        wg::panel(g, th, kColX0 + 400, wg::kPanelY, wg::columnW(3));
-        const Resampler& rs = a.resampler;
-        const char* line1 = "Starts on the next bar";
-        char line2[64] = "";
-        switch (rs.state()) {
-            case Resampler::kArmed:
-                line1 = a.seq.isPlaying() ? "Armed: starts on the next bar" : "Armed: starts with Play";
-                break;
-            case Resampler::kRecording:
-            case Resampler::kStopping:
-                line1 = rs.state() == Resampler::kStopping ? "Recording: stops at the next bar" : "Recording";
-                if (rs.bars())
-                    std::snprintf(line2, sizeof(line2), "bar %lu / %u", static_cast<unsigned long>(rs.barsDone() + 1), rs.bars());
-                else
-                    std::snprintf(line2, sizeof(line2), "bar %lu", static_cast<unsigned long>(rs.barsDone() + 1));
-                break;
-            default:
-                std::snprintf(line2, sizeof(line2), "Result: instrument %d", a.nextResampleSlot() + 1);
-                if (a.nextResampleSlot() < 0) std::snprintf(line2, sizeof(line2), "No free instrument slot");
-                break;
-        }
-        const int cx = wg::columnX(4) + wg::columnW(3) / 2;
-        const bool on = rs.state() == Resampler::kRecording || rs.state() == Resampler::kStopping;
-        g.text(cx, 200, kFontText, on ? th.alert : th.text, line1, IDisplay::kOptCenter);
-        if (line2[0]) g.text(cx, 240, kFontText, th.dim, line2, IDisplay::kOptCenter);
-        wg::panel(g, th, kColX0 + 700);
-        if (sel <= 3) wg::panelFocus(g, th, wg::columnX(sel), wg::columnW());
-        return;
-    }
     if (state == 0) {
         const int src = a.cfg.recSource;
-        list(g, th, 0, kSources, kResampleSource + 1, src);
+        list(g, th, 0, kSources, 4, src);
         if (src == 1 && sourceOk) {
             // Radio frequency as a bar (needle position 0..100, appendix C §2.8).
             const int r = a.cfg.radioRegion & 3;
