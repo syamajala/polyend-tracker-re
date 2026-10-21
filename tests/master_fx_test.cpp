@@ -444,3 +444,39 @@ TEST(tape_stop_perf_pad_momentary) {
     r.h.tap(btn::Pattern);
     CHECK_EQ(a.tapeStop(), 0);
 }
+
+// Scenes switch tape stop at the middle of the fader (no stepping through
+// the lengths): A off, B 1 bar -> off up to 50 %, then a 1-bar stop.
+TEST(tape_stop_scene_switches_at_middle) {
+    PerfRig r;
+    App& a = *r.h.app;
+    a.cfg.perfPresets = 1;
+    r.h.tap(btn::Performance);
+    PerformanceScreen& p = r.p();
+    r.h.tap(btn::Rec);
+    r.h.tap(btn::Down);
+    r.h.tap(btn::Down);      // Tape stop
+    r.setRow(36, 5);         // row 3: 1 bar
+    r.h.tap(btn::Rec);
+    r.h.pad(0);              // row 0: off
+    r.h.down(btn::Shift);
+    r.h.tap(btn::Left);      // scene A: off
+    r.h.up(btn::Shift);
+    p.src.setRow(0, 3);      // scene B: 1 bar (a momentary pad can't latch it)
+    r.h.down(btn::Shift);
+    r.h.tap(btn::Right);
+    r.h.up(btn::Shift);
+    p.src.setRow(0, 0);
+    CHECK_EQ(a.project.perfScene[1][0], 3);
+    int seen[7] = {};
+    for (int x = 0; x <= 100; x += PerformanceScreen::kFaderStep) {
+        r.h.enc(int8_t(x == 0 ? -100 / PerformanceScreen::kFaderStep : 1));
+        const int v = a.tapeStop();
+        if (v >= 0 && v <= 6) ++seen[v];
+        if (p.fader < 50) CHECK_EQ(v, 0);
+        if (p.fader > 50) CHECK_EQ(v, 5);
+    }
+    CHECK(seen[1] + seen[2] + seen[3] + seen[4] + seen[6] == 0);   // never the other lengths
+    r.h.enc(int8_t(-100 / PerformanceScreen::kFaderStep));
+    CHECK_EQ(a.tapeStop(), 0);   // back to A: spins up
+}

@@ -665,6 +665,7 @@ bool isStepped(uint8_t ty) {
         case perf::kDirection: case perf::kVolLfo: case perf::kPanLfo: case perf::kFineLfo:
         case perf::kFilterLfo: case perf::kPosLfo: case perf::kRepeater: case perf::kPlayMode:
         case perf::kPatternLength:
+        case perf::kTapeStop:   // [I] on / off at the middle (its rows are lengths, not amounts)
             return true;
         default:
             return false;
