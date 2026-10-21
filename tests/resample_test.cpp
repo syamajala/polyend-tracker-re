@@ -412,3 +412,33 @@ TEST(resample_line_in_monitor_and_take) {
     CHECK(a.instrPresent[slot]);
     CHECK(peakOf(a, slot) > 1000);
 }
+
+// #7: a take holds all free sample memory; adding a sample in the Sample
+// Loader meanwhile is refused with a notice that says why.
+TEST(resample_loader_add_refused_with_notice) {
+    Harness h;
+    App& a = *h.app;
+    setup(h);
+    addSaw(h, "kick.wav", 4410);
+    a.resampleCfg.length = 1;
+    CHECK(a.resampleToggle() == App::ResampleAction::kArmed);
+    h.tap(btn::SampleLoader);
+    LoaderScreen& l = *static_cast<LoaderScreen*>(a.ui.screen(kModLoader));
+    int idx = -1;
+    for (int i = 0; i < l.count; ++i)
+        if (!std::strcmp(l.entries[i], "kick.wav")) idx = i;
+    CHECK(idx >= 0);
+    while (l.sdCursor < idx) h.tap(btn::Down);
+    l.insCursor = 5;   // an empty slot
+    h.tap(btn::F1);
+    h.run(20);
+    CHECK(!a.instrPresent[5]);
+    CHECK(h.disp.lastHasText("reserved by the resample take"));
+    CHECK(a.resampler.state() == Resampler::kArmed);   // the take is untouched
+    // Cancelled: the memory is free again and the same add loads.
+    CHECK(a.resampleToggle() == App::ResampleAction::kCancelled);
+    h.tap(btn::F1);
+    h.run(20);
+    CHECK(a.instrPresent[5]);
+    CHECK_EQ(a.bank.frames(5), 4410u);
+}
