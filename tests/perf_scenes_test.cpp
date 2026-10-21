@@ -399,3 +399,39 @@ TEST(perf_scene_marks_follow_the_fader) {
     CHECK(r.frameHas("VERTEX 16 334"));    // Volume A: out
     CHECK(r.frameHas("VERTEX 66 348"));    // Volume B: full
 }
+
+// Edit mode: a tapped pad selects its column and row, and the encoder then
+// edits that value with nothing held (it used to move the scene fader,
+// which edited nothing: device report). Outside edit mode it is the fader.
+TEST(perf_edit_mode_encoder_edits_tapped_row) {
+    Rig r;
+    PerformanceScreen& p = r.p();
+    r.h.tap(btn::Rec);       // edit
+    CHECK(p.edit);
+    r.h.pad(12 * 1 + 1);     // column 1 (Panning), row 1: tap
+    CHECK_EQ(p.column, 1);
+    CHECK_EQ(p.src.row(1), 1);
+    r.h.enc(-20);
+    CHECK_EQ(p.src.value(1, 1), -20);
+    CHECK_EQ(p.fader, 0);    // the fader did not move
+    r.h.enc(5);
+    CHECK_EQ(p.src.value(1, 1), -15);
+    r.h.pad(12 * 2 + 1);     // row 2
+    r.h.enc(7);
+    CHECK_EQ(p.src.value(1, 2), 7);
+    CHECK_EQ(p.src.value(1, 1), -15);
+    r.h.pad(1);              // row 0 (off): nothing to edit
+    r.h.enc(9);
+    CHECK_EQ(p.src.value(1, 1), -15);
+    CHECK_EQ(p.src.value(1, 2), 7);
+    // Holding a pad still edits as before.
+    r.h.push(InputEvent::kPadDown, 12 * 3 + 1);
+    r.h.enc(-4);
+    r.h.push(InputEvent::kPadUp, 12 * 3 + 1);
+    CHECK_EQ(p.src.value(1, 3), -4);
+    // Play mode: nothing held = the scene fader.
+    r.h.tap(btn::Rec);
+    CHECK(!p.edit);
+    r.h.enc(10);
+    CHECK_EQ(p.fader, 10 * PerformanceScreen::kFaderStep);
+}

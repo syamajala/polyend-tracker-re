@@ -293,6 +293,7 @@ void PerformanceScreen::onPad(uint8_t pad, uint8_t state) {
     const int c = pad % 12, r = pad / 12;
     if (c >= perf::kSlots || r >= perf::kRows || !src.valid()) return;
     if (state == kPress) {
+        if (edit) column = c;   // [I] the edit cursor follows the pad: Up / Down and the encoder act on it
         liveValid[c] = false;
         const uint8_t row = uint8_t(src.type(c) ? r : 0);
         src.setRow(c, row);
@@ -379,11 +380,14 @@ void PerformanceScreen::onEncoder(int d) {
         return;
     }
     if (!src.valid()) return;
-    // [I] Nothing held: the encoder is the scene crossfader.
+    // [I] Nothing held: in edit mode the encoder edits the selected row of
+    // the edit column (a tapped pad selects both), otherwise it is the
+    // scene crossfader.
     bool padHeld = false;
     for (bool h : held_) padHeld = padHeld || h;
     if (!padHeld) {
-        setFader(fader + d * kFaderStep);
+        if (edit) editSelected(d);
+        else setFader(fader + d * kFaderStep);
         return;
     }
     bool any = false;
@@ -407,6 +411,19 @@ void PerformanceScreen::onEncoder(int d) {
         applyAll(false);
         ui_.dirty();
     }
+}
+
+void PerformanceScreen::editSelected(int d) {
+    const int c = column;
+    const uint8_t ty = src.type(c);
+    const int row = src.row(c);
+    if (ty == 0 || row < 1 || row > 3) return;
+    const perf::FxDesc& f = perf::fx(ty);
+    cur[c] = int16_t(clampi(src.value(c, row) + d, f.min, f.max));
+    src.setValue(c, row, cur[c]);
+    edited();
+    applyAll(false);
+    ui_.dirty();
 }
 
 void PerformanceScreen::changeType(int d) {

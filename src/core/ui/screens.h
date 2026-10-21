@@ -650,6 +650,7 @@ public:
     int sceneShare(int scene, int c) const;
     // The value slot c's pad row sets (the stored row, the live MIDI-CC row, or off).
     int16_t padValue(int c) const;
+    void editSelected(int d);   // [I] edit mode, nothing held: encoder on the edit column's row
 
 private:
     void refreshBar();
