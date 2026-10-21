@@ -36,19 +36,16 @@ jobs:
       - name: telemetry_check self-test
         run: python3 tools/telemetry_check.py selftest
 
+  # The fork's build: Games off (the default; OT_GAMES=1 is not built here).
   firmware:
     runs-on: ubuntu-24.04
-    strategy:
-      fail-fast: false
-      matrix:
-        games: [0, 1]
     steps:
       - uses: actions/checkout@v5
       - uses: carlosperate/arm-none-eabi-gcc-action@v1
         with:
           release: '14.2.Rel1'
-      - name: Build (OT_GAMES=${{ matrix.games }})
-        run: make -j"$(nproc)" VERSION=2.0.6 OT_GAMES=${{ matrix.games }}
+      - name: Build
+        run: make -j"$(nproc)" VERSION=2.1.0
       - name: Flash, stack headroom and libm checks
         run: |
           elf=$(find build -name opentracker.elf | head -1)
@@ -56,6 +53,6 @@ jobs:
       - name: Upload firmware image
         uses: actions/upload-artifact@v4
         with:
-          name: firmware-games${{ matrix.games }}-${{ github.sha }}
+          name: firmware-${{ github.sha }}
           path: build/**/*.ptf
           if-no-files-found: error
