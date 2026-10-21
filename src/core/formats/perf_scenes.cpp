@@ -8,6 +8,8 @@ bool perfScenesUsed(const Project& p) {
     for (const auto& sc : p.perfScene)
         for (uint8_t r : sc)
             if (r) return true;
+    for (uint8_t t : p.perfExtType)
+        if (t) return true;
     return false;
 }
 
@@ -24,11 +26,20 @@ void encodePerfScenes(const Project& p, uint8_t out[pscn::kFileSize]) {
             *r++ = v;
             sum = uint8_t(sum + v);
         }
-    out[pscn::kFileSize - 1] = sum;
+    out[pscn::kScenesEnd - 1] = sum;
+    uint8_t* e = out + pscn::kScenesEnd;
+    *e++ = uint8_t(Project::kPerfSceneSlots);
+    sum = 0;
+    for (uint8_t t : p.perfExtType) {
+        *e++ = t;
+        sum = uint8_t(sum + t);
+    }
+    *e = sum;
 }
 
 FmtStatus decodePerfScenes(const uint8_t* file, size_t len, Project& p) {
     std::memset(p.perfScene, 0, sizeof(p.perfScene));
+    std::memset(p.perfExtType, 0, sizeof(p.perfExtType));
     if (len < pscn::kHeaderSize) return FmtStatus::TooShort;
     if (std::memcmp(file, "OTPS", 4) != 0 || file[4] == 0) return FmtStatus::BadMagic;
     const uint32_t scenes = file[5], slots = file[6];
@@ -42,6 +53,17 @@ FmtStatus decodePerfScenes(const uint8_t* file, size_t len, Project& p) {
             const uint8_t r = file[pscn::kHeaderSize + sc * slots + s];
             p.perfScene[sc][s] = r <= 3 ? r : 0;
         }
+    // v2: the OpenTracker-only FX types (checked by perf::Source::validate).
+    const size_t e = pscn::kHeaderSize + body + 1;
+    if (file[4] >= 2 && len >= e + 1) {
+        const uint32_t n = file[e];
+        if (len >= e + 1 + n + 1) {
+            uint8_t esum = 0;
+            for (uint32_t k = 0; k < n; ++k) esum = uint8_t(esum + file[e + 1 + k]);
+            if (esum == file[e + 1 + n])
+                for (uint32_t k = 0; k < n && k < uint32_t(Project::kPerfSceneSlots); ++k) p.perfExtType[k] = file[e + 1 + k];
+        }
+    }
     return FmtStatus::Ok;
 }
 

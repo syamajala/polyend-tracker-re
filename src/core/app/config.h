@@ -85,6 +85,9 @@ struct Config {
     static constexpr uint32_t kOffPerfRows = 0xB4;       // u8[12]
     static constexpr uint32_t kOffPerfReserved = 0xC0;   // u8[8]
     uint8_t image[kImageSize];
+    // [I] OpenTracker-only Performance FX types of the global presets
+    // (perf::Source::ext, perf::kDjFilter ...): extension record, not image.
+    uint8_t perfExt[12] = {};
 
     // --- 2.x extension record (M1 plan, spec gap 7) -------------------------
     // Stored right after the stock image (store offset kImageSize, file: after
@@ -93,7 +96,7 @@ struct Config {
     // the payload. A missing or bad record leaves the defaults.
     static constexpr uint32_t kExtOffset = kImageSize;
     static constexpr uint8_t kExtVersion = 1;
-    static constexpr uint32_t kExtPayload = 3;               // cpuMeter, synthVoices, noteNames
+    static constexpr uint32_t kExtPayload = 15;              // cpuMeter, synthVoices, noteNames, perfExt[12]
     static constexpr uint32_t kExtSize = 5 + kExtPayload + 1;
     void toExt(uint8_t* out) const;                          // kExtSize bytes
     bool fromExt(const uint8_t* in, uint32_t len);           // false: none / bad (fields unchanged)

@@ -45,6 +45,7 @@ const FxDesc kFx[kFxCount] = {
     {"Length", 0, 8, kLength, 0, 0, true},
     {"Bit depth", -12, 12, nullptr, 0, 0, false},
     {"Overdrive", -100, 100, nullptr, 0, 0, false},
+    {"DJ filter", -100, 100, nullptr, 0, 0, true},   // [I] master bus: < 0 low-pass, > 0 high-pass
 };
 }  // namespace
 
@@ -86,7 +87,8 @@ int lengthOverride(int v) { return v >= 1 && v <= 8 ? (1 << (v - 1)) - 1 : -1; }
 void Source::validate() const {
     if (!valid()) return;
     for (int s = 0; s < kSlots; ++s) {
-        if (types[s] >= kFxCount) types[s] = uint8_t(s + 1 < kFxCount ? s + 1 : 0);
+        if (types[s] >= kStockFxCount) types[s] = uint8_t(s + 1 < kStockFxCount ? s + 1 : 0);
+        if (ext && ext[s] && (ext[s] < kStockFxCount || ext[s] >= kFxCount)) ext[s] = 0;
         if (rows[s] > 3) rows[s] = 0;
         setValue(s, 0, 0);
         for (int r = 1; r < kRows; ++r)
@@ -99,6 +101,7 @@ Source globalSource(Config& cfg) {
     s.types = cfg.perfTypes();
     s.values = cfg.perfValues();
     s.rows = cfg.perfRows();
+    s.ext = cfg.perfExt;
     return s;
 }
 
@@ -107,6 +110,7 @@ Source projectSource(Project& p) {
     s.types = &p.values[pf::kPerfTypes - mt::kValuesOff];
     s.values = &p.values[pf::kPerfValues - mt::kValuesOff];
     s.rows = &p.values[pf::kPerfRows - mt::kValuesOff];
+    s.ext = p.perfExtType;
     return s;
 }
 

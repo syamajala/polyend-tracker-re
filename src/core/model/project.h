@@ -139,6 +139,9 @@ struct Project {
     static constexpr int kPerfScenes = 2;
     static constexpr int kPerfSceneSlots = 12;
     uint8_t perfScene[kPerfScenes][kPerfSceneSlots] = {};
+    // [I] OpenTracker-only Performance FX types of the project presets
+    // (perf::Source::ext; perf_scenes.bin v2). 0 = the slot's stock type.
+    uint8_t perfExtType[kPerfSceneSlots] = {};
 
     Project() { setDefault(); }
 

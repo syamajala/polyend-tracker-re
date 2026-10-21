@@ -1,0 +1,305 @@
+// [I] Master insert effects (audio/master_fx.h): the DJ filter's response,
+// bypass at 0, smoothing, and the Performance FX type that drives it.
+#include <cmath>
+#include <cstring>
+#include <memory>
+#include <vector>
+
+#include "test.h"
+#include "ui_fakes.h"
+#include "nvstore_fake.h"
+
+#include "app/perf_presets.h"
+#include "app/project_fields.h"
+#include "formats/project_mt.h"
+#include "audio/audio_tables.h"
+#include "audio/master_fx.h"
+#include "formats/perf_scenes.h"
+#include "ui/screens.h"
+
+using namespace ot;
+using ot::audio::MasterFx;
+using ot::audio::kBlock;
+
+namespace {
+
+// Peak of a sine of `hz` through the filter at value v, after it settled.
+float gainAt(int v, float hz) {
+    MasterFx fx;
+    fx.setDjFilter(v);
+    float l[kBlock], r[kBlock];
+    float pk = 0.0f;
+    uint64_t n = 0;
+    for (int b = 0; b < 400; ++b) {
+        for (uint32_t i = 0; i < kBlock; ++i, ++n)
+            l[i] = r[i] = 0.5f * std::sin(2.0f * 3.14159265f * hz * float(n) / audio::kSampleRate);
+        fx.process(l, r, kBlock);
+        if (b >= 300)
+            for (uint32_t i = 0; i < kBlock; ++i) pk = std::fabs(l[i]) > pk ? std::fabs(l[i]) : pk;
+    }
+    return pk / 0.5f;
+}
+
+}  // namespace
+
+TEST(master_fx_dj_filter_response) {
+    // Low-pass fully down: 5 kHz gone, 50 Hz through.
+    CHECK(gainAt(-100, 5000.0f) < 0.01f);
+    CHECK(gainAt(-100, 50.0f) > 0.8f);
+    // Half way: about 1.4 kHz; 200 Hz passes, 8 kHz is well down.
+    CHECK(gainAt(-50, 200.0f) > 0.9f);
+    CHECK(gainAt(-50, 8000.0f) < 0.15f);
+    // High-pass fully up: 100 Hz gone, 15 kHz through.
+    CHECK(gainAt(100, 100.0f) < 0.01f);
+    CHECK(gainAt(100, 15000.0f) > 0.8f);
+    // Barely on either side: nearly open.
+    CHECK(gainAt(-1, 10000.0f) > 0.95f);
+    CHECK(gainAt(1, 60.0f) > 0.9f);
+}
+
+TEST(master_fx_off_is_bypassed_and_eases_out) {
+    MasterFx fx;
+    float l[kBlock], r[kBlock], ref[kBlock];
+    for (uint32_t i = 0; i < kBlock; ++i) l[i] = r[i] = ref[i] = std::sin(float(i) * 0.7f);
+    fx.process(l, r, kBlock);   // value 0 from the start: untouched
+    CHECK(!fx.active());
+    for (uint32_t i = 0; i < kBlock; ++i) CHECK_EQ(l[i], ref[i]);
+    // On, then off: it eases open (no jump) and then stops working.
+    fx.setDjFilter(-80);
+    for (int b = 0; b < 50; ++b) fx.process(l, r, kBlock);
+    CHECK(fx.active());
+    fx.setDjFilter(0);
+    int blocks = 0;
+    while (fx.active() && blocks < 200) {
+        fx.process(l, r, kBlock);
+        ++blocks;
+    }
+    CHECK(!fx.active());
+    CHECK(blocks > 10);   // smoothed, not instant
+    CHECK(blocks < 120);  // ~30 ms time constant
+    for (uint32_t i = 0; i < kBlock; ++i) l[i] = ref[i];
+    fx.process(l, r, kBlock);
+    for (uint32_t i = 0; i < kBlock; ++i) CHECK_EQ(l[i], ref[i]);
+}
+
+TEST(master_fx_no_clicks_on_jumps) {
+    // A steady 300 Hz tone while the value jumps LP -> HP -> off: the output
+    // never steps by more than the tone itself can in one sample (x2).
+    MasterFx fx;
+    float l[kBlock], r[kBlock];
+    const float step = 0.5f * 2.0f * 3.14159265f * 300.0f / audio::kSampleRate;
+    float prev = 0.0f, worst = 0.0f;
+    uint64_t n = 0;
+    const int seq[] = {-100, 100, -30, 0, 60, 0};
+    for (int v : seq) {
+        fx.setDjFilter(v);
+        for (int b = 0; b < 60; ++b) {
+            for (uint32_t i = 0; i < kBlock; ++i, ++n) l[i] = r[i] = 0.5f * std::sin(2.0f * 3.14159265f * 300.0f * float(n) / audio::kSampleRate);
+            fx.process(l, r, kBlock);
+            for (uint32_t i = 0; i < kBlock; ++i) {
+                const float d = std::fabs(l[i] - prev);
+                worst = d > worst ? d : worst;
+                prev = l[i];
+            }
+        }
+    }
+    CHECK(worst < 2.0f * step);
+}
+
+TEST(master_fx_perf_type_storage) {
+    // The DJ filter is an OpenTracker-only type: the stock byte stays 0.
+    uint8_t types[12] = {}, values[96] = {}, rows[12] = {}, ext[12] = {};
+    perf::Source s;
+    s.types = types;
+    s.values = values;
+    s.rows = rows;
+    s.ext = ext;
+    s.setType(3, perf::kDjFilter);
+    CHECK_EQ(s.type(3), perf::kDjFilter);
+    CHECK_EQ(types[3], 0);
+    CHECK_EQ(ext[3], perf::kDjFilter);
+    s.setType(3, perf::kVolume);   // back to a stock type
+    CHECK_EQ(types[3], perf::kVolume);
+    CHECK_EQ(ext[3], 0);
+    // Without ext storage it cannot be set (the slot stays empty).
+    perf::Source noExt = s;
+    noExt.ext = nullptr;
+    noExt.setType(4, perf::kDjFilter);
+    CHECK_EQ(noExt.type(4), 0);
+    // validate drops unknown ext types and keeps known ones.
+    ext[5] = perf::kDjFilter;
+    ext[6] = 200;
+    ext[7] = perf::kVolume;   // a stock id in ext: not allowed there
+    s.validate();
+    CHECK_EQ(ext[5], perf::kDjFilter);
+    CHECK_EQ(ext[6], 0);
+    CHECK_EQ(ext[7], 0);
+    CHECK(std::strcmp(perf::fx(perf::kDjFilter).name, "DJ filter") == 0);
+    CHECK(perf::fx(perf::kDjFilter).global);
+}
+
+TEST(master_fx_perf_scenes_v2) {
+    Project p;
+    CHECK(!perfScenesUsed(p));
+    p.perfExtType[2] = perf::kDjFilter;   // a DJ filter slot alone writes the file
+    CHECK(perfScenesUsed(p));
+    p.perfScene[0][1] = 2;
+    uint8_t buf[pscn::kFileSize];
+    encodePerfScenes(p, buf);
+    CHECK_EQ(buf[4], 2);
+    Project q;
+    CHECK(decodePerfScenes(buf, sizeof(buf), q) == FmtStatus::Ok);
+    CHECK_EQ(q.perfExtType[2], perf::kDjFilter);
+    CHECK_EQ(q.perfScene[0][1], 2);
+    // A version 1 file (the scenes only) still loads; no ext types.
+    Project r;
+    r.perfExtType[0] = 9;
+    buf[4] = 1;
+    CHECK(decodePerfScenes(buf, pscn::kScenesEnd, r) == FmtStatus::Ok);
+    CHECK_EQ(r.perfScene[0][1], 2);
+    CHECK_EQ(r.perfExtType[0], 0);
+    CHECK_EQ(r.perfExtType[2], 0);
+    // The v1 part of a v2 file is a complete v1 file (older builds read it).
+    CHECK(decodePerfScenes(buf, pscn::kScenesEnd, r) == FmtStatus::Ok);
+    // A damaged ext section is ignored, the scenes still load.
+    buf[4] = 2;
+    buf[pscn::kScenesEnd + 3] ^= 0x40;
+    CHECK(decodePerfScenes(buf, sizeof(buf), r) == FmtStatus::Ok);
+    CHECK_EQ(r.perfScene[0][1], 2);
+    CHECK_EQ(r.perfExtType[2], 0);
+}
+
+TEST(master_fx_config_record) {
+    FakeNvStore nv;
+    Config c;
+    c.perfExt[4] = perf::kDjFilter;   // alone writes the record
+    CHECK(c.save(nv));
+    Config r;
+    CHECK(r.load(nv));
+    CHECK_EQ(r.perfExt[4], perf::kDjFilter);
+    // An older 3-byte record: no ext types.
+    const uint8_t old[] = {'O', 'T', 'X', 1, 3, 0, 4, 1, 5};
+    for (size_t i = 0; i < sizeof(old); ++i) nv.mem[0xF4 + i] = old[i];
+    for (size_t i = sizeof(old); i < Config::kExtSize; ++i) nv.mem[0xF4 + i] = 0xFF;
+    CHECK(r.load(nv));
+    CHECK_EQ(r.noteNames, 1);
+    CHECK_EQ(r.perfExt[4], 0);
+}
+
+namespace {
+struct PerfRig {
+    FakeNvStore nv;
+    std::unique_ptr<PerfPatternMemory> mem{new PerfPatternMemory};
+    Harness h{false};
+    PerfRig() {
+        h.app->setNvStore(&nv);
+        h.app->seq.setPerfPatternMemory(mem.get());
+        h.app->boot();
+    }
+    PerformanceScreen& p() { return *static_cast<PerformanceScreen*>(h.app->ui.screen(kModPerformance)); }
+    void setRow(int pad, int value) {
+        h.push(InputEvent::kPadDown, uint8_t(pad));
+        h.enc(int8_t(value));
+        h.push(InputEvent::kPadUp, uint8_t(pad));
+    }
+};
+}  // namespace
+
+// The Performance screen: a DJ filter slot drives the master bus whatever
+// the per-track FX keys say, is off when leaving, and saves as an empty
+// stock slot plus its type in perf_scenes.bin.
+TEST(master_fx_perf_screen_project_presets) {
+    PerfRig r;
+    App& a = *r.h.app;
+    a.cfg.perfPresets = 1;   // per project
+    r.h.tap(btn::Performance);
+    PerformanceScreen& p = r.p();
+    r.h.tap(btn::Rec);       // edit
+    r.h.tap(btn::Down);      // column 0: Volume -> empty
+    r.h.tap(btn::Down);      // -> DJ filter (wraps to the last type)
+    CHECK_EQ(p.src.type(0), perf::kDjFilter);
+    CHECK_EQ(a.project.u8(pf::kPerfTypes), 0);   // stock byte: empty
+    CHECK_EQ(a.project.perfExtType[0], perf::kDjFilter);
+    r.setRow(12, -60);
+    r.setRow(36, 50);
+    r.h.tap(btn::Rec);       // play
+    r.h.pad(12);             // row 1: -60
+    CHECK_EQ(a.engine.masterDjFilter(), -60);
+    r.h.tap(btn::F1);        // track 1 FX off: the master is not a track
+    CHECK_EQ(a.engine.masterDjFilter(), -60);
+    r.h.pad(36);             // row 3: +50
+    CHECK_EQ(a.engine.masterDjFilter(), 50);
+    r.h.pad(0);              // row 0: off
+    CHECK_EQ(a.engine.masterDjFilter(), 0);
+    r.h.pad(36);
+    r.h.tap(btn::Pattern);   // leave: everything reverts, Workspace autosave
+    CHECK_EQ(a.engine.masterDjFilter(), 0);
+    Project chk;
+    const std::vector<uint8_t>& f = r.h.fs.files["Workspace/project.mt"];
+    CHECK(decodeProject(f.data(), f.size(), chk) == FmtStatus::Ok);
+    CHECK_EQ(chk.u8(pf::kPerfTypes), 0);
+    CHECK_EQ(int16_t(chk.u16(pf::kPerfValues + 2)), -60);
+    CHECK(r.h.fs.files.count("Workspace/perf_scenes.bin") == 1);
+    const std::vector<uint8_t>& sf = r.h.fs.files["Workspace/perf_scenes.bin"];
+    CHECK(decodePerfScenes(sf.data(), sf.size(), chk) == FmtStatus::Ok);
+    CHECK_EQ(chk.perfExtType[0], perf::kDjFilter);
+    // Back in: the slot is still a DJ filter; rows start cleared (stock,
+    // spec 12 §A.5), so it is off until a pad is pressed.
+    r.h.tap(btn::Performance);
+    CHECK_EQ(r.p().src.type(0), perf::kDjFilter);
+    CHECK_EQ(a.engine.masterDjFilter(), 0);
+    r.h.pad(12);
+    CHECK_EQ(a.engine.masterDjFilter(), -60);
+}
+
+// Global presets keep the type in the config's extension record.
+TEST(master_fx_perf_screen_global_presets) {
+    PerfRig r;
+    App& a = *r.h.app;
+    a.cfg.perfPresets = 0;
+    r.h.tap(btn::Performance);
+    r.h.tap(btn::Rec);
+    r.h.tap(btn::Right);     // column 1
+    r.h.tap(btn::Down);
+    r.h.tap(btn::Down);
+    r.h.tap(btn::Down);      // Panning -> Volume -> empty -> DJ filter
+    CHECK_EQ(r.p().src.type(1), perf::kDjFilter);
+    CHECK_EQ(a.cfg.perfTypes()[1], 0);
+    CHECK_EQ(a.cfg.perfExt[1], perf::kDjFilter);
+    r.h.tap(btn::Rec);
+    r.h.tap(btn::Pattern);   // leave: global presets are written
+    Config c;
+    CHECK(c.load(r.nv));
+    CHECK_EQ(c.perfExt[1], perf::kDjFilter);
+    CHECK_EQ(c.perfTypes()[1], 0);
+}
+
+// Scenes: A = low-pass, B = high-pass; the fader sweeps through open.
+TEST(master_fx_perf_scene_fader) {
+    PerfRig r;
+    App& a = *r.h.app;
+    a.cfg.perfPresets = 1;
+    r.h.tap(btn::Performance);
+    PerformanceScreen& p = r.p();
+    r.h.tap(btn::Rec);
+    r.h.tap(btn::Down);
+    r.h.tap(btn::Down);
+    r.setRow(12, -60);
+    r.setRow(36, 50);
+    r.h.tap(btn::Rec);
+    r.h.pad(12);
+    r.h.down(btn::Shift);
+    r.h.tap(btn::Left);    // scene A
+    r.h.up(btn::Shift);
+    r.h.pad(36);
+    r.h.down(btn::Shift);
+    r.h.tap(btn::Right);   // scene B
+    r.h.up(btn::Shift);
+    r.h.enc(int8_t(-100 / PerformanceScreen::kFaderStep));   // fader to A
+    CHECK_EQ(p.fader, 0);
+    CHECK_EQ(a.engine.masterDjFilter(), -60);
+    r.h.enc(int8_t(50 / PerformanceScreen::kFaderStep));
+    CHECK(a.engine.masterDjFilter() > -10 && a.engine.masterDjFilter() < 0);   // -5: nearly open
+    r.h.enc(int8_t(50 / PerformanceScreen::kFaderStep));
+    CHECK_EQ(a.engine.masterDjFilter(), 50);
+}

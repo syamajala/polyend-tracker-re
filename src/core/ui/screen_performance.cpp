@@ -206,6 +206,10 @@ void PerformanceScreen::applyAll(bool revertEverything) {
     App& a = app_;
     Sequencer& q = a.seq;
     int globalLen = -1;
+    int djFilter = 0;   // [I] master insert (audio::MasterFx), once for the mix
+    for (int s = 0; s < perf::kSlots && !revertEverything; ++s)
+        if (src.valid() && src.type(s) == perf::kDjFilter && cur[s] != 0) djFilter = cur[s];
+    a.engine.setMasterDjFilter(djFilter);
     for (int t = 0; t < kTrackCount; ++t) {
         audio::PerfOffsets p;
         int8_t repeat = -1, velOff = 0, transpose = 0;
@@ -220,6 +224,7 @@ void PerformanceScreen::applyAll(bool revertEverything) {
                 globalLen = perf::lengthOverride(v);
                 continue;
             }
+            if (ty == perf::kDjFilter) continue;   // [I] applied above, on the master bus
             if (!on) continue;
             switch (ty) {
                 case perf::kVolume: p.volume = int16_t(v); velOff = int8_t(v); break;

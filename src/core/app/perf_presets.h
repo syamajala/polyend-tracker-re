@@ -20,13 +20,17 @@ namespace perf {
 constexpr int kSlots = 12;
 constexpr int kRows = 4;          // stored rows 0..3 (0 = off)
 constexpr int kLiveRow = 4;       // MIDI-CC live value (spec 12 §B.2)
-constexpr int kFxCount = 22;      // 0 = empty, 1..21
+constexpr int kStockFxCount = 22; // 0 = empty, 1..21: the types stock stores
+constexpr int kFxCount = 23;      // [I] + OpenTracker-only types (Source::ext)
 
 // FX ids (spec 12 §E.2).
 enum Fx : uint8_t {
     kNone = 0, kVolume, kPanning, kTune, kLowPass, kHighPass, kBandPass, kDelaySend, kReverbSend,
     kStart, kEnd, kDirection, kVolLfo, kPanLfo, kFineLfo, kFilterLfo, kPosLfo, kRepeater, kPlayMode,
     kPatternLength, kBitDepth, kOverdrive,
+    // [I] OpenTracker only: on the master bus (audio::MasterFx), stored in
+    // Source::ext; the stock types byte of the slot stays 0 (empty).
+    kDjFilter,
 };
 
 // Value descriptor (spec 12 §E.1): min, max, label table, exclusive-with
@@ -60,10 +64,22 @@ struct Source {
     uint8_t* types = nullptr;    // u8[12]
     uint8_t* values = nullptr;   // i16[12][4] little endian, slot-major
     uint8_t* rows = nullptr;     // u8[12]
+    // [I] u8[12] OpenTracker-only types (>= kStockFxCount), outside the stock
+    // bytes: Config's extension record / perf_scenes.bin. A slot with one
+    // keeps types[s] = 0, so stock firmware sees it empty.
+    uint8_t* ext = nullptr;
 
     bool valid() const { return types && values && rows; }
-    uint8_t type(int s) const { return types[s]; }
-    void setType(int s, uint8_t t) const { types[s] = t; }
+    uint8_t type(int s) const { return ext && ext[s] ? ext[s] : types[s]; }
+    void setType(int s, uint8_t t) const {
+        if (t >= kStockFxCount && ext) {
+            types[s] = 0;
+            ext[s] = t;
+        } else {
+            types[s] = t < kStockFxCount ? t : 0;
+            if (ext) ext[s] = 0;
+        }
+    }
     int16_t value(int s, int r) const {
         const uint8_t* p = values + 8 * s + 2 * r;
         return int16_t(uint16_t(p[0] | (p[1] << 8)));

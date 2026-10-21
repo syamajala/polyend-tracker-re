@@ -115,7 +115,7 @@ TEST(note_names_config_record) {
     CHECK_EQ(c.noteNames, 0);
     c.noteNames = kSpellAuto;   // a non-default spelling alone writes the record
     CHECK(c.save(nv));
-    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 1, 3, 0, 4, 2, 6);
+    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 1, 15, 0, 4, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6);
     Config r;
     CHECK(r.load(nv));
     CHECK_EQ(r.noteNames, kSpellAuto);
