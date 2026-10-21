@@ -680,13 +680,32 @@ int lerp100(int a, int b, int x) {
 
 void PerformanceScreen::storeScene(int scene) {
     App& a = app_;
+    // Pads held: only their columns (their rows, row 0 = off in the scene),
+    // the rest of the scene stays; none held: every column (a snapshot).
     // Stored rows 1..3 only: a live MIDI-CC value (row 4) is not kept.
+    bool any = false;
+    for (bool h : held_) any = any || h;
+    int count = 0, last = -1;
     for (int s = 0; s < perf::kSlots; ++s) {
+        if (any && !held_[s]) continue;
         const uint8_t r = src.row(s);
         a.project.perfScene[scene][s] = uint8_t(src.type(s) && r >= 1 && r <= 3 ? r : 0);
+        ++count;
+        last = s;
     }
     a.markProjectDirty();
-    ui_.notify(scene ? "Scene B stored" : "Scene A stored", 1500);
+    char msg[64];
+    if (!any) {
+        std::snprintf(msg, sizeof(msg), "Scene %c stored", scene ? 'B' : 'A');
+    } else if (count == 1) {
+        const uint8_t ty = src.type(last), r = a.project.perfScene[scene][last];
+        char v[24] = "off";
+        if (r) perf::valueText(ty, src.value(last, r), v, sizeof(v));
+        std::snprintf(msg, sizeof(msg), "Scene %c: %s %s", scene ? 'B' : 'A', ty ? perf::fx(ty).name : "---", v);
+    } else {
+        std::snprintf(msg, sizeof(msg), "Scene %c: %d columns stored", scene ? 'B' : 'A', count);
+    }
+    ui_.notify(msg, 1500);
     ui_.dirty();
 }
 
@@ -735,7 +754,11 @@ void PerformanceScreen::clearScene(int scene) {
         }
     }
     if (filter) driven[perf::kLowPass] = driven[perf::kHighPass] = driven[perf::kBandPass] = true;
-    for (int s = 0; s < perf::kSlots; ++s) a.project.perfScene[scene][s] = 0;
+    // Pads held: only their columns leave the scene; none held: all.
+    bool any = false;
+    for (bool h : held_) any = any || h;
+    for (int s = 0; s < perf::kSlots; ++s)
+        if (!any || held_[s]) a.project.perfScene[scene][s] = 0;
     for (int s = 0; s < perf::kSlots; ++s) {
         const uint8_t ty = src.type(s);
         if (ty == 0 || ty >= perf::kFxCount || !driven[ty]) continue;
@@ -749,7 +772,8 @@ void PerformanceScreen::clearScene(int scene) {
         fader = 0;   // no scene: a new one starts from A again
         applyAll(false);
     }
-    ui_.notify(scene ? "Scene B cleared" : "Scene A cleared", 1500);
+    ui_.notify(any ? (scene ? "Scene B: column cleared" : "Scene A: column cleared")
+                   : (scene ? "Scene B cleared" : "Scene A cleared"), 1500);
     ui_.dirty();
 }
 

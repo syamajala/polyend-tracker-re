@@ -435,3 +435,51 @@ TEST(perf_edit_mode_encoder_edits_tapped_row) {
     r.h.enc(10);
     CHECK_EQ(p.fader, 10 * PerformanceScreen::kFaderStep);
 }
+
+// Per-column scenes: a held pad + Shift+Left / Right stores only that
+// column into A / B; held + Delete+Left / Right removes only that column.
+TEST(perf_scene_store_and_clear_one_column) {
+    Rig r;
+    App& a = r.a();
+    PerformanceScreen& p = r.p();
+    // Column 0 (Volume) row 1 and column 1 (Panning) row 2 latched, then a
+    // full snapshot as A.
+    r.h.pad(12 * 1 + 0);
+    r.h.pad(12 * 2 + 1);
+    r.store(0);
+    CHECK_EQ(a.project.perfScene[0][0], 1);
+    CHECK_EQ(a.project.perfScene[0][1], 2);
+    // Hold column 1 row 3 + Shift+Left: only column 1 changes in A.
+    r.h.push(InputEvent::kPadDown, 12 * 3 + 1);
+    r.h.run(1);
+    r.store(0);
+    r.h.push(InputEvent::kPadUp, 12 * 3 + 1);
+    CHECK_EQ(a.project.perfScene[0][0], 1);
+    CHECK_EQ(a.project.perfScene[0][1], 3);
+    r.h.run(20);
+    CHECK(r.frameHas("Scene A: Panning +0") || r.h.disp.lastHasText("Scene A: Panning"));
+    // Hold column 2 row 1 + Shift+Right: B gets only column 2.
+    r.h.push(InputEvent::kPadDown, 12 * 1 + 2);
+    r.h.run(1);
+    r.store(1);
+    r.h.push(InputEvent::kPadUp, 12 * 1 + 2);
+    for (int s = 0; s < 12; ++s) CHECK_EQ(a.project.perfScene[1][s], s == 2 ? 1 : 0);
+    // Hold the off row of column 0 + Shift+Left: column 0 is off in A.
+    r.h.push(InputEvent::kPadDown, 0);
+    r.h.run(1);
+    r.store(0);
+    r.h.push(InputEvent::kPadUp, 0);
+    CHECK_EQ(a.project.perfScene[0][0], 0);
+    CHECK_EQ(a.project.perfScene[0][1], 3);
+    // Hold column 1 + Delete+Left: column 1 leaves A, B is untouched.
+    r.h.push(InputEvent::kPadDown, 12 * 1 + 1);
+    r.h.run(1);
+    r.clear(0);
+    r.h.push(InputEvent::kPadUp, 12 * 1 + 1);
+    CHECK_EQ(a.project.perfScene[0][1], 0);
+    CHECK_EQ(a.project.perfScene[1][2], 1);
+    // Nothing held: Delete+Right clears all of B, as before.
+    r.clear(1);
+    for (int s = 0; s < 12; ++s) CHECK_EQ(a.project.perfScene[1][s], 0);
+    (void)p;
+}
