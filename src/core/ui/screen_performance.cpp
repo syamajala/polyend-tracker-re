@@ -206,10 +206,14 @@ void PerformanceScreen::applyAll(bool revertEverything) {
     App& a = app_;
     Sequencer& q = a.seq;
     int globalLen = -1;
-    int djFilter = 0;   // [I] master insert (audio::MasterFx), once for the mix
-    for (int s = 0; s < perf::kSlots && !revertEverything; ++s)
-        if (src.valid() && src.type(s) == perf::kDjFilter && cur[s] != 0) djFilter = cur[s];
+    int djFilter = 0, tapeStop = 0;   // [I] master inserts (audio::MasterFx), once for the mix
+    for (int s = 0; s < perf::kSlots && !revertEverything; ++s) {
+        if (!src.valid() || cur[s] == 0) continue;
+        if (src.type(s) == perf::kDjFilter) djFilter = cur[s];
+        if (src.type(s) == perf::kTapeStop) tapeStop = cur[s];
+    }
     a.engine.setMasterDjFilter(djFilter);
+    a.setTapeStop(tapeStop);
     for (int t = 0; t < kTrackCount; ++t) {
         audio::PerfOffsets p;
         int8_t repeat = -1, velOff = 0, transpose = 0;
@@ -224,7 +228,7 @@ void PerformanceScreen::applyAll(bool revertEverything) {
                 globalLen = perf::lengthOverride(v);
                 continue;
             }
-            if (ty == perf::kDjFilter) continue;   // [I] applied above, on the master bus
+            if (ty == perf::kDjFilter || ty == perf::kTapeStop) continue;   // [I] applied above, on the master bus
             if (!on) continue;
             switch (ty) {
                 case perf::kVolume: p.volume = int16_t(v); velOff = int8_t(v); break;
@@ -298,7 +302,9 @@ void PerformanceScreen::onPad(uint8_t pad, uint8_t state) {
         applyAll(false);
     } else if (state == kRelease) {
         // Re-apply the stored value: an encoder tweak outside edit mode is
-        // dropped (spec 12 §E.1). The row stays latched.
+        // dropped (spec 12 §E.1). The row stays latched; [I] except Tape
+        // stop, which is momentary (release = spin up).
+        if (src.type(c) == perf::kTapeStop && !edit) src.setRow(c, 0);
         cur[c] = padValue(c);
         held_[c] = false;
         applyAll(false);

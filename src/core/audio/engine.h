@@ -269,6 +269,8 @@ public:
     void setMasterDjFilter(int v) { masterFx_.setDjFilter(v); }
     int masterDjFilter() const { return masterFx_.djFilter(); }
     bool masterFxActive() const { return masterFx_.active(); }
+    TapeStop& masterTape() { return masterFx_.tape(); }
+    const TapeStop& masterTape() const { return masterFx_.tape(); }
 
     void stopAll();
     void clearEffects();   // zero delay and reverb memory

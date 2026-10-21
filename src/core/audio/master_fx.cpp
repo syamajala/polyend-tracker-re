@@ -53,7 +53,129 @@ void MasterFx::reset() {
     hp_ = Stage{};
 }
 
+// ---------------------------------------------------------------------------
+// Tape stop
+
+void TapeStop::engage(int16_t* area, uint32_t frames, uint32_t stopFrames) {
+    newArea_ = area;
+    newFrames_ = frames;
+    newStop_ = stopFrames ? stopFrames : 1;
+    cmd_ = kCmdEngage;
+}
+
+void TapeStop::release(uint32_t upFrames) {
+    newUp_ = upFrames ? upFrames : 1;
+    cmd_ = kCmdRelease;
+}
+
+void TapeStop::abort() { cmd_ = kCmdAbort; }
+
+namespace {
+constexpr float kTapeScale = 16383.0f;   // half scale: +-2.0 fits int16
+constexpr float kFadeRate = 0.03f;       // fade to silence below this speed
+constexpr uint32_t kXfade = 882;         // 20 ms back to the live mix
+inline int16_t toTape(float x) {
+    float v = x * kTapeScale;
+    v = v > 32767.0f ? 32767.0f : (v < -32767.0f ? -32767.0f : v);
+    return int16_t(v);
+}
+}  // namespace
+
+OT_FASTRUN_FN void TapeStop::process(float* l, float* r, uint32_t n) {
+    // Commands from the main loop (one per block is enough).
+    const uint8_t cmd = cmd_;
+    if (cmd != kCmdNone) {
+        if (cmd == kCmdAbort) {
+            state_ = kIdle;
+        } else if (cmd == kCmdEngage) {
+            if (state_ == kIdle) {
+                area_ = newArea_;
+                frames_ = newFrames_;
+                w_ = 0;
+                lagInt_ = 0;
+                lagFrac_ = 0.0f;
+                rate_ = 1.0f;
+            }
+            if (area_ && frames_ > 4) {
+                dRate_ = -1.0f / float(newStop_);
+                if (state_ != kStopped) state_ = kBrake;
+            }
+        } else if (cmd == kCmdRelease && state_ != kIdle) {
+            dRate_ = 1.0f / float(newUp_);
+            if (state_ == kBrake || state_ == kStopped) state_ = kSpinUp;
+        }
+        cmd_ = kCmdNone;
+    }
+    if (state_ == kIdle) return;
+    if (state_ == kStopped) {
+        for (uint32_t i = 0; i < n; ++i) l[i] = r[i] = 0.0f;
+        return;
+    }
+    int16_t* bl = area_;
+    int16_t* br = area_ + frames_;
+    const uint32_t N = frames_;
+    for (uint32_t i = 0; i < n; ++i) {
+        // Write the live sample, then read behind it.
+        bl[w_] = toTape(l[i]);
+        br[w_] = toTape(r[i]);
+        const float liveL = l[i], liveR = r[i];
+        if (state_ == kBrake || state_ == kSpinUp) {
+            rate_ += dRate_;
+            if (rate_ <= 0.0f) {
+                rate_ = 0.0f;
+                state_ = kStopped;
+                for (uint32_t k = i; k < n; ++k) l[k] = r[k] = 0.0f;
+                w_ = w_ + 1 < N ? w_ + 1 : 0;
+                return;
+            }
+            if (rate_ >= 1.0f) {
+                rate_ = 1.0f;
+                state_ = kReturn;
+                xfade_ = 0;
+            }
+            lagFrac_ += 1.0f - rate_;
+            if (lagFrac_ >= 1.0f) {
+                lagFrac_ -= 1.0f;
+                if (lagInt_ + 2 < N) ++lagInt_;
+            }
+        }
+        // read = w - lagInt - lagFrac, between idx (older) and idx + 1.
+        const uint32_t i1 = w_ >= lagInt_ ? w_ - lagInt_ : w_ + N - lagInt_;
+        const uint32_t i0 = i1 ? i1 - 1 : N - 1;
+        const float t = 1.0f - lagFrac_;
+        float tl = (float(bl[i0]) + (float(bl[i1]) - float(bl[i0])) * t) / kTapeScale;
+        float tr = (float(br[i0]) + (float(br[i1]) - float(br[i0])) * t) / kTapeScale;
+        if (rate_ < kFadeRate) {
+            const float g = rate_ / kFadeRate;
+            tl *= g;
+            tr *= g;
+        }
+        if (state_ == kReturn) {
+            const float a = float(xfade_) / float(kXfade);
+            tl += (liveL - tl) * a;
+            tr += (liveR - tr) * a;
+            if (++xfade_ >= kXfade) {
+                state_ = kIdle;   // live again (the rest of the block is): the buffer is free
+                l[i] = liveL;
+                r[i] = liveR;
+                return;
+            }
+        }
+        l[i] = tl;
+        r[i] = tr;
+        w_ = w_ + 1 < N ? w_ + 1 : 0;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DJ filter + chain
+
 OT_FASTRUN_FN void MasterFx::process(float* l, float* r, uint32_t n) {
+    processFilter(l, r, n);
+    tape_.process(l, r, n);
+}
+
+OT_FASTRUN_FN void MasterFx::processFilter(float* l, float* r, uint32_t n) {
     const float target = float(target_) / 100.0f;
     if (!on_ && target == 0.0f) return;
     pos_ += (target - pos_) * kSmooth;

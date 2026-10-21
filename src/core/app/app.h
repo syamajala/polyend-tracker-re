@@ -516,6 +516,15 @@ public:
     int resampleSliceSteps(const int16_t* l, const int16_t* r, uint32_t n, uint32_t bars, uint16_t* steps) const;
     // Main loop: a finished recording becomes an instrument.
     void serviceResample();
+    // [I] Master tape stop (audio::TapeStop, perf::kTapeStop): v = 0 off
+    // (spin up), 1..6 = stop over 1 / 2 steps, 1 / 2 beats, 1 / 2 bars.
+    // Engaging borrows free sample memory (bank reservation, shared with
+    // live resampling: one at a time); serviceTapeStop gives it back.
+    void setTapeStop(int v);
+    int tapeStop() const { return tapeVal_; }
+    bool tapeHoldsMemory() const { return tapeHolds_; }
+    uint32_t tapeStopFrames(int v) const;
+    void serviceTapeStop();
     bool selectInput(uint8_t source, uint8_t gain);   // false = source not available
     IRadio* radio() const { return hal_.radio; }
     // Output folder "Recordings" / "Recordings N" (created) and the first
@@ -540,6 +549,8 @@ public:
     int exportSamples();
 
 private:
+    int tapeVal_ = 0;          // [I] setTapeStop
+    bool tapeHolds_ = false;   // [I] the bank reservation is the tape stop's
     void serviceMidi();
     void loopUsbStorage(uint32_t now);   // loop() while the computer owns the card
     void midiByte(MidiPortId port, uint8_t b);

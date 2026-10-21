@@ -21,7 +21,7 @@ constexpr int kSlots = 12;
 constexpr int kRows = 4;          // stored rows 0..3 (0 = off)
 constexpr int kLiveRow = 4;       // MIDI-CC live value (spec 12 §B.2)
 constexpr int kStockFxCount = 22; // 0 = empty, 1..21: the types stock stores
-constexpr int kFxCount = 23;      // [I] + OpenTracker-only types (Source::ext)
+constexpr int kFxCount = 24;      // [I] + OpenTracker-only types (Source::ext)
 
 // FX ids (spec 12 §E.2).
 enum Fx : uint8_t {
@@ -31,6 +31,7 @@ enum Fx : uint8_t {
     // [I] OpenTracker only: on the master bus (audio::MasterFx), stored in
     // Source::ext; the stock types byte of the slot stays 0 (empty).
     kDjFilter,
+    kTapeStop,   // momentary: the pad's row is held only while pressed
 };
 
 // Value descriptor (spec 12 §E.1): min, max, label table, exclusive-with

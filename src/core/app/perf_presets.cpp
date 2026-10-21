@@ -20,6 +20,8 @@ const char* const kDirection[] = {">>>", "<<<"};
 const char* const kRepeater[] = {"Off", "16", "12", "8", "6", "4", "3", "2", "1",
                                  "1/2", "1/3", "1/4", "1/6", "1/8", "1/12", "1/16"};
 const char* const kLength[] = {"---", "1", "2", "4", "8", "16", "32", "64", "128"};
+// [I] Tape stop: the time to a standstill (App::tapeStopFrames).
+const char* const kTapeStop[] = {"---", "1 st", "2 st", "1 bt", "2 bt", "1 bar", "2 bar"};
 
 // spec 06 §3.2 / spec 12 §E.2 ranges; LP/HP/BP exclude each other (§E.1).
 const FxDesc kFx[kFxCount] = {
@@ -46,6 +48,7 @@ const FxDesc kFx[kFxCount] = {
     {"Bit depth", -12, 12, nullptr, 0, 0, false},
     {"Overdrive", -100, 100, nullptr, 0, 0, false},
     {"DJ filter", -100, 100, nullptr, 0, 0, true},   // [I] master bus: < 0 low-pass, > 0 high-pass
+    {"Tape stop", 0, 6, kTapeStop, 0, 0, true},      // [I] master bus, momentary
 };
 }  // namespace
 

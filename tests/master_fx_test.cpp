@@ -216,7 +216,8 @@ TEST(master_fx_perf_screen_project_presets) {
     PerformanceScreen& p = r.p();
     r.h.tap(btn::Rec);       // edit
     r.h.tap(btn::Down);      // column 0: Volume -> empty
-    r.h.tap(btn::Down);      // -> DJ filter (wraps to the last type)
+    r.h.tap(btn::Down);      // -> Tape stop (wraps to the last type)
+    r.h.tap(btn::Down);      // -> DJ filter
     CHECK_EQ(p.src.type(0), perf::kDjFilter);
     CHECK_EQ(a.project.u8(pf::kPerfTypes), 0);   // stock byte: empty
     CHECK_EQ(a.project.perfExtType[0], perf::kDjFilter);
@@ -262,7 +263,8 @@ TEST(master_fx_perf_screen_global_presets) {
     r.h.tap(btn::Right);     // column 1
     r.h.tap(btn::Down);
     r.h.tap(btn::Down);
-    r.h.tap(btn::Down);      // Panning -> Volume -> empty -> DJ filter
+    r.h.tap(btn::Down);
+    r.h.tap(btn::Down);      // Panning -> Volume -> empty -> Tape stop -> DJ filter
     CHECK_EQ(r.p().src.type(1), perf::kDjFilter);
     CHECK_EQ(a.cfg.perfTypes()[1], 0);
     CHECK_EQ(a.cfg.perfExt[1], perf::kDjFilter);
@@ -284,6 +286,7 @@ TEST(master_fx_perf_scene_fader) {
     r.h.tap(btn::Rec);
     r.h.tap(btn::Down);
     r.h.tap(btn::Down);
+    r.h.tap(btn::Down);      // Volume -> empty -> Tape stop -> DJ filter
     r.setRow(12, -60);
     r.setRow(36, 50);
     r.h.tap(btn::Rec);
@@ -302,4 +305,142 @@ TEST(master_fx_perf_scene_fader) {
     CHECK(a.engine.masterDjFilter() > -10 && a.engine.masterDjFilter() < 0);   // -5: nearly open
     r.h.enc(int8_t(50 / PerformanceScreen::kFaderStep));
     CHECK_EQ(a.engine.masterDjFilter(), 50);
+}
+
+// ---- Tape stop ----------------------------------------------------------------
+
+namespace {
+// Zero crossings of x over [a, b).
+int crossings(const std::vector<float>& x, size_t a, size_t b) {
+    int c = 0;
+    for (size_t i = a + 1; i < b && i < x.size(); ++i) c += (x[i - 1] < 0.0f) != (x[i] < 0.0f);
+    return c;
+}
+}  // namespace
+
+TEST(tape_stop_brakes_stops_and_returns) {
+    using audio::TapeStop;
+    constexpr uint32_t kStop = 8820, kUp = 2205;   // 0.2 s / 0.05 s
+    const uint32_t frames = TapeStop::framesFor(kStop);
+    std::vector<int16_t> area(2 * frames);
+    TapeStop t;
+    std::vector<float> in, out;
+    float l[kBlock], r[kBlock];
+    uint64_t n = 0;
+    auto run = [&](int blocks) {
+        for (int b = 0; b < blocks; ++b) {
+            for (uint32_t i = 0; i < kBlock; ++i, ++n) {
+                l[i] = r[i] = 0.5f * std::sin(2.0f * 3.14159265f * 1000.0f * float(n) / audio::kSampleRate);
+                in.push_back(l[i]);
+            }
+            t.process(l, r, kBlock);
+            for (uint32_t i = 0; i < kBlock; ++i) out.push_back(l[i]);
+        }
+    };
+    run(10);   // idle: untouched
+    for (size_t i = 0; i < out.size(); ++i) CHECK_EQ(out[i], in[i]);
+    CHECK(!t.busy());
+    t.engage(area.data(), frames, kStop);
+    CHECK(t.busy());
+    const size_t e = out.size();
+    run(int(kStop / kBlock) + 4);
+    CHECK(t.stopped());
+    // The pitch falls: fewer crossings late in the brake than early.
+    const int early = crossings(out, e, e + 1000), late = crossings(out, e + 6000, e + 7000);
+    CHECK(early >= 40);       // ~1 kHz: ~45 per 1000 frames
+    CHECK(late < early / 2);
+    // Stopped: silence, however long it is held.
+    const size_t s0 = out.size();
+    run(200);
+    for (size_t i = s0; i < out.size(); ++i) CHECK_EQ(out[i], 0.0f);
+    // Release: spins up, then back to the live signal exactly.
+    t.release(kUp);
+    run(int(kUp / kBlock) + 20);
+    CHECK(!t.busy());
+    const size_t s1 = out.size();
+    run(4);
+    for (size_t i = s1; i < out.size(); ++i) CHECK_EQ(out[i], in[i]);
+    // No clicks anywhere: one sample never moves more than ~2x a 1 kHz sine can.
+    const float step = 0.5f * 2.0f * 3.14159265f * 1000.0f / audio::kSampleRate;
+    float worst = 0.0f;
+    for (size_t i = 1; i < out.size(); ++i) {
+        const float d = std::fabs(out[i] - out[i - 1]);
+        worst = d > worst ? d : worst;
+    }
+    CHECK(worst < 2.0f * step);
+}
+
+TEST(tape_stop_release_while_braking) {
+    using audio::TapeStop;
+    const uint32_t frames = TapeStop::framesFor(44100);
+    std::vector<int16_t> area(2 * frames);
+    TapeStop t;
+    float l[kBlock] = {}, r[kBlock] = {};
+    t.engage(area.data(), frames, 44100);
+    for (int b = 0; b < 50; ++b) t.process(l, r, kBlock);   // part way
+    CHECK(t.busy() && !t.stopped());
+    t.release(11025);
+    for (int b = 0; b < 200 && t.busy(); ++b) t.process(l, r, kBlock);
+    CHECK(!t.busy());
+}
+
+TEST(tape_stop_app_memory) {
+    Harness h;
+    App& a = *h.app;
+    a.project.setTempo(120.0f);
+    const size_t free0 = a.bank.freeSamples();
+    a.setTapeStop(3);   // 1 beat = 0.5 s
+    CHECK(a.tapeHoldsMemory());
+    CHECK(a.engine.masterTape().busy());
+    const uint32_t frames = audio::TapeStop::framesFor(a.tapeStopFrames(3));
+    CHECK_EQ(a.bank.reserved(), 2u * frames);
+    CHECK(a.tapeStopFrames(3) > 22000 && a.tapeStopFrames(3) < 22100);   // 0.5 s at the live rate
+    // A resample cannot start while the tape holds the memory.
+    CHECK(a.resampleToggle() == App::ResampleAction::kBusy);
+    a.setTapeStop(0);   // spin up, then the memory comes back
+    h.audio.pump(200);
+    h.run(5);
+    CHECK(!a.tapeHoldsMemory());
+    CHECK_EQ(a.bank.reserved(), 0u);
+    CHECK_EQ(a.bank.freeSamples(), free0);
+    // A resample take holds the memory: tape stop says so and does nothing.
+    a.resampleCfg.length = 1;
+    CHECK(a.resampleToggle() == App::ResampleAction::kArmed);
+    a.setTapeStop(5);
+    CHECK(!a.tapeHoldsMemory());   // (its notice yields to the take's status line)
+    CHECK(!a.engine.masterTape().busy());
+    a.resampleCancel();
+    a.setTapeStop(0);
+}
+
+// Tape stop pads are momentary: hold = brake, release = spin up.
+TEST(tape_stop_perf_pad_momentary) {
+    PerfRig r;
+    App& a = *r.h.app;
+    a.cfg.perfPresets = 1;
+    r.h.tap(btn::Performance);
+    PerformanceScreen& p = r.p();
+    r.h.tap(btn::Rec);
+    r.h.tap(btn::Down);
+    r.h.tap(btn::Down);      // Volume -> empty -> Tape stop
+    CHECK_EQ(p.src.type(0), perf::kTapeStop);
+    r.setRow(12, 3);         // row 1: 1 beat
+    r.h.tap(btn::Rec);
+    r.h.push(InputEvent::kPadDown, 12);
+    r.h.run(1);
+    CHECK_EQ(a.tapeStop(), 3);
+    CHECK(a.tapeHoldsMemory());
+    r.h.push(InputEvent::kPadUp, 12);
+    r.h.run(1);
+    CHECK_EQ(a.tapeStop(), 0);
+    CHECK_EQ(p.src.row(0), 0);   // not latched
+    r.h.audio.pump(200);
+    r.h.run(5);
+    CHECK(!a.tapeHoldsMemory());
+    // Leaving while held spins up too.
+    r.h.push(InputEvent::kPadDown, 12);
+    r.h.run(1);
+    CHECK_EQ(a.tapeStop(), 3);
+    r.h.tap(btn::Pattern);
+    CHECK_EQ(a.tapeStop(), 0);
 }
