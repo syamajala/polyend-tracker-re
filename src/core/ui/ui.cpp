@@ -939,7 +939,7 @@ void Ui::update(uint32_t now) {
     setNoteSpelling(app.cfg.noteNames, app.project.u8(pf::kRootNote), app.project.u8(pf::kScale));
     if (noteSpellingFlats() != flats) dirty();
     // [I] Live resampling status, refreshed while armed / recording.
-    if (app.resampler.busy() && app.resampler.state() != Resampler::kDone && active_ != kModRecorder &&
+    if (app.resampler.busy() && app.resampler.state() != Resampler::kDone && active_ != kModResample &&
         now - resampleShownAt_ >= 250) {
         resampleShownAt_ = now ? now : 1;
         const Resampler& r = app.resampler;

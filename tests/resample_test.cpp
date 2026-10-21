@@ -258,71 +258,78 @@ TEST(resample_key_from_any_screen) {
     CHECK(a.ui.active() == kModRecorder);
 }
 
-TEST(resample_recorder_source) {
+TEST(resample_screen) {
     Harness h;
     App& a = *h.app;
     setup(h);
     a.seq.play(0);
-    // Entering while playing: "Resample" keeps the pattern running.
+    // Entering the Sample Recorder while playing: "Resample" opens the
+    // Resample screen and keeps the pattern running.
     h.tap(btn::SampleRecorder);
     CHECK(a.ui.askOpen());
     h.tap(btn::F6);
-    CHECK(a.ui.active() == kModRecorder);
+    CHECK(a.ui.active() == kModResample);
     CHECK(a.seq.isPlaying());
-    RecorderScreen& r = *static_cast<RecorderScreen*>(a.ui.screen(kModRecorder));
-    CHECK(r.resample);
-    // Settings: F3 Length (tap again: next), F4 Place on, encoder.
+    ResampleScreen& r = *static_cast<ResampleScreen*>(a.ui.screen(kModResample));
+    CHECK_EQ(r.sel, 0);
+    // Settings: F2 Length (tap again: next), F3 Place on, encoder.
     a.resampleCfg = ResampleSettings{};
-    h.tap(btn::F3);
-    h.tap(btn::F3);
+    h.tap(btn::F2);
+    h.tap(btn::F2);
     CHECK_EQ(a.resampleCfg.length, 4);   // 4 -> 8 bars
     h.enc(-3);
     CHECK_EQ(a.resampleCfg.length, 1);   // 1 bar
-    h.tap(btn::F4);
+    h.tap(btn::F3);
     h.enc(2);
     CHECK_EQ(a.resampleCfg.place, 2);
-    h.tap(btn::F2);
+    // Gain / Monitor only for Line in: F6 does nothing for Master.
+    h.tap(btn::F6);
+    CHECK_EQ(r.sel, 2);
+    h.tap(btn::F1);
     h.enc(9);
     CHECK_EQ(a.resampleCfg.source, 9);   // Line in
-    h.enc(-9);
-    // Left / Right step through the four setting columns. They are lists
-    // drawn top to bottom: Up = the item above, Down = the item below.
+    CHECK(a.capture.metering());         // meter + monitor the input
+    h.tap(btn::F6);
+    CHECK_EQ(r.sel, 5);
+    const uint8_t g0 = a.cfg.recGain[0];
+    h.tap(btn::Up);
+    CHECK_EQ(a.cfg.recGain[0], g0 + 1);
+    h.tap(btn::Right);
+    CHECK_EQ(r.sel, 6);
+    h.tap(btn::Down);   // Off (below On)
+    CHECK_EQ(a.cfg.recMonitor, 0);
+    CHECK(a.inputMonitorMuted);
+    h.tap(btn::F7);     // again: toggle
+    CHECK_EQ(a.cfg.recMonitor, 1);
+    CHECK(!a.inputMonitorMuted);
+    // Left / Right step through the columns; lists: Up = the item above.
+    h.tap(btn::Left);
+    h.tap(btn::Left);
+    h.tap(btn::Left);
+    h.tap(btn::Left);
+    CHECK_EQ(r.sel, 0);
+    h.tap(btn::Up);
+    CHECK_EQ(a.resampleCfg.source, 8);   // Track 8: Gain / Monitor go away
+    CHECK(!a.capture.metering());
+    h.tap(btn::Up);
+    h.tap(btn::Up);
+    h.tap(btn::Up);
+    h.tap(btn::Up);
+    h.tap(btn::Up);
+    h.tap(btn::Up);
+    h.tap(btn::Up);
+    h.tap(btn::Up);
+    CHECK_EQ(a.resampleCfg.source, 0);   // Master
     h.tap(btn::Right);
     h.tap(btn::Down);
     CHECK_EQ(a.resampleCfg.length, 2);   // 2 bars
+    h.tap(btn::Up);
     h.tap(btn::Right);
-    h.tap(btn::Right);   // stays on Place on
+    h.tap(btn::Right);   // stays on Place on (Gain / Monitor need Line in)
+    CHECK_EQ(r.sel, 2);
     h.tap(btn::Up);
     CHECK_EQ(a.resampleCfg.place, 1);
-    h.tap(btn::Left);
-    h.tap(btn::Left);
     h.tap(btn::Down);
-    CHECK_EQ(a.resampleCfg.source, 1);   // Track 1
-    h.tap(btn::Up);
-    CHECK_EQ(a.resampleCfg.source, 0);   // Master
-    h.tap(btn::Left);
-    h.tap(btn::Left);   // stays on Source
-    h.tap(btn::Down);   // Resample is the last entry
-    CHECK(r.resample);
-    h.tap(btn::Right);
-    h.tap(btn::Right);
-    h.tap(btn::Up);
-    CHECK_EQ(a.resampleCfg.length, 1);
-    h.tap(btn::Right);
-    h.tap(btn::Down);
-    CHECK_EQ(a.resampleCfg.place, 2);
-    // Source column: Up = the input above (Mic HG), Down = back to Resample.
-    h.tap(btn::Left);
-    h.tap(btn::Left);
-    h.tap(btn::Left);
-    h.tap(btn::Up);
-    CHECK(!r.resample);
-    CHECK_EQ(a.cfg.recSource, 3);
-    h.tap(btn::Up);
-    CHECK_EQ(a.cfg.recSource, 2);
-    h.tap(btn::Down);
-    h.tap(btn::Down);
-    CHECK(r.resample);
     // Record arms, records the next bar, the result lands in slot 2.
     h.tap(btn::Rec);
     CHECK(a.resampler.state() == Resampler::kArmed);
@@ -331,18 +338,77 @@ TEST(resample_recorder_source) {
     CHECK(a.instrPresent[1]);
     CHECK_EQ(a.pattern().tracks[1].steps[0].instrument, 1);
     CHECK(a.seq.isPlaying());
-    // Leaving and coming back while playing: no prompt on the Resample source.
-    h.tap(btn::Pattern);
-    h.tap(btn::SampleRecorder);
-    CHECK(!a.ui.askOpen());
-    CHECK(a.ui.active() == kModRecorder);
+    // Play stops and starts the pattern here.
+    h.tap(btn::Play);
+    CHECK(!a.seq.isPlaying());
+    h.tap(btn::Play);
     CHECK(a.seq.isPlaying());
-    // Back to an input source: the stock behaviour (Play stops only).
-    h.tap(btn::F1);
-    h.tap(btn::F1);
-    CHECK(!r.resample);
-    h.tap(btn::Play);
+    // Sample Rec goes to the Sample Recorder (the stock prompt while playing).
+    h.tap(btn::SampleRecorder);
+    CHECK(a.ui.askOpen());
+    h.tap(btn::F8);
+    CHECK(a.ui.active() == kModRecorder);
     CHECK(!a.seq.isPlaying());
-    h.tap(btn::Play);
-    CHECK(!a.seq.isPlaying());
+    CHECK(!a.inputMonitorMuted);
+}
+
+// #9: the Sample Recorder's Source list routes the codec to a microphone
+// (Mic LG / Mic HG); the Resample screen must route Line in again.
+TEST(resample_screen_routes_line_in) {
+    Harness h;
+    App& a = *h.app;
+    setup(h);
+    a.cfg.recSource = 0;
+    h.tap(btn::SampleRecorder);
+    CHECK(h.routedInput == 0);
+    h.enc(3);   // Radio, Mic LG, Mic HG
+    CHECK(h.routedInput == 3);
+    h.tap(btn::Pattern);
+    a.seq.play(0);
+    h.tap(btn::SampleRecorder);
+    h.tap(btn::F6);   // Resample
+    CHECK(a.ui.active() == kModResample);
+    CHECK(h.routedInput == 0);
+}
+
+// Line in on the Resample screen: the input is heard (monitor) and recorded
+// while the pattern plays.
+TEST(resample_line_in_monitor_and_take) {
+    Harness h;
+    App& a = *h.app;
+    setup(h);
+    for (int s = 0; s < 64; ++s) a.pattern().tracks[0].steps[s].note = -1;   // the saw off
+    a.patternEdited();
+    h.lineGen = [](int16_t* b, uint64_t blk) {
+        for (int i = 0; i < 128; ++i) {
+            const int16_t v = int16_t(6000.0f * std::sin(2.0f * 3.14159265f * 1000.0f * float(blk * 128 + uint64_t(i)) / 44100.0f));
+            b[2 * i] = v;
+            b[2 * i + 1] = v;
+        }
+    };
+    a.seq.play(0);
+    h.tap(btn::SampleRecorder);
+    CHECK(a.ui.askOpen());
+    h.tap(btn::F6);   // Resample
+    a.resampleCfg = ResampleSettings{};
+    a.resampleCfg.length = 1;
+    h.enc(9);         // From: Line in
+    CHECK_EQ(a.resampleCfg.source, audio::AudioEngine::kTapLineIn);
+    h.run(10);
+    h.audio.pump(10);
+    const int before = h.audio.pump(40);
+    CHECK(before > 1000);
+    h.tap(btn::Rec);
+    CHECK(a.resampler.state() == Resampler::kArmed);
+    int during = 0;
+    for (int i = 0; i < 20; ++i) {
+        const int p = h.audio.pump(blocksFor(0.25));
+        h.run(1);
+        if (a.resampler.state() == Resampler::kRecording) during = p;
+    }
+    CHECK(during > 1000);
+    h.run(10);
+    const int slot = 1;
+    CHECK(a.instrPresent[slot]);
+    CHECK(peakOf(a, slot) > 1000);
 }

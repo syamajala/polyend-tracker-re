@@ -238,10 +238,6 @@ TEST(recorder_sources_gain_monitor_meter) {
     CHECK_EQ(a.cfg.recSource, 2);
     h.tap(btn::F1);
     h.tap(btn::F1);
-    CHECK(r.resample);              // [I] 5th entry: Resample (recSource keeps the input)
-    CHECK_EQ(a.cfg.recSource, 3);
-    h.tap(btn::F1);
-    CHECK(!r.resample);
     CHECK_EQ(a.cfg.recSource, 0);   // wraps
     CHECK(r.sourceOk);
     // Gain (b5) +10.

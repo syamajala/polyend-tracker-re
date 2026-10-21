@@ -779,10 +779,6 @@ public:
         return m > reading ? m : reading;
     }
     bool sourceOk = true;
-    // [I] Source "Resample" (list entry 4): live resampling settings instead
-    // of an input. A screen state only; cfg.recSource keeps the last input.
-    bool resample = false;
-    uint32_t resampleShown_ = 0xFFFFFFFFu;   // state / bar last drawn
     char folder[32] = {};
     char fileName[40] = {};
     WaveZoom view;
@@ -825,6 +821,30 @@ private:
     bool configReturn_ = false;   // stock flag +0x71a (appendix C §2.9)
     int playPad_ = -1;            // pad holding the playback, -1 = b0 Preview, -2 = MIDI note
     uint8_t lastMidi_ = 48;       // last MIDI instrument used here (stock +0x709)
+};
+
+// [I] Live resampling (app/resample.h, screen_resample.cpp): From / Length /
+// Place on, the take's state, Gain and Monitor for Line in takes.
+class ResampleScreen final : public Screen {
+public:
+    using Screen::Screen;
+    const char* name() const override { return "Resample"; }
+    void start(int opt) override;
+    void stop() override;
+    void update(uint32_t now) override;
+    void draw(Gfx& g) override;
+    void onButton(uint8_t id, uint8_t state) override;
+    void onEncoder(int d) override;
+    int sel = 0;   // column: 0 From, 1 Length, 2 Place on, 5 Gain, 6 Monitor
+
+private:
+    bool lineIn() const;
+    void route();   // meter / monitor the line input when From = Line in
+    void change(int d);
+    void refreshBar();
+    uint32_t shown_ = 0xFFFFFFFFu;   // take state / bar / playing last shown
+    int meter_ = 0;
+    uint32_t lastMeterAt_ = 0;
 };
 
 // ---------------------------------------------------------------------------
