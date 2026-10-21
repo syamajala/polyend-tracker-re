@@ -44,7 +44,7 @@ MEMORY
 	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 1024K
 	RAM  (rwx) : ORIGIN = 0x1FFF0000, LENGTH = 256K
 	/* board::kSdramBssBase / kSdramBssSize (src/hal/board.h): SDRAM, NOLOAD. */
-	SDRAM_BSS (rw) : ORIGIN = 0x70FDB000, LENGTH = 112K
+	SDRAM_BSS (rw) : ORIGIN = 0x70FDB000, LENGTH = 116K
 }
 
 ENTRY(_VectorsFlash)
