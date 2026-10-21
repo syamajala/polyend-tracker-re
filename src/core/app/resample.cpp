@@ -97,6 +97,49 @@ void Resampler::tapBlock(const float* l, const float* r, uint32_t n) {
     if (m < n || frames_ >= half_) finish(kEndFull);
 }
 
+namespace {
+// Peak of the first difference over [a, b) on both channels.
+int diffPeak(const int16_t* l, const int16_t* r, uint32_t a, uint32_t b) {
+    int pk = 0;
+    for (uint32_t i = a + 1; i < b; ++i) {
+        int d = int(l[i]) - int(l[i - 1]);
+        if (d < 0) d = -d;
+        if (d > pk) pk = d;
+        if (r) {
+            d = int(r[i]) - int(r[i - 1]);
+            if (d < 0) d = -d;
+            if (d > pk) pk = d;
+        }
+    }
+    return pk;
+}
+}  // namespace
+
+int findHitCells(const int16_t* l, const int16_t* r, uint32_t n, int cells, uint16_t* out, int max) {
+    if (!l || n < 2 || cells <= 0) return 0;
+    constexpr uint32_t kWindow = 441;   // 10 ms: the level before the cell
+    constexpr uint32_t kAttack = 1323;  // 30 ms: a hit may land late (micro timing, Line in latency)
+    constexpr uint32_t kEarly = 88;     // 2 ms: or just before the cell
+    constexpr int kFloor = 200;         // first-difference peak (~ -44 dBFS)
+    int found = 0;
+    if (max > 0) out[0] = 0;
+    ++found;
+    for (int k = 1; k < cells; ++k) {
+        const uint32_t f = uint32_t(uint64_t(n) * uint64_t(k) / uint64_t(cells));
+        const uint32_t cell = uint32_t(uint64_t(n) / uint64_t(cells));
+        const uint32_t w = cell / 2 < kWindow ? cell / 2 : kWindow;
+        const uint32_t aw = cell / 2 < kAttack ? cell / 2 : kAttack;
+        const uint32_t early = w / 4 < kEarly ? w / 4 : kEarly;
+        if (w < 8 || f < w + early || f + aw > n) continue;
+        const int attack = diffPeak(l, r, f - early, f + aw);
+        const int before = diffPeak(l, r, f - early - w, f - early);
+        if (attack < kFloor || attack < 2 * before) continue;
+        if (found < max) out[found] = uint16_t(k);
+        ++found;
+    }
+    return found;
+}
+
 size_t formatResampleReport(char* out, size_t cap, const ResampleReport& r, uint32_t rxRestarts,
                             uint32_t rxStale) {
     if (!out || !cap) return 0;

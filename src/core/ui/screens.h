@@ -835,7 +835,7 @@ public:
     void draw(Gfx& g) override;
     void onButton(uint8_t id, uint8_t state) override;
     void onEncoder(int d) override;
-    int sel = 0;   // column: 0 From, 1 Length, 2 Place on, 5 Gain, 6 Monitor
+    int sel = 0;   // column: 0 From, 1 Length, 2 Slices, 3 Place on, 5 Gain, 6 Monitor
 
 private:
     bool lineIn() const;
