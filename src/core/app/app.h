@@ -480,6 +480,10 @@ public:
     int nextResampleSlot() const;
     // Steps per bar from the Config time signature.
     int resampleBarSteps() const { return (cfg.tsNum + 1) * (cfg.tsDen + 1); }
+    // [I] Sliced takes: steps per slice for a take of `bars` whole bars and
+    // the slice count in `count` (0 / 0: Slices Off or no whole bars). The
+    // grid (a beat or a step) doubles until at most kSliceCount slices fit.
+    int resampleSliceGrid(uint32_t bars, int& count) const;
     // Main loop: a finished recording becomes an instrument.
     void serviceResample();
     bool selectInput(uint8_t source, uint8_t gain);   // false = source not available

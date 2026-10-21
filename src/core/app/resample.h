@@ -23,9 +23,11 @@ struct ResampleSettings {
     uint8_t source = 0;
     uint8_t length = 3;   // index into kResampleBars: Manual, 1, 2, 4, 8, 16 bars
     uint8_t place = 0;    // 0 off, 1..8: put the result on that track
+    uint8_t slices = 0;   // 0 off, 1 one per beat, 2 one per step (Beat Slice, App::resampleSliceGrid)
     static constexpr int kSources = 10;
     static constexpr int kLengths = 6;
     static constexpr int kPlaces = 9;
+    static constexpr int kSlices = 3;
 };
 constexpr uint8_t kResampleBars[ResampleSettings::kLengths] = {0, 1, 2, 4, 8, 16};
 

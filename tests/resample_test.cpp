@@ -272,19 +272,19 @@ TEST(resample_screen) {
     CHECK(a.seq.isPlaying());
     ResampleScreen& r = *static_cast<ResampleScreen*>(a.ui.screen(kModResample));
     CHECK_EQ(r.sel, 0);
-    // Settings: F2 Length (tap again: next), F3 Place on, encoder.
+    // Settings: F2 Length (tap again: next), F4 Place on, encoder.
     a.resampleCfg = ResampleSettings{};
     h.tap(btn::F2);
     h.tap(btn::F2);
     CHECK_EQ(a.resampleCfg.length, 4);   // 4 -> 8 bars
     h.enc(-3);
     CHECK_EQ(a.resampleCfg.length, 1);   // 1 bar
-    h.tap(btn::F3);
+    h.tap(btn::F4);
     h.enc(2);
     CHECK_EQ(a.resampleCfg.place, 2);
     // Gain / Monitor only for Line in: F6 does nothing for Master.
     h.tap(btn::F6);
-    CHECK_EQ(r.sel, 2);
+    CHECK_EQ(r.sel, 3);
     h.tap(btn::F1);
     h.enc(9);
     CHECK_EQ(a.resampleCfg.source, 9);   // Line in
@@ -307,6 +307,7 @@ TEST(resample_screen) {
     h.tap(btn::Left);
     h.tap(btn::Left);
     h.tap(btn::Left);
+    h.tap(btn::Left);
     CHECK_EQ(r.sel, 0);
     h.tap(btn::Up);
     CHECK_EQ(a.resampleCfg.source, 8);   // Track 8: Gain / Monitor go away
@@ -325,8 +326,10 @@ TEST(resample_screen) {
     CHECK_EQ(a.resampleCfg.length, 2);   // 2 bars
     h.tap(btn::Up);
     h.tap(btn::Right);
+    CHECK_EQ(r.sel, 2);   // Slices
+    h.tap(btn::Right);
     h.tap(btn::Right);   // stays on Place on (Gain / Monitor need Line in)
-    CHECK_EQ(r.sel, 2);
+    CHECK_EQ(r.sel, 3);
     h.tap(btn::Up);
     CHECK_EQ(a.resampleCfg.place, 1);
     h.tap(btn::Down);
@@ -441,4 +444,107 @@ TEST(resample_loader_add_refused_with_notice) {
     h.run(20);
     CHECK(a.instrPresent[5]);
     CHECK_EQ(a.bank.frames(5), 4410u);
+}
+
+// Sliced takes: the slice grid per setting, length and time signature.
+TEST(resample_slice_grid) {
+    Harness h;
+    App& a = *h.app;
+    int n = -1;
+    a.cfg.tsNum = 3;   // 4/4, 4 steps per beat: 16 steps per bar
+    a.cfg.tsDen = 3;
+    CHECK_EQ(a.resampleSliceGrid(1, n), 0);   // Slices Off
+    CHECK_EQ(n, 0);
+    a.resampleCfg.slices = 1;                // per beat
+    CHECK_EQ(a.resampleSliceGrid(1, n), 4);
+    CHECK_EQ(n, 4);
+    CHECK_EQ(a.resampleSliceGrid(8, n), 4);
+    CHECK_EQ(n, 32);
+    CHECK_EQ(a.resampleSliceGrid(16, n), 8);   // 64 beats: 2 beats per slice
+    CHECK_EQ(n, 32);
+    CHECK_EQ(a.resampleSliceGrid(0, n), 0);    // no whole bars: not sliced
+    CHECK_EQ(n, 0);
+    a.resampleCfg.slices = 2;                // per step
+    CHECK_EQ(a.resampleSliceGrid(1, n), 1);
+    CHECK_EQ(n, 16);
+    CHECK_EQ(a.resampleSliceGrid(2, n), 1);
+    CHECK_EQ(n, 32);
+    CHECK_EQ(a.resampleSliceGrid(4, n), 2);    // 64 steps: 2 per slice
+    CHECK_EQ(n, 32);
+    CHECK_EQ(a.resampleSliceGrid(13, n), 8);   // Manual, 208 steps
+    CHECK_EQ(n, 26);
+    a.cfg.tsNum = 6;   // 7 beats per bar
+    a.resampleCfg.slices = 1;
+    CHECK_EQ(a.resampleSliceGrid(13, n), 8);   // 91 beats: 2 per slice, 45 whole
+    CHECK_EQ(n, 45);
+}
+
+// A 1-bar take sliced per step: Beat Slice, 16 equal slices, placed one per
+// step (note 24 + i), repeating with the take; the slices hold the audio.
+TEST(resample_sliced_take_placed_per_step) {
+    Harness h;
+    App& a = *h.app;
+    setup(h);
+    a.cfg.tsNum = 3;
+    a.cfg.tsDen = 3;
+    a.resampleCfg.length = 1;   // 1 bar
+    a.resampleCfg.slices = 2;   // per step
+    a.resampleCfg.place = 2;    // track 2
+    CHECK(a.resampleToggle() == App::ResampleAction::kArmed);
+    a.seq.play(0);
+    h.audio.pump(blocksFor(2.3));
+    h.run(5);
+    CHECK(a.instrPresent[1]);
+    const Instrument& ins = a.instruments[1];
+    CHECK_EQ(ins.playMode, uint8_t(PlayMode::BeatSlice));
+    CHECK_EQ(ins.sliceCount, 16);
+    for (int i = 0; i < 16; ++i) CHECK(near(ins.slices[i], uint32_t(i * 65535 / 16), 1));
+    CHECK(h.disp.lastHasText("16 slices"));
+    const Pattern& p = a.pattern();
+    for (int s = 0; s < 64; ++s) {
+        CHECK_EQ(p.tracks[1].steps[s].note, 24 + s % 16);
+        CHECK_EQ(p.tracks[1].steps[s].instrument, 1);
+    }
+    // Every slice has sound (the saw plays on every step).
+    const uint32_t len = a.bank.frames(1);
+    const int16_t* l = a.bank.left(1);
+    for (int i = 0; i < 16; ++i) {
+        int pk = 0;
+        for (uint32_t f = len * uint32_t(i) / 16; f < len * uint32_t(i + 1) / 16; ++f) pk = std::abs(int(l[f])) > pk ? std::abs(int(l[f])) : pk;
+        CHECK(pk > 1000);
+    }
+}
+
+// Per beat over 2 bars on a 64-step pattern: 8 slices, one every 4 steps,
+// the gaps untouched; Slices with Place on Off only slice.
+TEST(resample_sliced_take_per_beat) {
+    Harness h;
+    App& a = *h.app;
+    setup(h);
+    a.cfg.tsNum = 3;
+    a.cfg.tsDen = 3;
+    a.resampleCfg.length = 2;   // 2 bars
+    a.resampleCfg.slices = 1;   // per beat
+    a.resampleCfg.place = 3;    // track 3
+    CHECK(a.resampleToggle() == App::ResampleAction::kArmed);
+    a.seq.play(0);
+    h.audio.pump(blocksFor(4.3));
+    h.run(5);
+    CHECK(a.instrPresent[1]);
+    CHECK_EQ(a.instruments[1].sliceCount, 8);
+    const Pattern& p = a.pattern();
+    for (int s = 0; s < 64; ++s) {
+        const int8_t want = s % 4 == 0 ? int8_t(24 + (s % 32) / 4) : kNoteEmpty;
+        CHECK_EQ(p.tracks[2].steps[s].note, want);
+    }
+    // Unsliced placement is unchanged: the whole take every 2 bars.
+    a.resampleCfg.slices = 0;
+    a.resampleCfg.place = 4;
+    CHECK(a.resampleToggle() == App::ResampleAction::kArmed);
+    h.audio.pump(blocksFor(8.5));
+    h.run(5);
+    CHECK(a.instrPresent[2]);
+    CHECK_EQ(a.instruments[2].playMode, uint8_t(PlayMode::OneShot));
+    CHECK_EQ(a.instruments[2].sliceCount, 0);
+    for (int s = 0; s < 64; ++s) CHECK_EQ(p.tracks[3].steps[s].note, s % 32 == 0 ? int8_t(60) : kNoteEmpty);
 }

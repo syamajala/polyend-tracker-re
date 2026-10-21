@@ -188,22 +188,50 @@ void App::finishResample() {
     else std::snprintf(ins.name, sizeof(ins.name), "Resample Track %d", src);
     ins.lengthFrames = n;
     ins.stereo = true;
+    // Whole bars when it ended on a bar: placement repeats every that many.
+    const uint32_t bars = end == Resampler::kEndBars ? resampler.bars()
+                        : end == Resampler::kEndStopped ? resampler.barsDone() : 0;
+    // Sliced: equal slices on the beat / step grid, Beat Slice (note 24 + i
+    // plays slice i at its own pitch; the pads play slices 1..48).
+    int slices = 0;
+    const int unit = resampleSliceGrid(bars, slices);
+    if (unit) {
+        const uint64_t total = uint64_t(bars) * uint64_t(resampleBarSteps());
+        ins.playMode = uint8_t(PlayMode::BeatSlice);
+        ins.sliceCount = uint8_t(slices);
+        for (int i = 0; i < slices; ++i)
+            ins.slices[i] = uint16_t((uint64_t(i) * uint64_t(unit) * 65535u + total / 2) / total);
+    }
     instruments[slot] = ins;
     instrPresent[slot] = true;
     markInstrumentDirty(slot, true);
     setCurrentInstrument(slot);
-    // Whole bars when it ended on a bar: placement repeats every that many.
-    const uint32_t bars = end == Resampler::kEndBars ? resampler.bars()
-                        : end == Resampler::kEndStopped ? resampler.barsDone() : 0;
     resampler.reset();
     char msg[64];
     if (bars) std::snprintf(msg, sizeof(msg), "Resampled %lu bar%s -> instrument %d", static_cast<unsigned long>(bars),
                             bars == 1 ? "" : "s", slot + 1);
     else std::snprintf(msg, sizeof(msg), "Resampled %.1f s -> instrument %d%s", double(n) / 44100.0, slot + 1,
                        end == Resampler::kEndFull ? " (memory full)" : "");
+    if (slices) {
+        const size_t l = std::strlen(msg);
+        std::snprintf(msg + l, sizeof(msg) - l, ", %d slices", slices);
+    } else if (resampleCfg.slices) {
+        const size_t l = std::strlen(msg);
+        std::snprintf(msg + l, sizeof(msg) - l, ", not sliced");   // no whole bars
+    }
     ui.notify(msg, 3000);
     placeResample(slot, bars);
     ui.dirty();
+}
+
+int App::resampleSliceGrid(uint32_t bars, int& count) const {
+    count = 0;
+    if (resampleCfg.slices == 0 || bars == 0) return 0;
+    const int total = int(bars) * resampleBarSteps();
+    int unit = resampleCfg.slices == 1 ? cfg.tsDen + 1 : 1;   // a beat / a step
+    while (total / unit > kSliceCount) unit *= 2;
+    count = total / unit;
+    return count > 0 ? unit : 0;
 }
 
 void App::placeResample(int slot, uint32_t bars) {
@@ -212,13 +240,24 @@ void App::placeResample(int slot, uint32_t bars) {
     Pattern& p = pattern();
     const int len = int(p.tracks[0].lastStep) + 1;
     const int every = int(bars) * resampleBarSteps();
+    int slices = 0;
+    const int unit = resampleSliceGrid(bars, slices);
     pushUndo();
     // Note 60 plays the sample at its own pitch (audio_tables kUnityNote).
-    for (int s = 0; s < len; s += every) {
+    // Sliced: slice i (note 24 + i) on its own grid step, repeating with the
+    // take; the steps after the last whole slice stay empty (it plays on).
+    for (int s = 0; s < len; ++s) {
+        const int off = every > 0 ? s % every : s;
+        int note = -1;
+        if (unit) {
+            if (off % unit == 0 && off / unit < slices) note = 24 + off / unit;
+        } else if (off == 0) {
+            note = 60;
+        }
+        if (note < 0) continue;
         Step& st = p.tracks[t].steps[s];
-        st.note = 60;
+        st.note = int8_t(note);
         st.instrument = uint8_t(slot);
-        if (every <= 0) break;
     }
     patternEdited();
     if (every > len) ui.notify("Resample is longer than the pattern: placed once", 3000);
