@@ -103,6 +103,13 @@ check: $(BIN) $(JPEG_CHECK) visual-diff keyflow-check
 	rm -rf $(OUT)/check-dl $(OUT)/check-dl.eeprom
 	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/check-dl \
 	    --script scripts/display_budget.txt
+	# The fork's own screens (#38): Resample, Performance master FX, DX7 and its
+	# .syx bank browser, MIDI LFO. A test tone on line in, a synthetic DX7 bank.
+	rm -rf $(OUT)/check-fork $(OUT)/check-fork.eeprom
+	mkdir -p $(OUT)/check-fork/Patches/DX7
+	python3 fixtures/make_dx7_bank.py $(OUT)/check-fork/Patches/DX7/testbank.syx
+	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/check-fork --line-in-tone 440 \
+	    --script scripts/fork_screens.txt
 	# 2.x USB Storage mode: script commands and the Config row drive the mode page.
 	rm -rf $(OUT)/check-usb $(OUT)/check-usb.eeprom
 	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/check-usb \
