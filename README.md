@@ -1,9 +1,105 @@
+# OpenTracker (syamajala fork)
 
 OpenTracker is an open-source, clean-room firmware for the **original Polyend Tracker**,
 written from behavioural specifications. It contains no Polyend code, fonts, icons or
 graphics, and is not affiliated with or endorsed by Polyend.
 
-## Screenshots (2.0.1, on an original Tracker)
+This is a fork of [sandlbn/polyend-tracker-re](https://github.com/sandlbn/polyend-tracker-re).
+It follows upstream's 2.x line (currently 2.1.0) and adds the features below. Projects stay
+compatible: everything the fork adds is stored in extra files next to `project.mt`, so stock
+firmware, upstream OpenTracker and the Tracker Mini still open them (see each feature for
+details).
+
+Screenshots are from the desktop simulator, which runs the same code as the firmware.
+
+## What this fork adds
+
+| Live resampling | Performance scenes and master FX |
+|---|---|
+| ![Resample screen](screenshots/fork/resample.png) | ![Performance FX with scenes](screenshots/fork/performance.png) |
+| **DX7 synth: Load Patch with .syx banks** | **DX7 synth: a bank's voices** |
+| ![DX7 Load Patch](screenshots/fork/dx7-load.png) | ![DX7 bank voices](screenshots/fork/dx7-bank.png) |
+| **MIDI instrument LFO** | **Pattern** |
+| ![MIDI Instrument LFO](screenshots/fork/midi-lfo.png) | ![Pattern](screenshots/fork/pattern.png) |
+
+### DX7 FM synth
+- A **6-operator FM engine that plays Yamaha DX7 voices**, as a sixth synth model next to
+  ACD, FAT, VAP, WTFM and PERC. Pick **DX7** in a synth slot's Model list.
+- **Load Patch** lists the `.syx` files in `Patches/DX7/`:
+  - 32-voice banks come first and open like folders. Pick a voice, Preview it, Confirm;
+    **Left** goes back to the folder.
+  - Single-voice `.syx` files sit with the patches and preview and load directly.
+  - A loaded voice is named after the voice. **Save** writes it as a normal `.patch` file
+    (the voice is stored inside it).
+- The sound core is a port of Google's Music Synthesizer for Android (msfa, Apache 2.0),
+  checked against Dexed. Our additions: amplitude modulation, the feedback loops of
+  algorithms 4 and 6, key sync.
+- About 6 % CPU per voice (estimated). On a **polyphony 1** slot notes play legato and the
+  envelopes carry on from note to note, as on a real DX7; use polyphony 2 or more for
+  separate notes.
+- A Tracker Mini has no DX7 model: it resets a DX7 slot to its default.
+
+### Live resampling
+- Record **the master mix, one track (including the synth it plays) or Line in** while the
+  sequencer keeps playing, Octatrack-style. The take starts on the next bar and lasts
+  1, 2, 4, 8 or 16 bars, or until you stop it.
+- **Shift + Sample Recorder** arms, stops or cancels a take from any screen. The **Resample**
+  screen opens from the Sample Recorder's "This will stop the pattern" prompt (button
+  **Resample**); the pattern keeps playing. Line in has a level meter, Gain and Monitor.
+- The take goes into the next free instrument, in stereo, and is saved with the project.
+- **Slices:** Off, Per beat, Per step, or **Beat hits / Step hits** (a slice starts only where
+  a new hit begins, so empty steps stay empty). Sliced takes play in Beat Slice mode.
+- **Place on track N:** the take, or each slice on its own step, is written into a track so
+  it plays back in time (undoable).
+
+### Performance mode
+- **Scenes A / B with a crossfader** (Octatrack-style): **Shift + Left / Right** stores the
+  current pad rows as scene A / B; the encoder or MIDI CC 63 fades between them. Filters
+  cross over at the middle, stepped FX switch there.
+  - Hold pads while storing to store or clear only those columns; **Delete + Left / Right**
+    clears a scene.
+  - Rows stored in scene A are marked red, scene B blue, and the pad LEDs follow the fader.
+- **Master insert FX**, played like any other Performance column:
+  - **DJ filter:** one filter on the whole mix; below 0 a low-pass sweeping down, above 0 a
+    high-pass sweeping up.
+  - **Tape stop:** hold its pad and the whole mix slows to a stop over 1 or 2 steps, beats
+    or bars; release and it spins back up.
+- In edit mode, a tapped row's value can be changed with the encoder without holding the pad.
+- Scenes and the master FX types are stored in `perf_scenes.bin` next to `project.mt`;
+  stock firmware sees those slots as empty.
+
+### MIDI instrument LFO
+- One tempo-locked LFO per MIDI instrument, on a new **MIDI Instrument LFO** page (the Instr
+  Params key toggles it with the MIDI parameters page).
+- Target: a CC (0-127), pitch bend or channel pressure. Shape, Rate (128 steps down to
+  1/8 step), Depth, Center, and Retrigger (Free, or restart on each Note).
+- LFO messages use at most half of a DIN MIDI port's bandwidth, so notes are never delayed.
+- Stored in `midi_lfo.bin` next to `project.mt`.
+
+### Note names
+- **Config > General > Note names: Sharps / Flats / Auto.** Auto spells the project's scale
+  correctly, modes included (C Mixolydian shows Bb, not A#). Display only.
+
+### Remote control and on-device testing
+- **Config > USB > Remote control** (Off after every power-on):
+  - **Panel mode:** a Tracker connected over USB becomes the simulator's front panel.
+  - **Drive mode:** `tools/tracker_remote.py` runs scripts on the Tracker: button presses,
+    status and CPU checks, screenshots and the text on screen. The simulator can mirror the
+    Tracker's screen live (`--mirror`).
+- **Telemetry** on the USB serial log: CPU per block, the stack high-water mark, I2S input
+  health, and per-take resample diagnostics.
+
+### Build and memory
+- **Games are off by default** in this fork's builds (`make OT_GAMES=1` builds them); this
+  frees 5.8 KB of SRAM and ~49 KB of flash for the features above.
+- The UI screens live in SDRAM instead of the SRAM heap, and the stack reserve is 75 KiB
+  (measured peak use: 18 KB).
+- **CI** builds and tests every push and pull request; tagged versions are released
+  automatically (see Install).
+
+## Upstream 2.x features
+
+Upstream's photos (2.0.1, on an original Tracker):
 
 | Pattern | Config: USB Storage |
 |---|---|
@@ -11,36 +107,35 @@ graphics, and is not affiliated with or endorsed by Polyend.
 | **Sample Recorder** | **Synth Parameters: Load Patch** |
 | ![Sample Recorder](screenshots/2.0.1/sample-recorder.png) | ![Synth Load Patch](screenshots/2.0.1/synth-load-patch.png) |
 
-
 2.0 brings the newer Tracker features to the original hardware: 16 tracks, synth
 engines, stereo samples, Mini-compatible project files and USB Storage mode. These notes cover
-the whole 2.x line 
+the whole 2.x line.
 
-## New in 2.0
+### New in 2.0
 
-### Tracker Mini project compatibility
+#### Tracker Mini project compatibility
 - Projects are saved in the **Tracker 2.2.1 format**: 16-track patterns, the three
   synth slots, track names and mutes for tracks 13–16.
 - **Synth patches** use the Mini's `.patch` files. They are stored with the project and in a
   library at `Patches/<ENGINE>/`. All 299 Mini factory patches load and save back unchanged.
 - Older original-Tracker projects open as they are, with tracks 13–16 empty.
 
-### 16 tracks
+#### 16 tracks
 - Tracks 13–16 work like MIDI tracks 9–12: notes, MIDI channels, CC A–F, pitch bend,
   velocity, mute and solo. Performance Play mode, Pattern length and Step repeater act on them
   too (no voice FX, levels or per-track patterns, as on the Mini).
 - Pattern pages through all 16 tracks. Song shows a scrolling 12-track window.
 - Fill, copy and paste work across all 16 tracks.
 
-### Synth engines (instruments S1–S3)
+#### Synth engines (instruments S1–S3)
 - **Three synth slots**, played from any track as instruments S1–S3.
-- Three engines, our own sound design following the Mini's parameter sets:
+- Engines, our own sound design following the Mini's parameter sets:
   - **ACD**: acid bass and lead, with a 24 dB and a ladder-style filter, and glide;
   - **VAP**: virtual-analog poly, with morphing oscillators, hard sync, 15 filter types and a
     6-slot modulation matrix;
   - **PERC**: drum kit with kick, snare, hats, cymbal, perc and tom.
-- **WTFM and FAT** patches load and save unchanged, but stay silent and show
-  "not available" until 2.1.
+- **FAT** (unison supersaw) has an engine since 2.1. **WTFM** patches load and save
+  unchanged, but stay silent and show "not available".
 - **Macros:** FX columns A–F drive macros 1–6, and Volume drives macro 7.
 - **Voices:** a shared pool of 4 voices by default, adjustable in Config > General > Synth
   voices (1–8).
@@ -52,11 +147,11 @@ the whole 2.x line
   - Synth 1–3 level columns with meters on Global Mixer page 3.
 - Exports include separate stems `synth_1..3.wav`.
 
-### Stereo samples
+#### Stereo samples
 - Stereo WAVs keep both channels on import.
 - They play in stereo in one-shot, loop, slice and beat-slice modes. Pan works as balance.
 
-### Performance and monitoring
+#### Performance and monitoring
 - **CPU meter** in the title bar (Config > General > CPU meter: Auto, Always or Off).
 - **Voice limiter:** if the audio gets close to its limit, only synth voices are cut; sample
   tracks never are.
@@ -66,7 +161,7 @@ the whole 2.x line
 - **More code in fast internal RAM:** the hottest audio and synth code runs from it.
 - **USB serial diagnostics:** CPU, peak breakdown, display, SD and radio/recorder lines.
 
-### USB Storage mode (2.0.1)
+#### USB Storage mode (2.0.1)
 - **Config > USB > USB Storage: On** shows the SD card on a connected computer as a USB drive,
   as on the Tracker Mini. Copy projects, samples and patches without taking the card out.
 - Playback stops and the project is saved first. Keep the power and the USB cable connected
@@ -84,8 +179,10 @@ the whole 2.x line
 
 ## Install
 
-1. Copy `PolyendTrackerOTv201.ptf` to `/Firmware` on the SD card. Keep the name; the
-   bootloader only accepts 24-character names.
+1. Download the latest image from this fork's
+   [Releases](https://github.com/syamajala/polyend-tracker-re/releases) and copy
+   `PolyendTrackerOTv210.ptf` to `/Firmware` on the SD card. Keep the name; the bootloader
+   only accepts 24-character names.
 2. Go to **Config > Firmware update**, select it and confirm. If the screen stays dark
    after the update, press the power button once.
 
@@ -94,16 +191,24 @@ same way, or put its file name into `/Firmware/ot_restore.txt` and power-cycle. 
 image you want, plus stock, in `/Firmware`: the rear reset button installs a random `.ptf`
 from that folder.
 
-**Note:** projects saved by 2.0 use the Mini's 16-track patterns. Stock firmware for the
+**Note:** projects saved by 2.x use the Mini's 16-track patterns. Stock firmware for the
 original Tracker reads only tracks 1–8 of those patterns (expected from the stock loader's
 rules; not yet confirmed on a stock unit).
+
+## Building
+
+- Firmware: `make VERSION=2.1.0` (Arm GNU toolchain) writes `build/PolyendTrackerOTv210.ptf`.
+- Host tests: `make host-test`. Performance and memory gate: `make perf-gate`.
+- Simulator: `make sim`, then `build/sim/opentracker-sim` (see `sim/README.md`).
 
 ## Known limitations
 
 - The synth sound is own design: settings match the Mini, the sound is close but not
   identical.
-- WTFM and FAT engines: planned for 2.1. Wavetable and granular samples play the left
-  channel only (stereo in 2.1).
+- WTFM has no engine yet. Wavetable and granular samples play the left channel only.
+- Synth notes ignore the per-track Performance columns
+  ([#30](https://github.com/syamajala/polyend-tracker-re/issues/30)); the master insert FX
+  do include them.
 - The synth voice pool defaults to 4 because of the processor's speed.
 - USB Storage mode: back up the card before first use; Linux systems without a desktop may need
   `partprobe` or a re-plug to see the card.
@@ -111,8 +216,8 @@ rules; not yet confirmed on a stock unit).
 
 ## Test songs
 
-The package's `Projects/` folder holds five OT Test songs and seven BLAST GRID synth remixes
+The package's `Projects/` folder holds nine OT Test songs and seven BLAST GRID synth remixes
 (Title, World 1, World 4, Battle, Battle FM, Boss, Final Boss). Copy them to `/Projects` on
 the card.
 
-Downloads: https://github.com/sandlbn/polyend-tracker-re/releases
+`make testsongs` builds them into `build/testsongs/`; release packages include them.
