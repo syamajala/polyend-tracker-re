@@ -1,0 +1,59 @@
+# Release: on a version tag (v2.1.0, v2.1.0-ot1, ...), run the host tests,
+# build the firmware with the flash / stack-headroom / libm checks, and
+# publish a GitHub release with the .ptf image.
+# The image name must be exactly 24 characters (update bootloader limit), so
+# the build uses the tag's numeric version only: v2.1.0-ot1 -> VERSION 2.1.0
+# -> PolyendTrackerOTv210.ptf; the suffix only names the release.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install GCC 14
+        run: sudo apt-get update && sudo apt-get install -y g++-14
+      # ASan aborts at start-up under the runners' 32-bit mmap randomisation.
+      - name: Limit mmap randomisation for AddressSanitizer
+        run: sudo sysctl -w vm.mmap_rnd_bits=28
+      - name: Host tests
+        run: make -j"$(nproc)" host-test CC=gcc-14 CXX=g++-14
+      - name: telemetry_check self-test
+        run: python3 tools/telemetry_check.py selftest
+
+  release:
+    needs: host-tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '14.2.Rel1'
+      - name: Version from the tag
+        id: ver
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          version="${version%%-*}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::tag $tag does not start with vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Build
+        run: make -j"$(nproc)" VERSION=${{ steps.ver.outputs.version }}
+      - name: Flash, stack headroom and libm checks
+        run: python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size build/opentracker.elf
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" build/*.ptf \
+            --title "OpenTracker ${GITHUB_REF_NAME}" --generate-notes
