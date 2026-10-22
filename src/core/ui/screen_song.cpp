@@ -341,6 +341,21 @@ void SongScreen::onButton(uint8_t id, uint8_t state) {
     }
     const bool press = state == kPress;
     const bool pressOrHold = state != kRelease;
+    // [I] Song + Right: jump to the Pattern list; Song + Left: back into the
+    // grid (edit mode) on the slot's row. While Song is held the focus is on
+    // Tempo; the jump sets the focus its release returns to.
+    if (songKeyHeld_ && press && (id == btn::Right || id == btn::Left)) {
+        if (id == btn::Right) {
+            savedFocus_ = 1;
+        } else if (edit) {
+            savedFocus_ = 0;
+            selRow0 = cursor;
+            selRows = 1;
+            followGridCursor(selTrack0);
+        }
+        refreshBar();
+        return;
+    }
     switch (id) {
         case btn::Play:
             if (!press) break;
@@ -701,7 +716,9 @@ void SongScreen::draw(Gfx& g) {
     }
     if (cursor >= first && cursor < first + kRows) {
         const int y0 = kListY0 + kPitchY * (cursor - first);
-        wg::stroke(g, focus == kFocusCount ? kCountX0 : kListX0, y0, kListX1, y0 + kPitchY,
+        // [I] Pattern and Count are separate columns: the outline marks one.
+        const bool countCol = focus == kFocusCount;
+        wg::stroke(g, countCol ? kCountX0 : kListX0, y0, countCol ? kListX1 : kCountX0 - 4, y0 + kPitchY,
                    th.slot(slot::kSongList + (edit ? 5 : 9)));
     }
     if (n > kRows) {

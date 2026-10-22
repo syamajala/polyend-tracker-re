@@ -136,3 +136,42 @@ TEST(song_screen_shows_the_pass) {
     h.run(200);
     CHECK(h.disp.lastHasText("2/4"));
 }
+
+TEST(song_key_right_jumps_to_the_pattern_list) {
+    Harness h;
+    App& a = *h.app;
+    h.tap(btn::Song);
+    SongScreen& s = *static_cast<SongScreen*>(a.ui.screen(kModSong));
+    h.tap(btn::Rec);    // edit
+    h.tap(btn::Left);   // list -> grid
+    CHECK_EQ(s.focus, 0);
+    h.tap(btn::Left);
+    h.tap(btn::Left);
+    const int track = s.selTrack0;
+    // Song + Right: straight to the Pattern list from anywhere in the grid.
+    h.down(btn::Song);
+    h.tap(btn::Right);
+    h.up(btn::Song);
+    CHECK_EQ(s.focus, 1);
+    // Song + Left: back into the grid where the selection was.
+    h.down(btn::Song);
+    h.tap(btn::Left);
+    h.up(btn::Song);
+    CHECK_EQ(s.focus, 0);
+    CHECK_EQ(s.selTrack0, track);
+    // Shift + Right still widens the grid selection.
+    h.down(btn::Shift);
+    h.tap(btn::Right);
+    h.up(btn::Shift);
+    CHECK_EQ(s.focus, 0);
+    CHECK_EQ(s.selTracks, 2);
+    // Out of edit mode Song + Left stays on the list.
+    h.down(btn::Song);
+    h.tap(btn::Right);
+    h.up(btn::Song);
+    h.tap(btn::Rec);
+    h.down(btn::Song);
+    h.tap(btn::Left);
+    h.up(btn::Song);
+    CHECK_EQ(s.focus, 1);
+}
