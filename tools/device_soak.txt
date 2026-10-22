@@ -1,0 +1,89 @@
+# Device soak (issue #23): one round of screen hopping on a real Tracker, safe on
+# a loaded project: nothing is entered, saved, loaded or deleted (no pads, no
+# encoder on Config / Master, no confirm keys). It plays the loaded pattern;
+# start it stopped (each round checks).
+# Config > USB > Remote control on, then repeat the round and check the log:
+#
+#   tools/tracker_remote.py /dev/ttyACM0 $(yes tools/device_soak.txt | head -12) --log soak.log
+#   tools/telemetry_check.py log soak.log      # stack free, render, loop limits
+#   grep -a -e lockup -e FAULT -e STUCK soak.log
+#
+# A stack overflow into the guard resets the Tracker; the next boot logs
+# "reset reason: core lockup". Open Recent (the deepest frame, 6,032 B) loads a
+# project, so it is not part of the round: open one by hand if that is fine.
+wait 300
+# Pattern / Song / Performance, stopped and playing
+tap PATTERN 150
+expect-stopped
+expect-screen Pattern
+tap SONG 150
+expect-screen Song
+tap PERFORMANCE 150
+expect-screen Performance
+tap PLAY
+wait 1500
+tap PATTERN
+wait 1500
+tap PERFORMANCE
+wait 1500
+# Master pages and FX pages while playing
+tap MASTER 150
+tap F2 150
+wait 600
+tap F8
+tap F3 250
+wait 600
+tap F8
+tap F4 400
+wait 600
+tap F8
+tap F5 120
+wait 600
+tap F8
+tap MASTER 150
+wait 800
+tap MASTER 150
+wait 800
+hold MASTER 600
+# Instrument / synth pages
+tap INSTRPARAMS
+wait 1000
+tap INSTRPARAMS
+wait 1000
+tap SAMPLEPLAYBACK
+wait 1000
+tap SAMPLEEDITOR
+wait 1000
+# Stop before the Sample Recorder: there, while playing, PLAY arms a
+# recording and the screen keys do not leave it.
+tap PATTERN 200
+tap PLAY
+wait 500
+expect-stopped
+tap SAMPLERECORDER
+wait 1500
+tap PERFORMANCE 300
+expect-screen Performance
+# Browsers: list scrolling only, no confirm
+tap SAMPLELOADER 300
+wait 1000
+enc 5
+wait 400
+enc 10
+wait 400
+enc -15
+wait 400
+tap FILE 300
+wait 1000
+enc 3
+wait 400
+enc -3
+wait 400
+tap CONFIG 300
+wait 1000
+tap HELP
+wait 800
+tap HELP
+tap PATTERN 200
+expect-screen Pattern
+status

@@ -87,7 +87,7 @@ DEFS      := -D__MK66FX1M0__ -DF_CPU=180000000 -DUSB_MIDI_SERIAL -DLAYOUT_US_ENG
              -DTEENSYDUINO=159 -DARDUINO=10819 -DOT_VERSION=\"$(VERSION)\" -DOT_TARGET_DEVICE=1 \
              -DOT_SDRAM_CACHE=$(OT_SDRAM_CACHE) -DOT_GAMES=$(OT_GAMES) -DOT_FASTRUN=$(OT_FASTRUN) -DOT_USB_MSC=$(OT_USB_MSC) -DOT_STACK_GUARD_TEST=$(OT_STACK_GUARD_TEST) -DOT_FONTS_COMPRESSED=1 $(USB_ID) $(DEFS_EXTRA)
 INCS      := -I$(CORE) -Isrc -Isrc/core -Isrc/hal -Ithird_party/fatfs
-COMMON    := $(CPUFLAGS) $(DEFS) $(INCS) -O2 -g -ffunction-sections -fdata-sections -Wall -MMD
+COMMON    := $(CPUFLAGS) $(DEFS) $(INCS) -O2 -g -ffunction-sections -fdata-sections -Wall -MMD -fstack-usage
 CFLAGS    := $(COMMON) -std=gnu11
 CXXFLAGS  := $(COMMON) -std=gnu++17 -fno-exceptions -fno-rtti -felide-constructors -Wno-psabi
 # Own linker script: the Teensy one + the uncached `.dma` section (src/hal/opentracker.ld).
