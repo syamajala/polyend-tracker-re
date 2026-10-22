@@ -1,7 +1,6 @@
 # Release: on a version tag (v2.1.0, v2.1.0-ot1, ...), run the host tests,
-# build the firmware with the flash / stack-headroom / libm checks, build the
-# test songs, and publish a GitHub release with the .ptf image and a package
-# zip (Firmware/ + Projects/ + Samples/, ready to copy to the SD card).
+# build the firmware with the flash / stack-headroom / libm checks, and
+# publish a GitHub release with the .ptf image.
 # The image name must be exactly 24 characters (update bootloader limit), so
 # the build uses the tag's numeric version only: v2.1.0-ot1 -> VERSION 2.1.0
 # -> PolyendTrackerOTv210.ptf; the suffix only names the release.
@@ -52,24 +51,9 @@ jobs:
         run: make -j"$(nproc)" VERSION=${{ steps.ver.outputs.version }}
       - name: Flash, stack headroom and libm checks
         run: python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size build/opentracker.elf
-      - name: Test songs
-        run: make testsongs
-      - name: Package
-        id: pkg
-        run: |
-          ptf=$(ls build/*.ptf)
-          dir="OpenTracker-${GITHUB_REF_NAME}"
-          mkdir -p "$dir/Firmware"
-          cp "$ptf" "$dir/Firmware/"
-          cp -r build/testsongs/Projects "$dir/"
-          if [ -d build/testsongs/Samples ]; then cp -r build/testsongs/Samples "$dir/"; fi
-          cp README.md "$dir/"
-          zip -qr "$dir.zip" "$dir"
-          echo "ptf=$ptf" >> "$GITHUB_OUTPUT"
-          echo "zip=$dir.zip" >> "$GITHUB_OUTPUT"
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" "${{ steps.pkg.outputs.ptf }}" "${{ steps.pkg.outputs.zip }}" \
+          gh release create "${GITHUB_REF_NAME}" build/*.ptf \
             --title "OpenTracker ${GITHUB_REF_NAME}" --generate-notes

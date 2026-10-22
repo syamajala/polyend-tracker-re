@@ -216,8 +216,6 @@ rules; not yet confirmed on a stock unit).
 
 ## Test songs
 
-The package's `Projects/` folder holds nine OT Test songs and seven BLAST GRID synth remixes
-(Title, World 1, World 4, Battle, Battle FM, Boss, Final Boss). Copy them to `/Projects` on
-the card.
-
-`make testsongs` builds them into `build/testsongs/`; release packages include them.
+`make testsongs` builds nine OT Test songs and seven BLAST GRID synth remixes (Title,
+World 1, World 4, Battle, Battle FM, Boss, Final Boss) into `build/testsongs/`. Copy its
+`Projects/` and `Samples/` folders to the card.
