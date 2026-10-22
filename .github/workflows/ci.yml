@@ -80,6 +80,8 @@ jobs:
         run: |
           elf=$(find build -name opentracker.elf | head -1)
           python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size "$elf"
+      - name: Stack frames against the stack guard
+        run: python3 tools/telemetry_check.py frames build
       - name: Upload firmware image
         uses: actions/upload-artifact@v4
         with:

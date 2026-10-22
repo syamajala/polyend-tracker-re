@@ -17,6 +17,7 @@
 #include "hal/radio_si4703.h"
 #include "hal/telemetry.h"
 #include "hal/sd_storage.h"
+#include "hal/stack_guard.h"
 #include "hal/stack_watch.h"
 #include "hal/usb_storage.h"
 #include "remote/display_tap.h"
@@ -466,5 +467,8 @@ void otAppMain(ot::hal::HalSet& hal) {
     gApp.ui.platform.bootChecks = &bootChecks;     // factory test (spec 05 §2.12)
     gApp.ui.platform.dlOverflow = &dlOverflow;     // RAM_DL guard (Ui::render)
     if (hal::bootReport().sdMounted) gApp.boot();
+    // Stack guard (#23): an overflow resets the Tracker; say so on screen, not
+    // only in the USB diag log, so it never looks like a random reboot.
+    if (hal::lastResetWasLockup()) gApp.ui.notify("Restarted after a crash (stack overflow)", 8000);
     gApp.run();
 }
