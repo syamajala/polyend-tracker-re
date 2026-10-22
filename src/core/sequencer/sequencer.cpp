@@ -949,12 +949,17 @@ void Sequencer::startPreload() {
         beginPreload(uint8_t(queued_));
         queueReady_ = true;
     } else if (songMode_ && project_) {
-        int np = songPos_ + 1;
+        // [I] The slot repeats until its count is reached.
+        int np = songPassesLeft() ? songPos_ : songPos_ + 1;
         if (np >= kSongSlots || project_->playlist[np] == 0) np = 0;
         uint8_t num = project_->playlist[np];
         if (num == 0) num = curPatternNum_;
         beginPreload(num);
     }
+}
+
+bool Sequencer::songPassesLeft() const {
+    return project_ && !songLeave_ && songPass_ + 1 < project_->slotCount(songPos_);
 }
 
 void Sequencer::beginPreload(uint8_t num) {
@@ -1046,7 +1051,8 @@ void Sequencer::patternEnd() {
     }
     if (songMode_ && project_) {
         bool songWrapped = false;
-        int pos = songPos_ + 1;
+        const bool again = songPassesLeft();   // [I] the slot's next pass
+        int pos = again ? songPos_ : songPos_ + 1;
         if (pos >= kSongSlots || project_->playlist[pos] == 0) {
             pos = 0;  // the song loops
             songWrapped = true;
@@ -1058,6 +1064,8 @@ void Sequencer::patternEnd() {
         dropPreload();
         swapBuffers();
         songPos_ = pos;
+        songPass_ = again ? uint8_t(songPass_ + 1) : 0;
+        songLeave_ = false;
         project_->playlistPos = uint8_t(pos);
         curPatternNum_ = num;
         project_->setCurrentPattern(num);
@@ -1138,6 +1146,8 @@ void Sequencer::playSong(int position) {
     curPatternNum_ = num;
     project_->setCurrentPattern(num);
     songPos_ = pos;
+    songPass_ = 0;
+    songLeave_ = false;
     project_->playlistPos = uint8_t(pos);
     songMode_ = true;
     startPlayback(0, true, false);

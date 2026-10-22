@@ -182,7 +182,7 @@ public:
     int length() const;
     int cursor = 0;
     bool edit = false;
-    int focus = 1;                 // 0 grid, 1 list, 2 tempo
+    int focus = 1;                 // 0 grid, 1 list, 2 tempo, 3 the list's Count column (edit mode)
     int selRow0 = 0, selRows = 1, selTrack0 = 0, selTracks = 1;
     // 2.x (docs/M1_PLAN.md §4, spec gap 4): the grid shows 12 of the 16
     // tracks; the first shown track is 0 or 4 and follows the grid cursor.
@@ -199,6 +199,8 @@ public:
 private:
     void refreshBar();
     void setPattern(int slot, int num);
+    int passShown_ = -1;   // [I] playing slot * 32 + pass last drawn
+    void setCount(int slot, int count);   // [I] repeat count, 1 .. Project::kSongCountMax
     void tempoDelta(float d, bool integer);
     void addSlot(bool empty);
     void deleteSlot();

@@ -72,6 +72,17 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 - Scenes and the master FX types are stored in `perf_scenes.bin` next to `project.mt`;
   stock firmware sees those slots as empty.
 
+### Song mode
+- **Repeat counts:** a **Count** column next to the Song list's patterns plays a slot's
+  pattern 1 to 16 times before the song moves on, so a section no longer needs duplicate
+  slots. Set it in edit mode (Right from the list, then the encoder; Delete resets it to 1).
+  While playing, the playing slot shows its pass, for example `2/4`.
+- Add Slot copies the count; Loop Pattern / Continue Song work as before (Continue leaves
+  the slot at the end of the current pass).
+- **Song + Right** jumps from the track grid straight to the Pattern list; **Song + Left**
+  goes back into the grid (edit mode). Shift + Left / Right still sizes the grid selection.
+- Counts are stored in `song.bin` next to `project.mt`; stock firmware plays every slot once.
+
 ### MIDI instrument LFO
 - One tempo-locked LFO per MIDI instrument, on a new **MIDI Instrument LFO** page (the Instr
   Params key toggles it with the MIDI parameters page).

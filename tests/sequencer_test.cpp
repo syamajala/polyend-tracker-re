@@ -494,6 +494,50 @@ TEST(song_mode_switch_and_preload) {
     CHECK_EQ(r.host.patternAdvances, 2);  // not called on the song wrap
 }
 
+// [I] Repeat counts (Project::playlistCount): a slot plays its pattern that
+// many times, the pass restarts per slot, "Continue Song" leaves after the
+// current pass.
+TEST(song_mode_repeat_counts) {
+    Rig r(120.0f);
+    r.project.playlist[0] = 1;
+    r.project.playlist[1] = 2;
+    r.project.playlist[2] = 2;   // the same pattern in the next slot
+    r.project.playlist[3] = 3;
+    r.project.playlistCount[1] = 3;
+    r.project.playlistCount[2] = 2;
+    r.project.setCurrentPattern(1);
+    r.seq.attach(&r.sink, &r.host, &r.project, &r.a, &r.b);
+    r.host.loadPattern(1, r.a, true);
+    r.seq.playSong(0);
+    CHECK_EQ(r.seq.songPass(), 1);
+    std::vector<int> pos, pass;
+    for (int e = 1; e <= 7; ++e) {
+        r.runUntil([&] { return r.host.patternEnds == e; });
+        pos.push_back(r.seq.songPosition());
+        pass.push_back(r.seq.songPass());
+    }
+    // slot 0 once, slot 1 x3, slot 2 x2 (pass restarts), slot 3, then the song loops.
+    const std::vector<int> wantPos = {1, 1, 1, 2, 2, 3, 0};
+    const std::vector<int> wantPass = {1, 2, 3, 1, 2, 1, 1};
+    CHECK(pos == wantPos);
+    CHECK(pass == wantPass);
+    auto on = r.sink.of(Ev::NoteOn, 0);
+    CHECK(on.size() >= 7);
+    if (on.size() >= 7) {
+        const int want[7] = {10, 20, 20, 20, 20, 20, 30};
+        for (int i = 0; i < 7; ++i) CHECK_EQ(on[i].a, want[i]);
+    }
+    // Loop Pattern then Continue Song in pass 1 of 3: the song moves on at
+    // this pattern's end.
+    r.seq.playSong(1);
+    r.seq.setSongMode(false);
+    r.seq.setSongMode(true);
+    const int ends = r.host.patternEnds;
+    r.runUntil([&] { return r.host.patternEnds == ends + 1; });
+    CHECK_EQ(r.seq.songPosition(), 2);
+    CHECK_EQ(r.seq.songPass(), 1);
+}
+
 // CPU round 3: a host that loads by track gets the preload spread over the
 // blocks of the preload step (at most 1-2 tracks per block at <= 430 BPM)
 // and the rest at the pattern end; the result is the whole-pattern load.

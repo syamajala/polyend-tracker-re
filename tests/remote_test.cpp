@@ -430,7 +430,7 @@ TEST(remote_drive_status_and_perf) {
     h.run(5);
     CHECK_EQ(host.sent.size(), 2u);
     const std::string st = host.sent.back();
-    CHECK(st.rfind("@RC S scr=Pattern play=0 step=0 pat=1 ins=1 peak=0 ", 0) == 0);
+    CHECK(st.rfind("@RC S scr=Pattern play=0 step=0 pat=1 ins=1 song=0 slot=1 pass=1 peak=0 ", 0) == 0);
     for (const char* k : {" cpuA=", " cpuP=", " ovr=0", " gov=4", " govB=4", " cuts=0", " freeKB=", " note="})
         CHECK(st.find(k) != std::string::npos);
     // Values with spaces come as '_' (screen names, notices).
