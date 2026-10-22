@@ -348,6 +348,12 @@ const PatchParamRange kPerc[84] = {
 
 #undef MIXER
 
+// DX7 (OpenTracker): the engine's controls on top of the voice. New controls
+// are appended (a shorter stored list reads the rest as defaults).
+const PatchParamRange kDx7[1] = {
+    {1, 0, 2},   // 0 Volume
+};
+
 // Nearest IEEE half-precision value (round to nearest even): the device keeps
 // each min/max as a half pair (§8.1), so bounds compare at half precision.
 float toHalfPrecision(float f) {
@@ -363,6 +369,19 @@ float toHalfPrecision(float f) {
 
 }  // namespace
 
+// DX7 "INIT VOICE" (VCED, operators 6..1): algorithm 1, only operator 1 sounds
+// (a sine at full output level), every envelope at rate 99 / level 99 99 99 0.
+const uint8_t kDx7InitVoice[kDx7VoiceBytes] = {
+#define OP(out) 99, 99, 99, 99, 99, 99, 99, 0, 39, 0, 0, 0, 0, 0, 0, 0, out, 0, 1, 0, 7
+    OP(0), OP(0), OP(0), OP(0), OP(0), OP(99),
+#undef OP
+    99, 99, 99, 99, 50, 50, 50, 50,      // pitch EG rates, levels
+    0, 0, 1,                             // algorithm 1, feedback 0, key sync on
+    35, 0, 0, 0, 1, 0, 3,                // LFO speed, delay, PMD, AMD, sync, wave, PMS
+    24,                                  // transpose (C3)
+    'I', 'N', 'I', 'T', ' ', 'V', 'O', 'I', 'C', 'E',
+};
+
 bool patchFieldSpan(const uint8_t* data, size_t len, uint32_t field, size_t* beg, size_t* end) {
     size_t pos = 0;
     while (pos < len) {
@@ -377,6 +396,53 @@ bool patchFieldSpan(const uint8_t* data, size_t len, uint32_t field, size_t* beg
         pos += n;
     }
     return false;
+}
+
+bool patchOpaqueBytes(const SynthPatch& p, uint32_t field, const uint8_t** data, size_t* len) {
+    size_t beg = 0, end = 0;
+    if (p.opaqueLen > kPatchOpaqueMax || !patchFieldSpan(p.opaque, p.opaqueLen, field, &beg, &end)) return false;
+    Reader r{p.opaque + beg, p.opaque + end};
+    uint32_t f;
+    uint8_t wt;
+    Reader sub;
+    if (readTag(r, &f, &wt) != PatchStatus::kOk || wt != kWtLen || readLen(r, &sub) != PatchStatus::kOk) return false;
+    *data = sub.p;
+    *len = size_t(sub.end - sub.p);
+    return true;
+}
+
+bool patchSetOpaqueBytes(SynthPatch& p, uint32_t field, const uint8_t* data, size_t len) {
+    if (p.opaqueLen > kPatchOpaqueMax) return false;
+    uint8_t enc[kPatchOpaqueMax];
+    Writer w{enc, enc + sizeof(enc)};
+    w.tag(field, kWtLen);
+    w.varint(len);
+    w.bytes(data, len);
+    if (!w.ok) return false;
+    const size_t n = size_t(w.p - enc);
+    size_t beg = p.opaqueLen, end = p.opaqueLen;   // append when absent
+    patchFieldSpan(p.opaque, p.opaqueLen, field, &beg, &end);
+    const size_t total = p.opaqueLen - (end - beg) + n;
+    if (total > size_t(kPatchOpaqueMax)) return false;
+    std::memmove(p.opaque + beg + n, p.opaque + end, p.opaqueLen - end);
+    std::memcpy(p.opaque + beg, enc, n);
+    p.opaqueLen = uint16_t(total);
+    return true;
+}
+
+bool patchDx7Voice(const SynthPatch& p, uint8_t out[kDx7VoiceBytes]) {
+    const uint8_t* d = nullptr;
+    size_t n = 0;
+    if (patchOpaqueBytes(p, kPatchFieldDx7Voice, &d, &n) && n == size_t(kDx7VoiceBytes)) {
+        std::memcpy(out, d, n);
+        return true;
+    }
+    std::memcpy(out, kDx7InitVoice, kDx7VoiceBytes);
+    return false;
+}
+
+bool patchSetDx7Voice(SynthPatch& p, const uint8_t v[kDx7VoiceBytes]) {
+    return patchSetOpaqueBytes(p, kPatchFieldDx7Voice, v, kDx7VoiceBytes);
 }
 
 // ---------------------------------------------------------------------------
@@ -593,6 +659,7 @@ const PatchParamRange* patchEngineParams(int32_t engine, int* count) {
         case kSynthEngineVap: t = kVap, n = 60; break;
         case kSynthEngineWtfm: t = kWtfm, n = 63; break;
         case kSynthEnginePerc: t = kPerc, n = 84; break;
+        case kSynthEngineDx7: t = kDx7, n = 1; break;
         default: break;
     }
     if (count) *count = n;
@@ -606,6 +673,7 @@ const char* patchEngineName(int32_t engine) {
         case kSynthEngineVap: return "VAP";
         case kSynthEngineWtfm: return "WTFM";
         case kSynthEnginePerc: return "PERC";
+        case kSynthEngineDx7: return "DX7";
         default: return nullptr;
     }
 }
@@ -616,6 +684,7 @@ int patchVolumeParam(int32_t engine) {
         case kSynthEngineFat: return 24;
         case kSynthEngineVap: return 39;
         case kSynthEngineWtfm: return 42;
+        case kSynthEngineDx7: return 0;
         default: return -1;
     }
 }
@@ -651,6 +720,7 @@ bool patchInit(int32_t engine, SynthPatch* out) {
         m.targets[0].amountBits = patchFloatToBits(1.0f);
     }
     out->extraPresent = true;
+    if (engine == kSynthEngineDx7) patchSetDx7Voice(*out, kDx7InitVoice);
     return true;
 }
 

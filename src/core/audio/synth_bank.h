@@ -50,7 +50,7 @@
 //
 // Real time: no allocation, no I/O. Main-loop setters only store values
 // (the audio context picks them up at the next block). Memory (SRAM .bss,
-// inside AudioEngine): voice pool 8 x 192 B = 1.5 KB (hot: touched every
+// inside AudioEngine): voice pool 8 x 320 B = 2.5 KB (hot: touched every
 // sample by the engines; uncached SDRAM would cost ~34 cycles per access),
 // slots 3 x ~1.1 KB (parameters + engine scratch), bus 1 KB.
 #pragma once

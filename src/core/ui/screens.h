@@ -995,12 +995,18 @@ public:
     int macro = 0;          // Macros page: M1..M6
     int section = 0;        // Edit: section index
     int row = 0;            // Edit: row in the section
-    // Browser (Patches/<MODEL>/*.patch, sorted).
+    // Browser (Patches/<MODEL>/*.patch, sorted). DX7 also lists the .syx
+    // files there: 32-voice banks first, like folders (an open bank lists its
+    // voices), single-voice files with the patches (they play / load as one).
     static constexpr int kBrowserMax = 128;
-    static constexpr int kBrowserNameMax = 32;
+    static constexpr int kBrowserNameMax = 32;    // patch names (Save As)
+    static constexpr int kBrowserEntryMax = 63;   // list entries: .syx bank file names run long
+    enum class Entry : uint8_t { Patch, Bank, Single, Voice };
     int browserCount = 0;
     int browserSel = 0;
-    char browser[kBrowserMax][kBrowserNameMax + 1] = {};
+    char browser[kBrowserMax][kBrowserEntryMax + 1] = {};
+    Entry browserKind[kBrowserMax] = {};
+    char bank[kBrowserEntryMax + 1] = {};   // the open bank's file name ("" = the folder)
 
     int32_t engine() const;
     bool available() const;   // the model has an engine in this build
@@ -1028,6 +1034,8 @@ private:
     void resetEditRow();      // Delete in Edit Patch: the Init patch's value
     void applyModel();        // pendingModel_ -> the slot (after "Discard edits?")
     bool loadSelectedNow();
+    bool openBank(const char* file);   // its voices into the list (false: not a DX7 dump)
+    void closeBank();                  // back to the folder, the bank highlighted
     void saveAsNow();         // pendingName_ (after "Overwrite?")
     // Patch edits since the last load / init / save / model change, per slot
     // ("Discard edits?" before Load or a model change).

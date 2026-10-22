@@ -16,10 +16,10 @@
   telemetry_check.py bench --baseline tests/perf_baseline.txt <bench_m4 output>
       bench-m4 instruction counts per block against the baseline: fail above +5 %
       (--tolerance). Placeholder ("-") or missing scenarios are reported, never fail.
-      Absolute engine limits: every acd.* / vap* / fat* / perc* line that prints "limit N"
-      (docs/OPTIMIZATION_2X.md item 10: ACD and VAP Init <= 12k, worst <= 18k
+      Absolute engine limits: every acd.* / vap* / fat* / perc* / dx7.* line that prints
+      "limit N" (docs/OPTIMIZATION_2X.md item 10: ACD and VAP Init <= 12k, worst <= 18k
       instructions per voice per block, FAT Init <= 12k, worst <= 22k, PERC <= 30k per
-      slot incl. its peak block)
+      slot incl. its peak block; DX7 <= 18k, the algorithm 4 / 6 feedback chain <= 22k)
       fails above N.
   telemetry_check.py size [--size-tool arm-none-eabi-size] [--nm-tool arm-none-eabi-nm] <firmware.elf>
       Flash use = .text + .data (Berkeley size): fail above 720,000 B, warn above
@@ -67,7 +67,7 @@ BENCH_PK_RE = re.compile(r"^\s+block\s+\d+ \(song pos \d+, step \d+\):\s+(\d+) M
 # replay worst blocks (220k insn). Update it with `telemetry_check.py cpi` after every device
 # run; docs/OPTIMIZATION_2X.md "CPU round 3" (predicted ~1.7 with the round-3 .fastrun).
 DEVICE_CPI = 1.94
-LIMIT_RE = re.compile(r"^\s+((?:acd|vap|fat|perc|pswitch)[\w.]*)\s+(\d+(?:\.\d+)?)\s.*\blimit (\d+)\b")
+LIMIT_RE = re.compile(r"^\s+((?:acd|vap|fat|perc|dx7|pswitch)[\w.]*)\s+(\d+(?:\.\d+)?)\s.*\blimit (\d+)\b")
 FLASH_FAIL = 720000
 FLASH_WARN = 600000
 # _estack - _ebss holds the stack and newlib's heap (src/hal/stack_watch.h). Measured on the

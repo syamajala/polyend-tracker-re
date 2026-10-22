@@ -76,6 +76,7 @@
 #include "audio/engines/perc.h"
 #include "audio/synth_params.h"
 #include "audio/engines/acd.h"
+#include "audio/engines/dx7.h"
 #include "audio/engines/fat.h"
 #include "audio/engines/vap.h"
 #include "formats/patch_pb.h"
@@ -341,6 +342,69 @@ double fatVoice(bool worst) {
         n.pitch = 96.0f;
         n.reused = true;
         e->noteOn(v, p, n);
+    }
+    const double t0 = nowUnits();
+    for (int b = 0; b < blocks; ++b) {
+        e->prepare(sc, p);
+        e->render(v, p, 0.5f, 0.0f, l, r);
+    }
+    return (nowUnits() - t0) / blocks;
+}
+
+// DX7 bench voice (synthetic, not a Yamaha voice): six operators held at
+// sustain, ratio 1..6, carriers at 99, modulators at 85. alg = algorithm
+// 0..31; worst adds feedback 7, amplitude modulation on every operator, a
+// pitch envelope and LFO pitch modulation.
+void dx7BenchVoice(uint8_t* v, int alg, bool worst) {
+    std::memset(v, 0, dx7::kVoiceBytes);
+    for (int k = 0; k < 6; ++k) {
+        uint8_t* o = v + k * 21;
+        for (int i = 0; i < 4; ++i) o[i] = 99 - 30 * (i == 3);   // rates
+        o[4] = o[5] = o[6] = 99;                                   // levels 1-3
+        o[16] = k >= 4 ? 99 : 85;                                  // output level
+        o[18] = uint8_t(k + 1);                                    // coarse ratio
+        o[20] = 7;                                                 // detune centre
+        o[14] = worst ? 3 : 0;                                     // AMS
+        o[15] = 2;                                                 // velocity sens
+    }
+    for (int i = 0; i < 4; ++i) {
+        v[126 + i] = 60;                                           // pitch EG rates
+        v[130 + i] = worst ? uint8_t(50 + 10 * (i & 1)) : 50;      // pitch EG levels
+    }
+    v[134] = uint8_t(alg);
+    v[135] = worst ? 7 : 3;   // feedback
+    v[136] = 1;               // key sync
+    v[137] = 40;              // LFO speed
+    v[139] = worst ? 50 : 0;  // PMD
+    v[140] = worst ? 60 : 0;  // AMD
+    v[143] = 3;               // pitch mod sens
+    v[144] = 24;              // transpose 0
+    std::memcpy(v + 145, "BENCH     ", 10);
+}
+
+// One DX7 voice per block (prepare + render), held note.
+double dx7Voice(int alg, bool worst) {
+    static uint8_t data[dx7::kVoiceBytes];
+    dx7BenchVoice(data, alg, worst);
+    static SynthParams p;
+    p.engine = kSynthEngineDx7;
+    ISynthEngine* e = dx7::engine();
+    static SynthSlotScratch sc;
+    static SynthVoice v;
+    e->slotReset(sc);
+    dx7::setVoice(sc, data);
+    v = SynthVoice{};
+    v.slotScratch = &sc;
+    v.gate = true;
+    SynthNote n;
+    n.note = 60;
+    n.pitch = 60.0f;
+    e->noteOn(v, p, n);
+    static float l[kBlock], r[kBlock];
+    const int blocks = 800 / kScale;
+    for (int b = 0; b < 20; ++b) {
+        e->prepare(sc, p);
+        e->render(v, p, 0.5f, 0.0f, l, r);
     }
     const double t0 = nowUnits();
     for (int b = 0; b < blocks; ++b) {
@@ -1093,6 +1157,10 @@ int main(int argc, char** argv) {
     reportVoice("vapworst", vapVoice(true), 18000);
     reportVoice("fatinit", fatVoice(false), 12000);
     reportVoice("fatworst", fatVoice(true), 22000);
+    reportVoice("dx7.a1", dx7Voice(0, false), 18000);    // algorithm 1 (one stack + pair)
+    reportVoice("dx7.a32", dx7Voice(31, false), 18000);  // algorithm 32 (six carriers)
+    reportVoice("dx7.a4w", dx7Voice(3, true), 22000);    // algorithm 4 feedback chain, AM, PM (FAT worst budget)
+    reportVoice("dx7.max", dx7Voice(0, true), 18000);    // algorithm 1, AM, PM, feedback 7
     components();
     return 0;
 }

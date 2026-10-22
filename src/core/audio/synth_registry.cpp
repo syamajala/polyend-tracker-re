@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "audio/engines/acd.h"
+#include "audio/engines/dx7.h"
 #include "audio/engines/fat.h"
 #include "audio/engines/perc.h"
 #include "audio/engines/vap.h"
@@ -24,6 +25,8 @@ ISynthEngine* synthEngineFor(int32_t engineId) {
             return vap::engine();
         case kSynthEnginePerc:
             return percEngine();
+        case kSynthEngineDx7:
+            return dx7::engine();
         case kSynthEngineTest:
             return synthTestEngine();
         // WTFM is planned for 2.2 (docs/MINI_PLAN.md §3): the slot loads
