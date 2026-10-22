@@ -548,9 +548,14 @@ TEST(synth_dx7_voice_from_patch) {
         *hf = e > 0.0 ? d / e : 0.0;
         return e;
     };
-    double hfInit = 0.0, hfFm = 0.0, hfHalf = 0.0;
+    double hfInit = 0.0, hfFm = 0.0, hfHalf = 0.0, hfAgain = 0.0;
     const double eInit = note(&hfInit);   // INIT VOICE: a sine
     CHECK(eInit > 1.0);
+    // Stop (stopAll: every engine's slotReset) keeps the voice: the next
+    // note sounds the same without a patch change (device bug: the slot
+    // went silent for good after the first Stop).
+    const double eAgain = note(&hfAgain);
+    CHECK_NEAR(eAgain / eInit, 1.0, 0.01);
     // Operator 2 modulating operator 1 at level 90: brighter.
     uint8_t v[kDx7VoiceBytes];
     std::memcpy(v, kDx7InitVoice, sizeof v);
