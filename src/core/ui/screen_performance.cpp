@@ -692,7 +692,7 @@ void PerformanceScreen::update(uint32_t now) {
             apply = true;
         }
         // [I] CC 63: scene crossfader.
-        if (sceneCcPending_ && view == View::Play) {   // [I] kept while editing a scene
+        if (sceneCcPending_ && view != View::EditScene) {   // [I] kept while editing a scene
             sceneCcPending_ = false;
             setFader((sceneCcVal_ * kFaderMax + 63) / 127);
         }
@@ -1041,11 +1041,10 @@ void PerformanceScreen::refreshBar() {
     b.clear();
     if (view == View::Bank) {
         // [I] Drawn by draw() like the track labels.
+        // One line each: the red box already shows the selected scene.
         static const char* const kTop[8] = {"Set A", "Set B", "Edit", "Clear", "", "", "", "Back"};
-        char v[8];
-        std::snprintf(v, sizeof(v), "%d", bankCursor + 1);
         for (int i = 0; i < 8; ++i) {
-            b.set(i, kTop[i], i < 4 ? v : "");
+            b.set(i, kTop[i], "");
             b.highlight(i, true);
             b.label[i].hidden = true;
         }
@@ -1084,13 +1083,18 @@ void PerformanceScreen::draw(Gfx& g) {
     if (view == View::EditScene) {
         std::snprintf(fade, sizeof(fade), "%s%sEditing", right ? right : "", right ? "  " : "");
         right = fade;
-    } else if (perfFaderUsed(pj)) {
-        char bar[12];
-        const int pos = fader * 10 / kFaderMax;
-        for (int i = 0; i <= 10; ++i) bar[i] = i == pos ? '|' : '-';
-        bar[11] = 0;
-        std::snprintf(fade, sizeof(fade), "%s%sA %d %s B %d", right ? right : "", right ? "  " : "",
-                      pj.perfSceneOn[0] + 1, bar, pj.perfSceneOn[1] + 1);
+    } else if (perfFaderUsed(pj) && !edit) {   // edit mode: the encoder edits rows, no fader shown
+        // The bar shrinks until the whole text fits the title's right side
+        // (with "EDIT" / "Tracks 9-16" in front of it).
+        for (int cells = 10; cells >= 2; --cells) {
+            char bar[12];
+            const int pos = fader * cells / kFaderMax;
+            for (int i = 0; i <= cells; ++i) bar[i] = i == pos ? '|' : '-';
+            bar[cells + 1] = 0;
+            std::snprintf(fade, sizeof(fade), "%s%sA %d %s B %d", right ? right : "", right ? "  " : "",
+                          pj.perfSceneOn[0] + 1, bar, pj.perfSceneOn[1] + 1);
+            if (textWidth(kFont4, fade) <= wg::kRightTextX - wg::kRightTextMinX) break;
+        }
         right = fade;
     }
     if (view == View::EditScene) std::snprintf(title, sizeof(title), "Scene %d", editScene + 1);
@@ -1279,9 +1283,7 @@ void PerformanceScreen::drawBank(Gfx& g) {
     for (int t = 0; t < 8; ++t) {
         const BarLabel& l = ui_.bar.label[t];
         if (!l.top[0]) continue;
-        const int cx = wg::labelCentre(t);
-        g.text(cx, wg::kLabelY1, kFont3, th.slot(slot::kBottomLabel), l.top, IDisplay::kOptCenter);
-        g.text(cx, wg::kLabelY2, kFont2, th.slot(slot::kBottomLabel + 3), l.bottom, IDisplay::kOptCenter);
+        g.text(wg::labelCentre(t), wg::kLabelY, kFont3, th.slot(slot::kBottomLabel), l.top, IDisplay::kOptCenter);
     }
 }
 
