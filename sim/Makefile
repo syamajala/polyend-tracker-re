@@ -110,6 +110,10 @@ check: $(BIN) $(JPEG_CHECK) visual-diff keyflow-check
 	python3 fixtures/make_dx7_bank.py $(OUT)/check-fork/Patches/DX7/testbank.syx
 	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/check-fork --line-in-tone 440 \
 	    --script scripts/fork_screens.txt
+	# Resampling end to end (#38): takes into instruments, placed on a track, played.
+	rm -rf $(OUT)/check-resample $(OUT)/check-resample.eeprom
+	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/check-resample --line-in-tone 440 \
+	    --script scripts/resample_e2e.txt
 	# 2.x USB Storage mode: script commands and the Config row drive the mode page.
 	rm -rf $(OUT)/check-usb $(OUT)/check-usb.eeprom
 	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/check-usb \

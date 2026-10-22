@@ -159,13 +159,15 @@ struct Machine {
     // (L at hz, R a fifth above: distinct stereo lanes).
     struct ToneIn {
         float hz = 440.0f;
+        bool used = false;  // --line-in-tone given
+        bool off = false;   // script 'line-in off': silence, the clock keeps running
         uint64_t n = 0;
         int16_t buf[128 * 2] = {};
         const int16_t* block() {
             for (int i = 0; i < 128; ++i, ++n) {
                 const double t = double(n) / 44100.0;
                 const double ph = std::fmod(t - 0.25, 0.6);
-                const double env = t < 0.25 || ph > 0.4 ? 0.0 : std::sin(3.14159265 * ph / 0.4);
+                const double env = off || t < 0.25 || ph > 0.4 ? 0.0 : std::sin(3.14159265 * ph / 0.4);
                 // Distinct lanes for the 2.x stereo recorder: R a fifth above, softer.
                 buf[2 * i] = int16_t(12000.0 * env * std::sin(2.0 * 3.14159265 * hz * t));
                 buf[2 * i + 1] = int16_t(9000.0 * env * std::sin(2.0 * 3.14159265 * 1.5 * hz * t));
@@ -294,6 +296,7 @@ struct Machine {
         }
         if (o.lineInTone > 0.0f) {
             tone.hz = o.lineInTone;
+            tone.used = true;
             h.lineIn = [](void* c) { return static_cast<ToneIn*>(c)->block(); };
             h.lineInCtx = &tone;
         }
@@ -754,6 +757,58 @@ struct Headless {
                 m.manualAudio.peak = 0;
                 if (got < n1) {
                     std::fprintf(stderr, "script:%d: output peak %d < %ld\n", line, got, n1);
+                    return false;
+                }
+            } else if (cmd == "expect-quiet") {
+                // Peak output since the last expect-sound / sound-reset < N.
+                const int got = m.manualAudio.peak;
+                m.manualAudio.peak = 0;
+                if (got >= n1) {
+                    std::fprintf(stderr, "script:%d: output peak %d >= %ld\n", line, got, n1);
+                    return false;
+                }
+            } else if (cmd == "line-in") {
+                // line-in on|off: the --line-in-tone input plays or is silent.
+                if (!m.tone.used || (a1 != "on" && a1 != "off")) {
+                    std::fprintf(stderr, "script:%d: line-in on|off needs --line-in-tone\n", line);
+                    return false;
+                }
+                m.tone.off = a1 == "off";
+            } else if (cmd == "expect-resample") {
+                // expect-resample SLOT [MINPEAK]: the last take finished into
+                // instrument SLOT (1-based) with a recorded peak >= MINPEAK.
+                char rep[160] = "";
+                if (m.app) ot::formatResampleReport(rep, sizeof rep, m.app->lastResample, 0, 0);
+                std::fprintf(stderr, "%s\n", rep);
+                const ot::ResampleReport* r = m.app ? &m.app->lastResample : nullptr;
+                if (!r || r->seq == 0 || m.app->resampler.busy() || r->outcome != ot::ResampleReport::kOk ||
+                    r->slot != n1 - 1 || r->stats.peak < std::atol(a2.c_str())) {
+                    std::fprintf(stderr, "script:%d: want a take into instrument %ld, peak >= %s\n", line, n1,
+                                 a2.empty() ? "0" : a2.c_str());
+                    return false;
+                }
+            } else if (cmd == "expect-instrument") {
+                // expect-instrument SLOT MINFRAMES [NAME...]: sample instrument
+                // SLOT (1-based) is loaded, at least MINFRAMES long, its sample
+                // not silent, and named NAME.
+                const int i = int(n1 - 1);
+                const bool present = m.app && i >= 0 && i < ot::kSampleInstrumentCount && m.app->instrPresent[i];
+                const ot::Instrument* ins = present ? &m.app->instruments[i] : nullptr;
+                int peak = 0;
+                if (ins) {
+                    const int16_t* lanes[2] = {m.app->bank.left(i), ins->stereo ? m.app->bank.right(i) : nullptr};
+                    for (const int16_t* p : lanes)
+                        for (uint32_t k = 0; p && k < ins->lengthFrames; ++k) peak = std::max(peak, std::abs(int(p[k])));
+                }
+                std::string want;
+                if (!a3.empty()) want = lineStr.substr(lineStr.find(a3, lineStr.find(a2) + a2.size()));
+                while (!want.empty() && (want.back() == ' ' || want.back() == '\r')) want.pop_back();
+                std::fprintf(stderr, "instrument %ld: %s, \"%s\", %u frames, peak %d\n", n1,
+                             present ? "loaded" : "empty", ins ? ins->name : "", ins ? unsigned(ins->lengthFrames) : 0u,
+                             peak);
+                if (!ins || ins->lengthFrames < uint32_t(std::atol(a2.c_str())) || peak == 0 ||
+                    (!want.empty() && want != ins->name)) {
+                    std::fprintf(stderr, "script:%d: instrument %ld not as expected\n", line, n1);
                     return false;
                 }
             } else if (cmd == "sound-reset") {

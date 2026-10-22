@@ -1,0 +1,49 @@
+# Resampling end to end (issue #38), run by `make check` with a test tone on
+# line in on an empty card. Take 1: Line in, 1 bar, placed on track 1: silent
+# while stopped, then the pattern sounds (the new instrument is all it has).
+# Take 2, the tone off: Master, which now is just that instrument; the
+# resample of the resample lands in the next slot and is not silent.
+wait 200
+tap PLAY
+wait 200
+tap SAMPLERECORDER
+wait 300
+tap F6               # Resample
+wait 300
+expect-screen Resample
+tap F1
+enc 9                # From: Line in
+tap F2
+enc -5
+enc 1                # Length: 1 bar
+tap F4
+enc 1                # Place on: Track 1
+tap F8               # Record (starts on the next bar)
+wait 5000            # <= 1 bar to the start + 1 bar at 125 BPM (1.92 s each)
+expect-resample 1 3000
+expect-instrument 1 80000 Resample Line in
+tap PLAY
+wait 300
+line-in off
+tap PATTERN
+wait 300
+sound-reset
+wait 1000
+expect-quiet 50      # stopped, no line in: silence
+tap PLAY
+wait 2500
+expect-sound 1000    # the placed take plays
+# Take 2: Master, placement off.
+tap SAMPLERECORDER
+wait 300
+tap F6
+wait 300
+tap F1
+enc -9               # From: Master
+tap F4
+enc -1               # Place on: Off
+tap F8
+wait 5000
+expect-resample 2 1000
+expect-instrument 2 80000 Resample Master
+tap PLAY
