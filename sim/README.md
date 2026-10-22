@@ -222,6 +222,8 @@ expect-project NAME         fail unless the current project is NAME
 expect-playing              fail unless the sequencer is playing
 expect-sound N              fail if the output peak since the last
                             expect-sound / sound-reset is below N (0..32767)
+expect-quiet N              fail if the output peak since the last
+                            expect-sound / sound-reset is N or more
 sound-reset                 restart the output peak
 ```
 
@@ -247,6 +249,18 @@ fps-reset / expect-fps N    fail if fewer than N frames/s were rendered since fp
 tone-sample SLOT FRAMES     write a test WAV to the card, import it into SLOT (1-based)
                             and make it the current instrument
 expect-playhead on|off      fail unless Sample Playback does (not) draw its playhead
+```
+
+Resampling end to end (`make check` runs `scripts/resample_e2e.txt` with
+`--line-in-tone`):
+
+```
+line-in on|off              the --line-in-tone input plays or is silent
+expect-resample SLOT [PEAK] fail unless the last take finished into instrument SLOT
+                            (1-based) with a recorded peak of at least PEAK
+expect-instrument SLOT MINFRAMES [NAME]
+                            fail unless sample instrument SLOT is loaded, at least
+                            MINFRAMES long, not silent and (if given) named NAME
 ```
 
 ## HAL mapping
