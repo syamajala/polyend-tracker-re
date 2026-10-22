@@ -41,7 +41,7 @@ constexpr int kSynthSlots = 3;                 // Synth 1..3 (instruments 64..66
 constexpr int kSynthMaxVoices = 8;             // pool records; Config budget 1..8
 constexpr int kSynthDefaultVoices = 4;         // OPTIMIZATION_2X item 10 (6 after OP-3..5)
 constexpr int kSynthParamMax = kPatchMaxParams;   // 84 (PERC)
-constexpr int kSynthVoiceStateBytes = 128;     // engine state per voice (SRAM)
+constexpr int kSynthVoiceStateBytes = 256;     // engine state per voice (SRAM; DX7 needs 248)
 constexpr int kSynthSlotScratchBytes = 384;    // engine state per slot (SRAM)
 // Internal test engine id (not a Tracker Mini id, never written to a patch).
 constexpr int32_t kSynthEngineTest = 0x7E;

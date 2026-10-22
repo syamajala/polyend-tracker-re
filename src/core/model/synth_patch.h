@@ -20,6 +20,8 @@ enum SynthEngineId : int32_t {
     kSynthEngineVap = 4,
     kSynthEngineWtfm = 5,
     kSynthEnginePerc = 6,
+    // Not a Tracker Mini model: the DX7 FM engine (OpenTracker only, issue #20).
+    kSynthEngineDx7 = 0x40,
 };
 
 constexpr int kPatchMaxParams = 84;      // PERC has the most (spec 21 §8.1)

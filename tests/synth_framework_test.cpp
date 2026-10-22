@@ -576,8 +576,9 @@ TEST(synth_fat_available_and_sounding) {
 }
 
 TEST(synth_voice_memory_budget) {
-    // Voice state in SRAM: the pool is at most 1.5 KB.
-    CHECK(sizeof(SynthVoice) * kSynthMaxVoices <= 1536);
+    // Voice state in SRAM: the pool is at most 2.25 KB (DX7: 256 B of engine
+    // state per voice).
+    CHECK(sizeof(SynthVoice) * kSynthMaxVoices <= 2304);
     CHECK_EQ(kSynthDefaultVoices, 4);
     CHECK_EQ(Governor::kDefaultBudget, 4);
 }

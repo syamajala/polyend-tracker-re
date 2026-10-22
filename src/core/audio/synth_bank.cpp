@@ -18,7 +18,7 @@ constexpr uint8_t kFxRandVol = 7, kFxVol = 18, kFxGlideId = 19, kFxMicro = 34, k
                   kFxSlideD = 42;
 }  // namespace
 
-static_assert(sizeof(SynthVoice) <= 160, "engine-visible voice record");
+static_assert(sizeof(SynthVoice) <= 288, "engine-visible voice record");
 
 SynthBank::SynthBank() { reset(); }
 
