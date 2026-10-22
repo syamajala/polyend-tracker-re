@@ -3,7 +3,7 @@
 // bipolar, empty targets, M7), voice allocation / stealing / caps, mono
 // legato, Stop resetting macro overrides, the governor cutting synth voices
 // only, sequencer dispatch of instruments 64..66, the slot mixer and the
-// Synth 1..3 stems, unsupported models.
+// Synth 1..3 stems, unsupported models, the DX7 voice in its patch.
 #include "test.h"
 
 #include <algorithm>
@@ -13,6 +13,7 @@
 
 #include "audio/engine.h"
 #include "audio/engines/acd.h"
+#include "audio/engines/dx7.h"
 #include "audio/engines/perc.h"
 #include "audio/synth_bank.h"
 #include "audio/synth_params.h"
@@ -513,6 +514,60 @@ TEST(synth_stop_resets_macro_overrides) {
     CHECK_NEAR(r.bank.params(1).end[10], 0.5f, 1e-6);
     CHECK(!r.bank.slotView(1).overridden[0]);
     CHECK_EQ(r.bank.slotView(1).macro[0], 0);
+}
+
+// DX7 (OpenTracker model 5): the slot plays the voice in its patch (field
+// 100, ISynthEngine::loadPatch), and a voice edit reaches the next note.
+TEST(synth_dx7_voice_from_patch) {
+    CHECK(synthEngineFor(kSynthEngineDx7) == dx7::engine());
+    CHECK_EQ(int(synthEngineId(SynthModel::DX7)), int(kSynthEngineDx7));
+    CHECK_STR(synthModelName(SynthModel::DX7), "DX7");
+    CHECK(rec(SynthModel::DX7, 4).valid());
+    BankRig r;
+    r.bank.setEngineOverride(nullptr);
+    CHECK(patchInit(kSynthEngineDx7, &r.patch[0]));
+    r.bank.setSlotRecord(0, rec(SynthModel::DX7, 4));
+    r.block();
+    CHECK(r.bank.slotAvailable(0));
+    CHECK_STR(r.bank.slotView(0).model, "DX7");
+    // Energy and the high-frequency share (first differences) of one note.
+    auto note = [&](double* hf) {
+        r.on(0, 0, 57);
+        double e = 0.0, d = 0.0;
+        float last = 0.0f;
+        for (int k = 0; k < 40; ++k) {
+            r.block();
+            for (uint32_t i = 0; i < kBlock; ++i) {
+                e += double(r.L[i]) * r.L[i];
+                d += double(r.L[i] - last) * (r.L[i] - last);
+                last = r.L[i];
+            }
+        }
+        r.bank.stopAll();
+        r.block();
+        *hf = e > 0.0 ? d / e : 0.0;
+        return e;
+    };
+    double hfInit = 0.0, hfFm = 0.0, hfHalf = 0.0;
+    const double eInit = note(&hfInit);   // INIT VOICE: a sine
+    CHECK(eInit > 1.0);
+    // Operator 2 modulating operator 1 at level 90: brighter.
+    uint8_t v[kDx7VoiceBytes];
+    std::memcpy(v, kDx7InitVoice, sizeof v);
+    v[4 * 21 + 16] = 90;
+    CHECK(patchSetDx7Voice(r.patch[0], v));
+    r.bank.patchChanged(0);
+    r.block();
+    const double eFm = note(&hfFm);
+    CHECK(eFm > 1.0);
+    CHECK(hfFm > hfInit * 4.0);
+    // Volume (parameter 0) halves the level.
+    synthParamSet(r.patch[0], 0, 0.5f);
+    r.bank.patchChanged(0);
+    r.block();
+    const double eHalf = note(&hfHalf);
+    CHECK_NEAR(std::sqrt(eHalf / eFm), 0.5, 0.05);
+    CHECK_NEAR(hfHalf, hfFm, hfFm * 0.01);
 }
 
 TEST(synth_unsupported_engine_silent) {

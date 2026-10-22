@@ -24,7 +24,7 @@ namespace {
 int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
-const char* const kModels[kSynthModelCount] = {"ACD", "FAT", "VAP", "WTFM", "PERC"};
+const char* const kModels[kSynthModelCount] = {"ACD", "FAT", "VAP", "WTFM", "PERC", "DX7"};
 const char* const kOffOn[2] = {"Off", "On"};
 constexpr float kMinBar = 1.0f / float(wg::kPanelH - 25);   // value 0: the 1.5-px line (screen_instrument)
 constexpr int kMacroBarH = 270;                              // Macros page: bars over the legend
@@ -246,9 +246,11 @@ void SynthScreen::refreshBar() {
         case View::Browser:
             // Tracker+ 1.0 Load Patch popup: F5-F6 Preview, F7 Cancel, F8 Confirm.
             for (int i = 0; i < 4; ++i) b.label[i].hidden = true;
-            b.setWide(4, "Preview", nullptr, browserCount > 0 && !ro);
+            // DX7: a highlighted .syx bank shows Open, nothing to preview.
+            const bool onBank = browserSel >= 0 && browserSel < browserCount && browserKind[browserSel] == Entry::Bank;
+            b.setWide(4, "Preview", nullptr, browserCount > 0 && !ro && !onBank);
             b.set(6, "Cancel");
-            b.set(7, "Confirm", nullptr, browserCount > 0 && !ro);
+            b.set(7, onBank ? "Open" : "Confirm", nullptr, browserCount > 0 && !ro);
             break;
     }
 }
@@ -482,35 +484,86 @@ void SynthScreen::editChange(int d) {
 
 void SynthScreen::listBrowser() {
     browserCount = 0;
+    bank[0] = 0;
     const SynthSlotRecord r = app_.synthSlot(slot);
+    const SynthModel m = SynthModel(r.model < uint32_t(kSynthModelCount) ? r.model : 0);
     char dir[32];
-    std::snprintf(dir, sizeof(dir), "Patches/%s", synthModelName(SynthModel(r.model < uint32_t(kSynthModelCount) ? r.model : 0)));
-    app_.fs().listDir(dir, [](const IStorage::DirEntry& e, void* ctx) {
-        auto* s = static_cast<SynthScreen*>(ctx);
-        if (e.isDir || s->browserCount >= kBrowserMax) return true;
+    std::snprintf(dir, sizeof(dir), "Patches/%s", synthModelName(m));
+    struct Ctx {
+        SynthScreen* s;
+        bool banks;
+    } ctx{this, m == SynthModel::DX7};
+    app_.fs().listDir(dir, [](const IStorage::DirEntry& e, void* c) {
+        auto* x = static_cast<Ctx*>(c);
+        SynthScreen* s = x->s;
+        if (e.isDir || s->browserCount >= kBrowserMax || e.name[0] == '.') return true;
         const size_t n = std::strlen(e.name);
-        if (n <= 6 || n - 6 > size_t(kBrowserNameMax) || e.name[0] == '.') return true;
-        const char* ext = e.name + n - 6;
-        if (!(ext[0] == '.' && (ext[1] | 32) == 'p' && (ext[2] | 32) == 'a' && (ext[3] | 32) == 't' &&
-              (ext[4] | 32) == 'c' && (ext[5] | 32) == 'h'))
+        auto hasExt = [&](const char* ext, size_t len) {
+            if (n <= len || n - len > size_t(kBrowserNameMax)) return false;
+            for (size_t i = 0; i < len; ++i)
+                if ((e.name[n - len + i] | 32) != ext[i]) return false;
             return true;
-        std::memcpy(s->browser[s->browserCount], e.name, n - 6);
-        s->browser[s->browserCount][n - 6] = 0;
-        ++s->browserCount;
+        };
+        size_t len = 0;
+        Entry kind = Entry::Patch;
+        if (hasExt(".patch", 6)) len = 6;
+        else if (x->banks && hasExt(".syx", 4) && n <= size_t(kBrowserNameMax)) kind = Entry::Bank;   // whole name
+        else return true;
+        std::memcpy(s->browser[s->browserCount], e.name, n - len);
+        s->browser[s->browserCount][n - len] = 0;
+        s->browserKind[s->browserCount++] = kind;
         return true;
-    }, this);
-    // Sorted by name, case-insensitive (stock lists).
+    }, &ctx);
+    // Banks first, then by name, case-insensitive (stock lists).
+    auto before = [&](int a, int b) {
+        if (browserKind[a] != browserKind[b]) return browserKind[a] == Entry::Bank;
+        return sortName(browser[a], browser[b]);
+    };
     for (int i = 1; i < browserCount; ++i)
-        for (int j = i; j > 0 && sortName(browser[j], browser[j - 1]); --j) {
+        for (int j = i; j > 0 && before(j, j - 1); --j) {
             char t[kBrowserNameMax + 1];
             std::memcpy(t, browser[j], sizeof(t));
             std::memcpy(browser[j], browser[j - 1], sizeof(t));
             std::memcpy(browser[j - 1], t, sizeof(t));
+            std::swap(browserKind[j], browserKind[j - 1]);
         }
     browserSel = 0;
     for (int i = 0; i < browserCount; ++i)
-        if (std::strcmp(browser[i], r.patchName) == 0) browserSel = i;
+        if (browserKind[i] == Entry::Patch && std::strcmp(browser[i], r.patchName) == 0) browserSel = i;
     browserTop_ = 0;
+}
+
+bool SynthScreen::openBank(const char* file) {
+    char nm[kBrowserNameMax + 1];   // a copy: the list is refilled below
+    std::snprintf(nm, sizeof(nm), "%s", file);
+    const int n = app_.openDx7Bank(nm);
+    if (n <= 0) return false;
+    audition(false, 0);
+    previewSel_ = -1;   // list indices change: the next preview reads again
+    std::snprintf(bank, sizeof(bank), "%s", nm);
+    browserCount = n < kBrowserMax ? n : kBrowserMax;
+    browserSel = 0;
+    const SynthSlotRecord r = app_.synthSlot(slot);
+    for (int k = 0; k < browserCount; ++k) {
+        app_.dx7BankVoiceName(k, browser[k], kBrowserNameMax + 1);
+        browserKind[k] = Entry::Voice;
+    }
+    for (int k = browserCount - 1; k >= 0; --k)
+        if (std::strcmp(browser[k], r.patchName) == 0) browserSel = k;
+    browserTop_ = 0;
+    ui_.openPopupHeader(bank, Ui::PopupHeader::kRightBar);
+    return true;
+}
+
+void SynthScreen::closeBank() {
+    char was[kBrowserNameMax + 1];
+    std::snprintf(was, sizeof(was), "%s", bank);
+    audition(false, 0);
+    previewSel_ = -1;
+    listBrowser();
+    for (int i = 0; i < browserCount; ++i)
+        if (browserKind[i] == Entry::Bank && std::strcmp(browser[i], was) == 0) browserSel = i;
+    ui_.openPopupHeader("Load Patch", Ui::PopupHeader::kRightBar);
 }
 
 void SynthScreen::applyModel() {
@@ -537,6 +590,7 @@ void SynthScreen::closeBrowser() {
     padNote_ = previewKey_ = -1;
     app_.endSynthPreview();
     previewSel_ = -1;
+    bank[0] = 0;
     if (view == View::Browser) {
         view = View::Params;
         ui_.closePopupHeader();
@@ -547,9 +601,12 @@ void SynthScreen::closeBrowser() {
 // Cancel (read again only when the highlight moved).
 bool SynthScreen::previewHighlighted() {
     if (!available() || browserSel < 0 || browserSel >= browserCount) return false;
+    if (browserKind[browserSel] == Entry::Bank) return false;   // a bank plays nothing
     if (previewSel_ == browserSel) return true;
     audition(false, 0);
-    if (!app_.previewSynthLibraryPatch(slot, browser[browserSel])) {
+    const bool ok = browserKind[browserSel] == Entry::Voice ? app_.previewDx7BankVoice(slot, browserSel)
+                                                             : app_.previewSynthLibraryPatch(slot, browser[browserSel]);
+    if (!ok) {
         app_.endSynthPreview();
         previewSel_ = -1;
         ui_.notify("Patch could not be loaded");
@@ -561,6 +618,10 @@ bool SynthScreen::previewHighlighted() {
 
 bool SynthScreen::loadSelected() {
     if (!available() || browserSel < 0 || browserSel >= browserCount) return false;
+    if (browserKind[browserSel] == Entry::Bank) {   // Confirm on a bank opens it
+        if (!openBank(browser[browserSel])) ui_.notify("Not a DX7 bank");
+        return false;
+    }
     if (edited_[slot]) {   // unsaved patch edits: ask first (2x-05 §6.3)
         ui_.ask("Load Patch", "Discard edits?", nullptr, "No", "Yes",
                 [](void* c, int key) {
@@ -579,8 +640,10 @@ bool SynthScreen::loadSelectedNow() {
     padNote_ = previewKey_ = -1;
     app_.endSynthPreview();   // the slot's own patch first, then the real load
     previewSel_ = -1;
-    const bool ok = app_.loadSynthLibraryPatch(slot, browser[browserSel]);
+    const bool ok = browserKind[browserSel] == Entry::Voice ? app_.loadDx7BankVoice(slot, browserSel)
+                                                             : app_.loadSynthLibraryPatch(slot, browser[browserSel]);
     if (ok) {
+        bank[0] = 0;
         edited_[slot] = false;
         view = View::Params;   // Confirm closes the popup
         ui_.closePopupHeader();
@@ -775,9 +838,15 @@ void SynthScreen::onButton(uint8_t id, uint8_t state) {
                 closeBrowser();
             } else if (id == btn::F8) {
                 loadSelected();
-            } else if (id == btn::Up || id == btn::Down)
+            } else if (id == btn::Up || id == btn::Down) {
                 browserSel = clampi(browserSel + (id == btn::Down ? 1 : -1), 0, browserCount > 0 ? browserCount - 1 : 0);
-            else if (!btn::isFKey(id) && id != btn::Left && id != btn::Right) Screen::onButton(id, state);
+            } else if (id == btn::Left) {
+                if (bank[0]) closeBank();   // out of a DX7 bank
+            } else if (id == btn::Right) {
+                if (!ro && browserSel < browserCount && browserKind[browserSel] == Entry::Bank) loadSelected();
+            } else if (!btn::isFKey(id)) {
+                Screen::onButton(id, state);
+            }
             break;
     }
     refreshBar();
@@ -1039,11 +1108,12 @@ void SynthScreen::drawBrowser(Gfx& g) {
     v.background = false;
     v.selStyle = wg::ListSel::kWhite;
     v.item = [](void* c, int i, char* out, int cap) {
-        std::snprintf(out, size_t(cap), "%s", static_cast<SynthScreen*>(c)->browser[i]);
+        auto* s = static_cast<SynthScreen*>(c);
+        std::snprintf(out, size_t(cap), "%s", s->browser[i]);
     };
     v.marked = [](void* c, int i) {
         auto* s = static_cast<SynthScreen*>(c);
-        return std::strcmp(s->browser[i], s->app_.synthSlot(s->slot).patchName) == 0;
+        return s->browserKind[i] != Entry::Bank && std::strcmp(s->browser[i], s->app_.synthSlot(s->slot).patchName) == 0;
     };
     v.ctx = this;
     wg::list(g, th, v);

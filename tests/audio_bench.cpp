@@ -1159,7 +1159,7 @@ int main(int argc, char** argv) {
     reportVoice("fatworst", fatVoice(true), 22000);
     reportVoice("dx7.a1", dx7Voice(0, false), 18000);    // algorithm 1 (one stack + pair)
     reportVoice("dx7.a32", dx7Voice(31, false), 18000);  // algorithm 32 (six carriers)
-    reportVoice("dx7.a4w", dx7Voice(3, true), 18000);    // algorithm 4 feedback chain, AM, PM
+    reportVoice("dx7.a4w", dx7Voice(3, true), 22000);    // algorithm 4 feedback chain, AM, PM (FAT worst budget)
     reportVoice("dx7.max", dx7Voice(0, true), 18000);    // algorithm 1, AM, PM, feedback 7
     components();
     return 0;

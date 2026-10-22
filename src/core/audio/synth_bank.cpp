@@ -267,6 +267,7 @@ void SynthBank::reloadParams(int s, bool jump) {
         ++p.serial;
         return;
     }
+    if (sl.eng) sl.eng->loadPatch(sl.scratch, *sl.patch);
     int n = 0;
     const PatchParamRange* t = patchEngineParams(sl.engineId, &n);
     // A live edit ramps from where the last block ended (like a macro move).

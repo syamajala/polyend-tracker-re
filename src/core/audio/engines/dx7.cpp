@@ -27,6 +27,7 @@
 #include <cstring>
 
 #include "audio/engines/dx7_tables.h"
+#include "formats/patch_pb.h"
 
 namespace ot {
 namespace audio {
@@ -476,6 +477,14 @@ public:
     const char* name() const override { return "DX7"; }
 
     void slotReset(SynthSlotScratch& slot) override { std::memset(&slot.as<Slot>(), 0, sizeof(Slot)); }
+
+    // The voice of the patch (field kPatchFieldDx7Voice), else INIT VOICE.
+    static_assert(kVoiceBytes == kDx7VoiceBytes, "VCED size");
+    void loadPatch(SynthSlotScratch& slot, const SynthPatch& patch) override {
+        uint8_t v[kVoiceBytes];
+        patchDx7Voice(patch, v);
+        setVoice(slot, v);
+    }
 
     void prepare(SynthSlotScratch& slot, const SynthParams& p) override {
         (void)p;

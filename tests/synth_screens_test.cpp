@@ -6,6 +6,7 @@
 #include "test.h"
 #include "ui_fakes.h"
 
+#include <cstdio>
 #include <cstring>
 #include <cmath>
 #include <string>
@@ -189,10 +190,14 @@ TEST(model_change_loads_init) {
     h.tap(btn::Down);  // list: Down = next (VAP)
     CHECK(a.synthSlot(1).model == uint32_t(SynthModel::VAP));
     CHECK(a.synthPatch(1).engine == kSynthEngineVap);
-    // The Model key cycles and wraps (manual p.147): VAP, WTFM, PERC, ACD.
+    // The Model key cycles and wraps (manual p.147): VAP, WTFM, PERC, then
+    // DX7 (OpenTracker), ACD.
     h.tap(btn::F1);
     h.tap(btn::F1);
     CHECK(a.synthSlot(1).model == uint32_t(SynthModel::PERC));
+    h.tap(btn::F1);
+    CHECK(a.synthSlot(1).model == uint32_t(SynthModel::DX7));
+    CHECK(a.synthPatch(1).engine == kSynthEngineDx7);
     h.tap(btn::F1);
     CHECK(a.synthSlot(1).model == uint32_t(SynthModel::ACD));
     CHECK(a.synthPatch(1).engine == kSynthEngineAcd);
@@ -544,8 +549,7 @@ TEST(not_available_is_read_only) {
     CHECK(a.synthSlot(0).macros[0] == r0.macros[0]);
     h.tap(btn::InstrParams);
     // The model can still be changed (to an available one).
-    h.tap(btn::F1);
-    h.tap(btn::Down);   // WTFM -> PERC
+    h.tap(btn::F1);     // Model already selected: cycles WTFM -> PERC
     CHECK(a.synthSlot(0).model == uint32_t(SynthModel::PERC));
     CHECK(s.available());
     CHECK(frameHas(h, "Synth 1 (PERC)"));
@@ -1388,4 +1392,134 @@ TEST(synth_edit_wheel_hint_lists_and_values) {
     }
     CHECK(lists >= 1);
     CHECK(values >= 2);
+}
+
+// DX7 (OpenTracker, issue #20): Load Patch also lists Patches/DX7/*.syx
+// (banks first), Open lists a bank's voices, Left goes back, a voice
+// previews and loads as the Init patch with that voice, named after it.
+TEST(dx7_syx_bank_browser) {
+    Harness h(false);
+    h.fs.dirs.insert("Patches");
+    h.fs.dirs.insert("Patches/DX7");
+    // A 32-voice bank (VMEM): zero voices named "VOICE  1".."VOICE 32"; the
+    // checksum is not checked.
+    std::vector<uint8_t> bk = {0xF0, 0x43, 0x00, 0x09, 0x20, 0x00};
+    for (int k = 0; k < 32; ++k) {
+        uint8_t e[128] = {};
+        char nm[24];
+        std::snprintf(nm, sizeof nm, "VOICE %2d  ", k + 1);
+        std::memcpy(e + 118, nm, 10);
+        e[117] = 24;
+        bk.insert(bk.end(), e, e + 128);
+    }
+    bk.push_back(0);
+    bk.push_back(0xF7);
+    h.fs.files["Patches/DX7/mybank.syx"] = bk;
+    // A single-voice dump (VCED) of INIT VOICE renamed "SOLO".
+    std::vector<uint8_t> one = {0xF0, 0x43, 0x00, 0x00, 0x01, 0x1B};
+    one.insert(one.end(), kDx7InitVoice, kDx7InitVoice + kDx7VoiceBytes);
+    std::memcpy(one.data() + 6 + 145, "SOLO      ", 10);
+    one.push_back(0);
+    one.push_back(0xF7);
+    h.fs.files["Patches/DX7/One.SYX"] = one;
+    h.fs.files["Patches/DX7/bad.syx"] = std::vector<uint8_t>{1, 2, 3};
+    SynthPatch saved;
+    CHECK(patchInit(kSynthEngineDx7, &saved));
+    h.fs.files["Patches/DX7/saved.patch"] = encode(saved);
+    h.fs.files["Patches/ACD/other.syx"] = bk;   // other models list no banks
+    h.app->boot();
+    App& a = *h.app;
+    openSlot(h, 1, SynthModel::DX7);
+    SynthScreen& s = synth(a);
+    CHECK(s.available());
+    h.tap(btn::F7);
+    CHECK(s.view == SynthScreen::View::Browser);
+    CHECK_EQ(s.browserCount, 4);
+    CHECK_STR(s.browser[0], "bad.syx");
+    CHECK_STR(s.browser[1], "mybank.syx");
+    CHECK_STR(s.browser[2], "One.SYX");
+    CHECK_STR(s.browser[3], "saved");
+    CHECK(s.browserKind[2] == SynthScreen::Entry::Bank);
+    CHECK(s.browserKind[3] == SynthScreen::Entry::Patch);
+    CHECK(frameHas(h, "mybank.syx"));
+    // On a bank: Open, no Preview; a pad plays nothing.
+    s.browserSel = 0;
+    h.tap(btn::Down);
+    h.tap(btn::Up);
+    CHECK_STR(a.ui.bar.label[7].top, "Open");
+    CHECK(!a.ui.bar.label[4].enabled);
+    h.push(InputEvent::kPadDown, 30);
+    h.audio.pump(4);
+    CHECK_EQ(a.engine.synth().voicesOf(1), 0);
+    h.push(InputEvent::kPadUp, 30);
+    // Not a DX7 dump: stays in the folder.
+    h.tap(btn::F8);
+    CHECK_EQ(s.browserCount, 4);
+    CHECK_STR(s.bank, "");
+    // Open the bank: its 32 voices.
+    h.tap(btn::Down);
+    h.tap(btn::F8);
+    CHECK_STR(s.bank, "mybank.syx");
+    CHECK_EQ(s.browserCount, 32);
+    CHECK_STR(s.browser[0], "VOICE  1");
+    CHECK_STR(s.browser[31], "VOICE 32");
+    CHECK(s.browserKind[0] == SynthScreen::Entry::Voice);
+    CHECK_STR(a.ui.bar.label[7].top, "Confirm");
+    CHECK(a.ui.bar.label[4].enabled);
+    CHECK(frameHas(h, "VOICE 32") || frameHas(h, "VOICE  1"));
+    // Preview voice 2: it plays in the slot, the record stays.
+    h.tap(btn::Down);
+    h.down(btn::F5);
+    h.audio.pump(4);
+    CHECK_EQ(a.synthPreviewSlot(), 1);
+    CHECK_EQ(a.engine.synth().voicesOf(1), 1);
+    uint8_t v[kDx7VoiceBytes];
+    CHECK(patchDx7Voice(a.synthPatch(1), v));
+    CHECK(std::memcmp(v + 145, "VOICE  2  ", 10) == 0);
+    CHECK(std::strcmp(a.synthSlot(1).patchName, "Init") == 0);
+    h.up(btn::F5);
+    // Left: back to the folder, the bank highlighted; Right opens it again.
+    h.tap(btn::Left);
+    CHECK_STR(s.bank, "");
+    CHECK_EQ(s.browserCount, 4);
+    CHECK_EQ(s.browserSel, 1);
+    h.tap(btn::Right);
+    CHECK_STR(s.bank, "mybank.syx");
+    // Confirm voice 3: loaded, named after the voice, dirty.
+    h.tap(btn::Down);
+    h.tap(btn::Down);
+    h.tap(btn::F8);
+    CHECK(s.view == SynthScreen::View::Params);
+    CHECK_EQ(a.synthPreviewSlot(), -1);
+    CHECK(std::strcmp(a.synthSlot(1).patchName, "VOICE  3") == 0);
+    CHECK(patchDx7Voice(a.synthPatch(1), v));
+    CHECK(std::memcmp(v + 145, "VOICE  3  ", 10) == 0);
+    CHECK(a.synthPatchDirty(1));
+    // Save writes Patches/DX7/VOICE  3.patch with the voice in it.
+    s.savePatch();
+    CHECK(h.fs.files.count("Patches/DX7/VOICE  3.patch") == 1);
+    SynthPatch back;
+    const std::vector<uint8_t>& f = h.fs.files["Patches/DX7/VOICE  3.patch"];
+    CHECK(decodePatch(f.data(), f.size(), &back) == PatchStatus::kOk);
+    CHECK(patchDx7Voice(back, v));
+    CHECK(std::memcmp(v + 145, "VOICE  3  ", 10) == 0);
+    // The single-voice file opens as one voice.
+    h.tap(btn::F7);
+    for (int i = 0; i < s.browserCount; ++i)
+        if (std::strcmp(s.browser[i], "One.SYX") == 0) s.browserSel = i;
+    h.tap(btn::F8);
+    CHECK_EQ(s.browserCount, 1);
+    CHECK_STR(s.browser[0], "SOLO");
+    // Cancel inside a bank closes the popup; the next Load starts in the folder.
+    h.tap(btn::F7);
+    CHECK(s.view == SynthScreen::View::Params);
+    h.tap(btn::F7);
+    CHECK_STR(s.bank, "");
+    CHECK_EQ(s.browserCount, 5);   // + VOICE  3
+    // Another model lists no banks.
+    a.setSynthModel(2, int(SynthModel::ACD));
+    h.tap(btn::F7);
+    openSlot(h, 2);
+    h.tap(btn::F7);
+    for (int i = 0; i < s.browserCount; ++i) CHECK(s.browserKind[i] != SynthScreen::Entry::Bank);
 }

@@ -200,6 +200,12 @@ const uint8_t kPercPerc[] = {45, 46, 47, 48};
 const uint8_t kPercMix[] = {49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
                             64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78};
 const uint8_t kPercFx[] = {80, 79, 81, 82, 83};   // Type, Level (manual p.169)
+
+// --- DX7 (1) [OT] -------------------------------------------------------------
+const ParamUi kDx7[1] = {
+    {"Volume", F(kFmtPct)},
+};
+const uint8_t kDx7Voice[] = {0};
 #undef E
 #undef F
 
@@ -228,6 +234,7 @@ const Section kPercSec[] = {S("Kick", "Kick", kPercKick),     S("Tom", "Toms", k
                             S("Snare", "Snare", kPercSnare),  S("Hi Hat", "Hi Hat", kPercHat),
                             S("Cymbal", "Cymbal", kPercCym),  S("Perc", "Percussion", kPercPerc),
                             S("Mixer", "Mixer", kPercMix),    S("FX", "FX", kPercFx), MACROS};
+const Section kDx7Sec[] = {S("Voice", "Voice", kDx7Voice), MACROS};
 #undef S
 #undef MACROS
 
@@ -241,6 +248,7 @@ const ParamUi* table(int32_t engine, int* n) {
         case kSynthEngineVap: *n = countOf(kVap); return kVap;
         case kSynthEngineWtfm: *n = countOf(kWtfm); return kWtfm;
         case kSynthEnginePerc: *n = countOf(kPerc); return kPerc;
+        case kSynthEngineDx7: *n = countOf(kDx7); return kDx7;
         default: *n = 0; return nullptr;
     }
 }
@@ -271,6 +279,7 @@ int sections(int32_t engine, const Section** out) {
         case kSynthEngineVap: *out = kVapSec; return countOf(kVapSec);
         case kSynthEngineWtfm: *out = kWtfmSec; return countOf(kWtfmSec);
         case kSynthEnginePerc: *out = kPercSec; return countOf(kPercSec);
+        case kSynthEngineDx7: *out = kDx7Sec; return countOf(kDx7Sec);
         default: *out = nullptr; return 0;
     }
 }
