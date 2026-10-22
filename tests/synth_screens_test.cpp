@@ -1423,6 +1423,9 @@ TEST(dx7_syx_bank_browser) {
     one.push_back(0xF7);
     h.fs.files["Patches/DX7/One.SYX"] = one;
     h.fs.files["Patches/DX7/bad.syx"] = std::vector<uint8_t>{1, 2, 3};
+    // Bank packs have long names (over the 32-character patch names).
+    const char* const kLong = "zz CUCKOO FM ESSENTIALS vol1 (32-voice bank).syx";
+    h.fs.files[std::string("Patches/DX7/") + kLong] = bk;
     SynthPatch saved;
     CHECK(patchInit(kSynthEngineDx7, &saved));
     h.fs.files["Patches/DX7/saved.patch"] = encode(saved);
@@ -1434,13 +1437,14 @@ TEST(dx7_syx_bank_browser) {
     CHECK(s.available());
     h.tap(btn::F7);
     CHECK(s.view == SynthScreen::View::Browser);
-    CHECK_EQ(s.browserCount, 4);
+    CHECK_EQ(s.browserCount, 5);
     CHECK_STR(s.browser[0], "bad.syx");
     CHECK_STR(s.browser[1], "mybank.syx");
     CHECK_STR(s.browser[2], "One.SYX");
-    CHECK_STR(s.browser[3], "saved");
-    CHECK(s.browserKind[2] == SynthScreen::Entry::Bank);
-    CHECK(s.browserKind[3] == SynthScreen::Entry::Patch);
+    CHECK_STR(s.browser[3], kLong);
+    CHECK_STR(s.browser[4], "saved");
+    CHECK(s.browserKind[3] == SynthScreen::Entry::Bank);
+    CHECK(s.browserKind[4] == SynthScreen::Entry::Patch);
     CHECK(frameHas(h, "mybank.syx"));
     // On a bank: Open, no Preview; a pad plays nothing.
     s.browserSel = 0;
@@ -1454,7 +1458,7 @@ TEST(dx7_syx_bank_browser) {
     h.push(InputEvent::kPadUp, 30);
     // Not a DX7 dump: stays in the folder.
     h.tap(btn::F8);
-    CHECK_EQ(s.browserCount, 4);
+    CHECK_EQ(s.browserCount, 5);
     CHECK_STR(s.bank, "");
     // Open the bank: its 32 voices.
     h.tap(btn::Down);
@@ -1481,7 +1485,7 @@ TEST(dx7_syx_bank_browser) {
     // Left: back to the folder, the bank highlighted; Right opens it again.
     h.tap(btn::Left);
     CHECK_STR(s.bank, "");
-    CHECK_EQ(s.browserCount, 4);
+    CHECK_EQ(s.browserCount, 5);
     CHECK_EQ(s.browserSel, 1);
     h.tap(btn::Right);
     CHECK_STR(s.bank, "mybank.syx");
@@ -1515,7 +1519,13 @@ TEST(dx7_syx_bank_browser) {
     CHECK(s.view == SynthScreen::View::Params);
     h.tap(btn::F7);
     CHECK_STR(s.bank, "");
-    CHECK_EQ(s.browserCount, 5);   // + VOICE  3
+    CHECK_EQ(s.browserCount, 6);   // + VOICE  3
+    // The long-named bank opens too.
+    s.browserSel = 3;
+    h.tap(btn::F8);
+    CHECK_STR(s.bank, kLong);
+    CHECK_EQ(s.browserCount, 32);
+    h.tap(btn::Left);
     // Another model lists no banks.
     a.setSynthModel(2, int(SynthModel::ACD));
     h.tap(btn::F7);

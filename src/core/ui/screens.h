@@ -945,13 +945,14 @@ public:
     // Browser (Patches/<MODEL>/*.patch, sorted). DX7 also lists the .syx
     // banks there (first, like folders); an open bank lists its voices.
     static constexpr int kBrowserMax = 128;
-    static constexpr int kBrowserNameMax = 32;
+    static constexpr int kBrowserNameMax = 32;    // patch names (Save As)
+    static constexpr int kBrowserEntryMax = 63;   // list entries: .syx bank file names run long
     enum class Entry : uint8_t { Patch, Bank, Voice };
     int browserCount = 0;
     int browserSel = 0;
-    char browser[kBrowserMax][kBrowserNameMax + 1] = {};
+    char browser[kBrowserMax][kBrowserEntryMax + 1] = {};
     Entry browserKind[kBrowserMax] = {};
-    char bank[kBrowserNameMax + 1] = {};   // the open bank's file name ("" = the folder)
+    char bank[kBrowserEntryMax + 1] = {};   // the open bank's file name ("" = the folder)
 
     int32_t engine() const;
     bool available() const;   // the model has an engine in this build

@@ -499,15 +499,15 @@ void SynthScreen::listBrowser() {
         if (e.isDir || s->browserCount >= kBrowserMax || e.name[0] == '.') return true;
         const size_t n = std::strlen(e.name);
         auto hasExt = [&](const char* ext, size_t len) {
-            if (n <= len || n - len > size_t(kBrowserNameMax)) return false;
+            if (n <= len) return false;
             for (size_t i = 0; i < len; ++i)
                 if ((e.name[n - len + i] | 32) != ext[i]) return false;
             return true;
         };
         size_t len = 0;
         Entry kind = Entry::Patch;
-        if (hasExt(".patch", 6)) len = 6;
-        else if (x->banks && hasExt(".syx", 4) && n <= size_t(kBrowserNameMax)) kind = Entry::Bank;   // whole name
+        if (hasExt(".patch", 6) && n - 6 <= size_t(kBrowserNameMax)) len = 6;
+        else if (x->banks && hasExt(".syx", 4) && n <= size_t(kBrowserEntryMax)) kind = Entry::Bank;   // whole name
         else return true;
         std::memcpy(s->browser[s->browserCount], e.name, n - len);
         s->browser[s->browserCount][n - len] = 0;
@@ -521,7 +521,7 @@ void SynthScreen::listBrowser() {
     };
     for (int i = 1; i < browserCount; ++i)
         for (int j = i; j > 0 && before(j, j - 1); --j) {
-            char t[kBrowserNameMax + 1];
+            char t[kBrowserEntryMax + 1];
             std::memcpy(t, browser[j], sizeof(t));
             std::memcpy(browser[j], browser[j - 1], sizeof(t));
             std::memcpy(browser[j - 1], t, sizeof(t));
@@ -534,7 +534,7 @@ void SynthScreen::listBrowser() {
 }
 
 bool SynthScreen::openBank(const char* file) {
-    char nm[kBrowserNameMax + 1];   // a copy: the list is refilled below
+    char nm[kBrowserEntryMax + 1];   // a copy: the list is refilled below
     std::snprintf(nm, sizeof(nm), "%s", file);
     const int n = app_.openDx7Bank(nm);
     if (n <= 0) return false;
@@ -545,18 +545,21 @@ bool SynthScreen::openBank(const char* file) {
     browserSel = 0;
     const SynthSlotRecord r = app_.synthSlot(slot);
     for (int k = 0; k < browserCount; ++k) {
-        app_.dx7BankVoiceName(k, browser[k], kBrowserNameMax + 1);
+        app_.dx7BankVoiceName(k, browser[k], kBrowserEntryMax + 1);
         browserKind[k] = Entry::Voice;
     }
     for (int k = browserCount - 1; k >= 0; --k)
         if (std::strcmp(browser[k], r.patchName) == 0) browserSel = k;
     browserTop_ = 0;
-    ui_.openPopupHeader(bank, Ui::PopupHeader::kRightBar);
+    char title[kBrowserEntryMax + 1];   // the file name, cut to the header band
+    std::snprintf(title, sizeof(title), "%s", bank);
+    fit(title, kFont4, kScreenW - wg::kRightPopupX - 30);
+    ui_.openPopupHeader(title, Ui::PopupHeader::kRightBar);
     return true;
 }
 
 void SynthScreen::closeBank() {
-    char was[kBrowserNameMax + 1];
+    char was[kBrowserEntryMax + 1];
     std::snprintf(was, sizeof(was), "%s", bank);
     audition(false, 0);
     previewSel_ = -1;
