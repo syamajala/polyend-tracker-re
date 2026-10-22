@@ -1,0 +1,138 @@
+# Display budget for the fork's own screens (issue #38), run by `make check`
+# with a test tone on line in and a synthetic DX7 bank in Patches/DX7
+# (fixtures/make_dx7_bank.py). Same rules as display_budget.txt: the largest
+# display-list upload per frame must stay inside the budget (measured steady
+# state plus ~20 %; the Performance pages keep the stock page's 1950), and the
+# screen must look identical with fragments off and on.
+wait 200
+tap REC
+pad 24 tap
+tap DOWN
+pad 26 tap
+tap REC
+# Resample screen: Sample Recorder while playing -> "Resample" (F6). Idle on
+# Master, then a take from Line in with the level meter moving.
+tap PLAY
+wait 200
+tap SAMPLERECORDER
+wait 300
+tap F6
+wait 300
+budget-reset
+wait 300
+budget resample 1290
+fragcheck resample
+tap F1
+enc 9                # From: Line in
+wait 100
+tap F8               # Record (starts on the next bar)
+wait 2500
+budget-reset
+wait 1500
+budget resample-linein-take 1470
+tap F8               # Stop (at the next bar)
+wait 2500
+tap PLAY
+wait 200
+# Performance with the master FX columns: DJ filter (column 1) and Tape stop
+# (column 2), set in edit mode (Down cycles the type and wraps: Volume ->
+# empty -> Tape stop -> DJ filter), a value on row 1 of each, scene A stored.
+tap PERFORMANCE
+wait 300
+tap REC
+tap DOWN
+tap DOWN
+tap DOWN             # column 1: DJ filter
+tap RIGHT
+tap DOWN
+tap DOWN
+tap DOWN             # column 2 (Panning): Tape stop
+pad 12 tap
+enc 3
+pad 13 tap
+enc 2
+wait 300
+budget-reset
+wait 300
+budget perf-masterfx-edit 1950
+fragcheck perf-masterfx-edit
+tap REC
+press SHIFT
+tap LEFT             # store scene A
+release SHIFT
+tap PLAY
+wait 300
+pad 12 down
+pad 13 down
+budget-reset
+wait 1500
+budget perf-masterfx-play 1950
+pad 12 up
+pad 13 up
+enc 20               # scene fader towards B
+budget-reset
+wait 1500
+budget perf-scene-fade 1950
+tap PLAY
+wait 200
+# DX7 on Synth 1 (ACD): Down steps the Model list to its last entry. The
+# synth page while playing, then the Load Patch popup with the bank (listed
+# like a folder) and the bank opened.
+tap PATTERN
+wait 200
+press INSTR
+wait 400
+enc -70              # Synth 1 (the first entry)
+release INSTR
+wait 100
+tap INSTRPARAMS
+wait 200
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN             # Model: ACD -> DX7 (the last one)
+wait 200
+tap PLAY
+wait 200
+budget-reset
+wait 1500
+budget dx7-params-play 1120
+fragcheck dx7-params-play
+tap F7               # Load Patch: the bank first
+wait 200
+budget-reset
+wait 1500
+budget dx7-load-play 1190
+tap F8               # Open the bank
+wait 300
+budget-reset
+wait 1500
+budget dx7-bank-play 1400
+fragcheck dx7-bank-play
+tap F7
+tap F7
+tap PLAY
+wait 200
+# MIDI 1: the Instrument key toggles its Parameters <-> LFO page; the LFO
+# target set so it runs while playing.
+tap PATTERN
+wait 200
+press INSTR
+wait 400
+enc -70
+enc 51               # MIDI 1 (the list: Synth 1-3, samples 1-48, MIDI 1-16)
+release INSTR
+wait 100
+tap INSTRPARAMS
+wait 200
+tap INSTRPARAMS      # LFO page
+wait 200
+enc 1                # Target: the first CC
+tap PLAY
+wait 200
+budget-reset
+wait 1500
+budget midi-lfo-play 1350
+fragcheck midi-lfo-play
+tap PLAY

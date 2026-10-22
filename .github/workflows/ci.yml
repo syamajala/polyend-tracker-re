@@ -1,5 +1,6 @@
-# Host unit tests, firmware builds (with and without Games) with the flash /
-# stack-headroom / libm checks, and the .ptf images as downloadable artifacts.
+# Host unit tests, headless simulator checks, the firmware build (Games off)
+# with the flash / stack-headroom / libm checks, and the .ptf image as a
+# downloadable artifact.
 # On pull requests also a memory report: flash, SRAM, SDRAM and stack
 # headroom of the PR against its base, in the run's summary (#25).
 name: CI
@@ -37,6 +38,33 @@ jobs:
           fi
       - name: telemetry_check self-test
         run: python3 tools/telemetry_check.py selftest
+
+  # Headless simulator checks (`make -C sim check`): smoke script, display-list
+  # budget per screen, key flows, USB Storage mode, the test songs open and
+  # play. The visual diff against stock snapshots skips (fixtures not in the
+  # repo).
+  sim-check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install GCC 14 and SDL2
+        run: sudo apt-get update && sudo apt-get install -y g++-14 libsdl2-dev pkg-config
+      - name: Simulator checks
+        run: |
+          set -o pipefail
+          if ! make -C sim -j"$(nproc)" check CXX=g++-14 2>&1 | tee sim-check.log; then
+            # Errors as annotations: readable on the run page without log access.
+            grep -E "error:|\*\*\*|script:[0-9]+|OVER BUDGET|FAIL|fail" sim-check.log \
+              | grep -vE "^(g\+\+|ar) |allow-fail" | head -10 | while IFS= read -r line; do echo "::error::${line}"; done
+            exit 1
+          fi
+      - name: Upload screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-check-${{ github.sha }}
+          path: build/sim/*.png
+          if-no-files-found: ignore
 
   # The fork's build: Games off (the default; OT_GAMES=1 is not built here).
   firmware:
