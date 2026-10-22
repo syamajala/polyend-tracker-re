@@ -165,6 +165,7 @@ void Config::toExt(uint8_t* out) const {
     out[5] = cpuMeter;
     out[6] = synthVoices;
     out[7] = noteNames;
+    std::memcpy(out + 8, perfExt, sizeof(perfExt));
     uint8_t sum = 0;
     for (uint32_t i = 0; i < kExtPayload; ++i) sum = uint8_t(sum + out[5 + i]);
     out[5 + kExtPayload] = sum;
@@ -181,6 +182,8 @@ bool Config::fromExt(const uint8_t* in, uint32_t len) {
     cpuMeter = in[5] <= 2 ? in[5] : 0;
     synthVoices = (n >= 2 && in[6] >= 1 && in[6] <= kMaxSynthVoices) ? in[6] : kDefaultSynthVoices;
     noteNames = (n >= 3 && in[7] <= 2) ? in[7] : 0;
+    if (n >= 15) std::memcpy(perfExt, in + 8, sizeof(perfExt));   // checked by perf::Source::validate
+    else std::memset(perfExt, 0, sizeof(perfExt));
     return true;
 }
 
@@ -198,6 +201,7 @@ bool Config::fromImage(const uint8_t* img) {
     c.cpuMeter = cpuMeter;   // extension record, not in the image
     c.synthVoices = synthVoices;
     c.noteNames = noteNames;
+    std::memcpy(c.perfExt, perfExt, sizeof(perfExt));
     c.sanitize();
     *this = c;
     toImage();
@@ -212,6 +216,7 @@ bool Config::load(INvStore& nv) {
     cpuMeter = 0;
     synthVoices = kDefaultSynthVoices;
     noteNames = 0;
+    std::memset(perfExt, 0, sizeof(perfExt));
     // Shorter stores may only hold an older (shorter payload) record.
     for (uint32_t len = kExtSize; len >= 6; --len)
         if (nv.size() >= kExtOffset + len) {
@@ -228,7 +233,9 @@ bool Config::save(INvStore& nv) {
     // default; a store that never had one keeps its erased bytes past 0xF4.
     if (nv.size() < kExtOffset + kExtSize) return true;
     uint8_t ext[kExtSize];
-    if (cpuMeter == 0 && synthVoices == kDefaultSynthVoices && noteNames == 0) {
+    bool extDefault = cpuMeter == 0 && synthVoices == kDefaultSynthVoices && noteNames == 0;
+    for (uint8_t t : perfExt) extDefault = extDefault && t == 0;
+    if (extDefault) {
         Config probe;
         if (!nv.read(kExtOffset, ext, kExtSize) || !probe.fromExt(ext, kExtSize)) return true;
     }
@@ -253,6 +260,7 @@ bool Config::load(IStorage& fs) {
         cpuMeter = 0;
         synthVoices = kDefaultSynthVoices;
         noteNames = 0;
+        std::memset(perfExt, 0, sizeof(perfExt));
         fromExt(buf + 8 + kImageSize, avail - kImageSize);
         return true;
     }

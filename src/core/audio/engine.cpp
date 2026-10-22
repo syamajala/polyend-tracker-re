@@ -729,6 +729,8 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
             }
         }
     }
+    // [I] Master insert (master_fx.h): on the summed bus, before the limiter.
+    masterFx_.process(mL_, mR_, kBlock);
     // 7. limiter with optional side-chain (§5.3)
     const float* sc = nullptr;
     if (m.sidechain >= 1 && m.sidechain <= 8) {

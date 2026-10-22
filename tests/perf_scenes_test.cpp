@@ -399,3 +399,137 @@ TEST(perf_scene_marks_follow_the_fader) {
     CHECK(r.frameHas("VERTEX 16 334"));    // Volume A: out
     CHECK(r.frameHas("VERTEX 66 348"));    // Volume B: full
 }
+
+// Edit mode: a tapped pad selects its column and row, and the encoder then
+// edits that value with nothing held (it used to move the scene fader,
+// which edited nothing: device report). Outside edit mode it is the fader.
+TEST(perf_edit_mode_encoder_edits_tapped_row) {
+    Rig r;
+    PerformanceScreen& p = r.p();
+    r.h.tap(btn::Rec);       // edit
+    CHECK(p.edit);
+    r.h.pad(12 * 1 + 1);     // column 1 (Panning), row 1: tap
+    CHECK_EQ(p.column, 1);
+    CHECK_EQ(p.src.row(1), 1);
+    r.h.enc(-20);
+    CHECK_EQ(p.src.value(1, 1), -20);
+    CHECK_EQ(p.fader, 0);    // the fader did not move
+    r.h.enc(5);
+    CHECK_EQ(p.src.value(1, 1), -15);
+    r.h.pad(12 * 2 + 1);     // row 2
+    r.h.enc(7);
+    CHECK_EQ(p.src.value(1, 2), 7);
+    CHECK_EQ(p.src.value(1, 1), -15);
+    r.h.pad(1);              // row 0 (off): nothing to edit
+    r.h.enc(9);
+    CHECK_EQ(p.src.value(1, 1), -15);
+    CHECK_EQ(p.src.value(1, 2), 7);
+    // Holding a pad still edits as before.
+    r.h.push(InputEvent::kPadDown, 12 * 3 + 1);
+    r.h.enc(-4);
+    r.h.push(InputEvent::kPadUp, 12 * 3 + 1);
+    CHECK_EQ(p.src.value(1, 3), -4);
+    // Play mode: nothing held = the scene fader.
+    r.h.tap(btn::Rec);
+    CHECK(!p.edit);
+    r.h.enc(10);
+    CHECK_EQ(p.fader, 10 * PerformanceScreen::kFaderStep);
+}
+
+// Per-column scenes: a held pad + Shift+Left / Right stores only that
+// column into A / B; held + Delete+Left / Right removes only that column.
+TEST(perf_scene_store_and_clear_one_column) {
+    Rig r;
+    App& a = r.a();
+    PerformanceScreen& p = r.p();
+    // Column 0 (Volume) row 1 and column 1 (Panning) row 2 latched, then a
+    // full snapshot as A.
+    r.h.pad(12 * 1 + 0);
+    r.h.pad(12 * 2 + 1);
+    r.store(0);
+    CHECK_EQ(a.project.perfScene[0][0], 1);
+    CHECK_EQ(a.project.perfScene[0][1], 2);
+    // Hold column 1 row 3 + Shift+Left: only column 1 changes in A.
+    r.h.push(InputEvent::kPadDown, 12 * 3 + 1);
+    r.h.run(1);
+    r.store(0);
+    r.h.push(InputEvent::kPadUp, 12 * 3 + 1);
+    CHECK_EQ(a.project.perfScene[0][0], 1);
+    CHECK_EQ(a.project.perfScene[0][1], 3);
+    r.h.run(20);
+    CHECK(r.frameHas("Scene A: Panning +0") || r.h.disp.lastHasText("Scene A: Panning"));
+    // Hold column 2 row 1 + Shift+Right: B gets only column 2.
+    r.h.push(InputEvent::kPadDown, 12 * 1 + 2);
+    r.h.run(1);
+    r.store(1);
+    r.h.push(InputEvent::kPadUp, 12 * 1 + 2);
+    for (int s = 0; s < 12; ++s) CHECK_EQ(a.project.perfScene[1][s], s == 2 ? 1 : 0);
+    // Hold the off row of column 0 + Shift+Left: column 0 is off in A.
+    r.h.push(InputEvent::kPadDown, 0);
+    r.h.run(1);
+    r.store(0);
+    r.h.push(InputEvent::kPadUp, 0);
+    CHECK_EQ(a.project.perfScene[0][0], 0);
+    CHECK_EQ(a.project.perfScene[0][1], 3);
+    // Hold column 1 + Delete+Left: column 1 leaves A, B is untouched.
+    r.h.push(InputEvent::kPadDown, 12 * 1 + 1);
+    r.h.run(1);
+    r.clear(0);
+    r.h.push(InputEvent::kPadUp, 12 * 1 + 1);
+    CHECK_EQ(a.project.perfScene[0][1], 0);
+    CHECK_EQ(a.project.perfScene[1][2], 1);
+    // Nothing held: Delete+Right clears all of B, as before.
+    r.clear(1);
+    for (int s = 0; s < 12; ++s) CHECK_EQ(a.project.perfScene[1][s], 0);
+    (void)p;
+}
+
+// Scene pad LEDs: a scene-driven column lights its A and B rows, the light
+// sliding with the fader; stepped FX switch at the middle; same row = full;
+// other columns keep the single dim pad; edit mode shows the plain rows.
+TEST(perf_scene_pad_leds) {
+    Rig r;
+    App& a = r.a();
+    PerformanceScreen& p = r.p();
+    // Levels as the LED driver gets them (0..31 -> 0..255, Ui::updateLeds).
+    const int dim = a.cfg.padDim() * 255 / 31, full = a.cfg.padFull() * 255 / 31;
+    auto led = [&](int pad) {
+        r.h.run(2);
+        return int(r.h.leds.level[pad]);
+    };
+    // Column 0 (Volume): A row 1, B row 3. Column 10 (Direction, stepped):
+    // A row 1, B row 2. Column 5: same row 2 in both. Column 6: no scene.
+    r.h.pad(12 * 1 + 0);
+    r.h.pad(12 * 1 + 10);
+    r.h.pad(12 * 2 + 5);
+    r.h.pad(12 * 1 + 6);
+    r.store(0);
+    r.h.pad(12 * 3 + 0);
+    r.h.pad(12 * 2 + 10);
+    r.store(1);
+    a.project.perfScene[0][6] = 0;
+    a.project.perfScene[1][6] = 0;
+    r.fade(0);
+    CHECK_EQ(led(12 * 1 + 0), full);   // A
+    CHECK_EQ(led(12 * 3 + 0), dim);    // B
+    CHECK_EQ(led(12 * 2 + 5), full);   // same row in both
+    CHECK_EQ(led(12 * 1 + 6), dim);    // not in a scene: the selected row, dim
+    r.fade(50);
+    const int mid = led(12 * 1 + 0);
+    CHECK(mid > dim && mid < full);
+    CHECK_EQ(led(12 * 3 + 0), mid);
+    r.fade(48);
+    CHECK_EQ(led(12 * 1 + 10), full);  // stepped: still A
+    CHECK_EQ(led(12 * 2 + 10), dim);
+    r.fade(52);
+    CHECK_EQ(led(12 * 1 + 10), dim);   // past the middle: B
+    CHECK_EQ(led(12 * 2 + 10), full);
+    r.fade(100);
+    CHECK_EQ(led(12 * 1 + 0), dim);
+    CHECK_EQ(led(12 * 3 + 0), full);
+    // Edit mode: the plain selected rows.
+    r.h.tap(btn::Rec);
+    CHECK(p.edit);
+    CHECK_EQ(led(12 * 1 + 0), 0);
+    CHECK_EQ(led(12 * 3 + 0), dim);    // the row the B snapshot latched
+}

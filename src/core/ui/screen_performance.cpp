@@ -206,6 +206,14 @@ void PerformanceScreen::applyAll(bool revertEverything) {
     App& a = app_;
     Sequencer& q = a.seq;
     int globalLen = -1;
+    int djFilter = 0, tapeStop = 0;   // [I] master inserts (audio::MasterFx), once for the mix
+    for (int s = 0; s < perf::kSlots && !revertEverything; ++s) {
+        if (!src.valid() || cur[s] == 0) continue;
+        if (src.type(s) == perf::kDjFilter) djFilter = cur[s];
+        if (src.type(s) == perf::kTapeStop) tapeStop = cur[s];
+    }
+    a.engine.setMasterDjFilter(djFilter);
+    a.setTapeStop(tapeStop);
     for (int t = 0; t < kTrackCount; ++t) {
         audio::PerfOffsets p;
         int8_t repeat = -1, velOff = 0, transpose = 0;
@@ -220,6 +228,7 @@ void PerformanceScreen::applyAll(bool revertEverything) {
                 globalLen = perf::lengthOverride(v);
                 continue;
             }
+            if (ty == perf::kDjFilter || ty == perf::kTapeStop) continue;   // [I] applied above, on the master bus
             if (!on) continue;
             switch (ty) {
                 case perf::kVolume: p.volume = int16_t(v); velOff = int8_t(v); break;
@@ -284,6 +293,7 @@ void PerformanceScreen::onPad(uint8_t pad, uint8_t state) {
     const int c = pad % 12, r = pad / 12;
     if (c >= perf::kSlots || r >= perf::kRows || !src.valid()) return;
     if (state == kPress) {
+        if (edit) column = c;   // [I] the edit cursor follows the pad: Up / Down and the encoder act on it
         liveValid[c] = false;
         const uint8_t row = uint8_t(src.type(c) ? r : 0);
         src.setRow(c, row);
@@ -293,7 +303,9 @@ void PerformanceScreen::onPad(uint8_t pad, uint8_t state) {
         applyAll(false);
     } else if (state == kRelease) {
         // Re-apply the stored value: an encoder tweak outside edit mode is
-        // dropped (spec 12 §E.1). The row stays latched.
+        // dropped (spec 12 §E.1). The row stays latched; [I] except Tape
+        // stop, which is momentary (release = spin up).
+        if (src.type(c) == perf::kTapeStop && !edit) src.setRow(c, 0);
         cur[c] = padValue(c);
         held_[c] = false;
         applyAll(false);
@@ -303,10 +315,28 @@ void PerformanceScreen::onPad(uint8_t pad, uint8_t state) {
 
 void PerformanceScreen::padLeds(uint8_t* lv) {
     // One lit pad per column at the selected row (spec 06 §3.4), DIM level.
+    // [I] A column a scene drives lights its scene A and scene B rows (a
+    // scene without it: the off row), each from DIM at no share to FULL at
+    // all of it, so the light slides between them with the fader (stepped
+    // FX switch at the middle, sceneShare); the same row in both: FULL.
     if (!src.valid()) return;
+    App& a = app_;
+    const int dim = a.cfg.padDim(), full = a.cfg.padFull();
     for (int c = 0; c < perf::kSlots; ++c) {
+        const uint8_t rA = a.project.perfScene[0][c], rB = a.project.perfScene[1][c];
+        if (src.type(c) && (rA || rB) && !edit) {
+            auto level = [&](int share) { return uint8_t(dim + (full - dim) * share / kFaderMax); };
+            const int pa = (rA <= 3 ? rA : 0) * 12 + c, pb = (rB <= 3 ? rB : 0) * 12 + c;
+            if (pa == pb) {
+                lv[pa] = uint8_t(full);
+            } else {
+                lv[pa] = level(sceneShare(0, c));
+                lv[pb] = level(sceneShare(1, c));
+            }
+            continue;
+        }
         const int r = src.row(c);
-        if (r < perf::kRows) lv[r * 12 + c] = app_.cfg.padDim();
+        if (r < perf::kRows) lv[r * 12 + c] = uint8_t(dim);
     }
 }
 
@@ -368,11 +398,14 @@ void PerformanceScreen::onEncoder(int d) {
         return;
     }
     if (!src.valid()) return;
-    // [I] Nothing held: the encoder is the scene crossfader.
+    // [I] Nothing held: in edit mode the encoder edits the selected row of
+    // the edit column (a tapped pad selects both), otherwise it is the
+    // scene crossfader.
     bool padHeld = false;
     for (bool h : held_) padHeld = padHeld || h;
     if (!padHeld) {
-        setFader(fader + d * kFaderStep);
+        if (edit) editSelected(d);
+        else setFader(fader + d * kFaderStep);
         return;
     }
     bool any = false;
@@ -396,6 +429,19 @@ void PerformanceScreen::onEncoder(int d) {
         applyAll(false);
         ui_.dirty();
     }
+}
+
+void PerformanceScreen::editSelected(int d) {
+    const int c = column;
+    const uint8_t ty = src.type(c);
+    const int row = src.row(c);
+    if (ty == 0 || row < 1 || row > 3) return;
+    const perf::FxDesc& f = perf::fx(ty);
+    cur[c] = int16_t(clampi(src.value(c, row) + d, f.min, f.max));
+    src.setValue(c, row, cur[c]);
+    edited();
+    applyAll(false);
+    ui_.dirty();
 }
 
 void PerformanceScreen::changeType(int d) {
@@ -637,6 +683,7 @@ bool isStepped(uint8_t ty) {
         case perf::kDirection: case perf::kVolLfo: case perf::kPanLfo: case perf::kFineLfo:
         case perf::kFilterLfo: case perf::kPosLfo: case perf::kRepeater: case perf::kPlayMode:
         case perf::kPatternLength:
+        case perf::kTapeStop:   // [I] on / off at the middle (its rows are lengths, not amounts)
             return true;
         default:
             return false;
@@ -651,13 +698,32 @@ int lerp100(int a, int b, int x) {
 
 void PerformanceScreen::storeScene(int scene) {
     App& a = app_;
+    // Pads held: only their columns (their rows, row 0 = off in the scene),
+    // the rest of the scene stays; none held: every column (a snapshot).
     // Stored rows 1..3 only: a live MIDI-CC value (row 4) is not kept.
+    bool any = false;
+    for (bool h : held_) any = any || h;
+    int count = 0, last = -1;
     for (int s = 0; s < perf::kSlots; ++s) {
+        if (any && !held_[s]) continue;
         const uint8_t r = src.row(s);
         a.project.perfScene[scene][s] = uint8_t(src.type(s) && r >= 1 && r <= 3 ? r : 0);
+        ++count;
+        last = s;
     }
     a.markProjectDirty();
-    ui_.notify(scene ? "Scene B stored" : "Scene A stored", 1500);
+    char msg[64];
+    if (!any) {
+        std::snprintf(msg, sizeof(msg), "Scene %c stored", scene ? 'B' : 'A');
+    } else if (count == 1) {
+        const uint8_t ty = src.type(last), r = a.project.perfScene[scene][last];
+        char v[24] = "off";
+        if (r) perf::valueText(ty, src.value(last, r), v, sizeof(v));
+        std::snprintf(msg, sizeof(msg), "Scene %c: %s %s", scene ? 'B' : 'A', ty ? perf::fx(ty).name : "---", v);
+    } else {
+        std::snprintf(msg, sizeof(msg), "Scene %c: %d columns stored", scene ? 'B' : 'A', count);
+    }
+    ui_.notify(msg, 1500);
     ui_.dirty();
 }
 
@@ -706,7 +772,11 @@ void PerformanceScreen::clearScene(int scene) {
         }
     }
     if (filter) driven[perf::kLowPass] = driven[perf::kHighPass] = driven[perf::kBandPass] = true;
-    for (int s = 0; s < perf::kSlots; ++s) a.project.perfScene[scene][s] = 0;
+    // Pads held: only their columns leave the scene; none held: all.
+    bool any = false;
+    for (bool h : held_) any = any || h;
+    for (int s = 0; s < perf::kSlots; ++s)
+        if (!any || held_[s]) a.project.perfScene[scene][s] = 0;
     for (int s = 0; s < perf::kSlots; ++s) {
         const uint8_t ty = src.type(s);
         if (ty == 0 || ty >= perf::kFxCount || !driven[ty]) continue;
@@ -720,7 +790,8 @@ void PerformanceScreen::clearScene(int scene) {
         fader = 0;   // no scene: a new one starts from A again
         applyAll(false);
     }
-    ui_.notify(scene ? "Scene B cleared" : "Scene A cleared", 1500);
+    ui_.notify(any ? (scene ? "Scene B: column cleared" : "Scene A: column cleared")
+                   : (scene ? "Scene B cleared" : "Scene A cleared"), 1500);
     ui_.dirty();
 }
 

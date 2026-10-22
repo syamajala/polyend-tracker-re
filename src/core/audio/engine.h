@@ -13,6 +13,7 @@
 #include "audio/block_profile.h"
 #include "audio/cpu_meter.h"
 #include "audio/effects.h"
+#include "audio/master_fx.h"
 #include "audio/governor.h"
 #include "audio/synth_bank.h"
 #include "audio/voice.h"
@@ -264,6 +265,12 @@ public:
 
     // Performance FX offsets for track t (spec 06 §3.2/§3.4).
     void setPerf(int track, const PerfOffsets& p) { if (track >= 0 && track < kVoices) voices_[track].setPerf(p); }
+    // [I] Master insert (master_fx.h): the DJ filter value -100..100, 0 off.
+    void setMasterDjFilter(int v) { masterFx_.setDjFilter(v); }
+    int masterDjFilter() const { return masterFx_.djFilter(); }
+    bool masterFxActive() const { return masterFx_.active(); }
+    TapeStop& masterTape() { return masterFx_.tape(); }
+    const TapeStop& masterTape() const { return masterFx_.tape(); }
 
     void stopAll();
     void clearEffects();   // zero delay and reverb memory
@@ -347,6 +354,7 @@ private:
     Delay delay_;
     Reverb reverb_;
     Limiter limL_, limR_;
+    MasterFx masterFx_;   // [I] between the master sum and the limiter
     LineDynamics dynL_, dynR_;   // DYN0/DYN1, line-in send path (spec 04 §5.6)
     bool dynActive_ = false;     // dynamics state not yet settled
     Ramp lineLvl_, master_, lineSendD_, lineSendR_, click_;

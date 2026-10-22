@@ -91,7 +91,8 @@ int App::nextResampleSlot() const {
 App::ResampleAction App::resampleToggle() {
     switch (resampler.state()) {
         case Resampler::kIdle: {
-            if (sampleBankLent || rendering_ || (jobBusy() && jobOp() != JobOp::Autosave)) return ResampleAction::kBusy;
+            if (sampleBankLent || rendering_ || tapeHolds_ || (jobBusy() && jobOp() != JobOp::Autosave))
+                return ResampleAction::kBusy;
             if (nextResampleSlot() < 0) return ResampleAction::kNoSlot;
             // All free sample memory is held for the recording (two planar
             // halves); loads meanwhile see none and cannot touch it.

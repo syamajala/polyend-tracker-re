@@ -631,7 +631,9 @@ public:
     uint8_t shownPattern(int t) const;   // "Patt" label value of track t
     // [I] Scenes (Octatrack-style): Shift+Left / Shift+Right store the
     // current pad rows as scene A / B (Project::perfScene), Delete+Left /
-    // Delete+Right clear them; the encoder with nothing held, or CC 63,
+    // Delete+Right clear them; with pads held, only those columns are
+    // stored / cleared (the rest of the scene stays); the encoder with
+    // nothing held (outside edit mode), or CC 63,
     // moves the crossfader 0 (A) .. 100 (B). A stored row is marked by a
     // bar on its cell's left edge (A) or right edge (B), as tall as that
     // scene's share at the fader.
@@ -650,6 +652,7 @@ public:
     int sceneShare(int scene, int c) const;
     // The value slot c's pad row sets (the stored row, the live MIDI-CC row, or off).
     int16_t padValue(int c) const;
+    void editSelected(int d);   // [I] edit mode, nothing held: encoder on the edit column's row
 
 private:
     void refreshBar();

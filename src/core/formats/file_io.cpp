@@ -118,6 +118,7 @@ FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoa
     // [I] OpenTracker side files: a missing or damaged one leaves its data default.
     for (MidiLfo& l : p.midiLfo) l = MidiLfo{};
     std::memset(p.perfScene, 0, sizeof(p.perfScene));
+    std::memset(p.perfExtType, 0, sizeof(p.perfExtType));
     char sp[352];
     if (sideFilePath(sp, sizeof(sp), path, mlfo::kFileName) && fs.exists(sp) &&
         readWholeFile(fs, sp, g_io, mlfo::kFileSize, &got) == FmtStatus::Ok)
