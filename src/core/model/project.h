@@ -126,6 +126,14 @@ struct Project {
     // Song block (spec 02 §3.2).
     uint8_t playlist[kSongSlots] = {};  // pattern number per slot, 0 = end of song
     uint8_t playlistPos = 0;
+    // [I] Repeat count per song slot (song.bin, not project.mt): the slot's
+    // pattern plays this many times before the song moves on. 0 / 1 = once.
+    static constexpr int kSongCountMax = 16;
+    uint8_t playlistCount[kSongSlots] = {};
+    int slotCount(int slot) const {
+        const int c = slot >= 0 && slot < kSongSlots ? playlistCount[slot] : 1;
+        return c < 1 ? 1 : (c > kSongCountMax ? kSongCountMax : c);
+    }
 
     // Raw values block (file 0x110..0x80F).
     uint8_t values[mt::kValuesSize] = {};

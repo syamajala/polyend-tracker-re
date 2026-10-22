@@ -116,7 +116,12 @@ public:
     uint8_t pendingSwitch() const { return pendSwitch_.load(std::memory_order_acquire); }
     // Song screen F1 deferred action (spec 06 §2.3): flips seq+0x1c without
     // restarting, so the next pattern end loops (off) or advances (on).
-    void setSongMode(bool on) { songMode_ = on; }
+    // Off: the playing slot loops. On ("Continue Song"): the song moves on at
+    // this pattern's end, past any passes the slot's count has left.
+    void setSongMode(bool on) {
+        if (on && !songMode_) songLeave_ = true;   // [I] no more passes of this slot
+        songMode_ = on;
+    }
     // UI play button: arms instead of playing when an external clock is selected.
     void userPlay(int startStep = 0);
 
@@ -197,6 +202,9 @@ public:
     // per-track length or play mode (docs/M1_PLAN.md §3).
     int patternPosition() const { return masterPos_; }
     int songPosition() const { return songPos_; }
+    // [I] The playing slot's pass, 1 .. its repeat count (Project::slotCount):
+    // restarts at 1 whenever a slot starts, even with the same pattern.
+    int songPass() const { return songPass_ + 1; }
     uint8_t currentPatternNumber() const { return curPatternNum_; }
     int queuedPattern() const { return queueActive_ ? queued_ : 0; }
     Pattern* currentPattern() { return cur_; }
@@ -385,6 +393,9 @@ private:
     int16_t selStart_ = 0, selEnd_ = 0;
     uint8_t selTrackStart_ = 0, selTrackEnd_ = kTracks - 1;
     int songPos_ = 0;
+    bool songPassesLeft() const;   // [I] the playing slot plays again at this pattern end
+    uint8_t songPass_ = 0;      // [I] 0-based pass of the playing slot
+    bool songLeave_ = false;    // [I] "Continue Song": move on at this pattern end
     uint8_t curPatternNum_ = 1;
     uint8_t nextPatternNum_ = 0;
     bool preloadIssued_ = false;

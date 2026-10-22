@@ -7,6 +7,7 @@
 #include "formats/bytes.h"
 #include "formats/midi_lfo.h"
 #include "formats/perf_scenes.h"
+#include "formats/song_side.h"
 #include "formats/patterns_metadata.h"
 #include "sdram_bss.h"
 
@@ -19,7 +20,7 @@ namespace {
 // SDRAM on the device (OP-5; SD transfers go direct or bounce, sdhc.cpp).
 OT_SDRAM_BSS uint8_t g_io[pamd::kFileSize];
 static_assert(sizeof(g_io) >= mtp::kFileSize && sizeof(g_io) >= mt::kFileSize &&
-                  sizeof(g_io) >= recents::kFileSize,
+                  sizeof(g_io) >= recents::kFileSize && sizeof(g_io) >= song::kFileSize,
               "staging buffer too small");
 
 bool fmt(char*, size_t cap, int n) { return n >= 0 && size_t(n) < cap; }
@@ -119,6 +120,7 @@ FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoa
     for (MidiLfo& l : p.midiLfo) l = MidiLfo{};
     std::memset(p.perfScene, 0, sizeof(p.perfScene));
     std::memset(p.perfExtType, 0, sizeof(p.perfExtType));
+    std::memset(p.playlistCount, 0, sizeof(p.playlistCount));
     char sp[352];
     if (sideFilePath(sp, sizeof(sp), path, mlfo::kFileName) && fs.exists(sp) &&
         readWholeFile(fs, sp, g_io, mlfo::kFileSize, &got) == FmtStatus::Ok)
@@ -126,6 +128,9 @@ FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoa
     if (sideFilePath(sp, sizeof(sp), path, pscn::kFileName) && fs.exists(sp) &&
         readWholeFile(fs, sp, g_io, pscn::kFileSize, &got) == FmtStatus::Ok)
         decodePerfScenes(g_io, got, p);
+    if (sideFilePath(sp, sizeof(sp), path, song::kFileName) && fs.exists(sp) &&
+        readWholeFile(fs, sp, g_io, song::kFileSize, &got) == FmtStatus::Ok)
+        decodeSongSide(g_io, got, p);
     return FmtStatus::Ok;
 }
 
@@ -133,13 +138,15 @@ FmtStatus saveProjectFile(IStorage& fs, const char* path, const Project& p) {
     encodeProject(p, g_io);
     const FmtStatus st = writeWholeFile(fs, path, g_io, mt::kFileSize);
     if (st != FmtStatus::Ok) return st;
-    // [I] OpenTracker side files (midi_lfo.bin, perf_scenes.bin), each only
+    // [I] OpenTracker side files (midi_lfo.bin, perf_scenes.bin, song.bin), each only
     // while it holds something, so other projects keep exactly the stock file set.
     const FmtStatus side = saveSideFile(fs, path, mlfo::kFileName, midiLfosUsed(p),
                                   [&](uint8_t* out) { encodeMidiLfos(p, out); }, mlfo::kFileSize);
     const FmtStatus scn = saveSideFile(fs, path, pscn::kFileName, perfScenesUsed(p),
                                        [&](uint8_t* out) { encodePerfScenes(p, out); }, pscn::kFileSize);
-    return side != FmtStatus::Ok ? side : scn;
+    const FmtStatus sng = saveSideFile(fs, path, song::kFileName, songSideUsed(p),
+                                       [&](uint8_t* out) { encodeSongSide(p, out); }, song::kFileSize);
+    return side != FmtStatus::Ok ? side : scn != FmtStatus::Ok ? scn : sng;
 }
 
 // 2.x: pattern files are the Tracker Mini 16-track layout (spec 21 §4):
