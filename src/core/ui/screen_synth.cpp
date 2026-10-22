@@ -97,6 +97,8 @@ int setMacroTarget(PatchMacro& mc, int k, int np, uint32_t newAmountBits) {
 // The engine's Init patch (Delete in Edit Patch); main loop only.
 OT_SDRAM_BSS SynthPatch g_initPatch;
 
+constexpr uint32_t kDx7BankBytes = 6 + 4096 + 2;   // F0 43 0n 09 20 00, 32 x 128, sum, F7
+
 bool sortName(const char* a, const char* b) {
     for (;; ++a, ++b) {
         char x = *a, y = *b;
@@ -507,7 +509,10 @@ void SynthScreen::listBrowser() {
         size_t len = 0;
         Entry kind = Entry::Patch;
         if (hasExt(".patch", 6) && n - 6 <= size_t(kBrowserNameMax)) len = 6;
-        else if (x->banks && hasExt(".syx", 4) && n <= size_t(kBrowserEntryMax)) kind = Entry::Bank;   // whole name
+        else if (x->banks && hasExt(".syx", 4) && n <= size_t(kBrowserEntryMax))
+            // Whole name. A 32-voice dump is 4104 bytes; anything shorter can
+            // only be a single voice (163 bytes).
+            kind = e.size >= kDx7BankBytes ? Entry::Bank : Entry::Single;
         else return true;
         std::memcpy(s->browser[s->browserCount], e.name, n - len);
         s->browser[s->browserCount][n - len] = 0;
@@ -516,7 +521,8 @@ void SynthScreen::listBrowser() {
     }, &ctx);
     // Banks first, then by name, case-insensitive (stock lists).
     auto before = [&](int a, int b) {
-        if (browserKind[a] != browserKind[b]) return browserKind[a] == Entry::Bank;
+        const bool ba = browserKind[a] == Entry::Bank, bb = browserKind[b] == Entry::Bank;
+        if (ba != bb) return ba;
         return sortName(browser[a], browser[b]);
     };
     for (int i = 1; i < browserCount; ++i)
@@ -607,8 +613,12 @@ bool SynthScreen::previewHighlighted() {
     if (browserKind[browserSel] == Entry::Bank) return false;   // a bank plays nothing
     if (previewSel_ == browserSel) return true;
     audition(false, 0);
-    const bool ok = browserKind[browserSel] == Entry::Voice ? app_.previewDx7BankVoice(slot, browserSel)
-                                                             : app_.previewSynthLibraryPatch(slot, browser[browserSel]);
+    bool ok;
+    switch (browserKind[browserSel]) {
+        case Entry::Voice: ok = app_.previewDx7BankVoice(slot, browserSel); break;
+        case Entry::Single: ok = app_.openDx7Bank(browser[browserSel]) > 0 && app_.previewDx7BankVoice(slot, 0); break;
+        default: ok = app_.previewSynthLibraryPatch(slot, browser[browserSel]); break;
+    }
     if (!ok) {
         app_.endSynthPreview();
         previewSel_ = -1;
@@ -643,8 +653,12 @@ bool SynthScreen::loadSelectedNow() {
     padNote_ = previewKey_ = -1;
     app_.endSynthPreview();   // the slot's own patch first, then the real load
     previewSel_ = -1;
-    const bool ok = browserKind[browserSel] == Entry::Voice ? app_.loadDx7BankVoice(slot, browserSel)
-                                                             : app_.loadSynthLibraryPatch(slot, browser[browserSel]);
+    bool ok;
+    switch (browserKind[browserSel]) {
+        case Entry::Voice: ok = app_.loadDx7BankVoice(slot, browserSel); break;
+        case Entry::Single: ok = app_.openDx7Bank(browser[browserSel]) > 0 && app_.loadDx7BankVoice(slot, 0); break;
+        default: ok = app_.loadSynthLibraryPatch(slot, browser[browserSel]); break;
+    }
     if (ok) {
         bank[0] = 0;
         edited_[slot] = false;
@@ -1116,7 +1130,10 @@ void SynthScreen::drawBrowser(Gfx& g) {
     };
     v.marked = [](void* c, int i) {
         auto* s = static_cast<SynthScreen*>(c);
-        return s->browserKind[i] != Entry::Bank && std::strcmp(s->browser[i], s->app_.synthSlot(s->slot).patchName) == 0;
+        // Patches and bank voices by name (a single-voice file shows its file
+        // name, the slot its voice name: not marked).
+        return (s->browserKind[i] == Entry::Patch || s->browserKind[i] == Entry::Voice) &&
+               std::strcmp(s->browser[i], s->app_.synthSlot(s->slot).patchName) == 0;
     };
     v.ctx = this;
     wg::list(g, th, v);
