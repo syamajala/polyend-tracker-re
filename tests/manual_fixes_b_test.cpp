@@ -330,7 +330,7 @@ TEST(perf_label_colours_and_live_cell_on_top) {
     CHECK(!p.fxOn[0]);
     CHECK(!a.ui.bar.label[0].highlight);
     a.setTrackMute(1, true);
-    r.h.tap(btn::Right);
+    r.h.tap(btn::Left);   // [I] refreshes the labels (Right switches to tracks 9-16 now)
     a.ui.dirty();
     r.h.run(200);
     CHECK(!a.ui.bar.label[1].enabled);

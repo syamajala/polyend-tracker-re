@@ -138,7 +138,9 @@ TEST(master_fx_perf_type_storage) {
     CHECK(perf::fx(perf::kDjFilter).global);
 }
 
-TEST(master_fx_perf_scenes_v2) {
+TEST(master_fx_perf_scenes_ext_types) {
+    // The OpenTracker-only FX types in perf_scenes.bin (v3, with the scene
+    // bank; older versions are not read: no such projects exist).
     Project p;
     CHECK(!perfScenesUsed(p));
     p.perfExtType[2] = perf::kDjFilter;   // a DJ filter slot alone writes the file
@@ -146,24 +148,14 @@ TEST(master_fx_perf_scenes_v2) {
     p.perfScene[0][1] = 2;
     uint8_t buf[pscn::kFileSize];
     encodePerfScenes(p, buf);
-    CHECK_EQ(buf[4], 2);
+    CHECK_EQ(buf[4], 3);
     Project q;
     CHECK(decodePerfScenes(buf, sizeof(buf), q) == FmtStatus::Ok);
     CHECK_EQ(q.perfExtType[2], perf::kDjFilter);
     CHECK_EQ(q.perfScene[0][1], 2);
-    // A version 1 file (the scenes only) still loads; no ext types.
-    Project r;
-    r.perfExtType[0] = 9;
-    buf[4] = 1;
-    CHECK(decodePerfScenes(buf, pscn::kScenesEnd, r) == FmtStatus::Ok);
-    CHECK_EQ(r.perfScene[0][1], 2);
-    CHECK_EQ(r.perfExtType[0], 0);
-    CHECK_EQ(r.perfExtType[2], 0);
-    // The v1 part of a v2 file is a complete v1 file (older builds read it).
-    CHECK(decodePerfScenes(buf, pscn::kScenesEnd, r) == FmtStatus::Ok);
-    // A damaged ext section is ignored, the scenes still load.
-    buf[4] = 2;
+    // A damaged FX types block is ignored, the scenes still load.
     buf[pscn::kScenesEnd + 3] ^= 0x40;
+    Project r;
     CHECK(decodePerfScenes(buf, sizeof(buf), r) == FmtStatus::Ok);
     CHECK_EQ(r.perfScene[0][1], 2);
     CHECK_EQ(r.perfExtType[2], 0);

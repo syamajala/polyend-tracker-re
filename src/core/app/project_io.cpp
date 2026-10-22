@@ -533,6 +533,11 @@ constexpr bool kLittleEndian = false;
 
 // Instrument file names of the project being opened / saved.
 OT_SDRAM_BSS char g_list[kSampleInstrumentCount + 16][64];   // SDRAM on the device (OP-5)
+// [I] The project being opened, checked before the Workspace is replaced:
+// a static, not on the stack (it held startOpenProject's frame above 6 KB,
+// close to the 8 KB stack guard, #23). SRAM: .sdram_bss is full. Built on
+// first use (no static-initialisation code).
+SdramLazy<Project> g_openProject;
 OT_SDRAM_BSS SlotScan g_scan;   // folder scanned by the running job (Open: source; load: Workspace)
 
 struct DirSum {
@@ -1513,7 +1518,8 @@ bool App::jobUnit(uint32_t& cost) {
             seq.stop();
             allVoicesOff();
             projectFilePath(src, sizeof(src), kWorkspace);
-            Project p;
+            Project& p = g_openProject.get();   // [I] a static, not the job step's frame
+            p.setDefault();
             ProjectLoadInfo pinfo;
             // spec 10 §1: structure 1..16 upgraded in RAM; type != 0 / version 0 fail.
             if (loadProjectFile(f, src, p, &pinfo) != FmtStatus::Ok) {
@@ -2112,7 +2118,8 @@ bool App::startOpenProject(const char* folder, const char* name, JobDoneFn done,
     // spec 10 §4.2 step 1: load + upgrade the project first. SPEC GAP: done
     // before the Workspace is wiped, so a rejected file (type != 0, version
     // 0) or a project too big for the sample bank leaves the current one.
-    Project p;
+    Project& p = g_openProject.get();
+    p.setDefault();
     ProjectLoadInfo pinfo;
     if (loadProjectFile(f, src, p, &pinfo) != FmtStatus::Ok) return false;
     g_clock = hal_.clock;
