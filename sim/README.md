@@ -148,6 +148,13 @@ build/sim/opentracker-sim --serve          # prints "serve: /dev/pts/N"
 tools/tracker_remote.py /dev/pts/N -c "status"
 ```
 
+Scripts in `tools/remote_scripts/` are written to run on both: CI runs them
+against the simulator (`tools/sim_remote_check.sh`, each on a fresh empty
+card), and the same file runs on a Tracker. `wait-for KEY OP VALUE [MS]`
+waits on the sequencer (for example `wait-for pass == 2`) instead of a
+fixed time, so a script works at any tempo; the status line has `song`,
+`slot` and `pass` for song mode.
+
 ### Display command export: text checks and a live mirror
 
 In drive mode the Tracker can also send the display commands of a frame

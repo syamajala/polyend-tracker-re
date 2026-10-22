@@ -35,6 +35,10 @@ int App::remoteStatus(char* out, int cap) {
     fieldInt(out, cap, n, "step", seq.step(0));
     fieldInt(out, cap, n, "pat", patternNumber());
     fieldInt(out, cap, n, "ins", currentInstrument() + 1);
+    // [I] Song mode: on / off, the playing slot (1-based) and its pass (#10).
+    fieldInt(out, cap, n, "song", seq.isSongMode() ? 1 : 0);
+    fieldInt(out, cap, n, "slot", seq.songPosition() + 1);
+    fieldInt(out, cap, n, "pass", seq.songPass());
     fieldInt(out, cap, n, "peak", engine.takeOutputPeak());
     // Performance: render load per block in permille of the budget (average,
     // peak of the last ~1-2 s), overrun blocks since boot, the synth voice
@@ -77,7 +81,7 @@ void App::serviceRemote() {
     }
     if (r->takeRedraw()) ui.dirty();
     if (r->takeQuery()) {
-        char s[remote::kLineMax + 64];
+        char s[remote::kLineMax + 128];   // status fields + a notice of up to 63 chars
         remoteStatus(s, sizeof s);
         r->sendLine(s);
     }

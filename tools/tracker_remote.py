@@ -25,6 +25,8 @@ Script lines (the simulator's headless language, sim/README.md, plus checks;
   status                        print the status line
   perf                          print the performance fields
   expect KEY OP VALUE           status field check, OP one of == != < <= > >= ~ (contains)
+  wait-for KEY OP VALUE [MS]    poll the status until the field check holds (fails after MS,
+                                default 10000), e.g. "wait-for pass == 2"
   expect-screen NAME            screen name (spaces allowed)
   expect-playing / expect-stopped
   expect-sound N                output peak since the last status query >= N
@@ -169,6 +171,18 @@ def parse_status(payload):
             k, v = tok.split("=", 1)
             fields[k] = v.replace("_", " ")
     return fields
+
+
+def compare(have, rel, want):
+    """Status field check: OP one of == != < <= > >= ~ (contains, any case)."""
+    if have is None:
+        return False
+    if rel == "~":
+        return want.lower() in have.lower()
+    if rel in ("==", "!="):
+        return (have == want) == (rel == "==")
+    a, b = float(have), float(want)
+    return {"<": a < b, "<=": a <= b, ">": a > b, ">=": a >= b}[rel]
 
 
 def write_png(path, w, h, rgb):
@@ -425,16 +439,17 @@ class Runner:
         elif op == "expect":
             key, rel, want = args[0], args[1], " ".join(args[2:])
             have = self.status().get(key)
-            ok = False
-            if have is not None:
-                if rel == "~":
-                    ok = want.lower() in have.lower()
-                elif rel in ("==", "!="):
-                    ok = (have == want) == (rel == "==")
-                else:
-                    a, b = float(have), float(want)
-                    ok = {"<": a < b, "<=": a <= b, ">": a > b, ">=": a >= b}[rel]
-            self.check(ok, "%s %s %s (is %s)" % (key, rel, want, have))
+            self.check(compare(have, rel, want), "%s %s %s (is %s)" % (key, rel, want, have))
+        elif op == "wait-for":
+            # Poll the status until the field matches (or the timeout, ms).
+            key, rel, want = args[0], args[1], args[2]
+            limit = int(args[3]) / 1000.0 if len(args) > 3 else 10.0
+            end = time.time() + limit
+            have = self.status().get(key)
+            while not compare(have, rel, want) and time.time() < end:
+                time.sleep(0.03)
+                have = self.status().get(key)
+            self.check(compare(have, rel, want), "wait-for %s %s %s (is %s)" % (key, rel, want, have))
         elif op == "expect-screen":
             want = " ".join(args)
             have = self.status().get("scr")
