@@ -88,7 +88,7 @@ TEST(perf_scene_volume_blend_with_encoder) {
     // The title shows the fader once a scene exists.
     r.fade(50);
     r.h.run(40);
-    CHECK(r.h.disp.lastHasText("A -----|----- B"));
+    CHECK(r.h.disp.lastHasText("A 1 -----|----- B 2"));   // [I] the scenes on A / B by number
 }
 
 TEST(perf_scene_same_type_in_different_slots) {
@@ -323,7 +323,7 @@ TEST(perf_scene_clear_restores_pad_rows) {
     CHECK_EQ(p.cur[0], -25);
     CHECK_EQ(r.voice(0).volume, -25);
     CHECK_EQ(p.cur[1], slot1);
-    CHECK_STR(gLastNote.c_str(), "Scene B cleared");
+    CHECK_STR(gLastNote.c_str(), "Scene 2 cleared (B)");
     // Clear A too: the slot goes back to its pad row (row 2, +50), the
     // fader to A and out of the title bar.
     r.clear(0);
@@ -332,7 +332,7 @@ TEST(perf_scene_clear_restores_pad_rows) {
     CHECK_EQ(r.voice(0).volume, 50);
     CHECK_EQ(p.cur[1], slot1);
     CHECK_EQ(p.fader, 0);
-    CHECK_STR(gLastNote.c_str(), "Scene A cleared");
+    CHECK_STR(gLastNote.c_str(), "Scene 1 cleared (A)");
     r.h.run(40);
     CHECK(!r.h.disp.lastHasText(" B"));
     // The encoder edits nothing scene-related any more; storing works again.
@@ -361,8 +361,9 @@ TEST(perf_scene_marks_fit_the_display_list) {
     std::printf("performance + 24 scene marks: %u -> %u DL words\n", unsigned(before), unsigned(after));
     CHECK(after > before);
     // Two vertices per bar + colour / begin / end per scene colour, and the
-    // title-bar fader text that appears with the first scene (~22 words).
-    CHECK(after - before <= 2 * 24 + 2 * 4 + 24);
+    // title-bar fader text that appears with the first scene (~22 words,
+    // + 4 for the scene numbers on A / B, scene bank #10).
+    CHECK(after - before <= 2 * 24 + 2 * 4 + 24 + 4);
     CHECK(after <= Ui::kDlTargetWords);
 }
 
@@ -457,7 +458,7 @@ TEST(perf_scene_store_and_clear_one_column) {
     CHECK_EQ(a.project.perfScene[0][0], 1);
     CHECK_EQ(a.project.perfScene[0][1], 3);
     r.h.run(20);
-    CHECK(r.frameHas("Scene A: Panning +0") || r.h.disp.lastHasText("Scene A: Panning"));
+    CHECK(r.frameHas("Scene 1 (A): Panning +0") || r.h.disp.lastHasText("Scene 1 (A): Panning"));
     // Hold column 2 row 1 + Shift+Right: B gets only column 2.
     r.h.push(InputEvent::kPadDown, 12 * 1 + 2);
     r.h.run(1);

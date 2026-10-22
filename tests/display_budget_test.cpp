@@ -912,7 +912,7 @@ TEST(overlay_matrix_bank_b) {
     App& a = r.a;
     for (int t = 8; t < kTrackCount; ++t) trk::setName(a, t, "WWWWWWW");
     r.screen(btn::Performance, "performance");
-    h.tap(btn::Performance);
+    h.tap(btn::Right);   // [I] tracks 9-16 (stock 2.x: the Performance key, now the scene bank)
     CHECK_EQ(static_cast<PerformanceScreen*>(a.ui.screen(kModPerformance))->bank, 1);
     r.measure("performance bank B");
     r.overlays("performance bank B");
@@ -925,6 +925,15 @@ TEST(overlay_matrix_bank_b) {
     h.tap(btn::Play);
     r.measure("performance bank B playing", 1000);
     h.tap(btn::Play);
+    // [I] The scene bank page (#10), every scene stored, A / B on 1 / 16.
+    for (auto& sc : a.project.perfScene)
+        for (int c = 0; c < Project::kPerfSceneSlots; ++c) sc[c] = uint8_t(1 + c % 3);
+    a.project.perfSceneOn[1] = 15;
+    h.tap(btn::Performance);
+    CHECK(static_cast<PerformanceScreen*>(a.ui.screen(kModPerformance))->view == PerformanceScreen::View::Bank);
+    r.measure("scene bank");
+    r.overlays("scene bank");
+    h.tap(btn::Performance);
     r.screen(btn::Master, "master");
     h.tap(btn::Master);
     h.run(100);

@@ -144,11 +144,15 @@ struct Project {
     // [I] MIDI LFO per MIDI instrument 0..15 (midi_lfo.bin, not project.mt).
     MidiLfo midiLfo[kMidiInstrumentCount];
 
-    // [I] Performance scenes A / B: the stored row (0 = off, 1..3) of each of
-    // the 12 Performance slots (perf_scenes.bin, not project.mt).
-    static constexpr int kPerfScenes = 2;
+    // [I] Performance scene bank: the stored row (0 = off, 1..3) of each of
+    // the 12 Performance slots per scene (perf_scenes.bin, not project.mt).
+    // The crossfader's ends A / B each play one of them (perfSceneOn).
+    static constexpr int kPerfScenes = 16;
     static constexpr int kPerfSceneSlots = 12;
     uint8_t perfScene[kPerfScenes][kPerfSceneSlots] = {};
+    uint8_t perfSceneOn[2] = {0, 1};   // the scenes on A and B (bank indices)
+    uint8_t* sceneOn(int ab) { return perfScene[perfSceneOn[ab ? 1 : 0] % kPerfScenes]; }
+    const uint8_t* sceneOn(int ab) const { return perfScene[perfSceneOn[ab ? 1 : 0] % kPerfScenes]; }
     // [I] OpenTracker-only Performance FX types of the project presets
     // (perf::Source::ext; perf_scenes.bin v2). 0 = the slot's stock type.
     uint8_t perfExtType[kPerfSceneSlots] = {};

@@ -607,7 +607,8 @@ public:
     void onPad(uint8_t pad, uint8_t state) override;
     void onEncoder(int d) override;
     bool encoderFast() const override { return true; }
-    // 2.x: the Performance key toggles the track bank (docs/specs/2x-01 §5).
+    // [I] The Performance key opens the scene bank page (stock 2.x: it
+    // toggled the track bank, now Left / Right outside edit mode).
     bool ownsModuleKey(uint8_t id) const override { return id == btn::Performance; }
     void padLeds(uint8_t* levels) override;
     // MIDI CC 41-48 / 51-62 (spec 12 §B.2, §B.3); handled at the next update.
@@ -658,6 +659,24 @@ public:
     int16_t padValue(int c) const;
     void editSelected(int d);   // [I] edit mode, nothing held: encoder on the edit column's row
 
+    // [I] Scene bank (#10): 16 scenes (Project::perfScene); the crossfader's
+    // ends A / B each play one (Project::perfSceneOn). The Performance key
+    // opens the bank page (a view of this screen, so the FX stay live): pick
+    // the scenes for A / B, or open a scene to edit it here, where the pads
+    // set its rows (heard as they are set) and leaving saves it.
+    enum class View : uint8_t { Play, Bank, EditScene };
+    View view = View::Play;
+    int bankCursor = 0;    // the selected scene on the bank page
+    int editScene = -1;    // the scene being edited (View::EditScene)
+    void openBank();
+    void setSceneOn(int ab, int scene);
+    void editSceneStart(int scene);
+    void editSceneEnd();   // saves the scene, back to the bank page
+    void clearBankScene(int scene);
+    // Pad -> scene on the bank page: the first 8 pads of rows 1 and 2, as
+    // the page's two rows of 8; -1 for the others.
+    static int padScene(int pad) { return (pad % 12) < 8 && pad / 12 < 2 ? (pad / 12) * 8 + pad % 12 : -1; }
+
 private:
     void refreshBar();
     void applyAll(bool revertEverything);
@@ -673,6 +692,10 @@ private:
     void trackPatternQueued(int t, int num);
     uint8_t trackPatternOf(int t) const;
     void storeTrackPattern(int t, uint8_t num);
+    void releaseDriven();   // [I] the slots scenes A / B drive go back to their pad rows
+    void bankButton(uint8_t id, uint8_t state);
+    void drawBank(Gfx& g);
+    uint8_t savedRows_[12] = {};   // [I] the pad rows before a scene was opened for editing
     bool held_[12] = {};
     bool keyHeld_[8] = {};   // per F key
     bool keyUsed_[8] = {};
