@@ -1,5 +1,7 @@
 # Host unit tests, firmware builds (with and without Games) with the flash /
 # stack-headroom / libm checks, and the .ptf images as downloadable artifacts.
+# On pull requests also a memory report: flash, SRAM, SDRAM and stack
+# headroom of the PR against its base, in the run's summary (#25).
 name: CI
 
 on:
@@ -56,3 +58,30 @@ jobs:
           name: firmware-${{ github.sha }}
           path: build/**/*.ptf
           if-no-files-found: error
+
+  # The PR (GitHub's merge commit) against its base: tools/size_report.py
+  # writes a table to the job summary. Reports only; the limits are the
+  # firmware job's checks.
+  size-report:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '14.2.Rel1'
+      - name: Build this PR
+        run: |
+          make -j"$(nproc)" VERSION=2.1.0
+          cp build/opentracker.elf "$RUNNER_TEMP/head.elf"
+      - name: Build the base
+        run: |
+          git worktree add "$RUNNER_TEMP/base" "${{ github.event.pull_request.base.sha }}"
+          make -C "$RUNNER_TEMP/base" -j"$(nproc)" VERSION=2.1.0
+          cp "$RUNNER_TEMP/base/build/opentracker.elf" "$RUNNER_TEMP/base.elf"
+      - name: Memory report
+        run: |
+          python3 tools/size_report.py "$RUNNER_TEMP/base.elf" "$RUNNER_TEMP/head.elf" \
+            --size-tool arm-none-eabi-size | tee -a "$GITHUB_STEP_SUMMARY"
