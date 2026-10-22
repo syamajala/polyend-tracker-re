@@ -801,3 +801,33 @@ TEST(resample_screen_into) {
     CHECK(h.disp.lastHasText("1 saw"));   // the list shows slot names
     CHECK(h.disp.lastHasText("-> Instr 4"));   // empty, above every loaded slot
 }
+
+TEST(resample_into_records_the_take_with_its_fx) {
+    // Take 1 placed on track 2, the source muted, delay / reverb on the take,
+    // take 2 from Master into the same slot: the FX are in the new audio.
+    Harness h;
+    App& a = *h.app;
+    setup(h);
+    a.resampleCfg.place = 2;
+    take(h, 1);   // instrument 2 on track 2
+    const uint32_t n = a.bank.frames(1);
+    std::vector<int16_t> before(a.bank.left(1), a.bank.left(1) + n);
+    a.setTrackMute(0, true);
+    a.instruments[1].delaySend = 100;
+    a.instruments[1].reverbSend = 100;
+    a.markInstrumentDirty(1);
+    a.resampleCfg.place = 0;
+    a.resampleCfg.into = 2;
+    take(h, 1);
+    CHECK_EQ(a.bank.frames(1), n);
+    // Energy of the difference against the energy of the first take.
+    double diff = 0.0, ref = 0.0;
+    const int16_t* l = a.bank.left(1);
+    for (uint32_t i = 0; i < n; ++i) {
+        const double d = double(l[i]) - double(before[i]);
+        diff += d * d;
+        ref += double(before[i]) * double(before[i]);
+    }
+    std::printf("    take 2 vs take 1: difference energy %.1f %% of take 1\n", 100.0 * diff / ref);
+    CHECK(diff > 0.05 * ref);
+}
