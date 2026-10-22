@@ -16,7 +16,7 @@ enc 9                # From: Line in
 tap F2
 enc -5
 enc 1                # Length: 1 bar
-tap F4
+tap F5
 enc 1                # Place on: Track 1
 tap F8               # Record (starts on the next bar)
 wait 5000            # <= 1 bar to the start + 1 bar at 125 BPM (1.92 s each)
@@ -40,7 +40,7 @@ tap F6
 wait 300
 tap F1
 enc -9               # From: Master
-tap F4
+tap F5
 enc -1               # Place on: Off
 tap F8
 wait 5000

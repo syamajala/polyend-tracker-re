@@ -46,7 +46,11 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 - **Shift + Sample Recorder** arms, stops or cancels a take from any screen. The **Resample**
   screen opens from the Sample Recorder's "This will stop the pattern" prompt (button
   **Resample**); the pattern keeps playing. Line in has a level meter, Gain and Monitor.
-- The take goes into the next free instrument, in stereo, and is saved with the project.
+- **Into:** New puts the take into the next free instrument (above every loaded one), in
+  stereo, saved with the project. **Instrument N** re-records into N: a take of the same
+  length overwrites it in place, without a gap, and keeps N's settings, so a loop can be
+  re-sampled take after take. A take of another length is not lost: it goes to a new
+  instrument instead. Arming into a slot that holds a sample asks once.
 - **Slices:** Off, Per beat, Per step, or **Beat hits / Step hits** (a slice starts only where
   a new hit begins, so empty steps stay empty). Sliced takes play in Beat Slice mode.
 - **Place on track N:** the take, or each slice on its own step, is written into a track so
