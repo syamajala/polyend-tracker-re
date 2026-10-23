@@ -218,15 +218,26 @@ void PerformanceScreen::perfSongSlot(int slot) {
 }
 
 int PerformanceScreen::rampFader(int ramp, int count, int pass, int len, int pos, int micro) {
-    // In micro steps (48 per step); the ramp ends with the slot.
+    // In micro steps (48 per step) from the slot start: the ramp runs from
+    // `start` for `r`; before it the fader is at A, after it at B.
     constexpr int kM = 48;
     const int total = count * len * kM;
-    int r = total;
-    if (ramp == Project::kRampLast) r = len * kM;
-    else if (ramp != Project::kRampSlot && (ramp - 1) * kM < total) r = (ramp - 1) * kM;
+    int at = ((pass - 1) * len + pos) * kM + micro - 1;
+    int start = 0, r = total;
+    if (ramp == Project::kRampEach) {
+        at = pos * kM + micro - 1;
+        r = len * kM;
+    } else if (ramp == Project::kRampFirst) {
+        r = len * kM;
+    } else if (const int n = Project::rampLastPasses(ramp); n && n < count) {
+        r = n * len * kM;
+        start = total - r;
+    } else if (const int s = Project::rampSteps(ramp); s && s * kM < total) {
+        r = s * kM;
+        start = total - r;
+    }
     if (r <= 0) return kFaderMax;
-    const int at = ((pass - 1) * len + pos) * kM + micro - 1 - (total - r);
-    return clampi(at * kFaderMax / r, 0, kFaderMax);
+    return clampi((at - start) * kFaderMax / r, 0, kFaderMax);
 }
 
 void PerformanceScreen::perfSongTick() {

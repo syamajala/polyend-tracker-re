@@ -215,8 +215,22 @@ void SongScreen::setScene(int slot, int scene, int to) {
 }
 
 void SongScreen::setRamp(int slot, int ramp) {
-    app_.project.playlistRamp[slot] = uint8_t(clampi(ramp, Project::kRampSlot, 255));
+    app_.project.playlistRamp[slot] = uint8_t(clampi(ramp, Project::kRampSlot, Project::kRampMax));
     app_.markProjectDirty();
+}
+
+int SongScreen::rampAfter(int ramp, int count, int d) {
+    // [I] The encoder's order: Slot, Each, First, Last 1 .. count - 1 (Last
+    // at least), then 1 .. kStepCount steps; d moves that many entries.
+    const int lasts = count > 2 ? count - 1 : 1;
+    auto index = [&](int v) {
+        if (const int n = Project::rampLastPasses(v)) return Project::kRampLast + (n < lasts ? n : lasts) - 1;
+        if (const int s = Project::rampSteps(v)) return Project::kRampLast + lasts + s - 1;
+        return v;
+    };
+    const int i = clampi(index(ramp) + d, 0, Project::kRampLast + lasts + kStepCount - 1);
+    if (i < Project::kRampLast + lasts) return i;
+    return Project::kRampSteps + (i - Project::kRampLast - lasts) + 1;
 }
 
 void SongScreen::tempoDelta(float d, bool integer) {
@@ -585,8 +599,9 @@ void SongScreen::onEncoder(int d) {
         if (edit && !ui_.shift()) setScene(cursor, sc + d, to);
         else if (edit && sc) setScene(cursor, sc, to + d);
     } else if (focus == kFocusRamp) {
-        // [I] Slot, Last, then steps; Shift: 16 steps per detent.
-        if (edit) setRamp(cursor, a.project.slotRamp(cursor) + d * (ui_.shift() ? 16 : 1));
+        // [I] Slot, Each, First, Last N, then steps (rampAfter); Shift: 16 per detent.
+        if (edit)
+            setRamp(cursor, rampAfter(a.project.slotRamp(cursor), a.project.slotCount(cursor), d * (ui_.shift() ? 16 : 1)));
     } else if (focus == 2) {
         tempoDelta(ui_.shift() ? 0.1f * float(d) : float(d), !ui_.shift());
     } else {
@@ -764,12 +779,13 @@ void SongScreen::draw(Gfx& g) {
         // [I] Ramp: only a slot with a scene on B ramps; the others show it dim.
         const int rp = a.project.slotRamp(slotI);
         const uint32_t rc = to ? c : th.dim;
-        if (rp == Project::kRampSlot)
-            g.text(kRampX, cy, kFont1, rc, "Slot", IDisplay::kOptCenter);
-        else if (rp == Project::kRampLast)
-            g.text(kRampX, cy, kFont1, rc, "Last", IDisplay::kOptCenter);
+        static const char* const kRampNames[] = {"Slot", "Each", "First", "Last"};
+        if (const int n = Project::rampLastPasses(rp); n > 1)
+            g.textf(kRampX, cy, kFont1, rc, IDisplay::kOptCenter, "L%d", n);   // "Last15" overflows the cell
+        else if (const int s = Project::rampSteps(rp))
+            g.textf(kRampX, cy, kFont1, rc, IDisplay::kOptCenter, "%d", s);
         else
-            g.textf(kRampX, cy, kFont1, rc, IDisplay::kOptCenter, "%d", rp - 1);
+            g.text(kRampX, cy, kFont1, rc, kRampNames[rp], IDisplay::kOptCenter);
     }
     if (cursor >= first && cursor < first + kRows) {
         const int y0 = kListY0 + kPitchY * (cursor - first);

@@ -193,6 +193,8 @@ public:
     int cursor = 0;
     bool edit = false;
     int focus = 1;                 // 0 grid, 1 list, 2 tempo, 3 / 4 / 5 the list's Count / Scene / Ramp column (edit mode)
+    // [I] The ramp d encoder detents after `ramp` for a slot of `count` passes.
+    static int rampAfter(int ramp, int count, int d);
     int selRow0 = 0, selRows = 1, selTrack0 = 0, selTracks = 1;
     // 2.x (docs/M1_PLAN.md §4, spec gap 4): the grid shows 12 of the 16
     // tracks; the first shown track is 0 or 4 and follows the grid cursor.
