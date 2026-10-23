@@ -670,6 +670,11 @@ private:
         int songLen = 0;
     } job_;
     OT_APP_SDRAM_MEMBER(ProjectJob, pj_);   // background project operation (project_io.cpp)
+    // [I] The project jobs' one spare Project (project_io.cpp), outside pj_
+    // so a job reset keeps it: Open loads and checks the file here before the
+    // Workspace is replaced, then writes it as Workspace/project.mt (spec 10
+    // §4.2 steps 1-2); the Workspace load that follows parses into it again.
+    OT_APP_SDRAM_MEMBER(Project, jobProject_);
     bool lastJobOk_ = true;
     int lastJobErrors_ = 0;
     uint32_t jobProgressMs_ = 0;

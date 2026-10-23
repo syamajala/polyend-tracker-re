@@ -533,11 +533,6 @@ constexpr bool kLittleEndian = false;
 
 // Instrument file names of the project being opened / saved.
 OT_SDRAM_BSS char g_list[kSampleInstrumentCount + 16][64];   // SDRAM on the device (OP-5)
-// [I] The project being opened, checked before the Workspace is replaced:
-// a static, not on the stack (it held startOpenProject's frame above 6 KB,
-// close to the 8 KB stack guard, #23). SDRAM on the device; built on first
-// use (no static-initialisation code).
-OT_SDRAM_BSS SdramLazy<Project> g_openProject;
 OT_SDRAM_BSS SlotScan g_scan;   // folder scanned by the running job (Open: source; load: Workspace)
 
 struct DirSum {
@@ -1518,7 +1513,7 @@ bool App::jobUnit(uint32_t& cost) {
             seq.stop();
             allVoicesOff();
             projectFilePath(src, sizeof(src), kWorkspace);
-            Project& p = g_openProject.get();   // [I] a static, not the job step's frame
+            Project& p = jobProject_;   // Open's copy was written in kODirs
             p.setDefault();
             ProjectLoadInfo pinfo;
             // spec 10 §1: structure 1..16 upgraded in RAM; type != 0 / version 0 fail.
@@ -1755,7 +1750,7 @@ bool App::jobUnit(uint32_t& cost) {
             // spec 10 §1.5 / §4.2 step 2: Workspace/project.mt as v17 with the
             // selected name and parent folder (also for legacy files).
             projectFilePath(dst, sizeof(dst), kWorkspace);
-            if (saveProjectFile(f, dst, pj_.proj) != FmtStatus::Ok) {
+            if (saveProjectFile(f, dst, jobProject_) != FmtStatus::Ok) {
                 jobFail();
                 return false;
             }
@@ -2118,7 +2113,7 @@ bool App::startOpenProject(const char* folder, const char* name, JobDoneFn done,
     // spec 10 §4.2 step 1: load + upgrade the project first. SPEC GAP: done
     // before the Workspace is wiped, so a rejected file (type != 0, version
     // 0) or a project too big for the sample bank leaves the current one.
-    Project& p = g_openProject.get();
+    Project& p = jobProject_;   // no job runs (finishJob above); kept by the pj_ reset below
     p.setDefault();
     ProjectLoadInfo pinfo;
     if (loadProjectFile(f, src, p, &pinfo) != FmtStatus::Ok) return false;
@@ -2142,10 +2137,9 @@ bool App::startOpenProject(const char* folder, const char* name, JobDoneFn done,
     std::memcpy(pj_.wavBase, dir, sizeof(dir));
     std::snprintf(pj_.wipe, sizeof(pj_.wipe), "%s", kWorkspace);
     pj_.wipeRootLen = uint16_t(std::strlen(kWorkspace));
-    pj_.proj = p;
     pj_.slotReset = pinfo.synthSlotsReset;   // the Workspace copy is written with the reset record
-    pj_.proj.setName(name);
-    pj_.proj.setFolder(fold);
+    p.setName(name);
+    p.setFolder(fold);
     pj_.onDone = done;
     pj_.ctx = ctx;
     pj_.stage = kOWipe;
