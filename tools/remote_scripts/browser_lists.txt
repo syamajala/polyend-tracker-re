@@ -1,0 +1,100 @@
+# The browsers share one name-list buffer (screens.h browserListMem(), #48):
+# each list must show its own names, never another list's leftovers. Runs on
+# the simulator (tools/sim_remote_check.sh) and on a Tracker:
+#   tools/tracker_remote.py PORT tools/remote_scripts/browser_lists.txt
+# On a Tracker, copy the contents of browser_lists.sd/ to the card first (a
+# project folder, a .mod, an ACD patch and a sample folder, all listed, never
+# opened) and keep at least one firmware image in /Firmware. browser_lists.sim-sd/
+# is the simulator's stand-in for that image; never copy it to a Tracker.
+# Each list's own name: AlphaFolder (File Open), BravoSong (Import Mod),
+# CharliePatch (Synth 1 Load Patch, ACD), DeltaSamples (Sample Loader at the
+# card root), PolyendTrac... (Config > Firmware update).
+
+# File > Open: the Projects list.
+tap FILE
+wait 300
+tap F2
+wait 500
+expect-text AlphaFolder
+expect-no-text BravoSong
+expect-no-text CharliePatch
+expect-no-text DeltaSamples
+
+# File > Import Mod (F7 Cancel: back to the File page first).
+tap F7
+wait 200
+tap F3
+wait 500
+expect-text BravoSong
+expect-no-text AlphaFolder
+expect-no-text DeltaSamples
+tap F7               # Cancel
+
+# Config > Firmware > Firmware update. Config reopens on the last category
+# used, so go to the top (Project Settings) first.
+tap CONFIG
+wait 300
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN             # Firmware
+tap RIGHT
+tap F8               # Firmware update: the list
+wait 500
+expect-text PolyendTrac
+expect-no-text BravoSong
+expect-no-text AlphaFolder
+tap F7               # Cancel, nothing selected
+
+# Sample Loader at the card root.
+tap SAMPLELOADER
+wait 500
+expect-text DeltaSamples
+expect-no-text PolyendTrac
+expect-no-text BravoSong
+expect-no-text AlphaFolder
+
+# Synth 1 (ACD) > Load Patch.
+tap PATTERN
+wait 200
+press INSTR
+wait 400
+enc -70              # Synth 1 (the first entry)
+release INSTR
+wait 100
+tap INSTRPARAMS
+wait 300
+tap F7               # Load Patch
+wait 500
+expect-text CharliePatch
+expect-no-text DeltaSamples
+expect-no-text PolyendTrac
+tap F7               # close
+
+# Back to lists shown before: each lists again, nothing from the synth list.
+tap SAMPLELOADER
+wait 500
+expect-text DeltaSamples
+expect-no-text CharliePatch
+tap FILE
+wait 300
+tap F2
+wait 500
+expect-text AlphaFolder
+expect-no-text CharliePatch
+expect-no-text DeltaSamples
+tap F7
+wait 200
+tap F3
+wait 500
+expect-text BravoSong
+expect-no-text AlphaFolder
+tap F7
