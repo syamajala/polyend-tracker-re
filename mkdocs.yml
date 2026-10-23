@@ -1,0 +1,67 @@
+# Documentation site (GitHub Pages): MkDocs + Material, versions with mike.
+# Preview: pip install "mkdocs<2" mkdocs-material mike; mkdocs serve
+# Published by .github/workflows/docs.yml ("dev" = main).
+site_name: OpenTracker (syamajala fork)
+site_description: Open-source firmware for the original Polyend Tracker, with live resampling, Performance scenes, song arrangement and a DX7 synth.
+site_url: https://syamajala.github.io/polyend-tracker-re/
+repo_url: https://github.com/syamajala/polyend-tracker-re
+repo_name: syamajala/polyend-tracker-re
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: red
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: red
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+
+extra:
+  version:
+    provider: mike
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.keys
+
+nav:
+  - Home: index.md
+  - Install and go back: install.md
+  - User guide:
+      - DX7 synth: guide/dx7.md
+      - Live resampling: guide/resampling.md
+      - Performance mode: guide/performance.md
+      - Song mode: guide/song-mode.md
+      - MIDI instrument LFO: guide/midi-lfo.md
+      - More features: guide/more.md
+      - Remote control: guide/remote-control.md
+      - Troubleshooting: guide/troubleshooting.md
+  - Developers:
+      - Building: dev/building.md
+      - Simulator: dev/simulator.md
+      - Testing and CI: dev/testing.md
+      - Memory: dev/memory.md
+      - Workflow and file formats: dev/workflow.md
+      - Documentation: dev/docs.md

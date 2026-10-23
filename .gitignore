@@ -1,2 +1,6 @@
 sim/build/
 __pycache__/
+
+# MkDocs (docs/dev/docs.md)
+/site/
+/.venv/
