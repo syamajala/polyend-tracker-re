@@ -201,11 +201,15 @@ const uint8_t kPercMix[] = {49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 
                             64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78};
 const uint8_t kPercFx[] = {80, 79, 81, 82, 83};   // Type, Level (manual p.169)
 
-// --- DX7 (1) [OT] -------------------------------------------------------------
-const ParamUi kDx7[1] = {
-    {"Volume", F(kFmtPct)},
+// --- DX7 (8) [OT] -------------------------------------------------------------
+// Controls on top of the loaded voice (formats/patch_pb.h kDx7*).
+const char* const kDx7MonoNames[2] = {"Retrigger", "Legato"};
+const ParamUi kDx7[kDx7ParamCount] = {
+    {"Volume", F(kFmtPct)},      {"Mono", E(kDx7MonoNames)},   {"Brightness", F(kFmtPct)}, {"Feedback", F(kFmtInt)},
+    {"Attack", F(kFmtPct)},      {"Release", F(kFmtPct)}, {"LFO Depth", F(kFmtPct)},  {"Detune", F(kFmtPct)},
 };
-const uint8_t kDx7Voice[] = {0};
+const uint8_t kDx7Voice[] = {kDx7Volume, kDx7Mono};
+const uint8_t kDx7Tone[] = {kDx7Brightness, kDx7Feedback, kDx7Attack, kDx7Release, kDx7LfoDepth, kDx7Detune};
 #undef E
 #undef F
 
@@ -234,7 +238,7 @@ const Section kPercSec[] = {S("Kick", "Kick", kPercKick),     S("Tom", "Toms", k
                             S("Snare", "Snare", kPercSnare),  S("Hi Hat", "Hi Hat", kPercHat),
                             S("Cymbal", "Cymbal", kPercCym),  S("Perc", "Percussion", kPercPerc),
                             S("Mixer", "Mixer", kPercMix),    S("FX", "FX", kPercFx), MACROS};
-const Section kDx7Sec[] = {S("Voice", "Voice", kDx7Voice), MACROS};
+const Section kDx7Sec[] = {S("Voice", "Voice", kDx7Voice), S("Tone", "Tone", kDx7Tone), MACROS};
 #undef S
 #undef MACROS
 

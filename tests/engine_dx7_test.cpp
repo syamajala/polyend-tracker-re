@@ -1,8 +1,9 @@
 // DX7 engine (audio/engines/dx7.*, issue #20): SysEx parsing (single voice,
 // 32-voice bank, bad checksums, junk), bank unpacking, range clamping, the
 // note's pitch (ratio, fixed frequency, transpose, bend), velocity
-// sensitivity, the voice end after its release, legato reuse, the
-// algorithm 4 / 6 feedback loops, amplitude modulation, polyphony, no NaN /
+// sensitivity, the voice end after its release, mono Retrigger / Legato,
+// the engine controls (Brightness, Feedback, Attack, Release, LFO Depth,
+// Detune), the algorithm 4 / 6 feedback loops, amplitude modulation, polyphony, no NaN /
 // Inf and a bounded level over random voices, and every voice of the .syx
 // files in $OT_DX7_SYX (a directory; skipped when unset) renders cleanly.
 // Cycle counts: tests/audio_bench.cpp (dx7.*, make perf-gate).
@@ -11,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -20,6 +22,7 @@
 
 #include "audio/engines/dx7.h"
 #include "audio/synth_engine.h"
+#include "formats/patch_pb.h"
 
 using namespace ot;
 using namespace ot::audio;
@@ -132,7 +135,17 @@ struct Rig {
             x.slotScratch = &scratch;
         }
     }
-    void on(int k, float pitch, float velocity = 1.0f, bool reused = false) {
+    // Engine control i (kDx7*) = x; the others at their defaults.
+    void set(int i, float x) {
+        if (p.count == 0) {
+            int n = 0;
+            const PatchParamRange* t = patchEngineParams(kSynthEngineDx7, &n);
+            p.count = n;
+            for (int j = 0; j < n; ++j) p.start[j] = p.end[j] = t[j].def;
+        }
+        p.start[i] = p.end[i] = x;
+    }
+    void on(int k, float pitch, float velocity = 1.0f, bool reused = false, bool overlap = false) {
         if (!reused) {
             std::memset(v[k].state, 0, sizeof(v[k].state));
             v[k].level = 0.0f;
@@ -143,6 +156,7 @@ struct Rig {
         n.note = uint8_t(std::clamp(int(pitch), 0, 127));
         n.velocity = velocity;
         n.reused = reused;
+        n.overlap = overlap;
         e->noteOn(v[k], p, n);
         alive[k] = true;
     }
@@ -398,17 +412,198 @@ TEST(dx7_voice_ends_after_release) {
     CHECK(rms(held.L, held.L.size() - kBlock * 50) > 0.1);
 }
 
-TEST(dx7_legato_reuse_keeps_level) {
-    // A reused voice restarts its envelopes from where they are: no drop to 0.
+// Largest sample-to-sample step over [a, b).
+float maxStep(const Buf& x, size_t a, size_t b) {
+    float m = 0.0f;
+    for (size_t i = std::max<size_t>(a, 1); i < std::min(b, x.size()); ++i) m = std::max(m, std::fabs(x[i] - x[i - 1]));
+    return m;
+}
+
+TEST(dx7_mono_retrigger_restarts_without_click) {
+    // Default Mono = Retrigger: a reused, still-held voice restarts its
+    // envelopes from 0 like a new voice (a slow attack starts over), and the
+    // gains ramp down over one control step instead of jumping.
     Voice v = sineVoice();
     v[5 * 21 + 0] = 30;   // slow attack
     Rig rig(v);
     rig.on(0, 60.0f);
     rig.run(kBlocksPerSec);
     const float before = rig.v[0].level;
-    rig.on(0, 64.0f, 1.0f, true);
-    rig.run(1);
+    const size_t at = rig.L.size();
+    const float settled = maxStep(rig.L, at - kBlock, at);
+    rig.on(0, 64.0f, 1.0f, true, true);
+    rig.run(2);
+    CHECK(rig.v[0].level < before * 0.5f);
+    CHECK(maxStep(rig.L, at - 1, at + 2 * kBlock) <= settled * 1.5f);
+}
+
+TEST(dx7_mono_legato_overlap_moves_pitch_only) {
+    // Mono = Legato: a note that overlaps the held one keeps the envelopes
+    // (no drop) and only moves the pitch.
+    Voice v = sineVoice();
+    v[5 * 21 + 0] = 30;
+    Rig rig(v);
+    rig.set(kDx7Mono, 1.0f);
+    rig.on(0, 60.0f);
+    rig.run(kBlocksPerSec);
+    const float before = rig.v[0].level;
+    const size_t at = rig.L.size();
+    rig.on(0, 72.0f, 1.0f, true, true);
+    rig.run(kBlocksPerSec / 2);
     CHECK(rig.v[0].level >= before * 0.9f);
+    CHECK_NEAR(zeroCrossHz(rig.L, at + kBlock, rig.L.size()), midiHz(72), midiHz(72) * 0.01);
+    // After a release (no overlap) Legato restarts from where the envelopes
+    // are: no drop to 0 either.
+    rig.off(0);
+    rig.run(4);
+    const float released = rig.v[0].level;
+    rig.on(0, 60.0f, 1.0f, true, false);
+    rig.run(1);
+    CHECK(rig.v[0].level >= released * 0.5f);
+}
+
+// Brightness of one rendering of `voice` at note 48 with control i = x.
+double brightAt(const Voice& voice, int i, float x) {
+    Rig rig(voice);
+    rig.set(i, x);
+    rig.on(0, 48.0f);
+    rig.run(kBlocksPerSec);
+    return brightness(rig.L, size_t(kSampleRate * 0.3), size_t(kSampleRate * 0.8), midiHz(48));
+}
+
+TEST(dx7_brightness_scales_modulators_only) {
+    // Brightness raises / lowers the modulator levels: more / fewer
+    // harmonics. A voice without modulators doesn't change.
+    Voice fm = fmVoice(0, 0);
+    fm[4 * 21 + 16] = 60;   // a light modulator (not saturated at 0)
+    const double mid = brightAt(fm, kDx7Brightness, 0.0f);
+    // (Relative: the harmonic share isn't monotonic once FM is heavy.)
+    CHECK(brightAt(fm, kDx7Brightness, 1.0f) > mid * 2.0);
+    CHECK(brightAt(fm, kDx7Brightness, -1.0f) < mid * 0.5);
+    const Voice sine = sineVoice();
+    CHECK_NEAR(brightAt(sine, kDx7Brightness, 1.0f), brightAt(sine, kDx7Brightness, 0.0f), 1e-6);
+}
+
+TEST(dx7_feedback_control_adds_to_the_voice) {
+    // Operator 6 alone on algorithm 32 (its feedback loop), feedback 0 in the
+    // voice: Feedback +7 makes it brighter, -7 on a voice at 7 removes it.
+    Voice v = sineVoice();
+    v[5 * 21 + 16] = 0;
+    v[0 * 21 + 16] = 99;
+    const double none = brightAt(v, kDx7Feedback, 0.0f);
+    CHECK(none < 0.05);
+    CHECK(brightAt(v, kDx7Feedback, 7.0f) > none + 0.1);
+    v[135] = 7;
+    CHECK_NEAR(brightAt(v, kDx7Feedback, -7.0f), none, 1e-6);
+}
+
+// Frames until the voice level first reaches `frac` of its later peak.
+size_t riseFrames(const Buf& x, float frac) {
+    const float pk = peak(x);
+    for (size_t i = 0; i < x.size(); ++i)
+        if (std::fabs(x[i]) >= pk * frac) return i;
+    return x.size();
+}
+
+TEST(dx7_attack_and_release_offset_the_rates) {
+    Voice v = sineVoice();
+    v[5 * 21 + 0] = 60;   // operator 1 attack rate
+    v[5 * 21 + 3] = 50;   // release rate
+    auto rise = [&](float attack) {
+        Rig rig(v);
+        rig.set(kDx7Attack, attack);
+        rig.on(0, 60.0f);
+        rig.run(kBlocksPerSec);
+        return riseFrames(rig.L, 0.5f);
+    };
+    CHECK(rise(1.0f) > rise(0.0f) * 2);   // + = slower
+    CHECK(rise(-1.0f) < rise(0.0f));
+    auto tail = [&](float release) {
+        Rig rig(v);
+        rig.set(kDx7Release, release);
+        rig.on(0, 60.0f);
+        rig.run(kBlocksPerSec / 2);
+        rig.off(0);
+        const size_t at = rig.L.size();
+        rig.run(kBlocksPerSec);
+        return rms(rig.L, at + size_t(kSampleRate * 0.2), at + size_t(kSampleRate * 0.4));
+    };
+    CHECK(tail(1.0f) > tail(0.0f) * 2.0);   // + = longer
+    CHECK(tail(-1.0f) < tail(0.0f));
+}
+
+// Spread of the zero-crossing frequency over 20 ms windows (vibrato).
+double pitchWobble(const Buf& x, size_t a, size_t b) {
+    const size_t w = size_t(kSampleRate * 0.02);
+    double lo = 1e9, hi = 0.0;
+    for (size_t i = a; i + w <= b; i += w) {
+        const double f = zeroCrossHz(x, i, i + w);
+        lo = std::min(lo, f);
+        hi = std::max(hi, f);
+    }
+    return hi - lo;
+}
+
+TEST(dx7_lfo_depth_scales_vibrato) {
+    Voice v = sineVoice();
+    v[137] = 40;   // LFO speed
+    v[138] = 0;    // no delay
+    v[139] = 40;   // PMD
+    v[142] = 0;    // triangle
+    v[143] = 3;    // PMS
+    auto wobble = [&](float depth) {
+        Rig rig(v);
+        rig.set(kDx7LfoDepth, depth);
+        rig.on(0, 72.0f);
+        rig.run(kBlocksPerSec * 2);
+        return pitchWobble(rig.L, size_t(kSampleRate * 0.5), rig.L.size());
+    };
+    const double one = wobble(1.0f);
+    CHECK(one > 5.0);
+    CHECK(wobble(2.0f) > one * 1.5);
+    CHECK(wobble(0.0f) < 2.0);   // zero-crossing noise only
+}
+
+// Spread of the RMS over 50 ms windows (beating between detuned operators).
+double beating(const Buf& x, size_t a, size_t b) {
+    const size_t w = size_t(kSampleRate * 0.05);
+    double lo = 1e9, hi = 0.0;
+    for (size_t i = a; i + w <= b; i += w) {
+        const double r = rms(x, i, i + w);
+        lo = std::min(lo, r);
+        hi = std::max(hi, r);
+    }
+    return hi > 0.0 ? (hi - lo) / hi : 0.0;
+}
+
+TEST(dx7_detune_spreads_the_operators) {
+    // Two carriers at ratio 1 (operators 1 and 2): in tune they don't beat;
+    // Detune 1 pulls them apart (beating).
+    Voice v = sineVoice();
+    v[4 * 21 + 16] = 99;
+    auto beat = [&](float detune) {
+        Rig rig(v);
+        rig.set(kDx7Detune, detune);
+        rig.on(0, 60.0f);
+        rig.run(kBlocksPerSec * 2);
+        return beating(rig.L, size_t(kSampleRate * 0.3), rig.L.size());
+    };
+    CHECK(beat(0.0f) < 0.05);
+    CHECK(beat(1.0f) > 0.3);
+}
+
+TEST(dx7_init_patch_macros_aim_at_the_controls) {
+    SynthPatch p;
+    CHECK(patchInit(kSynthEngineDx7, &p));
+    CHECK_EQ(int(p.paramCount), int(kDx7ParamCount));
+    const int target[6] = {kDx7Brightness, kDx7Feedback, kDx7Attack, kDx7Release, kDx7LfoDepth, kDx7Detune};
+    const char* name[6] = {"Brightness", "Feedback", "Attack", "Release", "LFO Depth", "Detune"};
+    for (int k = 0; k < 6; ++k) {
+        CHECK_EQ(int(p.macros[k].count), 1);
+        CHECK_EQ(int(p.macros[k].targets[0].param), target[k]);
+        CHECK(std::strcmp(p.macros[k].name, name[k]) == 0);
+        CHECK(p.macros[k].bipolar == (k != 5));
+    }
 }
 
 TEST(dx7_modulation_feedback_and_algorithms_4_6) {

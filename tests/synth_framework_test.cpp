@@ -526,7 +526,12 @@ TEST(synth_dx7_voice_from_patch) {
     BankRig r;
     r.bank.setEngineOverride(nullptr);
     CHECK(patchInit(kSynthEngineDx7, &r.patch[0]));
-    r.bank.setSlotRecord(0, rec(SynthModel::DX7, 4));
+    // The macro values at their neutral points, as the app sets them on a
+    // patch load (synth_slots.cpp resetMacros): the DX7 Init patch's M1-M5
+    // are bipolar (63 = no change).
+    SynthSlotRecord rc = rec(SynthModel::DX7, 4);
+    for (int k = 0; k < kSynthSeqMacros; ++k) rc.macros[k] = synthMacroDefault(r.patch[0].macros[k].bipolar);
+    r.bank.setSlotRecord(0, rc);
     r.block();
     CHECK(r.bank.slotAvailable(0));
     CHECK_STR(r.bank.slotView(0).model, "DX7");

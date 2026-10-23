@@ -99,6 +99,20 @@ budget-reset
 wait 1500
 budget dx7-params-play 1120
 fragcheck dx7-params-play
+tap F8               # Edit Patch: Voice (Volume, Mono)
+wait 200
+budget-reset
+wait 1300
+budget dx7-edit-play 680
+fragcheck dx7-edit-play
+tap RIGHT            # Tone: the controls on top of the voice
+wait 200
+budget-reset
+wait 900              # (longer: the play time's second turns between fragcheck's renders)
+budget dx7-tone-play 760
+fragcheck dx7-tone-play
+tap F8               # Back
+wait 200
 tap F7               # Load Patch: the bank first
 wait 200
 budget-reset
