@@ -190,6 +190,50 @@ tap DOWN
 wait 300
 EOF
 
+# DX7 Edit Patch: the Tone section (the controls on top of the voice), and
+# the Synth Macros page with M1-M6 aimed at them.
+shot dx7-tone empty <<'EOF'
+wait 300
+press INSTR
+wait 400
+enc -70
+release INSTR
+wait 100
+tap INSTRPARAMS
+wait 200
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+wait 2500
+tap F8               # Edit Patch
+wait 300
+tap RIGHT            # Tone
+wait 300
+EOF
+
+shot dx7-macros empty <<'EOF'
+wait 300
+press INSTR
+wait 400
+enc -70
+release INSTR
+wait 100
+tap INSTRPARAMS
+wait 200
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+wait 2500
+tap INSTRPARAMS      # Synth Macros
+wait 200
+enc 20               # M1 Bright up a little
+wait 300
+EOF
+
 # MIDI 1's LFO page, target CC 1.
 shot midi-lfo empty <<'EOF'
 wait 300
