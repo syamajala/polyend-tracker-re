@@ -63,7 +63,6 @@ void cell(Gfx& g, int cx, int cy, uint32_t c, const char* v) {
 void PerformanceScreen::start(int opt) {
     (void)opt;
     App& a = app_;
-    if (!a.perfCc) a.perfCc = this;   // MIDI CC 41-48 / 51-62 (spec 12 §B)
     // spec 16 §A.15: coming back while the FX were kept alive resumes
     // without resetting the rows.
     if (keepAlive_ != KeepAlive::None) {
@@ -73,6 +72,26 @@ void PerformanceScreen::start(int opt) {
         refreshBar();
         return;
     }
+    engage();
+    // Per-track patterns := the current pattern (spec 06 §3.1 step 1).
+    const uint8_t curPat = a.patternNumber();
+    for (int t = 0; t < 8; ++t) {
+        perf::setTrackPattern(a.project, t, curPat);
+        keyHeld_[t] = keyUsed_[t] = false;
+        trackCcPending_[t] = false;
+    }
+    lastPattern_ = curPat;
+    edit = false;
+    copySrc_ = -1;
+    sceneCcPending_ = false;
+    view = View::Play;
+    editScene = -1;
+    labelsDirty_ = false;
+    refreshBar();
+}
+
+void PerformanceScreen::engage() {
+    App& a = app_;
     // Rows of the previously selected source are cleared before the source
     // pointers switch (spec 12 §A.5 quirk: a newly selected source keeps its
     // stale rows; they are not applied). The engine starts on source 0.
@@ -89,29 +108,14 @@ void PerformanceScreen::start(int opt) {
         held_[s] = false;
         ccPending_[s] = false;
     }
-    // Per-track patterns := the current pattern (spec 06 §3.1 step 1).
-    const uint8_t curPat = a.patternNumber();
-    for (int t = 0; t < 8; ++t) {
-        perf::setTrackPattern(a.project, t, curPat);
-        keyHeld_[t] = keyUsed_[t] = false;
-        trackCcPending_[t] = false;
-    }
     // Step 3: FX enabled on every track. 2.x tracks 9-16 take the FX too
     // but have no pattern override (the Tracker Mini stores 1-8 only).
     for (int t = 0; t < kTrackCount; ++t) {
         fxOn[t] = true;
         pending_[t] = 0;
     }
-    lastPattern_ = curPat;
-    edit = false;
-    copySrc_ = -1;
     fader = 0;   // [I] scenes: the crossfader starts at A, applied on its first move
-    sceneCcPending_ = false;
-    view = View::Play;
-    editScene = -1;
     a.seq.setPerformanceMode(true);   // step 4
-    labelsDirty_ = false;
-    refreshBar();
 }
 
 void PerformanceScreen::stop() {
@@ -123,7 +127,9 @@ void PerformanceScreen::stop() {
     // live indefinitely; to any other screen while playing they stay live
     // until the next pattern end (or Stop); stopped, they revert at once.
     // The switch happens on the screen key's press, so it is still down.
-    if (ui_.isDown(btn::InstrParams) || ui_.isDown(btn::Master)) {
+    if (songSceneNow()) {
+        keepAlive_ = KeepAlive::Song;   // [I] the song's scene plays on
+    } else if (ui_.isDown(btn::InstrParams) || ui_.isDown(btn::Master)) {
         keepAlive_ = KeepAlive::Always;
     } else if (a.seq.isPlaying()) {
         keepAlive_ = KeepAlive::UntilPatternEnd;
@@ -136,8 +142,13 @@ void PerformanceScreen::stop() {
 
 void PerformanceScreen::perfBackground(uint32_t now) {
     (void)now;
-    if (keepAlive_ != KeepAlive::UntilPatternEnd) return;
     App& a = app_;
+    if (keepAlive_ == KeepAlive::Song && !(a.seq.isPlaying() && a.seq.isSongMode())) {
+        keepAlive_ = KeepAlive::None;   // [I] Stop (or the song left) ends the song's scenes
+        revert();
+        return;
+    }
+    if (keepAlive_ != KeepAlive::UntilPatternEnd) return;
     if (!a.seq.isPlaying() || a.patternEndCount() != keepEnds_) {
         keepAlive_ = KeepAlive::None;
         revert();
@@ -169,6 +180,40 @@ void PerformanceScreen::perfRevertKept() {
     if (keepAlive_ == KeepAlive::None) return;
     keepAlive_ = KeepAlive::None;
     revert();
+}
+
+// [I] Song slot scenes (#10). A slot with a scene puts it on A (and its
+// second scene on B), the fader at A, on any screen; elsewhere the FX stay
+// live until Stop or a slot without a scene. A slot without one keeps what
+// plays: on this screen, everything; elsewhere the song's scene goes.
+bool PerformanceScreen::songSceneNow() const {
+    const App& a = app_;
+    return a.seq.isPlaying() && a.seq.isSongMode() && a.project.slotScene(a.seq.songPosition());
+}
+
+void PerformanceScreen::perfSongSlot(int slot) {
+    App& a = app_;
+    const int sc = a.project.slotScene(slot), to = a.project.slotSceneTo(slot);
+    const bool shown = ui_.active() == kModPerformance;
+    if (!sc) {
+        if (keepAlive_ == KeepAlive::Song) {
+            keepAlive_ = KeepAlive::None;
+            revert();
+        }
+        return;
+    }
+    if (!shown) {
+        if (keepAlive_ == KeepAlive::None) engage();
+        keepAlive_ = KeepAlive::Song;
+    }
+    // A scene open for editing keeps playing alone; leaving it applies A / B.
+    const bool editing = shown && view == View::EditScene;
+    if (!editing) releaseDriven();
+    a.project.perfSceneOn[0] = uint8_t(sc - 1);
+    if (to) a.project.perfSceneOn[1] = uint8_t(to - 1);
+    fader = 0;
+    if (!editing) applyScenes();
+    ui_.dirty();
 }
 
 void PerformanceScreen::revert() {

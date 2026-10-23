@@ -60,6 +60,9 @@ void* createScreens(Ui& ui, App& app, Screen** out) {
     out[kModRecorder] = &s->recorder;
     out[kModResample] = &s->resample;
     out[kModPerformance] = &s->performance;
+    // MIDI CC 41-48 / 51-62 (spec 12 §B); [I] song slot scenes reach the
+    // engine before the screen was ever opened.
+    app.perfCc = &s->performance;
     out[kModMaster] = &s->mixer;
 #if OT_GAMES
     out[kModGames] = &s->games;

@@ -87,7 +87,15 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   the slot at the end of the current pass).
 - **Song + Right** jumps from the track grid straight to the Pattern list; **Song + Left**
   goes back into the grid (edit mode). Shift + Left / Right still sizes the grid selection.
-- Counts are stored in `song.bin` next to `project.mt`; stock firmware plays every slot once.
+- **Scenes per slot:** a **Scene** column after Count puts a Performance scene from the
+  bank on the crossfader's A end as the slot starts, with the fader at A. Edit mode, Right
+  to the column: the encoder picks the scene (`-` keeps what plays), Shift + encoder a
+  second scene for B (`3>5`; the A to B ramp is planned). Delete resets it to `-`.
+- A slot's scene plays on any screen, not only on the Performance screen. It stops at Stop,
+  or when the song reaches a `-` slot; on the Performance screen a `-` slot keeps what plays.
+  Exports still render without Performance FX.
+- Counts and scenes are stored in `song.bin` next to `project.mt`; stock firmware plays
+  every slot once, without scenes.
 
 ### MIDI instrument LFO
 - One tempo-locked LFO per MIDI instrument, on a new **MIDI Instrument LFO** page (the Instr

@@ -548,6 +548,9 @@ public:
     bool tapeHoldsMemory() const { return tapeHolds_; }
     uint32_t tapeStopFrames(int v) const;
     void serviceTapeStop();
+    // [I] Song slot scenes (#10): tells the Performance engine when the
+    // song starts a slot (its first pass), from the main loop.
+    void serviceSongScenes();
     bool selectInput(uint8_t source, uint8_t gain);   // false = source not available
     IRadio* radio() const { return hal_.radio; }
     // Output folder "Recordings" / "Recordings N" (created) and the first
@@ -683,6 +686,8 @@ private:
     void reportResample(uint8_t outcome, int slot);
     void placeResample(int slot, uint32_t bars, const uint16_t* sliceSteps, int slices);
     uint32_t playStart_ = 0;
+    bool songScenePlaying_ = false;   // [I] serviceSongScenes: the song was playing
+    uint32_t songSceneEnds_ = 0;      // [I] patternEnds_ it last looked at
     uint32_t lastNoCardTry_ = 0;
     // MIDI input parser per port.
     struct MidiIn {

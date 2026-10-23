@@ -22,11 +22,14 @@ constexpr int kGridY = 92;
 constexpr int kListNumX = 520;       // CMD_NUMBER at rightX - 178 (rightX 698)
 constexpr int kListNameX = 550;      // text at rightX - 148
 constexpr int kListX0 = 491, kListX1 = 688;   // selection outline centre lines
-// [I] Count column (Project::playlistCount) at the list's right edge; the
-// pattern names are clipped before it.
-constexpr int kCountX0 = 640;        // Count cell outline left (right: kListX1)
-constexpr int kCountX = 664;         // Count text centre
+// [I] Count (Project::playlistCount) and Scene (Project::playlistScene)
+// columns at the list's right edge; the pattern names are clipped before them.
+constexpr int kCountX0 = 594;        // Count cell outline left (right: kSceneX0 - 4)
+constexpr int kCountX = 615;         // Count text centre
+constexpr int kSceneX0 = 640;        // Scene cell outline left (right: kListX1)
+constexpr int kSceneX = 664;         // Scene text centre
 constexpr int kFocusCount = 3;
+constexpr int kFocusScene = 4;
 constexpr int kListY0 = 91;          // first row outline top (rows 91 + 27 r .. 118 + 27 r)
 constexpr int kScrollX = 692, kScrollY = 94, kScrollH = 320;
 constexpr int kHeaderX = 20;         // rotated header ink column (x 20 + 40 c)
@@ -201,6 +204,13 @@ void SongScreen::setCount(int slot, int count) {
     app_.markProjectDirty();
 }
 
+void SongScreen::setScene(int slot, int scene, int to) {
+    Project& p = app_.project;
+    p.playlistScene[slot] = uint8_t(clampi(scene, 0, Project::kPerfScenes));
+    p.playlistSceneTo[slot] = uint8_t(p.playlistScene[slot] ? clampi(to, 0, Project::kPerfScenes) : 0);
+    app_.markProjectDirty();
+}
+
 void SongScreen::tempoDelta(float d, bool integer) {
     if (app_.cfg.clockIn) return;   // disabled with an external clock (spec 06 §2.3)
     float t = app_.project.tempo();
@@ -217,13 +227,19 @@ void SongScreen::addSlot(bool empty) {
     if (n >= kSongSlots) return;
     Project& p = app_.project;
     const uint8_t num = empty ? uint8_t(app_.firstEmptyPattern()) : p.playlist[cursor];
-    const uint8_t count = empty ? 0 : p.playlistCount[cursor];   // [I] Add Slot copies the count
+    // [I] Add Slot copies the count and the scene.
+    const uint8_t count = empty ? 0 : p.playlistCount[cursor];
+    const uint8_t scene = empty ? 0 : p.playlistScene[cursor], to = empty ? 0 : p.playlistSceneTo[cursor];
     for (int i = n; i > cursor + 1; --i) {
         p.playlist[i] = p.playlist[i - 1];
         p.playlistCount[i] = p.playlistCount[i - 1];
+        p.playlistScene[i] = p.playlistScene[i - 1];
+        p.playlistSceneTo[i] = p.playlistSceneTo[i - 1];
     }
     p.playlist[cursor + 1] = num;
     p.playlistCount[cursor + 1] = count;
+    p.playlistScene[cursor + 1] = scene;
+    p.playlistSceneTo[cursor + 1] = to;
     ++cursor;
     app_.markProjectDirty();
 }
@@ -235,9 +251,13 @@ void SongScreen::deleteSlot() {
     for (int i = cursor; i < n - 1; ++i) {
         p.playlist[i] = p.playlist[i + 1];
         p.playlistCount[i] = p.playlistCount[i + 1];
+        p.playlistScene[i] = p.playlistScene[i + 1];
+        p.playlistSceneTo[i] = p.playlistSceneTo[i + 1];
     }
     p.playlist[n - 1] = 0;
     p.playlistCount[n - 1] = 0;
+    p.playlistScene[n - 1] = 0;
+    p.playlistSceneTo[n - 1] = 0;
     if (cursor >= n - 1) cursor = n - 2;
     app_.markProjectDirty();
 }
@@ -453,7 +473,7 @@ void SongScreen::onButton(uint8_t id, uint8_t state) {
         case btn::Rec:
             if (!press) break;
             edit = !edit;
-            if (!edit && (focus == 0 || focus == kFocusCount)) focus = 1;
+            if (!edit && (focus == 0 || focus == kFocusCount || focus == kFocusScene)) focus = 1;
             break;
         case btn::Copy:
             if (press && edit) copyJob(ui_.shift());
@@ -463,6 +483,7 @@ void SongScreen::onButton(uint8_t id, uint8_t state) {
             if (focus == 0 && edit) deleteJob();
             else if (focus == 1 && edit) deleteSlot();
             else if (focus == kFocusCount && edit) setCount(cursor, 1);
+            else if (focus == kFocusScene && edit) setScene(cursor, 0, 0);
             else if (focus == 2 && !a.cfg.clockIn) {
                 a.project.setTempo(130.0f);
                 a.markProjectDirty();
@@ -480,7 +501,7 @@ void SongScreen::onButton(uint8_t id, uint8_t state) {
             if (focus == 0) {
                 if (ui_.shift()) selRows = clampi(selRows + d, 1, length() - selRow0);
                 else selRow0 = clampi(selRow0 + d, 0, length() - 1);
-            } else if (focus == 1 || focus == kFocusCount) {
+            } else if (focus == 1 || focus == kFocusCount || focus == kFocusScene) {
                 cursor = clampi(cursor + d, 0, length() - 1);
             } else {
                 tempoDelta(ui_.shift() ? -0.1f * float(d) : -1.0f * float(d), !ui_.shift());
@@ -503,13 +524,13 @@ void SongScreen::onButton(uint8_t id, uint8_t state) {
                     followGridCursor(selTrack0);
                 }
             } else {
-                // Left to right: grid, list, Count, tempo; grid and Count in
-                // edit mode only.
-                static constexpr int kOrder[4] = {0, 1, kFocusCount, 2};
+                // Left to right: grid, list, Count, Scene, tempo; grid,
+                // Count and Scene in edit mode only.
+                static constexpr int kOrder[5] = {0, 1, kFocusCount, kFocusScene, 2};
                 int i = 0;
                 while (kOrder[i] != focus) ++i;
-                i = clampi(i + d, edit ? 0 : 1, 3);
-                if (!edit && kOrder[i] == kFocusCount) i = clampi(i + d, 1, 3);
+                i = clampi(i + d, edit ? 0 : 1, 4);
+                if (!edit && (kOrder[i] == kFocusCount || kOrder[i] == kFocusScene)) i = d > 0 ? 4 : 1;
                 const int nf = kOrder[i];
                 if (nf == 0) {
                     // Enters on the rightmost shown column (stock: track 12).
@@ -543,6 +564,12 @@ void SongScreen::onEncoder(int d) {
         }
     } else if (focus == kFocusCount) {
         if (edit) setCount(cursor, a.project.slotCount(cursor) + d);
+    } else if (focus == kFocusScene) {
+        // [I] The encoder picks the scene on A (— = keep), Shift+encoder
+        // the scene on B (a slot with a scene only).
+        const int sc = a.project.slotScene(cursor), to = a.project.slotSceneTo(cursor);
+        if (edit && !ui_.shift()) setScene(cursor, sc + d, to);
+        else if (edit && sc) setScene(cursor, sc, to + d);
     } else if (focus == 2) {
         tempoDelta(ui_.shift() ? 0.1f * float(d) : float(d), !ui_.shift());
     } else {
@@ -689,8 +716,9 @@ void SongScreen::draw(Gfx& g) {
     }
 
     // Pattern list: caption, numbers (names after them), selection outline.
-    g.text(565, 59, kFont1, white, "Pattern", IDisplay::kOptCenter);
+    g.text(545, 59, kFont1, white, "Pattern", IDisplay::kOptCenter);   // [I] left of Count (stock 565)
     g.text(kCountX, 59, kFont1, white, "Count", IDisplay::kOptCenter);
+    g.text(kSceneX, 59, kFont1, white, "Scene", IDisplay::kOptCenter);
     for (int r = 0; r < rows; ++r) {
         const int slotI = first + r;
         const int num = a.project.playlist[slotI];
@@ -713,13 +741,21 @@ void SongScreen::draw(Gfx& g) {
             g.textf(kCountX, cy, kFont1, c, IDisplay::kOptCenter, "x%d", cnt);
         else
             g.text(kCountX, cy, kFont1, th.dim, "1", IDisplay::kOptCenter);
+        // [I] Scene: "—" (keep) dim, "3" or "3>5" (A > B).
+        const int sc = a.project.slotScene(slotI), to = a.project.slotSceneTo(slotI);
+        if (sc && to)
+            g.textf(kSceneX, cy, kFont1, c, IDisplay::kOptCenter, "%d>%d", sc, to);
+        else if (sc)
+            g.textf(kSceneX, cy, kFont1, c, IDisplay::kOptCenter, "%d", sc);
+        else
+            g.text(kSceneX, cy, kFont1, th.dim, "-", IDisplay::kOptCenter);
     }
     if (cursor >= first && cursor < first + kRows) {
         const int y0 = kListY0 + kPitchY * (cursor - first);
-        // [I] Pattern and Count are separate columns: the outline marks one.
-        const bool countCol = focus == kFocusCount;
-        wg::stroke(g, countCol ? kCountX0 : kListX0, y0, countCol ? kListX1 : kCountX0 - 4, y0 + kPitchY,
-                   th.slot(slot::kSongList + (edit ? 5 : 9)));
+        // [I] Pattern, Count and Scene are separate columns: the outline marks one.
+        const int x0 = focus == kFocusScene ? kSceneX0 : (focus == kFocusCount ? kCountX0 : kListX0);
+        const int x1 = focus == kFocusScene ? kListX1 : (focus == kFocusCount ? kSceneX0 - 4 : kCountX0 - 4);
+        wg::stroke(g, x0, y0, x1, y0 + kPitchY, th.slot(slot::kSongList + (edit ? 5 : 9)));
     }
     if (n > kRows) {
         // Scrollbar: black track, 575757 thumb with soft sides.

@@ -134,6 +134,14 @@ struct Project {
         const int c = slot >= 0 && slot < kSongSlots ? playlistCount[slot] : 1;
         return c < 1 ? 1 : (c > kSongCountMax ? kSongCountMax : c);
     }
+    // [I] Performance scene per song slot (song.bin): 0 = keep what plays,
+    // else scene 1..kPerfScenes goes on A as the slot starts (the fader at
+    // A). playlistSceneTo: 0 = none, else scene 1..kPerfScenes on B (the
+    // A -> B ramp follows later).
+    uint8_t playlistScene[kSongSlots] = {};
+    uint8_t playlistSceneTo[kSongSlots] = {};
+    int slotScene(int slot) const { return slot >= 0 && slot < kSongSlots ? playlistScene[slot] : 0; }
+    int slotSceneTo(int slot) const { return slotScene(slot) ? playlistSceneTo[slot] : 0; }
 
     // Raw values block (file 0x110..0x80F).
     uint8_t values[mt::kValuesSize] = {};

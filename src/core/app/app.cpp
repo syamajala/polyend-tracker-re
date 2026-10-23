@@ -384,6 +384,20 @@ void App::allVoicesOff() {
     engine.stopAll();
 }
 
+void App::serviceSongScenes() {
+    const bool on = seq.isPlaying() && seq.isSongMode();
+    const uint32_t ends = patternEnds_;
+    const bool started = on && !songScenePlaying_;
+    songScenePlaying_ = on;
+    if (!on || (!started && ends == songSceneEnds_)) {
+        songSceneEnds_ = ends;
+        return;
+    }
+    songSceneEnds_ = ends;
+    // Play starts a slot; a pattern end does when it began the slot's first pass.
+    if (perfCc && (started || seq.songPass() == 1)) perfCc->perfSongSlot(seq.songPosition());
+}
+
 void App::loop() {
     const uint32_t now = millis();
     if (hal_.service) hal_.service();
@@ -433,6 +447,7 @@ void App::loop() {
     serviceRemote();
     serviceResample();
     serviceTapeStop();
+    serviceSongScenes();
     // Project manager (spec 05 §1.3 step 5, appendix E3/E4): one bounded
     // step of the running job, else the periodic autosave check.
     if (jobBusy()) serviceProjectJob();

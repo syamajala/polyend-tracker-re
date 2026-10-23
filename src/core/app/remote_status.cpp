@@ -39,6 +39,10 @@ int App::remoteStatus(char* out, int cap) {
     fieldInt(out, cap, n, "song", seq.isSongMode() ? 1 : 0);
     fieldInt(out, cap, n, "slot", seq.songPosition() + 1);
     fieldInt(out, cap, n, "pass", seq.songPass());
+    // [I] Performance FX on (perf mode, any screen) and the scenes on A / B (1-based).
+    fieldInt(out, cap, n, "perf", seq.performanceMode() ? 1 : 0);
+    fieldInt(out, cap, n, "scA", project.perfSceneOn[0] + 1);
+    fieldInt(out, cap, n, "scB", project.perfSceneOn[1] + 1);
     fieldInt(out, cap, n, "peak", engine.takeOutputPeak());
     // Performance: render load per block in permille of the budget (average,
     // peak of the last ~1-2 s), overrun blocks since boot, the synth voice

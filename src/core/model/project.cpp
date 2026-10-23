@@ -54,6 +54,8 @@ void Project::setLoadPrefill() {
     // spec 02 §3.2: playlist slot0 = 1, rest 0; position 0.
     std::memset(playlist, 0, sizeof(playlist));
     std::memset(playlistCount, 0, sizeof(playlistCount));
+    std::memset(playlistScene, 0, sizeof(playlistScene));
+    std::memset(playlistSceneTo, 0, sizeof(playlistSceneTo));
     playlist[0] = 1;
     playlistPos = 0;
 

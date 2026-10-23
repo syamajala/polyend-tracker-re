@@ -45,6 +45,9 @@ public:
     virtual void perfScreenKey(uint8_t id) { (void)id; }
     // Offline render: FX kept live on another screen are reverted first.
     virtual void perfRevertKept() {}
+    // [I] The song started slot `slot` (its first pass; main loop, any
+    // screen): the slot's scene goes on (#10).
+    virtual void perfSongSlot(int slot) { (void)slot; }
 };
 
 namespace midicc {

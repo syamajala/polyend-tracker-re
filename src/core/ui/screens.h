@@ -182,7 +182,7 @@ public:
     int length() const;
     int cursor = 0;
     bool edit = false;
-    int focus = 1;                 // 0 grid, 1 list, 2 tempo, 3 the list's Count column (edit mode)
+    int focus = 1;                 // 0 grid, 1 list, 2 tempo, 3 / 4 the list's Count / Scene column (edit mode)
     int selRow0 = 0, selRows = 1, selTrack0 = 0, selTracks = 1;
     // 2.x (docs/M1_PLAN.md §4, spec gap 4): the grid shows 12 of the 16
     // tracks; the first shown track is 0 or 4 and follows the grid cursor.
@@ -201,6 +201,7 @@ private:
     void setPattern(int slot, int num);
     int passShown_ = -1;   // [I] playing slot * 32 + pass last drawn
     void setCount(int slot, int count);   // [I] repeat count, 1 .. Project::kSongCountMax
+    void setScene(int slot, int scene, int to);   // [I] Performance scenes on A / B, 0 = none
     void tempoDelta(float d, bool integer);
     void addSlot(bool empty);
     void deleteSlot();
@@ -618,8 +619,11 @@ public:
     void perfBackground(uint32_t now) override;
     void perfScreenKey(uint8_t id) override;
     void perfRevertKept() override;
-    // FX kept live on another screen (spec 16 §A.15).
-    enum class KeepAlive : uint8_t { None, Always, UntilPatternEnd };
+    void perfSongSlot(int slot) override;
+    // FX kept live on another screen (spec 16 §A.15). [I] Song: a song slot
+    // with a scene keeps them live on any screen until Stop, or until the
+    // song reaches a slot without one.
+    enum class KeepAlive : uint8_t { None, Always, UntilPatternEnd, Song };
     KeepAlive keepAlive() const { return keepAlive_; }
 
     bool edit = false;
@@ -678,6 +682,8 @@ public:
     static int padScene(int pad) { return (pad % 12) < 8 && pad / 12 < 2 ? (pad / 12) * 8 + pad % 12 : -1; }
 
 private:
+    void engage();   // the engine's start-up without the screen (start, song scenes)
+    bool songSceneNow() const;   // [I] the song is playing a slot with a scene
     void refreshBar();
     void applyAll(bool revertEverything);
     void revert();
