@@ -1,7 +1,9 @@
 #!/bin/sh
 # Runs remote-control scripts (tools/tracker_remote.py) against the
 # simulator in serve mode, each on a fresh empty card, so the scripts that
-# drive a real Tracker are checked without one:
+# drive a real Tracker are checked without one. A script's card starts with
+# the files of SCRIPT.sd/ (copy those to a Tracker's card too) and, here only,
+# SCRIPT.sim-sd/ (stand-ins for files a Tracker already has):
 #   tools/sim_remote_check.sh [SCRIPT ...]   (default: tools/remote_scripts/*.txt)
 # Needs build/sim/opentracker-sim (make -C sim). Exit status 1 if a check failed.
 set -u
@@ -15,6 +17,9 @@ fail=0
 for script in "$@"; do
     name=$(basename "$script" .txt)
     mkdir -p "$work/$name/sd"
+    for fx in "${script%.txt}.sd" "${script%.txt}.sim-sd"; do
+        [ -d "$fx" ] && cp -R "$fx/." "$work/$name/sd/"
+    done
     SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$sim" --sd "$work/$name/sd" --serve > "$work/$name/serve.log" 2>&1 &
     pid=$!
     pty=""

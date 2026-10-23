@@ -20,6 +20,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <strings.h>
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -303,6 +304,20 @@ struct Machine {
         // The capture device stands in for line in and both mic gains; there
         // is no FM tuner (HalRefs::radio stays null -> "not available").
         h.selectInput = [](void*, uint8_t source, uint8_t) { return source != 1; };
+        // Config > Firmware update lists /Firmware with the device's name rule
+        // (src/hal/fw_update.cpp isUpdateImageName); there is no bootloader to
+        // hand an image to, so Select ends in "Update failed".
+        h.isUpdateImageName = [](const char* n) {
+            const size_t len = n ? std::strlen(n) : 0;
+            auto endsNoCase = [&](const char* ext) {
+                const size_t e = std::strlen(ext);
+                return len >= e && strncasecmp(n + len - e, ext, e) == 0;
+            };
+            if (len < 15 || len > 96 || std::strchr(n, '/') || std::strchr(n, '\\')) return false;
+            return (std::strncmp(n, "PolyendTrac", 11) == 0 && endsNoCase(".ptf")) ||
+                   (std::strncmp(n, "mt", 2) == 0 && endsNoCase(".hex"));
+        };
+        h.requestFirmwareUpdate = [](ot::IStorage&, const char*) { return false; };
         ot::AppMemory m;
         m.sampleBank = sampleBank.data();
         m.sampleBankSamples = uint32_t(sampleBank.size());
