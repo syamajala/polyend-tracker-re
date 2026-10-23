@@ -237,7 +237,9 @@ TEST(init_patch_per_engine) {
         CHECK(macroName(p.macros[6]) == "Velocity");
         CHECK(macroName(p.macros[7]) == "Pressure");
         int vol = patchVolumeParam(e);
-        if (vol >= 0) {
+        if (e == kSynthEngineDx7) {
+            CHECK_EQ(p.macros[6].count, 0);   // velocity through the voice (engine_dx7_test)
+        } else if (vol >= 0) {
             CHECK_EQ(p.macros[6].count, 1);
             CHECK_EQ(p.macros[6].targets[0].param, vol);
             CHECK(patchBitsToFloat(p.macros[6].targets[0].amountBits) == 1.0f);

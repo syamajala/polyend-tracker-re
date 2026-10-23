@@ -97,8 +97,9 @@ int patchVolumeParam(int32_t engine);         // Volume index, -1 for PERC/unkno
 // Build the engine's Init patch: every parameter present at its default
 // (WTFM 6/7 absent, as in every factory WTFM patch), M1-6 "Macro n" empty,
 // M7 "Velocity" -> Volume +1 (none for PERC), M8 "Pressure" empty (U15).
-// DX7: plus the init voice, and M1-M6 named after and aimed at Brightness,
-// Feedback, Attack, Release, LFO Depth and Detune (bipolar but Detune).
+// DX7: plus the init voice, M1-M6 named after and aimed at Brightness,
+// Feedback, Attack, Release, LFO Depth and Detune (bipolar but Detune), and
+// M7 empty: velocity acts through the voice's own sensitivities.
 // Unused targets are {0, 0} like the factory files. False for an unknown engine.
 bool patchInit(int32_t engine, SynthPatch* out);
 

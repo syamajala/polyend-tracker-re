@@ -45,6 +45,9 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
     (spreads the operators up to ±7 cents).
   - A DX7 patch's **macros M1–M6** come aimed at the six Tone controls, named after them,
     so a voice can be shaped from the Synth Macros page or with step FX.
+- **Velocity** (the Volume step FX) works as on a DX7: through each operator's velocity
+  sensitivity in the voice, so it can change the tone as well as the level. Voices with
+  sensitivity 0 ignore it; aim M7 (Velocity) at Volume on those if you want it.
 - About 6 % CPU per voice (estimated).
 - A Tracker Mini has no DX7 model: it resets a DX7 slot to its default.
 

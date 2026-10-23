@@ -744,6 +744,12 @@ bool patchInit(int32_t engine, SynthPatch* out) {
             m.targets[0].param = kM[k].param;
             m.targets[0].amountBits = patchFloatToBits(kM[k].amount);
         }
+        // Velocity works as on a DX7: only through each operator's velocity
+        // sensitivity (the engine gets the note velocity). M7 -> Volume on
+        // top counted it twice (-22 dB instead of -16 dB at Volume FX 50 on
+        // a sensitivity-7 voice). M7 stays named "Velocity", unassigned.
+        out->macros[kPatchMacroVelocity].count = 0;
+        out->macros[kPatchMacroVelocity].targets[0] = PatchTarget{0, 0u};
     }
     return true;
 }
