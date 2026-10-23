@@ -30,9 +30,17 @@ expect-no-text AlphaFolder
 expect-no-text DeltaSamples
 tap F7               # Cancel
 
-# Config > Firmware > Firmware update.
+# Config > Firmware > Firmware update. Config reopens on the last category
+# used, so go to the top (Project Settings) first.
 tap CONFIG
 wait 300
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
 tap DOWN
 tap DOWN
 tap DOWN
@@ -44,7 +52,7 @@ wait 500
 expect-text PolyendTrac
 expect-no-text BravoSong
 expect-no-text AlphaFolder
-tap F7               # back, nothing selected
+tap F7               # Cancel, nothing selected
 
 # Sample Loader at the card root.
 tap SAMPLELOADER
