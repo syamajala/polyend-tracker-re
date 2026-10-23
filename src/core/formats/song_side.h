@@ -5,11 +5,12 @@
 //
 // Layout: "OTSG", version, slot count, field count, 0, then one block per
 // field: the field's values for every slot, then their 8-bit sum. A reader
-// takes the slots and fields it knows; later versions append fields (the
-// fader ramp) after the ones before.
+// takes the slots and fields it knows; later versions append fields after
+// the ones before.
 //   field 0: repeat count (0 / 1 = once .. Project::kSongCountMax)
 //   field 1: Performance scene (0 = keep, 1 .. Project::kPerfScenes)
 //   field 2: the scene on B (0 = none, 1 .. Project::kPerfScenes)
+//   field 3: the A -> B ramp (Project::playlistRamp)
 #pragma once
 
 #include <cstddef>
@@ -23,7 +24,7 @@ namespace ot {
 namespace song {
 constexpr uint8_t kVersion = 1;
 constexpr uint32_t kHeaderSize = 8;
-constexpr int kFields = 3;
+constexpr int kFields = 4;
 constexpr uint32_t kFileSize = kHeaderSize + kFields * (kSongSlots + 1);
 constexpr const char* kFileName = "song.bin";
 }  // namespace song

@@ -56,6 +56,7 @@ void Project::setLoadPrefill() {
     std::memset(playlistCount, 0, sizeof(playlistCount));
     std::memset(playlistScene, 0, sizeof(playlistScene));
     std::memset(playlistSceneTo, 0, sizeof(playlistSceneTo));
+    std::memset(playlistRamp, 0, sizeof(playlistRamp));
     playlist[0] = 1;
     playlistPos = 0;
 

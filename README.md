@@ -90,12 +90,16 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 - **Scenes per slot:** a **Scene** column after Count puts a Performance scene from the
   bank on the crossfader's A end as the slot starts, with the fader at A. Edit mode, Right
   to the column: the encoder picks the scene (`-` keeps what plays), Shift + encoder a
-  second scene for B (`3>5`; the A to B ramp is planned). Delete resets it to `-`.
+  second scene for B (`3>5`). Delete resets it to `-`.
+- **Ramps:** a slot with a scene on B sweeps the fader from A to B, ending with the slot.
+  The **Ramp** column sets how long: `Slot` (every pass), `Last` (the last pass) or a number
+  of steps (1-254; Shift + encoder moves 16). Moving the fader yourself takes over until the
+  next slot. With four columns the Song list no longer shows pattern names.
 - A slot's scene plays on any screen, not only on the Performance screen. It stops at Stop,
   or when the song reaches a `-` slot; on the Performance screen a `-` slot keeps what plays.
   Exports still render without Performance FX.
-- Counts and scenes are stored in `song.bin` next to `project.mt`; stock firmware plays
-  every slot once, without scenes.
+- Counts, scenes and ramps are stored in `song.bin` next to `project.mt`; stock firmware
+  plays every slot once, without scenes.
 
 ### MIDI instrument LFO
 - One tempo-locked LFO per MIDI instrument, on a new **MIDI Instrument LFO** page (the Instr

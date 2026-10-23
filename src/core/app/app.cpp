@@ -388,14 +388,13 @@ void App::serviceSongScenes() {
     const bool on = seq.isPlaying() && seq.isSongMode();
     const uint32_t ends = patternEnds_;
     const bool started = on && !songScenePlaying_;
+    const bool ended = ends != songSceneEnds_;
     songScenePlaying_ = on;
-    if (!on || (!started && ends == songSceneEnds_)) {
-        songSceneEnds_ = ends;
-        return;
-    }
     songSceneEnds_ = ends;
+    if (!on || !perfCc) return;
     // Play starts a slot; a pattern end does when it began the slot's first pass.
-    if (perfCc && (started || seq.songPass() == 1)) perfCc->perfSongSlot(seq.songPosition());
+    if (started || (ended && seq.songPass() == 1)) perfCc->perfSongSlot(seq.songPosition());
+    perfCc->perfSongTick();
 }
 
 void App::loop() {

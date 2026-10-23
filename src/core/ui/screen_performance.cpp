@@ -195,6 +195,7 @@ void PerformanceScreen::perfSongSlot(int slot) {
     App& a = app_;
     const int sc = a.project.slotScene(slot), to = a.project.slotSceneTo(slot);
     const bool shown = ui_.active() == kModPerformance;
+    songRamp_ = sc && to;
     if (!sc) {
         if (keepAlive_ == KeepAlive::Song) {
             keepAlive_ = KeepAlive::None;
@@ -214,6 +215,33 @@ void PerformanceScreen::perfSongSlot(int slot) {
     fader = 0;
     if (!editing) applyScenes();
     ui_.dirty();
+}
+
+int PerformanceScreen::rampFader(int ramp, int count, int pass, int len, int pos, int micro) {
+    // In micro steps (48 per step); the ramp ends with the slot.
+    constexpr int kM = 48;
+    const int total = count * len * kM;
+    int r = total;
+    if (ramp == Project::kRampLast) r = len * kM;
+    else if (ramp != Project::kRampSlot && (ramp - 1) * kM < total) r = (ramp - 1) * kM;
+    if (r <= 0) return kFaderMax;
+    const int at = ((pass - 1) * len + pos) * kM + micro - 1 - (total - r);
+    return clampi(at * kFaderMax / r, 0, kFaderMax);
+}
+
+void PerformanceScreen::perfSongTick() {
+    App& a = app_;
+    if (!songRamp_ || view == View::EditScene) return;
+    const bool shown = ui_.active() == kModPerformance;
+    if (!shown && keepAlive_ != KeepAlive::Song) return;
+    const Sequencer& q = a.seq;
+    const int slot = q.songPosition();
+    const int x = rampFader(a.project.slotRamp(slot), a.project.slotCount(slot), q.songPass(), q.patternLength(),
+                            q.patternPosition(), q.masterMicroStep());
+    if (x == fader) return;
+    fader = x;
+    applyScenes();
+    if (shown) ui_.dirty();
 }
 
 void PerformanceScreen::revert() {
@@ -997,6 +1025,7 @@ void PerformanceScreen::bankButton(uint8_t id, uint8_t state) {
 }
 
 void PerformanceScreen::setFader(int x) {
+    songRamp_ = false;   // [I] moving the fader takes over from the song's ramp until the next slot
     fader = clampi(x, 0, kFaderMax);
     applyScenes();
     ui_.dirty();

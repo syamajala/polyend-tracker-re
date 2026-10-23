@@ -105,11 +105,14 @@ TEST(song_screen_count_column) {
     h.tap(btn::Down);
     h.tap(btn::Delete);
     CHECK_EQ(a.project.slotCount(1), 1);
-    // Right goes on to Scene, then Tempo; out of edit mode both are skipped.
+    // Right goes on to Scene, Ramp, then Tempo; out of edit mode they are skipped.
     h.tap(btn::Right);
     CHECK_EQ(s.focus, 4);
     h.tap(btn::Right);
+    CHECK_EQ(s.focus, 5);
+    h.tap(btn::Right);
     CHECK_EQ(s.focus, 2);
+    h.tap(btn::Left);
     h.tap(btn::Left);
     h.tap(btn::Left);
     CHECK_EQ(s.focus, 3);

@@ -137,11 +137,17 @@ struct Project {
     // [I] Performance scene per song slot (song.bin): 0 = keep what plays,
     // else scene 1..kPerfScenes goes on A as the slot starts (the fader at
     // A). playlistSceneTo: 0 = none, else scene 1..kPerfScenes on B (the
-    // A -> B ramp follows later).
+    // fader ramps A -> B, see playlistRamp).
     uint8_t playlistScene[kSongSlots] = {};
     uint8_t playlistSceneTo[kSongSlots] = {};
+    // [I] The A -> B ramp of a slot with a scene on B (song.bin): it ends
+    // with the slot and lasts kRampSlot = every pass, kRampLast = the last
+    // pass, else (value - 1) steps (1 .. 254; longer than the slot = all of it).
+    static constexpr int kRampSlot = 0, kRampLast = 1;
+    uint8_t playlistRamp[kSongSlots] = {};
     int slotScene(int slot) const { return slot >= 0 && slot < kSongSlots ? playlistScene[slot] : 0; }
     int slotSceneTo(int slot) const { return slotScene(slot) ? playlistSceneTo[slot] : 0; }
+    int slotRamp(int slot) const { return slot >= 0 && slot < kSongSlots ? playlistRamp[slot] : kRampSlot; }
 
     // Raw values block (file 0x110..0x80F).
     uint8_t values[mt::kValuesSize] = {};

@@ -1,6 +1,6 @@
-// [I] Performance scene per song slot (#10): song.bin fields 1 / 2, the
-// Song screen's Scene column, and the scene going on as the slot starts,
-// on any screen (PerformanceScreen::KeepAlive::Song).
+// [I] Performance scene per song slot (#10): song.bin fields 1-3, the Song
+// screen's Scene and Ramp columns, the scene going on as the slot starts,
+// on any screen (PerformanceScreen::KeepAlive::Song), and the A -> B ramp.
 #include <memory>
 
 #include "test.h"
@@ -21,6 +21,7 @@ TEST(song_scene_side_round_trip) {
     CHECK(!songSideUsed(p));
     p.playlistScene[1] = 3;
     p.playlistSceneTo[1] = 16;
+    p.playlistRamp[1] = 255;
     CHECK(songSideUsed(p));   // a scene alone writes the file
     uint8_t buf[song::kFileSize];
     encodeSongSide(p, buf);
@@ -28,6 +29,8 @@ TEST(song_scene_side_round_trip) {
     CHECK(decodeSongSide(buf, sizeof(buf), q) == FmtStatus::Ok);
     CHECK_EQ(q.slotScene(1), 3);
     CHECK_EQ(q.slotSceneTo(1), 16);
+    CHECK_EQ(q.slotRamp(1), 255);
+    CHECK_EQ(q.slotRamp(0), Project::kRampSlot);
     CHECK_EQ(q.slotScene(0), 0);
     CHECK_EQ(q.slotCount(1), 1);
     // B without A reads as none.
@@ -194,4 +197,92 @@ TEST(song_scene_on_the_performance_screen) {
     r.h.tap(btn::Play);
     r.h.run(20);
     CHECK(p.keepAlive() == KeepAlive::None);
+}
+
+TEST(song_scene_ramp_column_keys) {
+    Harness h;
+    App& a = *h.app;
+    h.tap(btn::Song);
+    SongScreen& s = *static_cast<SongScreen*>(a.ui.screen(kModSong));
+    a.project.playlistScene[0] = 2;
+    a.project.playlistSceneTo[0] = 5;
+    h.tap(btn::Rec);
+    for (int i = 0; i < 3; ++i) h.tap(btn::Right);   // Count, Scene, Ramp
+    CHECK_EQ(s.focus, 5);
+    h.run(100);
+    CHECK(h.disp.lastHasText("Ramp"));
+    CHECK(h.disp.lastHasText("Slot"));
+    h.enc(1);
+    CHECK_EQ(a.project.slotRamp(0), Project::kRampLast);
+    h.run(100);
+    CHECK(h.disp.lastHasText("Last"));
+    h.enc(1);   // 1 step
+    CHECK_EQ(a.project.slotRamp(0), 2);
+    h.down(btn::Shift);
+    h.enc(1);   // + 16 steps
+    h.up(btn::Shift);
+    CHECK_EQ(a.project.slotRamp(0), 18);
+    h.run(100);
+    CHECK(h.disp.lastHasText("17"));
+    h.down(btn::Shift);
+    h.enc(20);
+    h.up(btn::Shift);
+    CHECK_EQ(a.project.slotRamp(0), 255);   // 254 steps at most
+    for (int i = 0; i < 3; ++i) h.enc(-100);
+    CHECK_EQ(a.project.slotRamp(0), Project::kRampSlot);
+    h.enc(3);
+    h.tap(btn::F4);   // Add Slot copies the ramp
+    CHECK_EQ(a.project.slotRamp(1), 3);
+    h.tap(btn::Delete);   // back to Slot
+    CHECK_EQ(a.project.slotRamp(1), Project::kRampSlot);
+}
+
+TEST(song_scene_ramp_fader) {
+    using P = PerformanceScreen;
+    // Two passes of 16 steps.
+    CHECK_EQ(P::rampFader(Project::kRampSlot, 2, 1, 16, 0, 1), 0);
+    CHECK_EQ(P::rampFader(Project::kRampSlot, 2, 1, 16, 8, 1), 25);
+    CHECK_EQ(P::rampFader(Project::kRampSlot, 2, 2, 16, 0, 1), 50);
+    CHECK_EQ(P::rampFader(Project::kRampSlot, 2, 2, 16, 15, 48), 99);
+    // The last pass only.
+    CHECK_EQ(P::rampFader(Project::kRampLast, 2, 1, 16, 15, 48), 0);
+    CHECK_EQ(P::rampFader(Project::kRampLast, 2, 2, 16, 8, 1), 50);
+    // The last 4 steps (value 5); between steps it moves by micro step.
+    CHECK_EQ(P::rampFader(5, 2, 2, 16, 11, 48), 0);
+    CHECK_EQ(P::rampFader(5, 2, 2, 16, 12, 1), 0);
+    CHECK_EQ(P::rampFader(5, 2, 2, 16, 14, 1), 50);
+    CHECK_EQ(P::rampFader(5, 2, 2, 16, 14, 25), 62);
+    // Longer than the slot: the whole slot.
+    CHECK_EQ(P::rampFader(200, 2, 2, 16, 0, 1), 50);
+}
+
+TEST(song_scene_ramps_and_the_fader_takes_over) {
+    Rig r;
+    App& a = *r.h.app;
+    PerformanceScreen& p = r.p();
+    r.pj().playlistCount[0] = 2;   // slot 1: scene 3 > 6 over both passes (Slot)
+    r.h.tap(btn::F2);              // Play Song, on the Song screen
+    r.h.run(20);
+    CHECK(p.fader < 10);
+    CHECK(p.cur[0] < -40);
+    for (int i = 0; i < 20000 && a.seq.songPass() < 2; ++i) r.h.audio.pump(1);
+    r.h.run(20);
+    CHECK(p.fader >= 45 && p.fader <= 60);   // half way
+    CHECK(p.cur[0] > -10 && p.cur[0] < 20);   // the Volume blend follows
+    // Near the end of the slot the fader is near B.
+    const int len = a.seq.patternLength();
+    for (int i = 0; i < 20000 && a.seq.patternPosition() < len - 1; ++i) r.h.audio.pump(1);
+    r.h.run(20);
+    CHECK(p.fader >= 90);
+    CHECK(p.cur[0] > 40);
+    // Next time round, moving the fader on the Performance screen stops the ramp.
+    r.untilSlot(1);
+    r.untilSlot(0);
+    r.h.tap(btn::Performance);
+    CHECK(p.fader < 15);
+    r.h.enc(-60);   // back to A
+    CHECK_EQ(p.fader, 0);
+    for (int i = 0; i < 20000 && a.seq.songPass() < 2; ++i) r.h.audio.pump(1);
+    r.h.run(20);
+    CHECK_EQ(p.fader, 0);
 }

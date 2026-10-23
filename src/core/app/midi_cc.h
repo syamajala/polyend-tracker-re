@@ -48,6 +48,10 @@ public:
     // [I] The song started slot `slot` (its first pass; main loop, any
     // screen): the slot's scene goes on (#10).
     virtual void perfSongSlot(int slot) { (void)slot; }
+    // [I] Main-loop tick while the song plays: the slot's A -> B fader ramp.
+    virtual void perfSongTick() {}
+    // [I] The scene crossfader, 0 (A) .. 100 (B), for the remote status.
+    virtual int perfFader() const { return 0; }
 };
 
 namespace midicc {
