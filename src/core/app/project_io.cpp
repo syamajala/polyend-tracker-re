@@ -535,9 +535,9 @@ constexpr bool kLittleEndian = false;
 OT_SDRAM_BSS char g_list[kSampleInstrumentCount + 16][64];   // SDRAM on the device (OP-5)
 // [I] The project being opened, checked before the Workspace is replaced:
 // a static, not on the stack (it held startOpenProject's frame above 6 KB,
-// close to the 8 KB stack guard, #23). SRAM: .sdram_bss is full. Built on
-// first use (no static-initialisation code).
-SdramLazy<Project> g_openProject;
+// close to the 8 KB stack guard, #23). SDRAM on the device; built on first
+// use (no static-initialisation code).
+OT_SDRAM_BSS SdramLazy<Project> g_openProject;
 OT_SDRAM_BSS SlotScan g_scan;   // folder scanned by the running job (Open: source; load: Workspace)
 
 struct DirSum {
