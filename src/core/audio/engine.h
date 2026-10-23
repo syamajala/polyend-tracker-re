@@ -157,6 +157,7 @@ struct StemBlock {
 class IResampleTap {
 public:
     virtual ~IResampleTap() = default;
+    // l / r null: a block of silence.
     virtual void tapBlock(const float* l, const float* r, uint32_t frames) = 0;
 };
 
@@ -201,8 +202,9 @@ public:
     }
     // [I] Live resampling: source 0 = master (limiter output, before master
     // volume, metronome and file preview), 1..8 = sample track t-1 (post
-    // pan, as its stem), kTapLineIn = the line input (channel mode applied,
-    // before the line level / mute). Null tap = off. Live blocks only.
+    // pan, as its stem). kTapLineIn (the line input) is tapped by the app
+    // from the input itself (App::preBlock), not here. Null tap = off. Live
+    // blocks only.
     static constexpr uint8_t kTapLineIn = 9;
     void setResampleTap(IResampleTap* tap, uint8_t source) {
         tapSource_ = source;
@@ -349,6 +351,12 @@ private:
     const Instrument* instruments_ = nullptr;
     MixerSettings mix_;
     Voice voices_[kVoices + 1];
+    // A note-off for a note that started in the same block waits one block,
+    // so every note sounds for at least one block (the sequencer runs all of
+    // a block's micro-steps before it renders; Gate Length 0 put note-on and
+    // note-off into one block and the note never sounded; user report).
+    volatile bool startedInBlock_[kVoices] = {};
+    volatile int8_t pendingOff_[kVoices] = {};   // 0 none, else the NoteOffMode
     VoiceControl vc_[kVoices + 1];
     VoiceOut vout_[kVoices + 1];
     Delay delay_;
@@ -398,6 +406,7 @@ private:
     volatile int outPeak_ = 0;
     IResampleTap* volatile tap_ = nullptr;
     volatile uint8_t tapSource_ = 0;
+    int8_t tapLast_ = -1;   // track tapped in the last block (audio context)
     bool lineMonitor_ = false;
     volatile float lineMonPeak_ = 0.0f;
     float tempo_ = 130.0f;

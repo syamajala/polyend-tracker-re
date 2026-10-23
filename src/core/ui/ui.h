@@ -487,7 +487,7 @@ public:
 
 private:
     void dispatchButton(uint8_t id, uint8_t state);
-    uint32_t resampleShownAt_ = 0;
+    uint8_t resampleShown_ = 0;   // [I] resample state last noticed (Ui::update)
     void updateLeds();
     // Module key whose entering press is held back for the new screen
     // (Master / Song hold, see dispatchButton).
