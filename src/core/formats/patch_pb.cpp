@@ -733,7 +733,9 @@ bool patchInit(int32_t engine, SynthPatch* out) {
         // Amount 0.5 x the parameter's span = its full range for a bipolar
         // macro (-1..1); 1 for the unipolar Detune (0..1).
         struct M { const char* name; int param; bool bipolar; float amount; };
-        static const M kM[6] = {{"Brightness", kDx7Brightness, true, 0.5f}, {"Feedback", kDx7Feedback, true, 0.5f},
+        // Names fit the Synth Macros F-key cells with their "Mn " prefix
+        // (12 characters: "M1 Brightness" was cut).
+        static const M kM[6] = {{"Bright", kDx7Brightness, true, 0.5f}, {"Feedback", kDx7Feedback, true, 0.5f},
                                 {"Attack", kDx7Attack, true, 0.5f},         {"Release", kDx7Release, true, 0.5f},
                                 {"LFO Depth", kDx7LfoDepth, true, 0.5f},    {"Detune", kDx7Detune, false, 1.0f}};
         for (int k = 0; k < 6; ++k) {

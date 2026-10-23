@@ -597,7 +597,7 @@ TEST(dx7_init_patch_macros_aim_at_the_controls) {
     CHECK(patchInit(kSynthEngineDx7, &p));
     CHECK_EQ(int(p.paramCount), int(kDx7ParamCount));
     const int target[6] = {kDx7Brightness, kDx7Feedback, kDx7Attack, kDx7Release, kDx7LfoDepth, kDx7Detune};
-    const char* name[6] = {"Brightness", "Feedback", "Attack", "Release", "LFO Depth", "Detune"};
+    const char* name[6] = {"Bright", "Feedback", "Attack", "Release", "LFO Depth", "Detune"};
     for (int k = 0; k < 6; ++k) {
         CHECK_EQ(int(p.macros[k].count), 1);
         CHECK_EQ(int(p.macros[k].targets[0].param), target[k]);

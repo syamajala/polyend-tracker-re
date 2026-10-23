@@ -232,7 +232,7 @@ TEST(init_patch_per_engine) {
         CHECK_EQ(int(p.paramCount), n);
         CHECK_EQ(validatePatch(p, nullptr, 0), 0);
         // DX7: M1-M6 come aimed at its controls (engine_dx7_test).
-        CHECK(macroName(p.macros[0]) == (e == kSynthEngineDx7 ? "Brightness" : "Macro 1"));
+        CHECK(macroName(p.macros[0]) == (e == kSynthEngineDx7 ? "Bright" : "Macro 1"));
         CHECK(macroName(p.macros[5]) == (e == kSynthEngineDx7 ? "Detune" : "Macro 6"));
         CHECK(macroName(p.macros[6]) == "Velocity");
         CHECK(macroName(p.macros[7]) == "Pressure");
