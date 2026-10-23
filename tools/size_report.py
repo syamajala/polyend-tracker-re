@@ -6,11 +6,15 @@ table for a CI job summary:
 
 Rows: flash (.text + .data, as telemetry_check.py size), the SRAM sections
 (.data with the SRAM code .fastrun, .bss, .dma, USB buffers), .sdram_bss, and
-the stack headroom _estack - _ebss with its limit (telemetry_check.STACK_MIN).
-Prints only; the limits are checked by telemetry_check.py size.
+the stack headroom _estack - _ebss with its limit (telemetry_check.STACK_MIN),
+then the free space: flash to its limit, SRAM over the stack rule, the
+.sdram_bss region (_sdram_bss_limit) and the rest of the SDRAM (the app
+layout's end otSdramLayoutEnd, app_main.cpp). Prints only; the limits are
+checked by telemetry_check.py size and the linker.
 """
 import argparse
 import os
+import struct
 import subprocess
 import sys
 
@@ -18,6 +22,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from telemetry_check import FLASH_FAIL, FLASH_WARN, STACK_MIN  # noqa: E402
 
 SRAM_SECTIONS = [".data", ".bss", ".dma", ".usbdescriptortable", ".dmabuffers", ".usbbuffers"]
+SDRAM_TOP = 0x70000000 + 16 * 1024 * 1024   # board::kSdramBase + kSdramSize
+
+
+def read_word(elf, addr):
+    """The 32-bit little-endian word at `addr` in an ELF32 file's loaded sections, or None."""
+    with open(elf, "rb") as f:
+        data = f.read()
+    shoff, = struct.unpack_from("<I", data, 0x20)
+    shentsize, shnum = struct.unpack_from("<HH", data, 0x2E)
+    for i in range(shnum):
+        _, kind, _, sh_addr, sh_off, sh_size = struct.unpack_from("<IIIIII", data, shoff + i * shentsize)
+        if kind != 8 and sh_addr <= addr and addr + 4 <= sh_addr + sh_size:   # 8 = SHT_NOBITS
+            return struct.unpack_from("<I", data, sh_off + addr - sh_addr)[0]
+    return None
 
 
 def run(cmd):
@@ -51,6 +69,16 @@ def measure(elf, size_tool, nm_tool):
     }
     if "_estack" in syms and "_ebss" in syms:
         m["Stack headroom (_estack - _ebss)"] = syms["_estack"] - syms["_ebss"]
+    # Free space. Older images lack the two SDRAM symbols: their rows show "–".
+    m[f"Flash free (to {FLASH_FAIL:,} B)"] = FLASH_FAIL - m["Flash (.text + .data)"]
+    if "Stack headroom (_estack - _ebss)" in m:
+        m[f"SRAM free (headroom over the {STACK_MIN:,} B stack rule)"] = m["Stack headroom (_estack - _ebss)"] - STACK_MIN
+    if "_sdram_bss_limit" in syms and "_esdram_bss" in syms:
+        m["SDRAM free in .sdram_bss"] = syms["_sdram_bss_limit"] - syms["_esdram_bss"]
+        layout_end = read_word(elf, syms["otSdramLayoutEnd"]) if "otSdramLayoutEnd" in syms else None
+        if layout_end is not None and "_ssdram_bss" in syms:
+            m["SDRAM free outside it (layout gap + above)"] = (
+                syms["_ssdram_bss"] - layout_end + SDRAM_TOP - syms["_sdram_bss_limit"])
     return m
 
 
@@ -79,6 +107,9 @@ def notes(head):
     if room is not None:
         mark = ":x: " if room < STACK_MIN else ""
         out.append(f"- {mark}stack headroom {room:,} B: {room - STACK_MIN:+,} B against the {STACK_MIN:,} B limit")
+    free = head.get("SDRAM free in .sdram_bss")
+    if free is not None:
+        out.append(f"- .sdram_bss {head['SDRAM .sdram_bss']:,} B: {free:,} B left in its region")
     return out
 
 

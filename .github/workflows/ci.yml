@@ -20,6 +20,7 @@ permissions:
 jobs:
   host-tests:
     runs-on: ubuntu-24.04
+    timeout-minutes: 30   # normally a few minutes; a stuck step (apt) otherwise holds the runner 6 h
     steps:
       - uses: actions/checkout@v5
       - name: Install GCC 14
@@ -45,6 +46,7 @@ jobs:
   # repo).
   sim-check:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20   # normally a few minutes; a stuck step (apt) otherwise holds the runner 6 h
     steps:
       - uses: actions/checkout@v5
       - name: Install GCC 14 and SDL2
@@ -78,6 +80,7 @@ jobs:
   # The fork's build: Games off (the default; OT_GAMES=1 is not built here).
   firmware:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20   # normally a few minutes; a stuck step (apt) otherwise holds the runner 6 h
     steps:
       - uses: actions/checkout@v5
       - uses: carlosperate/arm-none-eabi-gcc-action@v1
@@ -104,6 +107,7 @@ jobs:
   size-report:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20   # normally a few minutes; a stuck step (apt) otherwise holds the runner 6 h
     steps:
       - uses: actions/checkout@v5
         with:

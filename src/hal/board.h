@@ -168,9 +168,12 @@ constexpr uint32_t kSdramSdScratch    = kSdramBase + 0x00060000;   // SD direct 
 // (OT_GAMES=1 adds ~4.6 KB), starting above the remote frame buffer: its
 // top 32 KB overlap the selftest's SD benchmark buffer (the top 64 KB,
 // selftest.cpp), which is safe because the selftest only runs when the app
-// never started or has returned (main.cpp), never alongside it.
+// never started or has returned (main.cpp), never alongside it. [I] 148 KB
+// (same start, now ending at the SDRAM's top, which nothing else uses while
+// the app runs): room for the song slots' scenes (#10) and the Games build.
 constexpr uint32_t kSdramBssBase      = kSdramBase + 0x00FDB000;
-constexpr uint32_t kSdramBssSize      = 0x0001D000;
+constexpr uint32_t kSdramBssSize      = 0x00025000;
+static_assert(kSdramBssBase + kSdramBssSize <= kSdramBase + kSdramSize, ".sdram_bss past the SDRAM's top");
 
 // ---- input (spec 01 §7) ---------------------------------------------------------
 constexpr uint8_t kTeensyButtonsInt = 14;    // spec 01 §7.1: PTD1
