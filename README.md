@@ -10,6 +10,9 @@ compatible: everything the fork adds is stored in extra files next to `project.m
 firmware, upstream OpenTracker and the Tracker Mini still open them (see each feature for
 details).
 
+**Documentation:** [syamajala.github.io/polyend-tracker-re](https://syamajala.github.io/polyend-tracker-re/)
+(user guide for each feature, install and troubleshooting, and a developer section).
+
 Screenshots are from the desktop simulator, which runs the same code as the firmware.
 
 ## What this fork adds
