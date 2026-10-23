@@ -1,0 +1,68 @@
+# More features
+
+## Note names
+
+**Config > General > Note names: Sharps / Flats / Auto.** Auto spells notes the way the
+project's scale does, modes included: C Mixolydian shows B♭, not A♯. Display only.
+
+![Config > General > Note names](../images/config-note-names.png)
+
+## The 2.x features (from upstream)
+
+The 2.x line brings the newer Tracker features to the original hardware. In short:
+
+### Tracker Mini project compatibility
+
+- Projects are saved in the **Tracker 2.2.1 format**: 16-track patterns, the three synth
+  slots, track names and mutes for tracks 13–16.
+- **Synth patches** use the Mini's `.patch` files, stored with the project and in a
+  library at `Patches/<ENGINE>/`. All 299 Mini factory patches load and save back
+  unchanged.
+
+### 16 tracks
+
+- Tracks 13–16 work like MIDI tracks 9–12: notes, MIDI channels, CC A–F, pitch bend,
+  velocity, mute and solo. Performance Play mode, Pattern length and Step repeater act on
+  them too.
+- Pattern pages through all 16 tracks; Song shows a scrolling 12-track window. Fill, copy
+  and paste work across all 16.
+
+### Synth engines (instruments S1–S3)
+
+- **Three synth slots**, played from any track as instruments S1–S3.
+- Engines: **ACD** (acid bass and lead, 24 dB and ladder-style filters, glide), **VAP**
+  (virtual-analog poly, morphing oscillators, hard sync, 15 filter types, a 6-slot
+  modulation matrix), **PERC** (a drum kit), **FAT** (unison supersaw), and in this fork
+  **[DX7](dx7.md)**. **WTFM** patches load and save but stay silent ("not available").
+- **Macros:** FX columns A–F drive macros 1–6, and Volume drives macro 7.
+- **Voices:** a shared pool of 4 by default, adjustable in **Config > General > Synth
+  voices** (1–8). If the audio gets close to its limit, only synth voices are cut; sample
+  tracks never are.
+- Screens after the Mini's layout: Synth Parameters, Synth Macros, Edit Patch (sections on
+  the pads; Save, Save As, Init), the Load Patch popup with Preview, and the synth level
+  columns on Global Mixer page 3.
+- Exports include separate stems `synth_1..3.wav`.
+
+### Stereo samples
+
+Stereo WAVs keep both channels and play in stereo in one-shot, loop, slice and beat-slice
+modes; pan works as balance.
+
+### CPU meter
+
+**Config > General > CPU meter: Auto, Always or Off** shows the audio load in the title
+bar.
+
+### USB Storage mode
+
+**Config > USB > USB Storage: On** shows the SD card on a connected computer as a USB drive,
+as on the Tracker Mini, so projects, samples and patches can be copied without taking the
+card out.
+
+- Playback stops and the project is saved first. Keep the power and the cable connected
+  while files are copied.
+- To finish, eject the drive on the computer, then press **Exit** (or set the row back to
+  Off). The project reloads from the card.
+- It's always Off after power-on. About 1 MB/s (full-speed USB). USB MIDI and the serial
+  log keep working.
+- On Windows the Tracker may appear once as a new device (new COM/MIDI port).

@@ -1,0 +1,44 @@
+# Documentation site (docs/, mkdocs.yml) on GitHub Pages.
+# Pull requests: build it (--strict: broken links and missing pages fail).
+# Pushes to main: publish it as version "dev" with mike, on the gh-pages branch
+# (Settings > Pages > Source: Deploy from a branch, gh-pages / root).
+# Release tags will add their own versions later.
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml']
+  pull_request:
+    paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: false   # never interrupt a push to gh-pages
+
+permissions:
+  contents: write   # mike commits to gh-pages
+
+jobs:
+  docs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # mike needs the gh-pages branch
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install MkDocs
+        run: pip install "mkdocs<2" "mkdocs-material==9.*" "mike==2.*"   # MkDocs 2 drops plugins and Material themes
+      - name: Build
+        run: mkdocs build --strict
+      - name: Publish "dev"
+        if: github.event_name != 'pull_request'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mike deploy --push dev
+          mike set-default --push dev

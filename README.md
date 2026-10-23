@@ -5,10 +5,13 @@ written from behavioural specifications. It contains no Polyend code, fonts, ico
 graphics, and is not affiliated with or endorsed by Polyend.
 
 This is a fork of [sandlbn/polyend-tracker-re](https://github.com/sandlbn/polyend-tracker-re).
-It follows upstream's 2.x line (currently 2.1.0) and adds the features below. Projects stay
+It follows upstream's 2.x line (currently 2.1.2) and adds the features below. Projects stay
 compatible: everything the fork adds is stored in extra files next to `project.mt`, so stock
 firmware, upstream OpenTracker and the Tracker Mini still open them (see each feature for
 details).
+
+**Documentation:** [syamajala.github.io/polyend-tracker-re](https://syamajala.github.io/polyend-tracker-re/)
+(user guide for each feature, install and troubleshooting, and a developer section).
 
 Screenshots are from the desktop simulator, which runs the same code as the firmware.
 
@@ -227,7 +230,7 @@ the whole 2.x line.
 
 1. Download the latest image from this fork's
    [Releases](https://github.com/syamajala/polyend-tracker-re/releases) and copy
-   `PolyendTrackerOTv210.ptf` to `/Firmware` on the SD card. Keep the name; the bootloader
+   `PolyendTrackerOTv212.ptf` to `/Firmware` on the SD card. Keep the name; the bootloader
    only accepts 24-character names.
 2. Go to **Config > Firmware update**, select it and confirm. If the screen stays dark
    after the update, press the power button once.
@@ -243,7 +246,7 @@ rules; not yet confirmed on a stock unit).
 
 ## Building
 
-- Firmware: `make VERSION=2.1.0` (Arm GNU toolchain) writes `build/PolyendTrackerOTv210.ptf`.
+- Firmware: `make VERSION=2.1.2` (Arm GNU toolchain) writes `build/PolyendTrackerOTv212.ptf`.
 - Host tests: `make host-test`. Performance and memory gate: `make perf-gate`.
 - Simulator: `make sim`, then `build/sim/opentracker-sim` (see `sim/README.md`).
 
