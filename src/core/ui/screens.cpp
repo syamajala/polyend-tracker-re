@@ -39,7 +39,10 @@ struct ScreenSet {
 // only). A second Ui at the same time (host tests) falls back to the heap.
 OT_SDRAM_BSS alignas(ScreenSet) unsigned char g_screenMem[sizeof(ScreenSet)];
 OT_SDRAM_BSS bool g_screenMemUsed;
+OT_SDRAM_BSS alignas(8) unsigned char g_browserLists[kBrowserListBytes];
 }  // namespace
+
+void* browserListMem() { return g_browserLists; }
 
 void* createScreens(Ui& ui, App& app, Screen** out) {
     ScreenSet* s;

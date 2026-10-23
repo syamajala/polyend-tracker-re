@@ -44,7 +44,7 @@ MEMORY
 	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 1024K
 	RAM  (rwx) : ORIGIN = 0x1FFF0000, LENGTH = 256K
 	/* board::kSdramBssBase / kSdramBssSize (src/hal/board.h): SDRAM, NOLOAD. */
-	SDRAM_BSS (rw) : ORIGIN = 0x70FDB000, LENGTH = 128K
+	SDRAM_BSS (rw) : ORIGIN = 0x70FDB000, LENGTH = 148K
 }
 
 ENTRY(_VectorsFlash)
@@ -59,6 +59,7 @@ SECTIONS
 		. = 0x400;
 		KEEP(*(.flashconfig*))
 		*(.text*)
+		KEEP(*(.rodata.ot_report))
 		*(.rodata*)
 		. = ALIGN(4);
 		KEEP(*(.init))
@@ -158,6 +159,8 @@ SECTIONS
 		. = ALIGN(16);
 		_esdram_bss = .;
 	} > SDRAM_BSS
+	/* End of the region, for tools/size_report.py (.sdram_bss free space). */
+	_sdram_bss_limit = ORIGIN(SDRAM_BSS) + LENGTH(SDRAM_BSS);
 
 	_estack = ORIGIN(RAM) + LENGTH(RAM);
 	ASSERT(_sdma >= 0x20000000, "OpenTracker: .dma must lie in SRAM_U (uncached)")
