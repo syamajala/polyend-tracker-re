@@ -201,6 +201,8 @@ public:
     // length (selection / global length override included), never at a
     // per-track length or play mode (docs/M1_PLAN.md §3).
     int patternPosition() const { return masterPos_; }
+    // [I] Steps until patternPosition() wraps (baseLastIndex() + 1).
+    int patternLength() const { return baseLastIndex() + 1; }
     int songPosition() const { return songPos_; }
     // [I] The playing slot's pass, 1 .. its repeat count (Project::slotCount):
     // restarts at 1 whenever a slot starts, even with the same pattern.

@@ -87,7 +87,6 @@ struct ProjectJob {
     char wavBase[mt::kFolderMax + mt::kNameMax + 2] = {};   // legacy samples/instrNN.wav root
     char wipe[300] = {};           // current folder of the incremental Workspace wipe
     uint16_t wipeRootLen = 0;      // the wipe stops after removing this prefix of `wipe`
-    Project proj;                  // Open: the upgraded project to write (spec 10 §4.2 step 2)
     uint8_t kind[kSampleInstrumentCount] = {};      // 0 none, 1 .pti payload, 2 legacy WAV
     uint32_t fileSize[kSampleInstrumentCount] = {};
     uint32_t dataOff[kSampleInstrumentCount] = {};

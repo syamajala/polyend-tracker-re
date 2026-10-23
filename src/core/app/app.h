@@ -548,6 +548,9 @@ public:
     bool tapeHoldsMemory() const { return tapeHolds_; }
     uint32_t tapeStopFrames(int v) const;
     void serviceTapeStop();
+    // [I] Song slot scenes (#10): tells the Performance engine when the
+    // song starts a slot (its first pass), from the main loop.
+    void serviceSongScenes();
     bool selectInput(uint8_t source, uint8_t gain);   // false = source not available
     IRadio* radio() const { return hal_.radio; }
     // Output folder "Recordings" / "Recordings N" (created) and the first
@@ -667,6 +670,11 @@ private:
         int songLen = 0;
     } job_;
     OT_APP_SDRAM_MEMBER(ProjectJob, pj_);   // background project operation (project_io.cpp)
+    // [I] The project jobs' one spare Project (project_io.cpp), outside pj_
+    // so a job reset keeps it: Open loads and checks the file here before the
+    // Workspace is replaced, then writes it as Workspace/project.mt (spec 10
+    // §4.2 steps 1-2); the Workspace load that follows parses into it again.
+    OT_APP_SDRAM_MEMBER(Project, jobProject_);
     bool lastJobOk_ = true;
     int lastJobErrors_ = 0;
     uint32_t jobProgressMs_ = 0;
@@ -683,6 +691,8 @@ private:
     void reportResample(uint8_t outcome, int slot);
     void placeResample(int slot, uint32_t bars, const uint16_t* sliceSteps, int slices);
     uint32_t playStart_ = 0;
+    bool songScenePlaying_ = false;   // [I] serviceSongScenes: the song was playing
+    uint32_t songSceneEnds_ = 0;      // [I] patternEnds_ it last looked at
     uint32_t lastNoCardTry_ = 0;
     // MIDI input parser per port.
     struct MidiIn {

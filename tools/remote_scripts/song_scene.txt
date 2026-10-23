@@ -1,0 +1,68 @@
+# Scene per song slot (#10): runs on the simulator (opentracker-sim --serve)
+# and on a Tracker, from a fresh project with remote control on.
+#   tools/tracker_remote.py PORT tools/remote_scripts/song_scene.txt
+# Scene 3 = column 1 row 1. Song: slot 1 scene 3 > 4 (ramp: Slot), slot 2
+# keep, slot 3 scene 4. On the Song screen the slots' scenes switch the
+# Performance FX on and off (perf), slot 1's fader ramps A -> B, and Stop
+# reverts them.
+tap PERFORMANCE
+wait 300
+expect-screen Performance
+tap PERFORMANCE      # bank page
+wait 200
+tap RIGHT
+tap RIGHT
+tap F3               # edit scene 3
+pad 12 tap           # column 1, row 1
+tap PERFORMANCE      # saved
+wait 200
+expect-notice Scene 3 saved
+tap F8
+tap SONG
+wait 300
+expect-screen Song
+expect perf == 0
+tap REC              # edit mode
+tap F4               # slot 2
+tap F4               # slot 3
+tap UP
+tap UP               # slot 1
+tap RIGHT
+tap RIGHT            # Scene column
+enc 3                # scene 3
+press SHIFT
+enc 4                # > 4
+release SHIFT
+tap DOWN
+tap DOWN             # slot 3
+enc 4                # scene 4
+wait 200
+expect-text Scene
+expect-text 3>4
+expect-text Ramp
+expect-text Slot
+screenshot song_scene.png
+tap LEFT
+tap LEFT
+tap REC              # edit off
+tap UP
+tap UP               # slot 1
+tap F2               # Play Song
+wait-for song == 1 2000
+wait 200
+expect perf == 1
+expect scA == 3
+expect scB == 4
+wait-for fader >= 50 20000   # the ramp, half way through the slot
+expect slot == 1
+wait-for slot == 2 20000
+wait 200
+expect perf == 0     # keep: the song's FX go on this screen
+wait-for slot == 3 20000
+wait 200
+expect perf == 1
+expect scA == 4
+tap F2               # stop
+wait-for play == 0 2000
+wait 200
+expect perf == 0

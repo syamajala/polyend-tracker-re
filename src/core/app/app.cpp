@@ -24,6 +24,7 @@ namespace {
 struct AppSdram {
     alignas(PatternNames) unsigned char names[sizeof(PatternNames)];
     alignas(ProjectJob) unsigned char pj[sizeof(ProjectJob)];
+    alignas(Project) unsigned char jobProject[sizeof(Project)];
     alignas(SynthPatch) unsigned char patches[sizeof(SynthPatch) * kSynthSlotCount];
     unsigned char extKeep[kPatternCount + 1];
 };
@@ -33,7 +34,8 @@ OT_SDRAM_BSS AppSdram gAppSdram;
 App::App()
     : names(*reinterpret_cast<PatternNames*>(gAppSdram.names)), bank(engine.bank()), ui(*this),
       extKeep_(*reinterpret_cast<ExtKeep*>(gAppSdram.extKeep)),
-      patches_(*reinterpret_cast<SynthPatches*>(gAppSdram.patches)), pj_(*reinterpret_cast<ProjectJob*>(gAppSdram.pj)) {}
+      patches_(*reinterpret_cast<SynthPatches*>(gAppSdram.patches)), pj_(*reinterpret_cast<ProjectJob*>(gAppSdram.pj)),
+      jobProject_(*reinterpret_cast<Project*>(gAppSdram.jobProject)) {}
 #else
 App::App() : bank(engine.bank()), ui(*this) {}
 #endif
@@ -44,6 +46,7 @@ bool App::init(const HalRefs& hal, const AppMemory& mem) {
     // otAppMain() zeroed `.sdram_bss`.
     new (&names) PatternNames();
     new (&pj_) ProjectJob();
+    new (&jobProject_) Project();
     for (SynthPatch& p : patches_) new (&p) SynthPatch();
 #else
     for (SynthPatch& p : patches_) p = SynthPatch{};   // plain member without an initialiser
@@ -384,6 +387,19 @@ void App::allVoicesOff() {
     engine.stopAll();
 }
 
+void App::serviceSongScenes() {
+    const bool on = seq.isPlaying() && seq.isSongMode();
+    const uint32_t ends = patternEnds_;
+    const bool started = on && !songScenePlaying_;
+    const bool ended = ends != songSceneEnds_;
+    songScenePlaying_ = on;
+    songSceneEnds_ = ends;
+    if (!on || !perfCc) return;
+    // Play starts a slot; a pattern end does when it began the slot's first pass.
+    if (started || (ended && seq.songPass() == 1)) perfCc->perfSongSlot(seq.songPosition());
+    perfCc->perfSongTick();
+}
+
 void App::loop() {
     const uint32_t now = millis();
     if (hal_.service) hal_.service();
@@ -433,6 +449,7 @@ void App::loop() {
     serviceRemote();
     serviceResample();
     serviceTapeStop();
+    serviceSongScenes();
     // Project manager (spec 05 §1.3 step 5, appendix E3/E4): one bounded
     // step of the running job, else the periodic autosave check.
     if (jobBusy()) serviceProjectJob();

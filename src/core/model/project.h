@@ -134,6 +134,29 @@ struct Project {
         const int c = slot >= 0 && slot < kSongSlots ? playlistCount[slot] : 1;
         return c < 1 ? 1 : (c > kSongCountMax ? kSongCountMax : c);
     }
+    // [I] Performance scene per song slot (song.bin): 0 = keep what plays,
+    // else scene 1..kPerfScenes goes on A as the slot starts (the fader at
+    // A). playlistSceneTo: 0 = none, else scene 1..kPerfScenes on B (the
+    // fader ramps A -> B, see playlistRamp).
+    uint8_t playlistScene[kSongSlots] = {};
+    uint8_t playlistSceneTo[kSongSlots] = {};
+    // [I] The A -> B ramp of a slot with a scene on B (song.bin):
+    // kRampSlot = over every pass, kRampEach = over each pass (back to A as
+    // each starts), kRampFirst = over the first pass (then B), kRampLast ..
+    // kRampLast + 14 = over the last 1 .. 15 passes, else the last
+    // (value - kRampSteps) steps (1 .. kStepCount). Longer than the slot =
+    // all of it.
+    static constexpr int kRampSlot = 0, kRampEach = 1, kRampFirst = 2, kRampLast = 3;
+    static constexpr int kRampLastMax = kSongCountMax - 1;
+    static constexpr int kRampSteps = kRampLast + kRampLastMax - 1;
+    static constexpr int kRampMax = kRampSteps + kStepCount;
+    // The passes of a Last N ramp (0: not one), the steps of a steps ramp (0: not one).
+    static int rampLastPasses(int ramp) { return ramp >= kRampLast && ramp <= kRampSteps ? ramp - kRampLast + 1 : 0; }
+    static int rampSteps(int ramp) { return ramp > kRampSteps ? ramp - kRampSteps : 0; }
+    uint8_t playlistRamp[kSongSlots] = {};
+    int slotScene(int slot) const { return slot >= 0 && slot < kSongSlots ? playlistScene[slot] : 0; }
+    int slotSceneTo(int slot) const { return slotScene(slot) ? playlistSceneTo[slot] : 0; }
+    int slotRamp(int slot) const { return slot >= 0 && slot < kSongSlots ? playlistRamp[slot] : kRampSlot; }
 
     // Raw values block (file 0x110..0x80F).
     uint8_t values[mt::kValuesSize] = {};
