@@ -350,7 +350,7 @@ TEST(perf_bank_toggle_by_performance_key) {
     CHECK(a.ui.active() == kModPerformance);
     CHECK_EQ(p.bank, 0);
     CHECK_STR(a.ui.bar.label[0].top, "Track 1");
-    r.h.tap(btn::Performance);   // on the screen: toggles the bank
+    r.h.tap(btn::Right);   // [I] tracks 9-16 (stock 2.x: the Performance key)
     CHECK(a.ui.active() == kModPerformance);
     CHECK_EQ(p.bank, 1);
     CHECK_STR(a.ui.bar.label[0].top, "Midi 9");
@@ -371,7 +371,7 @@ TEST(perf_bank_toggle_by_performance_key) {
     r.h.up(btn::Shift);
     CHECK(a.trackMuted(8));
     CHECK(!a.trackMuted(0));
-    r.h.tap(btn::Performance);
+    r.h.tap(btn::Left);    // [I] tracks 1-8
     CHECK_EQ(p.bank, 0);
     CHECK_STR(a.ui.bar.label[0].top, "Track 1");
 }
@@ -386,7 +386,7 @@ TEST(perf_bank_b_no_pattern_overrides) {
     putPattern(a, 5, 41);
     r.h.tap(btn::Performance);
     PerformanceScreen& p = r.p();
-    r.h.tap(btn::Performance);
+    r.h.tap(btn::Right);   // [I] tracks 9-16 (stock 2.x: the Performance key)
     CHECK_EQ(p.bank, 1);
     static Project before;
     before = a.project;
@@ -412,7 +412,7 @@ TEST(perf_bank_b_no_pattern_overrides) {
     CHECK(!p.fxOn[14]);
     CHECK(std::memcmp(before.values, a.project.values, sizeof(before.values)) == 0);
     // Bank A keys still address tracks 1-8.
-    r.h.tap(btn::Performance);
+    r.h.tap(btn::Left);    // [I] tracks 1-8
     r.h.down(btn::F1);
     r.h.enc(1);
     r.h.up(btn::F1);
@@ -445,7 +445,7 @@ TEST(perf_apply_all_covers_16_tracks) {
     CHECK_EQ(a.seq.perfPlayMode(8), 3);
     CHECK_EQ(a.seq.perfPlayMode(11), 3);
     // Disable track 10 in bank B: reverted there only.
-    r.h.tap(btn::Performance);
+    r.h.tap(btn::Right);   // [I] tracks 9-16 (stock 2.x: the Performance key)
     r.h.tap(btn::F2);
     CHECK(!p.fxOn[9]);
     CHECK_EQ(a.seq.perfPlayMode(9), 0);

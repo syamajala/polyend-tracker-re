@@ -1,0 +1,57 @@
+# Performance scene bank (#10): runs on the simulator (opentracker-sim
+# --serve) and on a Tracker, from a fresh project with remote control on.
+#   tools/tracker_remote.py PORT tools/remote_scripts/scene_bank.txt
+tap PERFORMANCE
+wait 300
+expect-screen Performance
+# The bank page: Performance again.
+tap PERFORMANCE
+wait 200
+expect-text Scenes
+expect-text Set A
+# Scene 3: edit it, a row on column 1, back (saved).
+tap RIGHT
+tap RIGHT
+tap F3               # Edit
+wait 200
+expect-text Scene 3
+expect-text Editing
+pad 12 tap           # column 1, row 1
+wait 100
+tap PERFORMANCE      # back to the bank, saved
+wait 200
+expect-notice Scene 3 saved
+expect-text Scenes
+# Scene 3 on A, scene 4 (edited: column 1 row 2) on B.
+tap F1
+wait 100
+expect-notice Scene 3 on A
+tap RIGHT
+tap F3
+pad 24 tap           # column 1, row 2
+tap PERFORMANCE
+tap F2
+wait 100
+expect-notice Scene 4 on B
+expect-text A 3
+expect-text B 4
+# Back to playing: the title names the pair.
+tap F8
+wait 200
+expect-screen Performance
+expect-text A 3
+expect-text B 4
+# Shift + Left stores into the scene on A.
+pad 36 tap           # column 1, row 3
+press SHIFT
+tap LEFT
+release SHIFT
+wait 100
+expect-notice Scene 3 stored (A)
+# Left / Right: the F keys' tracks.
+tap RIGHT
+wait 200
+expect-text Tracks 9-16
+tap LEFT
+wait 200
+expect-no-text Tracks 9-16

@@ -57,19 +57,25 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   it plays back in time (undoable).
 
 ### Performance mode
-- **Scenes A / B with a crossfader** (Octatrack-style): **Shift + Left / Right** stores the
-  current pad rows as scene A / B; the encoder or MIDI CC 63 fades between them. Filters
-  cross over at the middle, stepped FX switch there.
-  - Hold pads while storing to store or clear only those columns; **Delete + Left / Right**
-    clears a scene.
-  - Rows stored in scene A are marked red, scene B blue, and the pad LEDs follow the fader.
+- **A bank of 16 scenes with a crossfader** (Octatrack-style). The fader's ends **A** and
+  **B** each play a scene from the bank; the encoder or MIDI CC 63 fades between them.
+  Filters cross over at the middle, stepped FX switch there.
+  - **Performance** (on the Performance screen) opens the **scene bank page**: pick a scene
+    with the arrows, encoder or pads, **F1 / F2** put it on A / B, **F3 Edit** opens it on the
+    Performance screen, where the pads set its rows (you hear it as you go) and going back
+    saves it. **F4** clears a scene, **F8** or Performance returns.
+  - Shortcuts while playing: **Shift + Left / Right** store the pad rows into the scene on
+    A / B, **Delete + Left / Right** clear it; hold pads to store or clear only those columns.
+  - Rows of the scene on A are marked red, on B blue, and the pad LEDs follow the fader.
+  - **Left / Right** (outside edit mode) switch the F keys between tracks 1–8 and 9–16
+    (stock 2.x used the Performance key).
 - **Master insert FX**, played like any other Performance column:
   - **DJ filter:** one filter on the whole mix; below 0 a low-pass sweeping down, above 0 a
     high-pass sweeping up.
   - **Tape stop:** hold its pad and the whole mix slows to a stop over 1 or 2 steps, beats
     or bars; release and it spins back up.
 - In edit mode, a tapped row's value can be changed with the encoder without holding the pad.
-- Scenes and the master FX types are stored in `perf_scenes.bin` next to `project.mt`;
+- The scene bank and the master FX types are stored in `perf_scenes.bin` next to `project.mt`;
   stock firmware sees those slots as empty.
 
 ### Song mode
