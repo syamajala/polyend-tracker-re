@@ -1,0 +1,147 @@
+# Device stack paths (upstream #16): the deep or busy paths in one run, for
+# the telemetry stack watermark on a real Tracker. Start stopped, on a
+# project whose instrument 1 is a sample and whose pattern 1 plays.
+# Config > USB > Remote control on, then:
+#
+#   tools/tracker_remote.py /dev/ttyACM0 tools/device_stack_paths.txt --stop-on-fail --log paths.log
+#   tools/telemetry_check.py log paths.log     # stack free (the loop / CPU lines flag the editor stalls)
+#   grep -a "stack peak" paths.log | tail -1
+#   grep -a -e lockup -e FAULT -e STUCK paths.log
+#
+# Card writes: a resample take into a new instrument and the editor's undo
+# stay in the unsaved project; Export Samples writes Export/<project>/; the
+# last step reopens the project from the card (Don't Save), so the run's
+# changes are dropped. The Sample Editor effects block the main loop while
+# they run (soft-float double, Timestretch beat about a minute on a short
+# sample), so the waits are long. Module import: tools/remote_scripts/module_import.txt.
+# Deepest static frames (-fstack-usage): Open Recent 6,032 B, file lists
+# 5,024 B, Export Samples 4,824 B. Measured 2026-10-24: ~12.2 KB for every
+# path except Open Recent while the current project is saved on the card
+# (startOpenRecent -> startOpenProject -> recentsLeaveCurrent, two Recents
+# lists on the stack): 18,228 B. The last step below is that path when the
+# project at the start was a saved one.
+wait 300
+tap PATTERN
+wait 300
+if play == 1 tap PLAY
+wait 500
+expect-stopped
+
+# Playing: screens, the firmware list, a resample of the mix.
+tap PLAY
+wait 2000
+tap PERFORMANCE
+wait 1000
+tap MASTER
+wait 1000
+tap CONFIG
+wait 300
+tap LEFT; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP
+tap DOWN; tap DOWN; tap DOWN; tap DOWN; tap DOWN    # Firmware
+tap RIGHT
+tap F8               # Firmware update: the list
+wait 1200
+expect-text Firmware
+tap F7               # Cancel
+wait 300
+tap PATTERN
+wait 300
+tap SAMPLERECORDER   # "This will stop the pattern": Resample (F6) keeps it playing
+wait 800
+tap F6
+wait 800
+expect-screen Resample
+tap F8               # arm (starts on the next bar)
+wait 6000
+tap F8               # stop at the next bar
+wait 6000
+tap PATTERN
+wait 300
+# Screenshots and display frames over USB while playing.
+screenshot paths1.png; frame paths1.otf; screenshot paths2.png; frame paths2.otf
+screenshot paths3.png; frame paths3.otf; screenshot paths4.png; frame paths4.otf
+screenshot paths5.png; frame paths5.otf
+if play == 1 tap PLAY
+wait 500
+if play == 1 tap PLAY
+wait 500
+expect-stopped
+
+# Sample Editor: every effect on instrument 1, selected absolutely
+# (F3 leaves the effect list, F8 returns to it, Up x20 = the first effect),
+# previewed, applied and undone.
+press INSTR          # instrument 1 (a resample take is the current one now):
+wait 400             # the list's top, then three down
+enc -70
+wait 200
+enc 3
+wait 200
+release INSTR
+wait 300
+expect ins == 1
+tap SAMPLEEDITOR
+wait 1000
+if-text Continue tap F8
+wait 500
+expect-no-text Continue?
+expect-screen Sample Editor
+tap F3; tap F8; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP
+tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP
+tap F6; wait 500; tap F7; wait 2000; tap F7; tap F8; wait 3000; tap F4; wait 1500    # Normalizer
+tap F3; tap F8; tap DOWN; tap F6; wait 3000; tap F4; wait 1500                        # Crop (no parameters: F6 applies)
+tap F3; tap F8; tap DOWN; tap F6; wait 3000; tap F4; wait 1500                        # Reverse
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 2000; tap F7; tap F8; wait 3000; tap F4; wait 1500   # Amplifier
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 2000; tap F7; tap F8; wait 3000; tap F4; wait 1500   # Overdrive
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 2000; tap F7; tap F8; wait 3000; tap F4; wait 1500   # Delay
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 2000; tap F7; tap F8; wait 3000; tap F4; wait 1500   # Bitcrusher
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 2000; tap F7; tap F8; wait 3000; tap F4; wait 1500   # Chorus
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 2000; tap F7; tap F8; wait 3000; tap F4; wait 1500   # Flanger
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 2000; tap F7; tap F8; wait 3000; tap F4; wait 1500   # Equalizer
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 2000; tap F7; tap F8; wait 3000; tap F4; wait 1500   # Limiter
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 2000; tap F7; tap F8; wait 3000; tap F4; wait 1500   # Compressor
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 4000; tap F7; tap F8; wait 6000; tap F4; wait 1500   # WT Smoother
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 90000; tap F7; tap F8; wait 90000; tap F4; wait 1500 # Timestretch beat
+tap F3; tap F8; tap DOWN; tap F6; wait 500; tap F7; wait 30000; tap F7; tap F8; wait 30000; tap F4; wait 1500 # Timestretch note
+tap F3; tap F8; tap DOWN; tap F6; wait 3000; tap F4; wait 1500                        # Fade in
+tap F3; tap F8; tap DOWN; tap F6; wait 3000; tap F4; wait 1500                        # Fade out
+expect-screen Sample Editor
+
+# Sample Recorder: a take, previewed and cropped, then cancelled (not saved).
+tap SAMPLERECORDER
+wait 800
+expect-screen Sample Recorder
+tap F8               # Record
+wait 4000
+tap F8               # Stop
+wait 1500
+tap F1               # Preview
+wait 2000
+tap F1
+tap F5               # Crop
+wait 1000
+tap F7               # Cancel
+wait 800
+if-text lost tap F8         # "Changes will be lost. Continue?"
+wait 500
+expect-no-text Continue?
+
+# File: Export Samples, then Open Recent on the current project (Don't Save).
+tap FILE
+wait 300
+tap F6               # Export
+wait 300
+tap F6               # Samples
+wait-for note ~ Exported 30000
+tap F8               # Back
+wait 300
+tap F2               # Open
+wait 800
+tap RIGHT            # the Recent list, the current project first
+wait 200
+tap F8               # Open
+wait 800
+if-text Unsaved tap F7
+wait 500
+expect-no-text Unsaved
+wait-for scr == Pattern 20000
+wait 5600            # one more telemetry line
