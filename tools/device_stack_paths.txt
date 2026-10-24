@@ -81,9 +81,9 @@ wait 300
 expect ins == 1
 tap SAMPLEEDITOR
 wait 1000
-if-text Continue tap F8
+if ask == 1 tap F8         # "This will stop the pattern": Yes
 wait 500
-expect-no-text Continue?
+expect ask == 0
 expect-screen Sample Editor
 tap F3; tap F8; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP
 tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP
@@ -121,9 +121,9 @@ tap F5               # Crop
 wait 1000
 tap F7               # Cancel
 wait 800
-if-text lost tap F8         # "Changes will be lost. Continue?"
+if ask == 1 tap F8         # "Changes will be lost. Continue?"
 wait 500
-expect-no-text Continue?
+expect ask == 0
 
 # File: Export Samples, then Open Recent on the current project (Don't Save).
 tap FILE
@@ -140,8 +140,8 @@ tap RIGHT            # the Recent list, the current project first
 wait 200
 tap F8               # Open
 wait 800
-if-text Unsaved tap F7
+if ask == 1 tap F7         # "Unsaved changes": Don't Save
 wait 500
-expect-no-text Unsaved
+expect ask == 0
 wait-for scr == Pattern 20000
 wait 5600            # one more telemetry line
