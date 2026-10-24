@@ -1061,6 +1061,14 @@ tools/telemetry_check.py<span class="w"> </span>log<span class="w"> </span>track
 </code></pre></div>
 <p><code>tools/device_soak.txt</code> is a navigation-only soak for a loaded project (no edits, saves or
 loads).</p>
+<p>Gotchas when writing scripts:</p>
+<ul>
+<li>Opening the Sample Recorder while a pattern plays pops a "stop the pattern?" dialog
+  (Resample / Cancel / Yes) that takes the F keys. Stop playback first, or answer it.</li>
+<li>Config reopens on the category it was last on, so start from a known place (e.g. Up × 7).</li>
+<li>On a device, the diag ring drops early boot lines. Send a byte on the CDC port to replay
+  the boot log.</li>
+</ul>
 <h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
 <p>Every push and pull request runs <code>.github/workflows/ci.yml</code>:</p>
 <table>

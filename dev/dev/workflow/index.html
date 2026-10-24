@@ -1077,6 +1077,10 @@ side, and only upstream's other changes need applying on top
   references (<code>spec 12 §E.2</code>) for reverse-engineered stock behaviour.</li>
 <li>The audio path has no allocation, no I/O and no locks. Anything on it goes through
   <code>make perf-gate</code>; new screens get a display budget entry.</li>
+<li>No static constructors: a namespace-scope object or pointer must not need dynamic
+  initialisation (for example <code>T* const p = f();</code> with <code>f()</code> in another file). Use
+  <code>constexpr</code>, an <code>extern</code> array with <code>inline</code> helpers, or set it up in <code>start()</code>. Check
+  with <code>arm-none-eabi-nm -C build/opentracker.elf | grep _GLOBAL__sub_I</code>.</li>
 </ul>
 
 
