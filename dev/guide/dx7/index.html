@@ -443,6 +443,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#shape-a-voice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shape a voice
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#playing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -941,6 +952,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#shape-a-voice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shape a voice
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#playing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1010,14 +1032,90 @@ next to ACD, FAT, VAP, WTFM and PERC. Thousands of free DX7 voices exist as SysE
 <p>The loaded voice is named after the DX7 voice. <strong>Save</strong> (in Edit Patch) writes it as an
 ordinary <code>.patch</code> file in <code>Patches/DX7/</code>, with the voice stored inside it; the project
 keeps it too.</p>
+<h2 id="shape-a-voice">Shape a voice<a class="headerlink" href="#shape-a-voice" title="Permanent link">&para;</a></h2>
+<p>There's no operator editor yet, but <strong>Edit Patch</strong> has controls that work <strong>on top of any
+loaded voice</strong>, without changing the voice itself:</p>
+<p><img alt="Edit Patch: the Tone section" src="../../images/dx7-tone.png" /></p>
+<table>
+<thead>
+<tr>
+<th>Section</th>
+<th>Control</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Voice</td>
+<td><strong>Volume</strong></td>
+<td>The voice's level.</td>
+</tr>
+<tr>
+<td>Voice</td>
+<td><strong>Mono</strong></td>
+<td>For polyphony 1 slots: <strong>Retrigger</strong> (default) or <strong>Legato</strong>, see below.</td>
+</tr>
+<tr>
+<td>Tone</td>
+<td><strong>Brightness</strong></td>
+<td>±100 %: the modulators' levels, ±12 dB. More or fewer harmonics.</td>
+</tr>
+<tr>
+<td>Tone</td>
+<td><strong>Feedback</strong></td>
+<td>±7, added to the voice's own feedback (0–7).</td>
+</tr>
+<tr>
+<td>Tone</td>
+<td><strong>Attack</strong></td>
+<td>±100 %: every operator's first envelope rate. + = slower.</td>
+</tr>
+<tr>
+<td>Tone</td>
+<td><strong>Release</strong></td>
+<td>±100 %: every operator's release rate. + = longer tails.</td>
+</tr>
+<tr>
+<td>Tone</td>
+<td><strong>LFO Depth</strong></td>
+<td>0–200 % of the voice's vibrato and tremolo, up to the DX7's maximum.</td>
+</tr>
+<tr>
+<td>Tone</td>
+<td><strong>Detune</strong></td>
+<td>0–100 %: spreads the operators up to ±7 cents apart (chorus-like beating).</td>
+</tr>
+</tbody>
+</table>
+<p>Each loaded DX7 voice comes with <strong>macros M1–M6 aimed at the six Tone controls</strong> and
+named after them (M1 Bright, M2 Feedback … M6 Detune). So a voice can be shaped from the
+<strong>Synth Macros</strong> page (Instrument Params again), or per step with the <strong>macro FX</strong>
+(columns A–F), without opening Edit Patch. The macros can still be re-aimed on their
+Edit Patch pages.</p>
+<p><img alt="Synth Macros: M1 Bright raised a little" src="../../images/dx7-macros.png" /></p>
+<p>How much a control changes depends on the voice: Brightness does nothing on a voice
+without modulators, and Feedback is only heard when the feedback operator is audible.</p>
 <h2 id="playing">Playing<a class="headerlink" href="#playing" title="Permanent link">&para;</a></h2>
 <ul>
 <li>DX7 slots play from any track like the other synths: notes, the step FX for pitch
   (Glide, Slide, Tune, Micro-tune), the Volume FX and the macro FX.</li>
-<li><strong>Polyphony:</strong> set it on Synth Parameters. On a <strong>polyphony 1</strong> slot, notes play
-  legato and the envelopes carry on from note to note, as on a real DX7 in mono mode; use
-  polyphony 2 or more for separate notes.</li>
-<li><strong>Velocity:</strong> the Volume step FX sets the note's velocity.</li>
+<li><strong>Polyphony</strong> is set on Synth Parameters. On a <strong>polyphony 1</strong> slot, <strong>Mono</strong> decides
+  what a new note does:<ul>
+<li><strong>Retrigger</strong> (default): every note starts like a new voice, its envelopes from the
+  beginning (without a click).</li>
+<li><strong>Legato:</strong> a note that overlaps the held one only moves the pitch; the envelopes
+  run on, as on a DX7 in mono mode.</li>
+</ul>
+</li>
+<li><strong>Velocity</strong> (the Volume step FX on a step with a note) works as on a DX7: through each
+  operator's <strong>velocity sensitivity</strong> in the voice. On some voices it changes the level,
+  on others mostly the tone (a velocity-sensitive modulator gets brighter with
+  velocity). Voices whose operators have sensitivity 0 ignore it. To make one respond in
+  level anyway, aim <strong>M7 (Velocity)</strong> at Volume on its Edit Patch page.<ul>
+<li>A Volume FX on a step <strong>without</strong> a note doesn't change a held DX7 note: velocity
+  only counts when a note starts.</li>
+</ul>
+</li>
 <li><strong>CPU:</strong> about 6 % per voice (estimated). The voice limiter cuts synth voices first if
   the audio gets close to its limit.</li>
 </ul>
@@ -1026,8 +1124,8 @@ keeps it too.</p>
 <li>The sound core is a port of Google's Music Synthesizer for Android (msfa, Apache 2.0),
   checked against <a href="https://asb2m10.github.io/dexed/">Dexed</a> note by note. Our additions:
   amplitude modulation, the feedback loops of algorithms 4 and 6, and key sync.</li>
-<li><strong>Edit Patch</strong> shows Volume and the macro pages. There's no operator editor yet: edit
-  voices in a DX7 editor on a computer (Dexed works) and copy the <code>.syx</code> file over.</li>
+<li>For deeper edits, edit the voice in a DX7 editor on a computer (Dexed works) and copy the
+  <code>.syx</code> file over.</li>
 <li>A Tracker Mini has no DX7 model: it resets a DX7 slot to its default when it opens the
   project.</li>
 </ul>
