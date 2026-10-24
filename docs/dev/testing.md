@@ -35,6 +35,14 @@ tools/telemetry_check.py log tracker.log
 `tools/device_soak.txt` is a navigation-only soak for a loaded project (no edits, saves or
 loads).
 
+Gotchas when writing scripts:
+
+- Opening the Sample Recorder while a pattern plays pops a "stop the pattern?" dialog
+  (Resample / Cancel / Yes) that takes the F keys. Stop playback first, or answer it.
+- Config reopens on the category it was last on, so start from a known place (e.g. Up × 7).
+- On a device, the diag ring drops early boot lines. Send a byte on the CDC port to replay
+  the boot log.
+
 ## CI
 
 Every push and pull request runs `.github/workflows/ci.yml`:

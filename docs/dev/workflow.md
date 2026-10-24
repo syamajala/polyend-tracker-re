@@ -54,3 +54,7 @@ Projects must keep opening in stock firmware, upstream OpenTracker and the Track
   references (`spec 12 §E.2`) for reverse-engineered stock behaviour.
 - The audio path has no allocation, no I/O and no locks. Anything on it goes through
   `make perf-gate`; new screens get a display budget entry.
+- No static constructors: a namespace-scope object or pointer must not need dynamic
+  initialisation (for example `T* const p = f();` with `f()` in another file). Use
+  `constexpr`, an `extern` array with `inline` helpers, or set it up in `start()`. Check
+  with `arm-none-eabi-nm -C build/opentracker.elf | grep _GLOBAL__sub_I`.
