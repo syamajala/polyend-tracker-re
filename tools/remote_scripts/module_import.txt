@@ -1,0 +1,66 @@
+# File > Import Mod, both formats: a .mod, then the same song exported As .it
+# and imported back (an .it imported empty before e5bb173). Runs on the
+# simulator (tools/sim_remote_check.sh) and on a Tracker:
+#   tools/tracker_remote.py PORT tools/remote_scripts/module_import.txt
+# On a Tracker, copy module_import.sd/ to the card first (Mod/AAImport.mod,
+# made by tools/make_test_mod.py; the name sorts first in the list). The
+# imports replace the current project without saving it, and the export
+# writes Mod/AAImport.it. Start it stopped.
+
+# Import the .mod: samples in memory, notes that sound.
+tap PATTERN
+wait 300
+expect-stopped
+tap FILE
+wait 300
+tap F3               # Import Mod
+wait 800
+expect-text AAImport.mod
+tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP
+tap F8               # Import
+wait 800
+if-text Unsaved tap F7
+wait 300
+expect-no-text Unsaved
+wait-for scr == Pattern 15000
+expect-notice imported
+expect freeKB < 11520
+sound-reset
+tap PLAY
+wait 2500
+expect-sound 1000
+tap PLAY
+wait 300
+
+# Export As .it (the imported project is unsaved: Don't Save).
+tap FILE
+wait 300
+tap F6               # Export
+wait 300
+tap F5               # As .it
+wait 800
+if-text Unsaved tap F7
+wait 300
+expect-no-text Unsaved
+wait-for note ~ Exported 15000
+tap F8               # Back
+wait 300
+
+# Import the .it: the same samples and notes.
+tap F3
+wait 800
+expect-text AAImport.it
+tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP
+tap F8
+wait 800
+if-text Unsaved tap F7
+wait 300
+expect-no-text Unsaved
+wait-for scr == Pattern 15000
+expect-notice imported
+expect freeKB < 11520
+sound-reset
+tap PLAY
+wait 2500
+expect-sound 1000
+tap PLAY

@@ -32,6 +32,10 @@ Script lines (the simulator's headless language, sim/README.md, plus checks;
   expect-sound N                output peak since the last status query >= N
   sound-reset                   start a new peak window
   expect-notice TEXT            the on-screen notice contains TEXT
+  if KEY OP VALUE COMMAND       run COMMAND only when the status field check holds,
+                                e.g. "if play == 1 tap PLAY"
+  if-text WORD COMMAND          run COMMAND only when some text on screen contains WORD
+                                (any case), e.g. "if-text Unsaved tap F7" for an optional prompt
   echo TEXT
 
 Everything the Tracker sends (including the periodic telemetry lines) is kept
@@ -306,6 +310,7 @@ class Runner:
         self.out = out_dir
         self.buttons = buttons
         self.failures = 0
+        self.stop_on_fail = False
         self.last = {}
 
     def button(self, name):
@@ -335,6 +340,8 @@ class Runner:
         else:
             self.failures += 1
             print("FAIL  " + what)
+            if self.stop_on_fail:
+                raise Fail("stopped at the first failed check (--stop-on-fail)")
 
     def screenshot(self, path):
         start = self.link.mark()
@@ -483,6 +490,16 @@ class Runner:
                 self.check(bool(hits), "text ~ %r%s" % (want, " (%r)" % hits[0] if hits else ""))
             else:
                 self.check(not hits, "no text ~ %r%s" % (want, " (%r)" % hits[0] if hits else ""))
+        elif op == "if":
+            # The rest of the line runs only when the status field check
+            # holds, e.g. "if play == 1 tap PLAY" (stop only when playing).
+            if compare(self.status().get(args[0]), args[1], args[2]):
+                self.run(" ".join(args[3:]))
+        elif op == "if-text":
+            # The rest of the line runs only when some text on screen contains
+            # the word: an optional prompt, e.g. "if-text Unsaved tap F7".
+            if any(args[0].lower() in t[3].lower() for t in self.texts()):
+                self.run(" ".join(args[1:]))
         elif op == "echo":
             print(" ".join(args))
         else:
@@ -504,6 +521,8 @@ def main():
     ap.add_argument("-c", dest="inline", help="commands, ';'-separated")
     ap.add_argument("--out", default=".", help="folder for screenshots")
     ap.add_argument("--log", help="keep every received line (telemetry included) here")
+    ap.add_argument("--stop-on-fail", action="store_true",
+                    help="stop at the first failed check (device runs: no keys into the wrong screen)")
     a = ap.parse_args()
     if not a.scripts and not a.inline:
         ap.error("give a script or -c")
@@ -513,6 +532,7 @@ def main():
         print("cannot open %s: %s" % (a.port, e), file=sys.stderr)
         return 2
     runner = Runner(link, a.out, load_buttons())
+    runner.stop_on_fail = a.stop_on_fail
     try:
         link.connect()
         for path in a.scripts:
@@ -522,7 +542,7 @@ def main():
             runner.run_text(a.inline)
     except Fail as e:
         print("error: %s" % e, file=sys.stderr)
-        return 2
+        return 1 if runner.failures else 2
     finally:
         link.close()
     print("%d check(s) failed" % runner.failures if runner.failures else "all checks passed")
