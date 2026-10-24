@@ -56,6 +56,9 @@ int App::remoteStatus(char* out, int cap) {
     fieldInt(out, cap, n, "govB", engine.governor().budget());
     fieldInt(out, cap, n, "cuts", long(engine.governor().cuts()));
     fieldInt(out, cap, n, "freeKB", long(bank.freeSamples() * 2 / 1024));
+    // A confirm dialog is open (Ui::ask: "Unsaved changes", "This will stop
+    // the pattern", ...), so scripts answer it without matching its wording.
+    fieldInt(out, cap, n, "ask", ui.askOpen() ? 1 : 0);
     field(out, cap, n, "note", ui.notice()[0] ? ui.notice() : "-");
     return n;
 }

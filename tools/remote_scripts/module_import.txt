@@ -19,9 +19,9 @@ expect-text AAImport.mod
 tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP
 tap F8               # Import
 wait 800
-if-text Unsaved tap F7
+if ask == 1 tap F7         # "Unsaved changes": Don't Save
 wait 300
-expect-no-text Unsaved
+expect ask == 0
 wait-for scr == Pattern 15000
 expect-notice imported
 expect freeKB < 11520
@@ -39,9 +39,9 @@ tap F6               # Export
 wait 300
 tap F5               # As .it
 wait 800
-if-text Unsaved tap F7
+if ask == 1 tap F7         # "Unsaved changes": Don't Save
 wait 300
-expect-no-text Unsaved
+expect ask == 0
 wait-for note ~ Exported 15000
 tap F8               # Back
 wait 300
@@ -53,9 +53,9 @@ expect-text AAImport.it
 tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP; tap UP
 tap F8
 wait 800
-if-text Unsaved tap F7
+if ask == 1 tap F7         # "Unsaved changes": Don't Save
 wait 300
-expect-no-text Unsaved
+expect ask == 0
 wait-for scr == Pattern 15000
 expect-notice imported
 expect freeKB < 11520

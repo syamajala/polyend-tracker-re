@@ -33,7 +33,8 @@ Script lines (the simulator's headless language, sim/README.md, plus checks;
   sound-reset                   start a new peak window
   expect-notice TEXT            the on-screen notice contains TEXT
   if KEY OP VALUE COMMAND       run COMMAND only when the status field check holds,
-                                e.g. "if play == 1 tap PLAY"
+                                e.g. "if play == 1 tap PLAY", or "if ask == 1 tap F7"
+                                (ask=1 while a confirm dialog is open)
   if-text WORD COMMAND          run COMMAND only when some text on screen contains WORD
                                 (any case), e.g. "if-text Unsaved tap F7" for an optional prompt
   echo TEXT
