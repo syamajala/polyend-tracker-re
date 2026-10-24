@@ -231,12 +231,15 @@ TEST(init_patch_per_engine) {
         CHECK(t != nullptr);
         CHECK_EQ(int(p.paramCount), n);
         CHECK_EQ(validatePatch(p, nullptr, 0), 0);
-        CHECK(macroName(p.macros[0]) == "Macro 1");
-        CHECK(macroName(p.macros[5]) == "Macro 6");
+        // DX7: M1-M6 come aimed at its controls (engine_dx7_test).
+        CHECK(macroName(p.macros[0]) == (e == kSynthEngineDx7 ? "Bright" : "Macro 1"));
+        CHECK(macroName(p.macros[5]) == (e == kSynthEngineDx7 ? "Detune" : "Macro 6"));
         CHECK(macroName(p.macros[6]) == "Velocity");
         CHECK(macroName(p.macros[7]) == "Pressure");
         int vol = patchVolumeParam(e);
-        if (vol >= 0) {
+        if (e == kSynthEngineDx7) {
+            CHECK_EQ(p.macros[6].count, 0);   // velocity through the voice (engine_dx7_test)
+        } else if (vol >= 0) {
             CHECK_EQ(p.macros[6].count, 1);
             CHECK_EQ(p.macros[6].targets[0].param, vol);
             CHECK(patchBitsToFloat(p.macros[6].targets[0].amountBits) == 1.0f);
@@ -263,7 +266,7 @@ TEST(init_patch_per_engine) {
 }
 
 TEST(engine_param_counts) {
-    const int want[] = {29, 25, 60, 63, 84, 1};
+    const int want[] = {29, 25, 60, 63, 84, int(kDx7ParamCount)};
     for (int i = 0; i < 6; ++i) {
         int n = 0;
         patchEngineParams(kEngines[i], &n);

@@ -215,6 +215,14 @@ int32_t opPitch(const uint8_t* op) {
     return lf + (detune > 7 ? 13457 * (detune - 7) : 0);
 }
 
+// Engine controls on top of the voice (kDx7*, formats/patch_pb.h).
+constexpr float kBrightDoublings = 2.0f;   // Brightness +-1: modulators +-12 dB
+constexpr int32_t kLevelMax = 16 << 24;    // envelope level cap (exp2Lookup: <= 4x full gain)
+constexpr float kRateRange = 50.0f;        // Attack / Release +-1: EG rate -+50 steps (of 0..99)
+constexpr float kSpreadCents = 7.0f;       // Detune 1: operators up to +-7 cents apart
+// Detune spread pattern of operators 6..1 (alternating, the outer pair widest).
+constexpr float kSpreadPattern[6] = {1.0f, -1.0f, 0.6f, -0.6f, 0.3f, -0.3f};
+
 // ---- state ---------------------------------------------------------------------
 
 struct Slot {
@@ -225,11 +233,16 @@ struct Slot {
     bool lfoSync;
     bool keyed;                // a note started since the last prepare (LFO sync)
     uint8_t algorithm;
-    uint8_t fbShift;           // 16 = no feedback
+    uint8_t fbShift;           // 16 = no feedback (voice + Feedback control, per block)
     uint8_t pitchModSens;
     uint8_t fixedMask;         // bit op: fixed frequency
-    int32_t pitchModDepth;
-    float amDepth;             // AMD (0..99)
+    bool fbCarrier;            // the feedback loop ends on a carrier (algorithms 4, 6, 32)
+    bool legato;               // Mono control: Legato (else Retrigger)
+    int32_t pitchModDepth;     // voice PMD x LFO Depth (per block)
+    float amDepth;             // AMD (0..99) x LFO Depth (per block)
+    int32_t bright;            // Brightness: modulator level offset (Q24 doublings)
+    int8_t attack, release;    // EG rate 1 / rate 4 offsets (rate steps)
+    int32_t spread[6];         // Detune control: extra log-frequency per operator (Q24)
     uint32_t lfoPhase, lfoDelta, delayInc, delayInc2;
     int32_t lfo[kSteps];       // LFO value (0..1 Q24) per control step of the block
     int32_t opPitch[6];
@@ -267,6 +280,19 @@ struct Voice {
     int32_t detuneStep;        // log-frequency per detune step at this note
 };
 static_assert(sizeof(Voice) <= kSynthVoiceStateBytes, "DX7 voice state too large");
+
+// A control's value this block (its default when the patch list is short).
+inline float control(const SynthParams& p, int i, float def) { return i < p.count ? p.end[i] : def; }
+
+// Feedback shift (msfa: 8 - fb). Where the loop's last operator is a carrier
+// (algorithms 4, 6, 32), two steps (x 1/4) weaker: matches Dexed's spectra
+// for those algorithms (tools/dx7_render compare probes).
+uint8_t feedbackShift(int fb, bool carrier) { return uint8_t(fb > 0 ? 8 - fb + (carrier ? 2 : 0) : 16); }
+
+// EG rate with a control offset (rate steps), inside 0..99.
+uint8_t offsetRate(int rate, float amount) {
+    return uint8_t(clampT(rate - int(std::lround(amount * kRateRange)), 0, 99));
+}
 
 void envAdvance(Env& e, int ix) {
     e.ix = uint8_t(ix);
@@ -486,15 +512,32 @@ public:
         setVoice(slot, v);
     }
 
+    // The continuous controls (block rate): Feedback, LFO Depth, Brightness,
+    // Detune. Mono, Attack and Release act at note on / off (from p there:
+    // prepare only runs while the slot sounds).
     void prepare(SynthSlotScratch& slot, const SynthParams& p) override {
-        (void)p;
         Slot& s = slot.as<Slot>();
+        const int fb = clampT(int(s.v[kFeedback]) + int(std::lround(control(p, kDx7Feedback, 0.0f))), 0, 7);
+        s.fbShift = feedbackShift(fb, s.fbCarrier);
+        const float depth = clampT(control(p, kDx7LfoDepth, 1.0f), 0.0f, 2.0f);
+        // At most the DX7's full depth (PMD 99 = 255): render's 32-bit
+        // product PMD x LFO delay has no room above it.
+        s.pitchModDepth = clampT(int32_t(float((s.v[kLfoPmd] * 165) >> 6) * depth), int32_t(0), int32_t(255));
+        s.amDepth = float(s.v[kLfoAmd]) * depth;
+        s.bright = int32_t(control(p, kDx7Brightness, 0.0f) * kBrightDoublings * float(1 << 24));
+        const float spread = control(p, kDx7Detune, 0.0f) * kSpreadCents * (float(1 << 24) / 1200.0f);
+        for (int k = 0; k < 6; ++k) s.spread[k] = (s.fixedMask >> k) & 1 ? 0 : int32_t(spread * kSpreadPattern[k]);
         for (int k = 0; k < kSteps; ++k) s.lfo[k] = lfoStep(s);
         s.keyed = false;
     }
 
+    // Polyphony 1 reuses the slot's voice for the next note (n.reused).
+    // Mono Retrigger: every note starts like a new voice (envelopes from 0,
+    // feedback cleared; gains ramp over one control step). Legato: a note
+    // that overlaps the held one only moves the pitch (envelopes, phases and
+    // feedback run on); one after a release restarts from where the
+    // envelopes are.
     void noteOn(SynthVoice& v, const SynthParams& p, const SynthNote& n) override {
-        (void)p;
         Slot& s = v.slotScratch->as<Slot>();
         Voice& x = v.as<Voice>();
         if (!s.loaded) {
@@ -503,8 +546,16 @@ public:
         }
         const int transpose = int(s.v[kTranspose]) - 24;
         const int note = clampT(int(n.note) + transpose, 0, 127);
+        const bool legato = control(p, kDx7Mono, 0.0f) >= 0.5f;
+        if (legato && x.alive && n.reused && n.overlap && x.down) {
+            x.pitch = n.pitch + float(transpose);
+            x.detuneStep = detuneStep(note);
+            return;
+        }
         const int velocity = clampT(int(n.velocity * 127.0f + 0.5f), 0, 127);
-        const bool fresh = !x.alive || !n.reused;
+        const bool newVoice = !x.alive || !n.reused;
+        const bool fresh = newVoice || !legato;   // Retrigger: a reused voice restarts too
+        const float attack = control(p, kDx7Attack, 0.0f);
         for (int k = 0; k < 6; ++k) {
             const uint8_t* od = s.v + k * kOpBytes;
             Op& o = x.op[k];
@@ -513,24 +564,30 @@ public:
                 e.rate[i] = od[kOpRate + i];
                 e.lvl[i] = od[kOpLevel + i];
             }
+            if (attack != 0.0f) e.rate[0] = offsetRate(od[kOpRate], attack);
             int ol = scaleOutLevel(od[kOpOut]) + scaleLevel(note, od);
             if (ol > 127) ol = 127;
             ol = ol * 32 + scaleVelocity(velocity, od[kOpVelSens]);
             e.outlevel = int16_t(ol < 0 ? 0 : ol);
             e.rateScale = int8_t(scaleRate(note, od[kOpRateScale]));
-            if (fresh) {
+            if (newVoice) {
                 e.level = 0;
                 o.gain = 0;
                 o.phase = 0;
+            } else if (fresh) {
+                // Retrigger on the sounding voice: the envelopes restart from
+                // 0 but the gains keep their last value, so each operator
+                // ramps down over the next control step instead of clicking.
+                // The phase runs on even with key sync (resetting it under a
+                // loud operator is the click itself).
+                e.level = 0;
             } else if (s.v[kKeySync]) {
                 o.phase = 0;
             }
             envAdvance(e, 0);
         }
-        if (fresh) {
-            x.peLevel = int32_t(kPitchTab[s.v[kPitchLevel + 3]]) * (1 << 19);
-            x.fb[0] = x.fb[1] = 0;
-        }
+        if (fresh) x.peLevel = int32_t(kPitchTab[s.v[kPitchLevel + 3]]) * (1 << 19);
+        if (newVoice) x.fb[0] = x.fb[1] = 0;
         x.down = true;
         x.alive = true;
         peAdvance(x, s, 0);
@@ -545,11 +602,16 @@ public:
     }
 
     void noteOff(SynthVoice& v, const SynthParams& p) override {
-        (void)p;
         Voice& x = v.as<Voice>();
         if (!x.alive || !x.down) return;
         x.down = false;
-        for (Op& o : x.op) envAdvance(o.env, 3);
+        const float release = control(p, kDx7Release, 0.0f);
+        const uint8_t* vd = v.slotScratch->as<Slot>().v;
+        for (int k = 0; k < 6; ++k) {
+            Env& e = x.op[k].env;
+            e.rate[3] = offsetRate(vd[k * kOpBytes + kOpRate + 3], release);
+            envAdvance(e, 3);
+        }
         peAdvance(x, v.slotScratch->as<Slot>(), 3);
     }
 
@@ -585,9 +647,13 @@ public:
                     if (level < 0) level = 0;
                 }
                 gnew[k] = exp2Lookup(level - (14 << 24));
+                // Brightness: modulators only, and only while audible (a
+                // silent operator stays silent).
+                if (s.bright && (alg[k] & 3) && gnew[k] >= kLevelThresh)
+                    gnew[k] = exp2Lookup(clampT(level + s.bright, int32_t(0), kLevelMax) - (14 << 24));
                 // Fixed-frequency operators ignore the note, the pitch envelope and
                 // the LFO (as in Dexed; msfa adds the modulation to them).
-                int32_t lf = s.opPitch[k] + ((s.fixedMask >> k) & 1 ? 0 : noteLog + pitchMod + s.detune[k] * x.detuneStep);
+                int32_t lf = s.opPitch[k] + ((s.fixedMask >> k) & 1 ? 0 : noteLog + pitchMod + s.detune[k] * x.detuneStep + s.spread[k]);
                 freq[k] = freqLookup(clampT<int32_t>(lf, 0, (20 << 24) - 1));
             }
             // Operators 6..1 through the algorithm's buses (fm_core.cc).
@@ -749,16 +815,16 @@ void setVoice(SynthSlotScratch& slot, const uint8_t v[kVoiceBytes]) {
     std::memcpy(s.v, v, kVoiceBytes);
     sanitizeVoice(s.v);
     s.algorithm = s.v[kAlgorithm];
-    // Feedback (msfa: shift 8 - fb). Where the loop's last operator is a
-    // carrier (algorithms 4, 6, 32), two steps (x 1/4) weaker: matches
-    // Dexed's spectra for those algorithms (tools/dx7_render compare probes).
-    bool fbCarrier = false;
+    s.fbCarrier = false;
     for (int k = 0; k < 6; ++k)
-        if ((kAlgorithms[s.algorithm][k] & kFbOut) && (kAlgorithms[s.algorithm][k] & 3) == 0) fbCarrier = true;
-    s.fbShift = uint8_t(s.v[kFeedback] ? 8 - s.v[kFeedback] + (fbCarrier ? 2 : 0) : 16);
+        if ((kAlgorithms[s.algorithm][k] & kFbOut) && (kAlgorithms[s.algorithm][k] & 3) == 0) s.fbCarrier = true;
+    // The voice as stored; prepare() applies the controls every block.
+    s.fbShift = feedbackShift(s.v[kFeedback], s.fbCarrier);
     s.pitchModDepth = (s.v[kLfoPmd] * 165) >> 6;
     s.pitchModSens = kPitchModSensTab[s.v[kPitchModSens] & 7];
     s.amDepth = float(s.v[kLfoAmd]);
+    s.bright = 0;
+    for (int32_t& d : s.spread) d = 0;
     s.fixedMask = 0;
     for (int k = 0; k < 6; ++k) {
         const uint8_t* od = s.v + k * kOpBytes;

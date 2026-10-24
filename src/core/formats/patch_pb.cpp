@@ -350,8 +350,15 @@ const PatchParamRange kPerc[84] = {
 
 // DX7 (OpenTracker): the engine's controls on top of the voice. New controls
 // are appended (a shorter stored list reads the rest as defaults).
-const PatchParamRange kDx7[1] = {
-    {1, 0, 2},   // 0 Volume
+const PatchParamRange kDx7[kDx7ParamCount] = {
+    {1, 0, 2},     // 0 Volume
+    {0, 0, 1},     // 1 Mono: Retrigger / Legato
+    {0, -1, 1},    // 2 Brightness
+    {0, -7, 7},    // 3 Feedback
+    {0, -1, 1},    // 4 Attack
+    {0, -1, 1},    // 5 Release
+    {1, 0, 2},     // 6 LFO Depth
+    {0, 0, 1},     // 7 Detune
 };
 
 // Nearest IEEE half-precision value (round to nearest even): the device keeps
@@ -659,7 +666,7 @@ const PatchParamRange* patchEngineParams(int32_t engine, int* count) {
         case kSynthEngineVap: t = kVap, n = 60; break;
         case kSynthEngineWtfm: t = kWtfm, n = 63; break;
         case kSynthEnginePerc: t = kPerc, n = 84; break;
-        case kSynthEngineDx7: t = kDx7, n = 1; break;
+        case kSynthEngineDx7: t = kDx7, n = kDx7ParamCount; break;
         default: break;
     }
     if (count) *count = n;
@@ -720,7 +727,32 @@ bool patchInit(int32_t engine, SynthPatch* out) {
         m.targets[0].amountBits = patchFloatToBits(1.0f);
     }
     out->extraPresent = true;
-    if (engine == kSynthEngineDx7) patchSetDx7Voice(*out, kDx7InitVoice);
+    if (engine == kSynthEngineDx7) {
+        patchSetDx7Voice(*out, kDx7InitVoice);
+        // No operator editor: the macros come aimed at the engine's controls.
+        // Amount 0.5 x the parameter's span = its full range for a bipolar
+        // macro (-1..1); 1 for the unipolar Detune (0..1).
+        struct M { const char* name; int param; bool bipolar; float amount; };
+        // Names fit the Synth Macros F-key cells with their "Mn " prefix
+        // (12 characters: "M1 Brightness" was cut).
+        static const M kM[6] = {{"Bright", kDx7Brightness, true, 0.5f}, {"Feedback", kDx7Feedback, true, 0.5f},
+                                {"Attack", kDx7Attack, true, 0.5f},         {"Release", kDx7Release, true, 0.5f},
+                                {"LFO Depth", kDx7LfoDepth, true, 0.5f},    {"Detune", kDx7Detune, false, 1.0f}};
+        for (int k = 0; k < 6; ++k) {
+            PatchMacro& m = out->macros[k];
+            setName(m, kM[k].name);
+            m.bipolar = kM[k].bipolar;
+            m.count = 1;
+            m.targets[0].param = kM[k].param;
+            m.targets[0].amountBits = patchFloatToBits(kM[k].amount);
+        }
+        // Velocity works as on a DX7: only through each operator's velocity
+        // sensitivity (the engine gets the note velocity). M7 -> Volume on
+        // top counted it twice (-22 dB instead of -16 dB at Volume FX 50 on
+        // a sensitivity-7 voice). M7 stays named "Velocity", unassigned.
+        out->macros[kPatchMacroVelocity].count = 0;
+        out->macros[kPatchMacroVelocity].targets[0] = PatchTarget{0, 0u};
+    }
     return true;
 }
 

@@ -526,7 +526,12 @@ TEST(synth_dx7_voice_from_patch) {
     BankRig r;
     r.bank.setEngineOverride(nullptr);
     CHECK(patchInit(kSynthEngineDx7, &r.patch[0]));
-    r.bank.setSlotRecord(0, rec(SynthModel::DX7, 4));
+    // The macro values at their neutral points, as the app sets them on a
+    // patch load (synth_slots.cpp resetMacros): the DX7 Init patch's M1-M5
+    // are bipolar (63 = no change).
+    SynthSlotRecord rc = rec(SynthModel::DX7, 4);
+    for (int k = 0; k < kSynthSeqMacros; ++k) rc.macros[k] = synthMacroDefault(r.patch[0].macros[k].bipolar);
+    r.bank.setSlotRecord(0, rc);
     r.block();
     CHECK(r.bank.slotAvailable(0));
     CHECK_STR(r.bank.slotView(0).model, "DX7");
@@ -573,6 +578,37 @@ TEST(synth_dx7_voice_from_patch) {
     const double eHalf = note(&hfHalf);
     CHECK_NEAR(std::sqrt(eHalf / eFm), 0.5, 0.05);
     CHECK_NEAR(hfHalf, hfFm, hfFm * 0.01);
+}
+
+// DX7 velocity (Volume FX) acts once, through the voice's operator velocity
+// sensitivities as on a DX7: the Init patch's M7 doesn't scale Volume too.
+TEST(synth_dx7_velocity_counts_once) {
+    auto level = [](int sens, int vol) {
+        BankRig r;
+        r.bank.setEngineOverride(nullptr);
+        CHECK(patchInit(kSynthEngineDx7, &r.patch[0]));
+        uint8_t v[kDx7VoiceBytes];
+        std::memcpy(v, kDx7InitVoice, sizeof v);
+        v[5 * 21 + 15] = uint8_t(sens);   // operator 1 velocity sensitivity
+        CHECK(patchSetDx7Voice(r.patch[0], v));
+        SynthSlotRecord rc = rec(SynthModel::DX7, 4);
+        for (int k = 0; k < kSynthSeqMacros; ++k) rc.macros[k] = synthMacroDefault(r.patch[0].macros[k].bipolar);
+        r.bank.setSlotRecord(0, rc);
+        r.block();
+        r.on(0, 0, 57, vol);
+        double e = 0.0;
+        for (int k = 0; k < 40; ++k) {
+            r.block();
+            if (k >= 10)
+                for (uint32_t i = 0; i < kBlock; ++i) e += double(r.L[i]) * r.L[i];
+        }
+        return e;
+    };
+    // Sensitivity 0: the Volume FX leaves the level alone.
+    CHECK_NEAR(level(0, 50) / level(0, 100), 1.0, 0.01);
+    // Sensitivity 7 at Volume 50: the engine's -15.8 dB only (not -21.8).
+    const double db = 10.0 * std::log10(level(7, 50) / level(7, 100));
+    CHECK(db < -14.0 && db > -18.0);
 }
 
 TEST(synth_unsupported_engine_silent) {
