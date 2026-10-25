@@ -224,9 +224,11 @@ struct BarLabelStyle {
     uint8_t pages = 0;       // > 1: page dots under the title ("More")
     uint8_t page = 0;
     bool topAligned = false; // class-0x20 label strip (keyboard): single line at kLabelYTop
+    bool nameLines = false;  // a name on two lines (set +0x44): both lines grey, font 3
     uint32_t dotOff = kThemeColour;   // colour of the other page dots (pageDots `off`)
 };
-// One label: title grey (font 3), value white (font 2) on two lines, or one
+// One label: title grey (font 3), value white (font 2; font 3 when too wide
+// for the label) on two lines, a two-line name (both grey, font 3), or one
 // centred line; plus underline (not in themes without bar lines), dots,
 // frame / fill.
 void barLabel(Gfx& g, const Theme& th, int i, bool wide, const char* top, const char* bottom,
@@ -277,6 +279,9 @@ struct ListView {
     int sel = -1;              // selected item (-1 none)
     bool active = false;       // selection in set colour[1] instead of [0]
     bool background = true;    // panel bg + fade (style bit13 / bit21)
+    // false: the panel without its bottom fade (one CMD_GRADIENT, ~28 RAM_DL
+    // words), for pages with many lists side by side.
+    bool fade = true;
     int set = slot::kList;     // 7-colour set: sel, sel active, thumb, bg, text, marked, track
     ListSel selStyle = ListSel::kFromSet;
     uint8_t font = kFont1;

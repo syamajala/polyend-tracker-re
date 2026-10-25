@@ -199,8 +199,9 @@ TEST(performance_frame_budget) {
     const uint32_t words = r.m.maxWords;
     std::printf("performance (values, edit, playing): max %u DL words\n", unsigned(words));
     // 1500 when gradients counted 5 words; ~1680 at Gfx::kGradientDlWords
-    // (verified on a Tracker: ~7.4 KB of the 8 KB RAM_DL, no faults).
-    CHECK(words <= 1700);
+    // (verified on a Tracker: ~7.4 KB of the 8 KB RAM_DL, no faults); ~1740
+    // since upstream 2.2.1's red labels of tracks with the FX off.
+    CHECK(words <= 1760);
     r.h.tap(btn::Play);
 }
 
@@ -1067,12 +1068,12 @@ TEST(overlay_matrix_synth) {
     sy.section = 0;
     sy.row = 0;
     h.tap(btn::F8);
-    // WTFM: "not available" header, read-only.
+    // WTFM (2.2): available, every Edit Patch section.
     a.setSynthModel(0, int(SynthModel::WTFM));
     a.setCurrentInstrument(64);
     h.tap(btn::Pattern);
-    r.screen(btn::InstrParams, "synth parameters (WTFM not available)");
-    CHECK(!sy.available());
+    r.screen(btn::InstrParams, "synth parameters (WTFM)");
+    CHECK(sy.available());
     h.tap(btn::F8);
     n = synthui::sections(kSynthEngineWtfm, &sec);
     for (int i = 0; i < n; ++i) {

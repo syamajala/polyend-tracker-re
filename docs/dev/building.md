@@ -6,7 +6,7 @@ Needs the **Arm GNU toolchain** (`arm-none-eabi-gcc`; CI uses 14.2.Rel1) and Pyt
 
 ```sh
 make clean
-make -j VERSION=2.1.2
+make -j VERSION=2.2.1
 ```
 
 This writes `build/opentracker.elf`, `build/opentracker.hex` and the flashable image
@@ -14,7 +14,7 @@ This writes `build/opentracker.elf`, `build/opentracker.hex` and the flashable i
 
 !!! warning "Change VERSION? Run `make clean` first"
     Objects aren't rebuilt when only `VERSION` changes, so the image would report the old
-    version. Check with `strings build/opentracker.elf | grep -x 2.1.2`.
+    version. Check with `strings build/opentracker.elf | grep -x 2.2.1`.
 
 The image name must be exactly 24 characters (the update bootloader rejects other
 lengths), so it carries the version digits only.

@@ -5,7 +5,7 @@ written from behavioural specifications. It contains no Polyend code, fonts, ico
 graphics, and is not affiliated with or endorsed by Polyend.
 
 This fork follows [upstream OpenTracker](https://github.com/sandlbn/polyend-tracker-re)'s
-2.x line (currently **2.1.2**) and adds features on top. Projects stay compatible: the
+2.x line (currently **2.2.1**) and adds features on top. Projects stay compatible: the
 fork's additions are stored in extra files next to `project.mt`, so stock firmware,
 upstream OpenTracker and the Tracker Mini still open them.
 

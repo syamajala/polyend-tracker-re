@@ -334,7 +334,7 @@ TEST(perf_scene_clear_restores_pad_rows) {
     CHECK_EQ(p.fader, 0);
     CHECK_STR(gLastNote.c_str(), "Scene 1 cleared (A)");
     r.h.run(40);
-    CHECK(!r.h.disp.lastHasText(" B"));
+    CHECK(!r.h.disp.lastHasText(" B 2"));   // the fader's "A 1 |--- B 2" left the title bar
     // The encoder edits nothing scene-related any more; storing works again.
     r.h.pad(12 * 1 + 0);
     r.store(0);
@@ -458,7 +458,7 @@ TEST(perf_scene_store_and_clear_one_column) {
     CHECK_EQ(a.project.perfScene[0][0], 1);
     CHECK_EQ(a.project.perfScene[0][1], 3);
     r.h.run(20);
-    CHECK(r.frameHas("Scene 1 (A): Panning +0") || r.h.disp.lastHasText("Scene 1 (A): Panning"));
+    CHECK(r.frameHas("Scene 1 (A): Sample panning 0") || r.h.disp.lastHasText("Scene 1 (A): Sample panning"));
     // Hold column 2 row 1 + Shift+Right: B gets only column 2.
     r.h.push(InputEvent::kPadDown, 12 * 1 + 2);
     r.h.run(1);

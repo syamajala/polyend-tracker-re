@@ -22,7 +22,8 @@ namespace ot {
 // firmware entry), so they share it; each list's layout static_asserts that
 // it fits. The largest is Import Mod (200 x 56 names + 200 kinds).
 constexpr size_t kBrowserListBytes = 200 * 56 + 200;
-void* browserListMem();
+extern unsigned char g_browserLists[kBrowserListBytes];   // screens.cpp (.sdram_bss on the device)
+inline void* browserListMem() { return g_browserLists; }
 
 void* createScreens(Ui& ui, App& app, Screen** out);   // returns the owner
 void destroyScreens(void* owner, Screen** screens);
@@ -63,6 +64,8 @@ public:
     int focus = -1;                 // -1 none, 0 pattern, 1 length, 2 step jump, 5 undo, 6 redo
     int page = 0;
     bool fillOpen = false;
+    void fillValueText(int val, char* out) const;   // From/To display text (8 bytes)
+    float fillValueFrac(int val) const;             // From/To bar fraction 0..1
     int fillField = 0;
     pops::FillParams fill[4];
     uint8_t colMask = 0;            // column-view mask (spec 06 §1.9)
@@ -73,6 +76,9 @@ public:
 
     SelRect target() const;
     bool edit() const;
+    // The cursor is red in edit mode and while recording (Rec + Play leaves
+    // edit mode; stock keeps the red cursor, USER_REPORTS_R3 R3-3).
+    bool recordCursor() const;
     int windowTop() const { return hAnchor_ - 7; }   // first visible step, horizontal arrangement
     static int hStepColW();                          // horizontal arrangement: step column width
 
@@ -125,7 +131,6 @@ private:
     void fillApply();
     uint8_t fillFxType() const;                // Fx id of the Fill "Fx Type" index (>= 0)
     void clampFillValues();                    // From/To into the chosen Fx's range
-    void fillValueText(int val, char* out) const;   // From/To display text (8 bytes)
     void pageButton(int f, uint8_t state);
     void drawGrid(Gfx& g);
     void drawGridVertical(Gfx& g, bool threeTracks);
@@ -576,9 +581,21 @@ public:
     // auditioned voice's play position in the waveform, -1 when none shows.
     static constexpr uint32_t kHeadPollMs = 5;
     int playheadX() const;
+    // Wavetable mode (manual p.130-131, spec 05 appB §1.4d): the window shown
+    // (the preview voice's, so an LFO animates it; else the instrument's) and
+    // the x of its marker on the position bar (-1 when not in Wavetable).
+    uint32_t wavetableShownWindow() const;
+    uint16_t granularShownPosition() const;   // Granular: the preview voice's grain position, else the instrument's
+    static constexpr uint32_t kGrainColour = 0x5A8CDC;   // the manual's blue grain (p.135) [OT shade]
+    int wavetablePositionX() const;
+    uint32_t wtShown_ = 0xFFFFFFFFu;
+    uint16_t grainShown_ = 0;   // wavetable window last drawn (update redraws on change)
     int drawnHeadX() const { return headX_; }
     // Marker-on-crossing bits (spec 13 §H.2, obj+0xab3): same order as heldPoints.
     uint8_t zeroMask() const;
+    // Marker i (0 start, 1 loop 1, 2 loop 2, 3 end): green on a zero crossing,
+    // else red when selected / held, else the wave colour.
+    uint32_t markerColour(int i) const;
     // Slice operations (appendix B §1.10) on the current instrument.
     void addSlice();
     void removeSlice();
@@ -733,6 +750,7 @@ private:
     uint8_t trackCcVal_[8] = {};
     uint8_t lastPattern_ = 0;
     uint32_t lastPoll_ = 0, lastLabels_ = 0;
+    bool blinkOn_ = true;          // queued-pattern label blink phase
     bool labelsDirty_ = false;
     KeepAlive keepAlive_ = KeepAlive::None;
     uint32_t keepEnds_ = 0;     // App::patternEndCount() when UntilPatternEnd began
@@ -743,6 +761,7 @@ private:
 class EditorScreen final : public Screen {
 public:
     using Screen::Screen;
+    float playheadFrac() const;   // position in the sample 0..1, -1 = nothing plays
     const char* name() const override { return "Sample Editor"; }
     void start(int opt) override;
     void stop() override;
@@ -772,6 +791,11 @@ public:
     uint32_t prevS0_ = 0, prevS1_ = 0;
     int prevEffect_ = -1;
     bool previewPlaying = false;
+    // Preview playhead (owner request): the selection that plays (the
+    // processed output may be longer or shorter), the line drawn last frame.
+    uint32_t playS0_ = 0, playSel_ = 0, playOut_ = 0;
+    int headX_ = -1;
+    uint32_t headAt_ = 0;
     bool inert = false;     // MIDI / empty slot, too long, or waiting for the stop prompt
     WaveZoom view;
 
@@ -801,6 +825,7 @@ private:
 class RecorderScreen final : public Screen {
 public:
     using Screen::Screen;
+    int playheadX() const;   // preview playhead x in the edit view, -1 none
     const char* name() const override { return "Sample Recorder"; }
     void start(int opt) override;
     void stop() override;
@@ -872,6 +897,11 @@ private:
     bool seeking_ = false;
     bool countIn_ = false;
     bool previewing_ = false;
+    // Preview playhead (owner request): x of the line drawn in the last frame,
+    // the selection start of the playback, the last poll.
+    int headX_ = -1;
+    uint32_t playS0_ = 0;
+    uint32_t headAt_ = 0;
     bool recording_ = false;
     bool configReturn_ = false;   // stock flag +0x71a (appendix C §2.9)
     int playPad_ = -1;            // pad holding the playback, -1 = b0 Preview, -2 = MIDI note
@@ -920,7 +950,7 @@ private:
 //     highlighted patch in the slot (App::previewSynthLibraryPatch), Cancel
 //     restores the slot's patch byte for byte.
 // The Instrument Params key toggles pages 1/2 (and leaves Edit / Load Patch).
-// A slot whose model has no engine in this build (WTFM; FAT until 2.1) shows
+// A slot whose model has no engine in this build (FAT until 2.1, WTFM until 2.2) shows
 // "Synth k (MODEL) not available" and is read-only except F1 Model.
 namespace synthui {
 // Value display / step kinds of one engine parameter.
@@ -943,6 +973,7 @@ enum Fmt : uint8_t {
     kFmtMs10,     // stored 0..100 shown as 0..10 ms (PERC Body / Snap Attack)
     kFmtPercNote, // PERC pitch 12..119 as C0..B8 (manual p.166)
     kFmtBodyWave, // PERC Body Wave 0..175 = 16 waves x 0..100 % (manual p.166)
+    kFmtRatio,    // WTFM Ratio index 0..47 shown as 0.25 .. 12.00 (spec 2x-08 §1)
 };
 struct ParamUi {
     const char* label;

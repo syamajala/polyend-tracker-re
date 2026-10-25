@@ -114,6 +114,7 @@ struct BarLabel {
     bool wide = false;      // spans this and the next button
     bool hidden = false;
     bool fill = false;
+    bool name = false;      // two-line name (set +0x44), see BottomBar::setName
     // wg::Underline: none / green (available) / red (edit-mode only). A state,
     // independent of `enabled` (Part 2 C7: Rec mode = enabled + red line).
     uint8_t underline = 0;
@@ -144,6 +145,8 @@ public:
     void set(int i, const char* top, const char* bottom = nullptr, bool enabled = true);
     void setWide(int i, const char* top, const char* bottom = nullptr, bool enabled = true);
     void setBottom(int i, const char* bottom);
+    // A name on two lines ("Export" / "Song"): both lines grey, font 3.
+    void setName(int i, const char* line1, const char* line2, bool enabled = true);
     void enable(int i, bool on) { if (i >= 0 && i < 8) label[i].enabled = on; }
     void highlight(int i, bool on) { if (i >= 0 && i < 8) label[i].highlight = on; }
     void highlightOnly(int i);
@@ -269,6 +272,11 @@ struct DevStats {
     uint32_t memFree = 0;                                       // bytes
     uint32_t loopMaxUs = 0;
 };
+
+// Headphone-amp boot level (volume(v), spec 01 §5.1; the stock value is not
+// in the specs): 0.715 = HP_CTRL 0x24 = -6.0 dB, +1 dB over the first
+// builds' 0.70 after a "stock is louder" report (USER_REPORTS_R2 §2).
+constexpr float kHeadphoneBootLevel = 0.715f;
 
 // Optional platform extras injected by the device glue (null on host / sim).
 struct UiPlatform {
@@ -506,6 +514,7 @@ private:
     uint32_t pressGen_[64] = {};          // screen generation that received the press
     uint8_t enterKey_ = 0;                // held module key that entered the screen (0 = none)
     uint32_t enterGen_ = 0;
+    bool songHandedEarly_ = false;   // Song's entering press handed over before its hold tick
     bool songTemporary_ = false;          // Song entered by a hold: release goes back
     uint64_t down_ = 0;
     uint64_t pads_ = 0;
