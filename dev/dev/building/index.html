@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
     
     
       
@@ -31,10 +31,10 @@
       
     
     
-      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
       
         
-        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
       
       
 
@@ -1086,14 +1086,14 @@
 <h2 id="firmware">Firmware<a class="headerlink" href="#firmware" title="Permanent link">&para;</a></h2>
 <p>Needs the <strong>Arm GNU toolchain</strong> (<code>arm-none-eabi-gcc</code>; CI uses 14.2.Rel1) and Python 3.</p>
 <div class="highlight"><pre><span></span><code>make<span class="w"> </span>clean
-make<span class="w"> </span>-j<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.1.2
+make<span class="w"> </span>-j<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.2.1
 </code></pre></div>
 <p>This writes <code>build/opentracker.elf</code>, <code>build/opentracker.hex</code> and the flashable image
 <code>build/PolyendTrackerOTv212.ptf</code>.</p>
 <div class="admonition warning">
 <p class="admonition-title">Change VERSION? Run <code>make clean</code> first</p>
 <p>Objects aren't rebuilt when only <code>VERSION</code> changes, so the image would report the old
-version. Check with <code>strings build/opentracker.elf | grep -x 2.1.2</code>.</p>
+version. Check with <code>strings build/opentracker.elf | grep -x 2.2.1</code>.</p>
 </div>
 <p>The image name must be exactly 24 characters (the update bootloader rejects other
 lengths), so it carries the version digits only.</p>
@@ -1256,10 +1256,10 @@ path.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "navigation.footer", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "navigation.footer", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
       
     
   </body>
