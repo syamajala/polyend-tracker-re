@@ -157,6 +157,8 @@ public:
     bool writeRamG(uint32_t ramgAddr, const void* src, uint32_t len) override {
         return d_.writeRamG(ramgAddr, src, len);
     }
+    bool debugRead(uint32_t addr, uint8_t* dst, uint32_t len) override { return d_.debugRead(addr, dst, len); }
+    bool debugWrite(uint32_t addr, uint32_t value, uint8_t bytes) override { return d_.debugWrite(addr, value, bytes); }
     void drawRgb332(int16_t x, int16_t y, uint32_t ramgAddr, uint16_t w, uint16_t h, uint8_t scale) override;
     bool frameReady() override { return d_.frameReady(); }
     bool fragmentsSupported() const override { return d_.fragmentsSupported(); }

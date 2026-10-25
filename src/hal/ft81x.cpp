@@ -915,6 +915,22 @@ void Ft81xDisplay::drawImage(int16_t x, int16_t y, uint32_t addr, uint16_t w, ui
     end();
 }
 
+#if OT_REMOTE_REGS
+bool Ft81xDisplay::debugRead(uint32_t addr, uint8_t* dst, uint32_t len) {
+    if (!ok_ || !dst) return false;
+    flush();   // staged commands first; memRead waits for a running DMA (csLow)
+    memRead(addr, dst, len);
+    return true;
+}
+bool Ft81xDisplay::debugWrite(uint32_t addr, uint32_t value, uint8_t bytes) {
+    if (!ok_ || (bytes != 1 && bytes != 2 && bytes != 4)) return false;
+    flush();
+    const uint8_t b[4] = {uint8_t(value), uint8_t(value >> 8), uint8_t(value >> 16), uint8_t(value >> 24)};
+    memWrite(addr, b, bytes);
+    return true;
+}
+#endif
+
 bool Ft81xDisplay::writeRamG(uint32_t addr, const void* src, uint32_t len) {
     // spec 14 §3.1 frame upload. RAM_G writes bypass the command FIFO, so
     // only the staged commands are flushed first.

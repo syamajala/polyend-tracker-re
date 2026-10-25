@@ -30,7 +30,60 @@ bool ints(const char* s, int* v, int n) {
     while (*s == ' ') ++s;
     return *s == 0;
 }
+// Hex arguments (no 0x), each up to 32 bits: false on missing, overlong or
+// trailing garbage.
+bool hexes(const char* s, uint32_t* v, int n) {
+    for (int i = 0; i < n; ++i) {
+        while (*s == ' ') ++s;
+        int digits = 0;
+        uint32_t x = 0;
+        for (int d; (d = hexDigit(*s)) >= 0; ++s, ++digits) x = (x << 4) | uint32_t(d);
+        if (digits == 0 || digits > 8) return false;
+        v[i] = x;
+    }
+    while (*s == ' ') ++s;
+    return *s == 0;
+}
 }  // namespace
+
+// K66 memory map (reference manual ch. 4): the ranges a PEEK may read.
+bool mcuReadAllowed(uint32_t addr, uint32_t words) {
+    if (words == 0 || words > uint32_t(kPeekMaxWords) || (addr & 3u)) return false;
+    const uint64_t end = uint64_t(addr) + 4u * words;
+    struct Range { uint32_t lo, hi; };   // [lo, hi)
+    static constexpr Range kAllowed[] = {
+        {0x00000000u, 0x00200000u},   // program flash, 2 MB
+        {0x1FFF0000u, 0x20030000u},   // SRAM_L + SRAM_U, 256 KB
+        {0x40047000u, 0x40049000u},   // SIM
+        {0x40049000u, 0x4004E000u},   // PORTA .. PORTE (clocks on: SIM_SCGC5, Teensy start-up)
+        {0x400FF000u, 0x400FF140u},   // GPIOA .. GPIOE
+    };
+    for (const Range& r : kAllowed)
+        if (addr >= r.lo && end <= r.hi) return true;
+    return false;
+}
+
+bool pcrWriteAllowed(uint32_t addr, uint32_t cur, uint32_t next, bool pinOutput) {
+    // PORTx_PCRn: 0x40049000 + 0x1000 * port + 4 * pin, port A..E, pin 0..31.
+    if (addr < 0x40049000u || addr >= 0x4004E000u || (addr & 3u) || (addr & 0xFFFu) >= 0x80u) return false;
+    constexpr uint32_t kMux = 7u << 8;
+    if ((cur & ~kMux) != (next & ~kMux)) return false;   // only the MUX field changes
+    const uint32_t from = (cur & kMux) >> 8, to = (next & kMux) >> 8;
+    if (from > 1 || to > 1) return false;                // disabled <-> GPIO only
+    return !pinOutput;                                   // a GPIO input, never a driver
+}
+
+bool ftReadAllowed(uint32_t addr, uint32_t len) {
+    return len > 0 && len <= uint32_t(kFtReadMaxBytes) && uint64_t(addr) + len <= 0x400000u;
+}
+
+bool ftWriteAllowed(uint32_t addr, uint8_t bytes) {
+    if ((bytes != 1 && bytes != 2 && bytes != 4) || (addr & (bytes - 1u))) return false;
+    if (addr < 0x302000u || addr + bytes > 0x303000u) return false;
+    // REG_CPURESET 0x302020; REG_CMD_READ / WRITE / DL 0x3020F8 .. 0x302103.
+    const auto hits = [&](uint32_t lo, uint32_t hi) { return addr < hi && addr + bytes > lo; };
+    return !hits(0x302020u, 0x302024u) && !hits(0x3020F8u, 0x302104u);
+}
 
 bool parse(const char* line, Msg& m) {
     const char* p = std::strstr(line, "@RC ");
@@ -74,6 +127,25 @@ bool parse(const char* line, Msg& m) {
         }
         if (h[2 * kPads] != 0) return false;
         m.kind = Msg::kLeds;
+    } else if (!std::strncmp(p, "PEEK ", 5) || !std::strncmp(p, "FTRD ", 5)) {
+        uint32_t a[2];
+        if (!hexes(p + 5, a, 2) || a[1] == 0 || a[1] > 255) return false;
+        m.kind = p[0] == 'P' ? Msg::kPeek : Msg::kFtRead;
+        m.addr = a[0];
+        m.count = uint8_t(a[1]);
+    } else if (!std::strncmp(p, "POKE ", 5)) {
+        uint32_t a[2];
+        if (!hexes(p + 5, a, 2)) return false;
+        m.kind = Msg::kPoke;
+        m.addr = a[0];
+        m.value = a[1];
+    } else if (!std::strncmp(p, "FTWR ", 5)) {
+        uint32_t a[3];
+        if (!hexes(p + 5, a, 3) || a[2] > 4) return false;
+        m.kind = Msg::kFtWrite;
+        m.addr = a[0];
+        m.value = a[1];
+        m.count = uint8_t(a[2]);
     } else {
         return false;
     }
@@ -214,8 +286,61 @@ void DeviceBridge::onLine(const char* line) {
             mirror_ = false;
             if (tap_ && !tap_->ready()) tap_->release();   // a frame not drawn yet: dropped
             break;
+        case Msg::kPeek:
+        case Msg::kPoke:
+        case Msg::kFtRead:
+        case Msg::kFtWrite:
+            if (mode_ == kDrive) onRegister(m);
+            break;
         default: break;
     }
+}
+
+void DeviceBridge::onRegister(const Msg& m) {
+    char line[kLineMax + 32];
+    int n = 0;
+    const auto fail = [&](const char* what) {
+        std::snprintf(line, sizeof line, "@RC %s FAIL %08lX", what, static_cast<unsigned long>(m.addr));
+        sendLine(line);
+    };
+    switch (m.kind) {
+        case Msg::kPeek: {
+            if (!io_.peek || !mcuReadAllowed(m.addr, m.count)) return fail("PEEK");
+            n = std::snprintf(line, sizeof line, "@RC PEEK %08lX", static_cast<unsigned long>(m.addr));
+            for (uint32_t i = 0; i < m.count; ++i) {
+                uint32_t v = 0;
+                if (!io_.peek(io_.ctx, m.addr + 4 * i, &v)) return fail("PEEK");
+                n += std::snprintf(line + n, sizeof line - size_t(n), " %08lX", static_cast<unsigned long>(v));
+            }
+            break;
+        }
+        case Msg::kPoke: {
+            uint32_t pcr = 0;
+            bool output = true;
+            if (!io_.poke || !io_.pcrState || !io_.pcrState(io_.ctx, m.addr, &pcr, &output) ||
+                !pcrWriteAllowed(m.addr, pcr, m.value, output) || !io_.poke(io_.ctx, m.addr, m.value))
+                return fail("POKE");
+            std::snprintf(line, sizeof line, "@RC POKE OK %08lX %08lX", static_cast<unsigned long>(m.addr),
+                          static_cast<unsigned long>(m.value));
+            break;
+        }
+        case Msg::kFtRead: {
+            uint8_t b[kFtReadMaxBytes];
+            if (!display_ || !ftReadAllowed(m.addr, m.count) || !display_->debugRead(m.addr, b, m.count))
+                return fail("FTRD");
+            n = std::snprintf(line, sizeof line, "@RC FTRD %06lX ", static_cast<unsigned long>(m.addr));
+            for (uint32_t i = 0; i < m.count; ++i) n += std::snprintf(line + n, sizeof line - size_t(n), "%02X", b[i]);
+            break;
+        }
+        case Msg::kFtWrite:
+            if (!display_ || !ftWriteAllowed(m.addr, m.count) || !display_->debugWrite(m.addr, m.value, m.count))
+                return fail("FTWR");
+            std::snprintf(line, sizeof line, "@RC FTWR OK %06lX %08lX", static_cast<unsigned long>(m.addr),
+                          static_cast<unsigned long>(m.value));
+            break;
+        default: return;
+    }
+    sendLine(line);
 }
 
 void DeviceBridge::tick(uint32_t now, bool hostOpen) {

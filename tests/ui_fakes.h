@@ -294,6 +294,20 @@ public:
                 rgb[size_t(r) * w + c] = (uint32_t((x + c) & 0xFF) << 16) | (uint32_t((y + r) & 0xFF) << 8) | 0x5Au;
         return true;
     }
+    // Remote register commands (IDisplay::debugRead / debugWrite; off by
+    // default like the base IDisplay): display memory as a sparse byte map.
+    bool debugAccess = false;
+    std::map<uint32_t, uint8_t> debugMem;
+    bool debugRead(uint32_t addr, uint8_t* dst, uint32_t len) override {
+        if (!debugAccess) return false;
+        for (uint32_t i = 0; i < len; ++i) dst[i] = debugMem.count(addr + i) ? debugMem[addr + i] : 0;
+        return true;
+    }
+    bool debugWrite(uint32_t addr, uint32_t value, uint8_t bytes) override {
+        if (!debugAccess) return false;
+        for (uint8_t i = 0; i < bytes; ++i) debugMem[addr + i] = uint8_t(value >> (8 * i));
+        return true;
+    }
     // Image path (spec 13 §G.6/§I.3): loadJpeg validates with the shared
     // IDisplay::probeJpeg (no decode) and logs "LOADJPEG <addr> <w>x<h> <path>"
     // (or "LOADJPEG <addr> FAIL <path>") to `loads`; set jpegSupport = false

@@ -43,6 +43,24 @@ Gotchas when writing scripts:
 - On a device, the diag ring drops early boot lines. Send a byte on the CDC port to replay
   the boot log.
 
+## Hardware probes
+
+A test image built with `make OT_REMOTE_REGS=1` also answers register commands in drive
+mode, so hardware questions can be answered with a script instead of a special image.
+Release images (the default `OT_REMOTE_REGS=0`) answer every one of them with `FAIL`.
+
+| Script command | Does | Limited to |
+|---|---|---|
+| `peek ADDR [N]` | read N (1..8) MCU words | GPIO, PORT, SIM, SRAM, flash (other peripherals fault when their clock is off) |
+| `poke ADDR VALUE` | write an MCU word | a `PORTx_PCRn` switching between disabled and GPIO input: a pin can never be made to drive |
+| `ftrd ADDR [N]` | read N (1..32) bytes of display memory | the FT81x memory map |
+| `ftwr ADDR VALUE [BYTES]` | write a display register | the register block, not `REG_CPURESET` or the coprocessor's FIFO pointers |
+
+Addresses and values are hex without `0x`; the rules are in `src/core/remote/remote.h`.
+Python scripts can call `Runner.peek` / `poke` / `ftrd` / `ftwr` from `tracker_remote.py`.
+`tools/int_n_probe.py` uses them to find out whether the FT81x `INT_N` pin reaches the MCU
+(it toggles the pin and reads every port, then restores everything).
+
 ## CI
 
 Every push and pull request runs `.github/workflows/ci.yml`:

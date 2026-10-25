@@ -29,6 +29,22 @@
 //                    (display_tap.h); cut = 1: the frame overflowed the buffer.
 //                    A screenshot and a frame never interleave.
 //
+// Drive mode register commands (hardware probes without a special image;
+// only images built with OT_REMOTE_REGS=1 answer anything but FAIL). Hex
+// addresses and values, no 0x:
+//   "@RC PEEK <addr> <n>"         n (1..8) MCU words from an allowed range
+//                                 (mcuReadAllowed: GPIO, PORT, SIM, SRAM, flash)
+//                -> "@RC PEEK <addr> <w0> ..." / "@RC PEEK FAIL <addr>"
+//   "@RC POKE <addr> <value>"     MCU word write, only a PORTx_PCRn that switches
+//                                 between disabled and GPIO (pcrWriteAllowed)
+//                -> "@RC POKE OK <addr> <value>" / "@RC POKE FAIL <addr>"
+//   "@RC FTRD <addr> <n>"         n (1..32) bytes of display memory (ftReadAllowed)
+//                -> "@RC FTRD <addr> <hex bytes>" / "@RC FTRD FAIL <addr>"
+//   "@RC FTWR <addr> <value> <b>" b (1, 2, 4)-byte display register write
+//                                 (ftWriteAllowed: the register block, not the
+//                                 coprocessor's FIFO pointers or reset)
+//                -> "@RC FTWR OK <addr> <value>" / "@RC FTWR FAIL <addr>"
+//
 // Both:  host -> device "@RC BYE" ends the mode; device -> host "@RC OFF".
 //
 // Device lines arrive inside diag log lines (timestamp prefix), so a parser
@@ -63,14 +79,34 @@ constexpr int kShotMaxW = 800;
 struct Msg {
     enum Kind : uint8_t {
         kNone, kHello, kBye, kOn, kOff, kButtonDown, kButtonUp, kPadDown, kPadUp, kEncoder, kLeds,
-        kDrive, kQuery, kShot, kFrame, kMirrorOn, kMirrorOff,
+        kDrive, kQuery, kShot, kFrame, kMirrorOn, kMirrorOff, kPeek, kPoke, kFtRead, kFtWrite,
     };
     Kind kind = kNone;
     uint8_t id = 0;
     uint8_t velocity = 0;
     int8_t delta = 0;
     uint8_t levels[kPads] = {};
+    uint32_t addr = 0, value = 0;   // register commands
+    uint8_t count = 0;              // PEEK words, FTRD bytes, FTWR width
 };
+
+// Register command limits and address rules (the header comment).
+constexpr int kPeekMaxWords = 8;
+constexpr int kFtReadMaxBytes = 32;
+// MCU words [addr, addr + 4 * words): word-aligned and inside one allowed
+// range (reads of a peripheral whose clock is off fault the K66, so only
+// GPIO, PORT, SIM, SRAM and flash).
+bool mcuReadAllowed(uint32_t addr, uint32_t words);
+// A PORTx_PCRn write from `cur` to `next`: only the MUX field changes, between
+// 0 (disabled) and 1 (GPIO), and the pin's GPIO direction is input
+// (pinOutput false), so a probe can never make a pin drive.
+bool pcrWriteAllowed(uint32_t addr, uint32_t cur, uint32_t next, bool pinOutput);
+// Display memory reads anywhere in the FT81x map (0 .. 0x3FFFFF).
+bool ftReadAllowed(uint32_t addr, uint32_t len);
+// Display register writes: aligned, inside the register block 0x302000 ..
+// 0x302FFF, not REG_CPURESET or the coprocessor's REG_CMD_READ / WRITE / DL
+// (the driver owns those).
+bool ftWriteAllowed(uint32_t addr, uint8_t bytes);
 
 // One line (without the line end) -> message; false for anything else.
 bool parse(const char* line, Msg& m);
@@ -102,6 +138,12 @@ public:
         // Room for a few more lines (diag ring); null = always. Screenshots
         // only send while there is room, so nothing is overwritten unsent.
         bool (*room)(void* ctx) = nullptr;
+        // MCU register access for "@RC PEEK" / "@RC POKE" (OT_REMOTE_REGS
+        // images); null = refused. The bridge checks the rules above first;
+        // poke gets the pin's current PCR and GPIO direction from pcrState.
+        bool (*peek)(void* ctx, uint32_t addr, uint32_t* value) = nullptr;
+        bool (*poke)(void* ctx, uint32_t addr, uint32_t value) = nullptr;
+        bool (*pcrState)(void* ctx, uint32_t pcrAddr, uint32_t* pcr, bool* output) = nullptr;
         void* ctx = nullptr;
     };
     DeviceBridge(IInput& panel, ILeds& pads, const Io& io);
@@ -167,6 +209,7 @@ private:
     };
 
     void onLine(const char* line);
+    void onRegister(const Msg& m);   // PEEK / POKE / FTRD / FTWR, drive mode
     void setMode(Mode m);
     // True: the event goes to the host (or is a dropped repeat), not to the app.
     bool forward(const InputEvent& ev);

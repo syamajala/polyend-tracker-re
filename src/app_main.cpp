@@ -343,6 +343,27 @@ OT_SDRAM_BSS alignas(ot::remote::DisplayTap) unsigned char gTapMem[sizeof(ot::re
 ot::IClock* gClock = nullptr;
 
 void remoteSend(void*, const char* line) { ot::hal::diagLog(line); }
+#if OT_REMOTE_REGS
+// Register commands ("@RC PEEK" / "@RC POKE", remote.h): the bridge has
+// checked the address rules; these only touch the memory.
+bool remotePeek(void*, uint32_t addr, uint32_t* v) {
+    *v = *reinterpret_cast<volatile const uint32_t*>(addr);
+    return true;
+}
+bool remotePoke(void*, uint32_t addr, uint32_t v) {
+    *reinterpret_cast<volatile uint32_t*>(addr) = v;
+    return true;
+}
+// PORTx_PCRn -> its value and the pin's GPIOx_PDDR bit (port x at
+// 0x40049000 + 0x1000 x, GPIOx at 0x400FF000 + 0x40 x).
+bool remotePcrState(void*, uint32_t pcrAddr, uint32_t* pcr, bool* output) {
+    if (pcrAddr < 0x40049000u || pcrAddr >= 0x4004E000u || (pcrAddr & 0xFFFu) >= 0x80u) return false;
+    const uint32_t port = (pcrAddr - 0x40049000u) >> 12, pin = (pcrAddr & 0x7Fu) >> 2;
+    *pcr = *reinterpret_cast<volatile const uint32_t*>(pcrAddr);
+    *output = (*reinterpret_cast<volatile const uint32_t*>(0x400FF014u + 0x40u * port) >> pin) & 1u;
+    return true;
+}
+#endif
 // Screenshot lines (~120 B with the timestamp) only while the 4 KB log ring
 // has room for several more and whatever else gets logged meanwhile.
 bool remoteRoom(void*) { return ot::hal::diagTerminalOpen() && ot::hal::diagTxFree() >= 1024; }
@@ -442,6 +463,11 @@ void otAppMain(ot::hal::HalSet& hal) {
     rio.send = &remoteSend;
     rio.changed = &remoteChanged;
     rio.room = &remoteRoom;
+#if OT_REMOTE_REGS
+    rio.peek = &remotePeek;
+    rio.poke = &remotePoke;
+    rio.pcrState = &remotePcrState;
+#endif
     gRemote = new (gRemoteMem) ot::remote::DeviceBridge(*hal.input, *hal.leds, rio);
     gRemote->setTap(tap);
     hal::diagRemoteBuffer(gRemoteRx, sizeof gRemoteRx);

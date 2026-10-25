@@ -88,6 +88,12 @@ public:
     // Games (spec 14 §3): RAM_G burst write (TX-pipelined SPI) and the
     // magnified RGB332 frame draw on its own bitmap handle.
     bool writeRamG(uint32_t ramgAddr, const void* src, uint32_t len) override;
+#if OT_REMOTE_REGS
+    // Remote register commands (remote.h "@RC FTRD" / "@RC FTWR"; the bridge
+    // checks the address rules).
+    bool debugRead(uint32_t addr, uint8_t* dst, uint32_t len) override;
+    bool debugWrite(uint32_t addr, uint32_t value, uint8_t bytes) override;
+#endif
     void drawRgb332(int16_t x, int16_t y, uint32_t ramgAddr, uint16_t w, uint16_t h, uint8_t scale) override;
 
     // RAM_G map (1 MiB, 0x000000..0x0FFFFF):
