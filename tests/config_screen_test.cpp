@@ -1,12 +1,14 @@
 // Config screen: display brightness -> backlight (spec 05 §1.8) and the
 // Licenses / Info page (spec 06 §7.5). PLAN_PHASE2 T1c.
 #include <cmath>
+#include <cstring>
 
 #include "test.h"
 #include "ui_fakes.h"
 #include "nvstore_fake.h"
 
 #include "app/project_fields.h"
+#include "build_id.h"
 
 #include "ui/config_help.h"
 #include "ui/screens.h"
@@ -505,4 +507,16 @@ TEST(config_synth_voices_reaches_governor) {
     CHECK_EQ(a.cfg.synthVoices, 6);
     a.preBlock(0.0f);
     CHECK_EQ(a.engine.governor().budget(), 6);
+}
+
+// Config > Firmware > Build: the build date and the git commit
+// (build_id.h; "dev" in host builds).
+TEST(config_build_row_shows_commit) {
+    Harness h;
+    h.tap(btn::Config);
+    char t[48];
+    cfgScreen(h).optionText(5, 2, t, sizeof t);
+    CHECK(std::strstr(t, ot::kBuildDate) == t);
+    CHECK(std::strstr(t, ot::kBuildHash) != nullptr);
+    CHECK_STR(ot::kBuildHash, "dev");
 }
