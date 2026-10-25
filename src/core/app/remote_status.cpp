@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "app/app.h"
+#include "build_id.h"
 #include "remote/display_tap.h"
 #include "remote/remote.h"
 
@@ -59,6 +60,8 @@ int App::remoteStatus(char* out, int cap) {
     // A confirm dialog is open (Ui::ask: "Unsaved changes", "This will stop
     // the pattern", ...), so scripts answer it without matching its wording.
     fieldInt(out, cap, n, "ask", ui.askOpen() ? 1 : 0);
+    // The git commit of this image (#60), so logs trace back to the code.
+    field(out, cap, n, "build", kBuildHash);
     field(out, cap, n, "note", ui.notice()[0] ? ui.notice() : "-");
     return n;
 }
@@ -89,7 +92,7 @@ void App::serviceRemote() {
     }
     if (r->takeRedraw()) ui.dirty();
     if (r->takeQuery()) {
-        char s[remote::kLineMax + 128];   // status fields + a notice of up to 63 chars
+        char s[remote::kLineMax + 192];   // status fields (~190 B with build=) + a notice of up to 63 chars
         remoteStatus(s, sizeof s);
         r->sendLine(s);
     }

@@ -431,7 +431,7 @@ TEST(remote_drive_status_and_perf) {
     CHECK_EQ(host.sent.size(), 2u);
     const std::string st = host.sent.back();
     CHECK(st.rfind("@RC S scr=Pattern play=0 step=0 pat=1 ins=1 song=0 slot=1 pass=1 perf=0 scA=1 scB=2 fader=0 peak=0 ", 0) == 0);
-    for (const char* k : {" cpuA=", " cpuP=", " ovr=0", " gov=4", " govB=4", " cuts=0", " freeKB=", " ask=0", " note="})
+    for (const char* k : {" cpuA=", " cpuP=", " ovr=0", " gov=4", " govB=4", " cuts=0", " freeKB=", " ask=0", " build=dev", " note="})
         CHECK(st.find(k) != std::string::npos);
     // ask=1 while a confirm dialog is open, 0 again once it is answered.
     a.ui.ask("Test", "Continue?", nullptr, "Cancel", "Yes", [](void*, int) {}, nullptr);
@@ -449,6 +449,15 @@ TEST(remote_drive_status_and_perf) {
     h.run(5);
     CHECK(host.sent.back().find("scr=Sample_Recorder") != std::string::npos);
     CHECK(host.sent.back().find("note=Hello_there") != std::string::npos);
+    // The longest notice (63 chars) still fits whole, with a long build id.
+    const std::string longNote(63, 'n');
+    a.ui.notify(longNote.c_str());
+    send("@RC Q");
+    h.run(5);
+    // 246 B here with build=dev; a device build id adds ~10 (serviceRemote's
+    // buffer is 320 B).
+    CHECK(host.sent.back().size() + std::strlen("-dirty1234567") < 300);
+    CHECK(host.sent.back().find("note=" + longNote) != std::string::npos);
     // The output meter runs only while driven.
     send("@RC BYE");
     h.run(5);
