@@ -53,7 +53,9 @@ So a song can have the drums in the Repeater in the verse and everything in the 
 A scene stored before (or cleared with Delete) carries no F keys and leaves them as they
 are. Tapping an F key while a scene plays works as usual; the scene's setting comes back the
 next time the scene is loaded or the fader crosses the middle. Storing only some columns
-(pads held) doesn't change a scene's F keys.
+(pads held) doesn't change a scene's F keys. While a scene is open for editing (bank page,
+**F3 Edit**), the F keys show and change that scene's tracks; going back saves them and
+your live F keys come back.
 
 ## The scene bank
 
