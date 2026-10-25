@@ -5,6 +5,7 @@
 
 #include "app/app.h"
 #include "app/project_fields.h"
+#include "build_id.h"
 #include "remote/remote.h"
 #include "ui/config_help.h"
 #include "ui/notes.h"
@@ -13,9 +14,6 @@
 
 #ifndef OT_VERSION
 #define OT_VERSION "dev"
-#endif
-#ifndef OT_BUILD
-#define OT_BUILD __DATE__
 #endif
 
 namespace ot {
@@ -270,7 +268,8 @@ static void optValueText(App& a, const Opt& o, int index, char* out, int cap) {
             break;
         case 3: std::snprintf(out, size_t(cap), "%lu", static_cast<unsigned long>(gov.cuts())); break;
         case 4: std::snprintf(out, size_t(cap), "%d/%d", gov.cap(), gov.budget()); break;
-        default: std::snprintf(out, size_t(cap), "%s", o.off == 0 ? "OpenTracker " OT_VERSION : OT_BUILD);
+        case 1: std::snprintf(out, size_t(cap), "%s  %s", kBuildDate, kBuildHash); break;   // "Oct 24 2026  e5bb173"
+        default: std::snprintf(out, size_t(cap), "%s", "OpenTracker " OT_VERSION);
         }
         return;
     }
