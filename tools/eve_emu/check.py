@@ -98,6 +98,10 @@ def main():
                 name, words = line.split()
                 index[name] = int(words)   # a repeated name: the last frame
         otfs = [os.path.join(d, n + ".otf") for n in sorted(index)]
+        # NAME.text.otf: the same screen with its text as CMD_TEXT, the pixel
+        # reference for the glyph runs (#71 part 4).
+        refs = {n for n in index if os.path.exists(os.path.join(d, n + ".text.otf"))}
+        otfs += [os.path.join(d, n + ".text.otf") for n in sorted(refs)]
         cmd_dir = os.path.join(d, "cmd")
         os.makedirs(cmd_dir, exist_ok=True)
         conv = subprocess.run([otf2cmd, cmd_dir, os.path.join(cmd_dir, "fonts.bin")] + otfs,
@@ -108,10 +112,10 @@ def main():
         sets = {}
         for line in conv.stdout.splitlines():
             name, font_set, _ = line.split()
-            sets[name] = int(font_set)
+            sets[name] = int(font_set)   # NAME.text: the reference
         with open(os.path.join(cmd_dir, "list.txt"), "w") as f:
             for name in sorted(index):
-                f.write("%s %s.cmd\n" % (name, name))
+                f.write("%s %s.cmd%s\n" % (name, name, " %s.text.cmd" % name if name in refs else ""))
         # No Mono / Gecko install prompts (a headless runner would wait on them).
         env = dict(os.environ, WINEDEBUG="-all", WINEDLLOVERRIDES="mscoree,mshtml=")
         # The DLLs next to the program: Wine looks there first.
@@ -124,8 +128,9 @@ def main():
         got = {}
         for line in run.stdout.splitlines():
             parts = line.split()
-            if len(parts) == 4 and parts[0] in index:
-                got[parts[0]] = (int(parts[2]) // 4, parts[3])
+            if len(parts) >= 4 and parts[0] in index:
+                # NAME SENT DL STATUS [same | DIFF N X0 Y0 X1 Y1 | NOSHOT STATUS]
+                got[parts[0]] = (int(parts[2]) // 4, parts[3], " ".join(parts[4:]))
         if run.returncode or len(got) != len(index):
             sys.stderr.write(run.stderr[-2000:])
             print("%s: replay failed (exit %d, %d of %d frames)" % (d, run.returncode, len(got), len(index)))
@@ -133,11 +138,12 @@ def main():
         for name in sorted(index):
             if name not in got:
                 continue
-            hw, status = got[name]
+            hw, status, pixels = got[name]
             est = index[name] + (DRIVER_WORDS if sets.get(name, -1) >= 0 else 0)
-            ok = status == "ok" and hw <= RAM_DL_WORDS and abs(hw - est) <= a.tol
+            ok = (status == "ok" and hw <= RAM_DL_WORDS and abs(hw - est) <= a.tol
+                  and (name not in refs or pixels == "same"))
             failed += not ok
-            rows.append((os.path.basename(d), name, est, hw, status, ok))
+            rows.append((os.path.basename(d), name, est, hw, status + (" pixels " + pixels if pixels else ""), ok))
 
     print("%-14s %-22s %6s %6s %6s  %s" % ("dir", "frame", "UI", "emu", "diff", "status"))
     for d, name, est, hw, status, ok in rows:
@@ -146,6 +152,10 @@ def main():
     peak = max((r[3] for r in rows), default=0)
     print("%d frames, largest %d of %d words, worst difference %d words (allowed %d)" %
           (len(rows), peak, RAM_DL_WORDS, worst, a.tol))
+    compared = [r for r in rows if "pixels" in r[4]]
+    if compared:
+        print("%d frames compared with their CMD_TEXT form: %d identical" %
+              (len(compared), sum("pixels same" in r[4] for r in compared)))
     print("%d failure(s)" % failed if failed else "all frames fit and match")
     return 1 if failed else 0
 

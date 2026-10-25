@@ -15,12 +15,25 @@ make -C sim eve-check
    checkpoint it draws the screen once more with the fragment cache off (as
    the remote frame export does) and saves `DIR/NAME.otf` plus the UI's own
    RAM_DL count in `DIR/index.txt`.
+   With custom fonts it also saves `DIR/NAME.text.otf`: the same screen with
+   its text as `CMD_TEXT` (`kCustomText`), the pixel reference for the glyph
+   runs `Gfx::text` draws instead (#71 part 4).
 2. `otf2cmd` turns each frame into the word stream the FT81x driver sends
    (`src/hal/ft81x.cpp`: the per-frame font setup, pictures as DL words).
-3. `replay.exe` sends each stream to the emulator and reads REG_CMD_DL.
-4. `check.py` fails on a fault, more than 2048 words, or a frame where the
+3. `replay.exe` sends each stream to the emulator and reads REG_CMD_DL; for
+   a frame with a reference it shows both (the Tracker's panel timings) and
+   compares the scanned-out pixels.
+4. `check.py` fails on a fault, more than 2048 words, a frame where the
    emulator and the UI's count (+36 words of driver font setup with custom
-   fonts) differ by more than 8 words. CI runs this (job `display-emulator`).
+   fonts) differ by more than 8 words, or a glyph-run frame whose pixels
+   differ from its `CMD_TEXT` form. CI runs this (job `display-emulator`).
+
+The pixel comparison is how the coprocessor's text alignment was pinned
+down: it treats a string as spanning width - 1 pixels from its first column,
+so `OPT_RIGHTX` puts it at x - (w - 1) and `OPT_CENTERX` at x - (w - 1) / 2
+(`Gfx::textAsGlyphs`; the simulator's `CMD_TEXT` now does the same for
+custom fonts). `REPLAY_DUMP=1` makes `replay.exe` write both framebuffers of
+a differing frame (`NAME.a.rgb`, `NAME.b.rgb`, 800 x 480 x 4 bytes).
 
 The emulator and the UI agree to within 1 word on every checkpoint (the UI
 counts one word less: the frame's closing DISPLAY). On the device the same

@@ -544,10 +544,12 @@ struct Headless {
     // --frames: the current screen drawn once more with the fragment cache
     // off (as the remote frame export records it: the stream has no RAM_G
     // copies) into DIR/NAME.otf; DIR/index.txt gets "NAME words" with the
-    // UI's RAM_DL count of that frame (driver font setup not included).
-    bool saveFrame(const std::string& name, int line) {
+    // UI's RAM_DL count of that frame (driver font setup not included). With
+    // custom fonts also DIR/NAME.text.otf: the same screen with its text as
+    // CMD_TEXT (kCustomText, the guard lifted), the pixel reference for the
+    // glyph runs (#71 part 4).
+    bool captureFrame(const std::string& path, int line) {
         ot::remote::DisplayTap* t = m.tap.get();
-        if (!m.app || !t) return true;
         ot::Ui& ui = m.app->ui;
         const bool was = ui.fragments.enabled;
         ui.fragments.enabled = false;
@@ -555,23 +557,44 @@ struct Headless {
         t->arm();
         ui.render();
         ui.fragments.enabled = was;
-        const bool got = t->ready() && !t->truncated();
+        bool got = t->ready() && !t->truncated();
         if (got) {
-            const std::string path = framesDir + "/" + name + ".otf";
             FILE* f = std::fopen(path.c_str(), "wb");
-            FILE* ix = std::fopen((framesDir + "/index.txt").c_str(), "a");
-            if (f) std::fwrite(t->frame(), 1, t->frameBytes(), f);
-            if (ix) std::fprintf(ix, "%s %u\n", name.c_str(), unsigned(ui.lastDlWords()));
+            got = f && std::fwrite(t->frame(), 1, t->frameBytes(), f) == t->frameBytes();
             if (f) std::fclose(f);
-            if (ix) std::fclose(ix);
-            if (!f || !ix) std::fprintf(stderr, "script:%d: cannot write %s\n", line, path.c_str());
+            if (!got) std::fprintf(stderr, "script:%d: cannot write %s\n", line, path.c_str());
         } else {
-            std::fprintf(stderr, "script:%d: frame for %s not recorded%s\n", line, name.c_str(),
+            std::fprintf(stderr, "script:%d: frame %s not recorded%s\n", line, path.c_str(),
                          t->truncated() ? " (cut)" : "");
         }
         t->release();
-        seenFrames = ui.frames();
         return got;
+    }
+    bool saveFrame(const std::string& name, int line) {
+        if (!m.app || !m.tap) return true;
+        ot::Ui& ui = m.app->ui;
+        bool ok = captureFrame(framesDir + "/" + name + ".otf", line);
+        const uint32_t words = ui.lastDlWords();
+        if (ok && ot::customFontsBound() && ot::customTextMode() == ot::kCustomGlyphs) {
+            const uint32_t limit = ui.dlFrameLimit();
+            ui.setDlFrameLimit(0);
+            ot::setCustomTextMode(ot::kCustomText);
+            ok = captureFrame(framesDir + "/" + name + ".text.otf", line);
+            ot::setCustomTextMode(ot::kCustomGlyphs);
+            ui.setDlFrameLimit(limit);
+            // The display shows the last frame sent: leave it showing the
+            // screen as drawn (a following fragcheck reads the front buffer).
+            ui.render();
+            advance(20);
+        }
+        if (ok) {
+            if (FILE* ix = std::fopen((framesDir + "/index.txt").c_str(), "a")) {
+                std::fprintf(ix, "%s %u\n", name.c_str(), unsigned(words));
+                std::fclose(ix);
+            }
+        }
+        seenFrames = ui.frames();
+        return ok;
     }
 
     // fragcheck NAME: the current screen drawn inline and through cached
