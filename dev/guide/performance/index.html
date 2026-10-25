@@ -521,6 +521,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#which-tracks-get-the-effects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which tracks get the effects
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1002,6 +1013,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#which-tracks-get-the-effects" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which tracks get the effects
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1072,12 +1094,17 @@ crossfader</strong>, a <strong>bank of 16 scenes</strong>, and <strong>master FX
 <li><strong>Rec</strong> (edit mode): <strong>Up / Down</strong> change a column's effect type, the encoder changes
   the value of the selected row. In the fork, a tapped row can be edited with the encoder
   without holding the pad.</li>
-<li><strong>The F keys</strong> turn the effects on or off per track (lit = on). <strong>Shift + F key</strong> mutes
+<li>
+<p><strong>The F keys</strong> turn the effects on or off per track (lit = on). <strong>Shift + F key</strong> mutes
   the track. <strong>Left / Right</strong> (outside edit mode) switch the F keys between tracks 1–8 and
-  9–16.</li>
-<li>Effect types include Volume, Panning, Tune, Low-pass / High-pass / Band-pass, Delay and
+  9–16. In the fork the F keys are <strong>remembered</strong>: leaving the screen and coming back keeps
+  them, and they're saved with the project (stock turns every track on again).</p>
+</li>
+<li>
+<p>Effect types include Volume, Panning, Tune, Low-pass / High-pass / Band-pass, Delay and
   Reverb send, Start / End pos, Direction, the LFOs, Repeater, Play mode, Length, Bit depth
-  and Overdrive, plus the fork's <strong>DJ filter</strong> and <strong>Tape stop</strong>.</li>
+  and Overdrive, plus the fork's <strong>DJ filter</strong> and <strong>Tape stop</strong>.</p>
+</li>
 </ul>
 <h2 id="scenes-and-the-crossfader">Scenes and the crossfader<a class="headerlink" href="#scenes-and-the-crossfader" title="Permanent link">&para;</a></h2>
 <p>A <strong>scene</strong> stores a row for every column. The crossfader's two ends, <strong>A</strong> and <strong>B</strong>,
@@ -1112,6 +1139,20 @@ each play a scene; the encoder (outside edit mode) or <strong>MIDI CC 63</strong
 </tr>
 </tbody>
 </table>
+<h3 id="which-tracks-get-the-effects">Which tracks get the effects<a class="headerlink" href="#which-tracks-get-the-effects" title="Permanent link">&para;</a></h3>
+<p>Storing a <strong>whole scene</strong> (Shift + Left / Right with no pad held) also stores which tracks
+have their effects on (the F keys). When that scene is loaded again, the F keys follow it:</p>
+<ul>
+<li>putting it on A or B (from the bank page or a song slot),</li>
+<li>moving the fader past the middle, to the scene on the other side.</li>
+</ul>
+<p>So a song can have the drums in the Repeater in the verse and everything in the chorus.
+A scene stored before (or cleared with Delete) carries no F keys and leaves them as they
+are. Tapping an F key while a scene plays works as usual; the scene's setting comes back the
+next time the scene is loaded or the fader crosses the middle. Storing only some columns
+(pads held) doesn't change a scene's F keys. While a scene is open for editing (bank page,
+<strong>F3 Edit</strong>), the F keys show and change that scene's tracks; going back saves them and
+your live F keys come back.</p>
 <h2 id="the-scene-bank">The scene bank<a class="headerlink" href="#the-scene-bank" title="Permanent link">&para;</a></h2>
 <p>Press <strong>Performance</strong> again on the Performance screen to open the <strong>scene bank page</strong>:
 16 scenes, with the ones on A and B marked.</p>
@@ -1162,8 +1203,8 @@ limiter), instead of on each track:</p>
 <p>Set them like any column: in edit mode, <strong>Down</strong> on a column cycles its type through to
 <strong>DJ filter</strong> and <strong>Tape stop</strong>.</p>
 <h2 id="saved-with-the-project">Saved with the project<a class="headerlink" href="#saved-with-the-project" title="Permanent link">&para;</a></h2>
-<p>The scene bank and the master FX types are stored in <code>perf_scenes.bin</code> next to
-<code>project.mt</code>. Stock firmware and the Tracker Mini see those columns as empty and ignore
+<p>The scene bank, the F keys (live and per scene) and the master FX types are stored in
+<code>perf_scenes.bin</code> next to <code>project.mt</code>. Stock firmware and the Tracker Mini see those columns as empty and ignore
 the scenes.</p>
 
 
