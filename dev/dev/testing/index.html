@@ -793,6 +793,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hardware-probes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hardware probes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#ci" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -963,6 +974,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#hardware-probes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hardware probes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#ci" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1069,6 +1091,45 @@ loads).</p>
 <li>On a device, the diag ring drops early boot lines. Send a byte on the CDC port to replay
   the boot log.</li>
 </ul>
+<h2 id="hardware-probes">Hardware probes<a class="headerlink" href="#hardware-probes" title="Permanent link">&para;</a></h2>
+<p>A test image built with <code>make OT_REMOTE_REGS=1</code> also answers register commands in drive
+mode, so hardware questions can be answered with a script instead of a special image.
+Release images (the default <code>OT_REMOTE_REGS=0</code>) answer every one of them with <code>FAIL</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Script command</th>
+<th>Does</th>
+<th>Limited to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>peek ADDR [N]</code></td>
+<td>read N (1..8) MCU words</td>
+<td>GPIO, PORT, SIM, SRAM, flash (other peripherals fault when their clock is off)</td>
+</tr>
+<tr>
+<td><code>poke ADDR VALUE</code></td>
+<td>write an MCU word</td>
+<td>a <code>PORTx_PCRn</code> switching between disabled and GPIO input: a pin can never be made to drive</td>
+</tr>
+<tr>
+<td><code>ftrd ADDR [N]</code></td>
+<td>read N (1..32) bytes of display memory</td>
+<td>the FT81x memory map</td>
+</tr>
+<tr>
+<td><code>ftwr ADDR VALUE [BYTES]</code></td>
+<td>write a display register</td>
+<td>the register block, not <code>REG_CPURESET</code> or the coprocessor's FIFO pointers</td>
+</tr>
+</tbody>
+</table>
+<p>Addresses and values are hex without <code>0x</code>; the rules are in <code>src/core/remote/remote.h</code>.
+Python scripts can call <code>Runner.peek</code> / <code>poke</code> / <code>ftrd</code> / <code>ftwr</code> from <code>tracker_remote.py</code>.
+<code>tools/int_n_probe.py</code> uses them to find out whether the FT81x <code>INT_N</code> pin reaches the MCU
+(it toggles the pin and reads every port, then restores everything).</p>
 <h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
 <p>Every push and pull request runs <code>.github/workflows/ci.yml</code>:</p>
 <table>
