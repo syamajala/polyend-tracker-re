@@ -109,8 +109,8 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$status" != 0 ]; then
-            grep -E "error:|\*\*\*|script:[0-9]+|FAIL|failed|mismatch" eve-check.log \
-              | grep -vE "^(g\+\+|ar) " | head -10 | while IFS= read -r line; do echo "::error::${line}"; done
+            # The sim's ALSA noise (no sound card on the runner) is not the error: the last lines are.
+            grep -v "^ALSA lib" eve-check.log | tail -15 | while IFS= read -r line; do echo "::error::${line}"; done
             exit 1
           fi
       - name: Upload the frames
