@@ -37,6 +37,12 @@ Script lines (the simulator's headless language, sim/README.md, plus checks;
                                 (ask=1 while a confirm dialog is open)
   if-text WORD COMMAND          run COMMAND only when some text on screen contains WORD
                                 (any case), e.g. "if-text Unsaved tap F7" for an optional prompt
+Register commands (images built with OT_REMOTE_REGS=1; hex, no 0x;
+src/core/remote/remote.h has the address rules):
+  peek ADDR [N]                 N (1..8) MCU words (GPIO, PORT, SIM, SRAM, flash)
+  poke ADDR VALUE               a PORTx_PCRn between disabled and GPIO input only
+  ftrd ADDR [N]                 N (1..32, default 4) bytes of display memory
+  ftwr ADDR VALUE [BYTES]       a 1/2/4-byte display register write (default 1)
   echo TEXT
 
 Everything the Tracker sends (including the periodic telemetry lines) is kept
@@ -335,6 +341,31 @@ class Runner:
         self.last = parse_status(got)
         return self.last
 
+    def register(self, line, op):
+        """A register command (remote.h "@RC PEEK" / POKE / FTRD / FTWR): its
+        answer's fields after the op name; Fail on "FAIL" or no answer."""
+        start = self.link.mark()
+        self.link.send("@RC " + line)
+        got, _ = self.link.wait_for(lambda p: p.startswith(op + " "), 5.0, start)
+        if got is None:
+            raise Fail("no answer to %r" % line)
+        fields = got.split()[1:]
+        if fields and fields[0] == "FAIL":
+            raise Fail("refused: %r (image built without OT_REMOTE_REGS=1, or the address rules)" % line)
+        return fields
+
+    def peek(self, addr, n=1):
+        return [int(w, 16) for w in self.register("PEEK %X %X" % (addr, n), "PEEK")[1:]]
+
+    def poke(self, addr, value):
+        self.register("POKE %X %X" % (addr, value), "POKE")
+
+    def ftrd(self, addr, n=4):
+        return bytes.fromhex(self.register("FTRD %X %X" % (addr, n), "FTRD")[1])
+
+    def ftwr(self, addr, value, nbytes=1):
+        self.register("FTWR %X %X %X" % (addr, value, nbytes), "FTWR")
+
     def check(self, ok, what):
         if ok:
             print("ok    " + what)
@@ -501,6 +532,20 @@ class Runner:
             # the word: an optional prompt, e.g. "if-text Unsaved tap F7".
             if any(args[0].lower() in t[3].lower() for t in self.texts()):
                 self.run(" ".join(args[1:]))
+        elif op == "peek":
+            addr = int(args[0], 16)
+            words = self.peek(addr, int(args[1]) if len(args) > 1 else 1)
+            print("peek  %08X  %s" % (addr, " ".join("%08X" % w for w in words)))
+        elif op == "poke":
+            self.poke(int(args[0], 16), int(args[1], 16))
+            print("poke  %s %s" % (args[0], args[1]))
+        elif op == "ftrd":
+            addr = int(args[0], 16)
+            data = self.ftrd(addr, int(args[1]) if len(args) > 1 else 4)
+            print("ftrd  %06X  %s" % (addr, data.hex()))
+        elif op == "ftwr":
+            self.ftwr(int(args[0], 16), int(args[1], 16), int(args[2]) if len(args) > 2 else 1)
+            print("ftwr  %s %s" % (args[0], args[1]))
         elif op == "echo":
             print(" ".join(args))
         else:

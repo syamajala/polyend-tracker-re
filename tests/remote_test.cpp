@@ -2,6 +2,7 @@
 // device-side bridge between the panel drivers and the App.
 #include <cstring>
 #include <deque>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -396,9 +397,11 @@ std::vector<uint8_t> unbase64(const std::string& s) {
     }
     return out;
 }
+struct FakeMcu;
 struct HostSide {
     std::vector<std::string> sent;
     bool room = true;
+    FakeMcu* mcu = nullptr;   // remote_register_commands
     static DeviceBridge::Io io(HostSide* s) {
         DeviceBridge::Io o;
         o.send = [](void* c, const char* l) { static_cast<HostSide*>(c)->sent.push_back(l); };
@@ -899,4 +902,156 @@ TEST(remote_drive_frame_export) {
     host.sent.clear();
     send("@RC FRAME");
     CHECK(!host.sent.empty() && host.sent.back() == "@RC F FAIL");
+}
+
+// Register commands (hardware probes over the remote): the line forms and
+// their limits.
+TEST(remote_register_parse) {
+    Msg m;
+    CHECK(parse("@RC PEEK 400FF010 5", m));
+    CHECK_EQ(int(m.kind), int(Msg::kPeek));
+    CHECK_EQ(m.addr, 0x400FF010u);
+    CHECK_EQ(int(m.count), 5);
+    CHECK(parse("x @RC POKE 4004b010 00000100", m));   // inside a log line, lower-case hex
+    CHECK_EQ(int(m.kind), int(Msg::kPoke));
+    CHECK_EQ(m.addr, 0x4004B010u);
+    CHECK_EQ(m.value, 0x100u);
+    CHECK(parse("@RC FTRD 302000 4", m));
+    CHECK_EQ(int(m.kind), int(Msg::kFtRead));
+    CHECK(parse("@RC FTWR 30209C 8200 2", m));
+    CHECK_EQ(int(m.kind), int(Msg::kFtWrite));
+    CHECK_EQ(m.value, 0x8200u);
+    CHECK_EQ(int(m.count), 2);
+    CHECK(!parse("@RC PEEK 400FF010", m));            // count missing
+    CHECK(!parse("@RC PEEK 0x400FF010 1", m));        // no 0x
+    CHECK(!parse("@RC PEEK 1400FF0100 1", m));        // more than 32 bits
+    CHECK(!parse("@RC POKE 4004B010 100 7", m));      // trailing garbage
+    CHECK(!parse("@RC FTWR 30209C 8200", m));         // width missing
+    CHECK(!parse("@RC FTRD 302000 0", m));
+}
+
+TEST(remote_register_rules) {
+    CHECK(mcuReadAllowed(0x400FF010u, 1));            // GPIOA_PDIR
+    CHECK(mcuReadAllowed(0x400FF100u, 8));            // GPIOE
+    CHECK(mcuReadAllowed(0x4004D07Cu, 1));            // PORTE_PCR31
+    CHECK(mcuReadAllowed(0x20000000u, 8));            // SRAM_U
+    CHECK(!mcuReadAllowed(0x400FF011u, 1));           // unaligned
+    CHECK(!mcuReadAllowed(0x400FF13Cu, 2));           // runs past GPIOE
+    CHECK(!mcuReadAllowed(0x4002C000u, 1));           // SPI0: its clock may be off
+    CHECK(!mcuReadAllowed(0x70000000u, 1));           // SDRAM (FlexBus): not listed
+    CHECK(!mcuReadAllowed(0x400FF010u, 9));           // too many
+    // PCR: disabled <-> GPIO input only, nothing else may change.
+    CHECK(pcrWriteAllowed(0x4004B010u, 0x00000000u, 0x00000100u, false));
+    CHECK(pcrWriteAllowed(0x4004B010u, 0x00000103u, 0x00000003u, false));   // back, pull-up bits kept
+    CHECK(!pcrWriteAllowed(0x4004B010u, 0x00000000u, 0x00000100u, true));   // the pin is an output
+    CHECK(!pcrWriteAllowed(0x4004B010u, 0x00000000u, 0x00000200u, false));  // ALT2: a peripheral
+    CHECK(!pcrWriteAllowed(0x4004B010u, 0x00000200u, 0x00000100u, false));  // from a peripheral
+    CHECK(!pcrWriteAllowed(0x4004B010u, 0x00000000u, 0x00000103u, false));  // pull bits too
+    CHECK(!pcrWriteAllowed(0x4004B080u, 0x0u, 0x100u, false));               // GPCLR, not a PCR
+    CHECK(!pcrWriteAllowed(0x400FF014u, 0x0u, 0x100u, false));               // GPIO, not a PORT
+    // Display: reads anywhere in the map, writes only to ordinary registers.
+    CHECK(ftReadAllowed(0x302000u, 4));
+    CHECK(ftReadAllowed(0x3FFFE0u, 32));
+    CHECK(!ftReadAllowed(0x3FFFF0u, 32));
+    CHECK(!ftReadAllowed(0x302000u, 33));
+    CHECK(ftWriteAllowed(0x30209Cu, 2));              // REG_GPIOX
+    CHECK(ftWriteAllowed(0x3020ACu, 4));              // REG_INT_EN
+    CHECK(!ftWriteAllowed(0x3020ADu, 4));             // unaligned
+    CHECK(!ftWriteAllowed(0x302020u, 1));             // REG_CPURESET
+    CHECK(!ftWriteAllowed(0x3020FCu, 2));             // REG_CMD_WRITE
+    CHECK(!ftWriteAllowed(0x302100u, 4));             // REG_CMD_DL
+    CHECK(!ftWriteAllowed(0x300000u, 4));             // RAM_DL
+    CHECK(!ftWriteAllowed(0x308000u, 4));             // RAM_CMD
+}
+
+namespace {
+// MCU memory for the register commands: a sparse word map.
+struct FakeMcu {
+    std::map<uint32_t, uint32_t> mem;
+    std::vector<std::pair<uint32_t, uint32_t>> pokes;
+    static void wire(DeviceBridge::Io& o, FakeMcu* m) {
+        o.peek = [](void* c, uint32_t a, uint32_t* v) {
+            auto& mm = static_cast<HostSide*>(c)->mcu->mem;
+            *v = mm.count(a) ? mm[a] : 0;
+            return true;
+        };
+        o.poke = [](void* c, uint32_t a, uint32_t v) {
+            FakeMcu* f = static_cast<HostSide*>(c)->mcu;
+            f->mem[a] = v;
+            f->pokes.push_back({a, v});
+            return true;
+        };
+        o.pcrState = [](void* c, uint32_t a, uint32_t* pcr, bool* out) {
+            auto& mm = static_cast<HostSide*>(c)->mcu->mem;
+            *pcr = mm.count(a) ? mm[a] : 0;
+            *out = false;
+            return true;
+        };
+        (void)m;
+    }
+};
+}  // namespace
+
+TEST(remote_register_commands) {
+    Harness h;
+    App& a = *h.app;
+    FakePanel panel;
+    PadLedsFake leds;
+    HostSide host;
+    FakeMcu mcu;
+    host.mcu = &mcu;
+    DeviceBridge::Io io = HostSide::io(&host);
+    auto send = [](DeviceBridge& b, const char* l) {
+        std::string s = std::string(l) + "\n";
+        b.rx(s.data(), s.size(), 1);
+    };
+    // A release image: no MCU hooks, a display without debug access.
+    {
+        DeviceBridge b(panel, leds, io);
+        b.setEnabled(true);
+        a.setRemoteBridge(&b);
+        h.run(5);
+        send(b, "@RC DRIVE");
+        host.sent.clear();
+        send(b, "@RC PEEK 400FF010 1");
+        send(b, "@RC POKE 4004B010 100");
+        send(b, "@RC FTRD 302000 1");
+        send(b, "@RC FTWR 30209C 8200 2");
+        CHECK_EQ(host.sent.size(), size_t(4));
+        for (const std::string& l : host.sent) CHECK(l.find(" FAIL ") != std::string::npos);
+        a.setRemoteBridge(nullptr);
+    }
+    // A test image.
+    FakeMcu::wire(io, &mcu);
+    h.disp.debugAccess = true;
+    DeviceBridge b(panel, leds, io);
+    b.setEnabled(true);
+    a.setRemoteBridge(&b);
+    h.run(5);   // App::serviceRemote hands the bridge the display
+    send(b, "@RC PEEK 400FF010 1");   // outside drive mode: ignored
+    CHECK(host.sent.empty() || host.sent.back().find("PEEK") == std::string::npos);
+    send(b, "@RC DRIVE");
+    mcu.mem[0x400FF010u] = 0x00012345u;
+    mcu.mem[0x400FF014u] = 0xCAFEu;
+    host.sent.clear();
+    send(b, "@RC PEEK 400FF010 2");
+    CHECK_STR(host.sent.back().c_str(), "@RC PEEK 400FF010 00012345 0000CAFE");
+    send(b, "@RC PEEK 4002C000 1");   // not an allowed range: the hook is never called
+    CHECK_STR(host.sent.back().c_str(), "@RC PEEK FAIL 4002C000");
+    send(b, "@RC POKE 4004B010 00000100");
+    CHECK_STR(host.sent.back().c_str(), "@RC POKE OK 4004B010 00000100");
+    CHECK_EQ(mcu.pokes.size(), size_t(1));
+    send(b, "@RC POKE 4004B010 00000200");   // GPIO -> ALT2: refused, not written
+    CHECK_STR(host.sent.back().c_str(), "@RC POKE FAIL 4004B010");
+    CHECK_EQ(mcu.pokes.size(), size_t(1));
+    h.disp.debugMem[0x302000u] = 0x7C;
+    send(b, "@RC FTRD 302000 2");
+    CHECK_STR(host.sent.back().c_str(), "@RC FTRD 302000 7C00");
+    send(b, "@RC FTWR 30209C 8200 2");
+    CHECK_STR(host.sent.back().c_str(), "@RC FTWR OK 30209C 00008200");
+    CHECK_EQ(int(h.disp.debugMem[0x30209Cu]), 0x00);
+    CHECK_EQ(int(h.disp.debugMem[0x30209Du]), 0x82);
+    send(b, "@RC FTWR 3020FC 0 2");   // REG_CMD_WRITE belongs to the driver
+    CHECK_STR(host.sent.back().c_str(), "@RC FTWR FAIL 003020FC");
+    a.setRemoteBridge(nullptr);
 }

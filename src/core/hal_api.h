@@ -161,6 +161,20 @@ public:
         (void)ramgAddr; (void)src; (void)len;
         return false;
     }
+    // [I] Debug access for the remote control's register commands ("@RC
+    // FTRD" / "@RC FTWR", remote.h; images built with OT_REMOTE_REGS=1):
+    // `len` raw bytes of display memory at `addr`, or a 1/2/4-byte register
+    // write. The caller checks the address rules (remote::ftReadAllowed /
+    // ftWriteAllowed). Main loop only, never between dlStart() and swap().
+    // Default: refused.
+    virtual bool debugRead(uint32_t addr, uint8_t* dst, uint32_t len) {
+        (void)addr; (void)dst; (void)len;
+        return false;
+    }
+    virtual bool debugWrite(uint32_t addr, uint32_t value, uint8_t bytes) {
+        (void)addr; (void)value; (void)bytes;
+        return false;
+    }
     // Display-list draw of a w x h RGB332 bitmap (FT81x format 4, stride w)
     // at RAM_G ramgAddr, magnified `scale` times with nearest filtering
     // (BITMAP_TRANSFORM_A/E = 256 / scale), top-left at pixel (x, y). The
