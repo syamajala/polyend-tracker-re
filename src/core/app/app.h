@@ -460,6 +460,12 @@ public:
     // folder receiving track1..8/reverb/delay/master.wav.
     enum class ExportKind : uint8_t { Song, Pattern, Selection };
     bool exportAudio(ExportKind kind, const char* path, const SelRect* sel = nullptr, bool stems = false);
+    // [I] #51: song exports render the song slots' Performance scenes and
+    // ramps (File > Export, F7; session setting, On by default). Stems get the
+    // per-track FX only; the master FX (DJ filter, tape stop) go on the mix.
+    bool exportPerfFx = true;
+    // True while a stems export renders (the master FX stay off).
+    bool exportingStems() const { return rendering_ && job_.stems; }
     // First free Export/<proj>/... name (.wav file, or a folder for stems).
     bool exportName(ExportKind kind, char* out, int cap, bool stems = false);
     bool rendering() const { return rendering_; }
@@ -667,6 +673,8 @@ private:
         ExportKind kind = ExportKind::Pattern;
         const SelRect* sel = nullptr;
         bool started = false;
+        bool stems = false;
+        bool perf = false;   // [I] #51: the song's scenes and ramps are rendered
         uint32_t blocks = 0, tail = 0;
         int songLen = 0;
     } job_;

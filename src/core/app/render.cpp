@@ -239,9 +239,14 @@ bool App::exportRunning(void* ctx) {
                 else a.seq.play(0);
                 break;
         }
+        if (j.perf) a.serviceSongScenes();   // [I] #51: the first slot's scene
         return true;
     }
     ++j.blocks;
+    if (j.perf) {
+        a.serviceSongScenes();   // [I] #51: slot starts and ramps, as in playback
+        a.serviceTapeStop();
+    }
     if ((j.blocks % kPollBlocks) == 0 && pollCancel(a)) return false;
     if ((j.blocks & 1023) == 0) {
         const int pct = j.kind == ExportKind::Song && j.songLen ? a.seq.songPosition() * 100 / j.songLen
@@ -272,6 +277,12 @@ bool App::exportAudio(ExportKind kind, const char* path, const SelRect* sel, boo
     job_ = ExportJob{};
     job_.kind = kind;
     job_.sel = sel;
+    job_.stems = stems;
+    // [I] #51: only a song plays slots (a pattern export has no scenes); the
+    // live fader and pad rows were reverted above, so only the song counts.
+    job_.perf = kind == ExportKind::Song && exportPerfFx && perfCc;
+    songScenePlaying_ = false;
+    songSceneEnds_ = 0;
     while (job_.songLen < kSongSlots && project.playlist[job_.songLen]) ++job_.songLen;
     if (!stems) {
         char dir[256];
@@ -286,6 +297,7 @@ bool App::exportAudio(ExportKind kind, const char* path, const SelRect* sel, boo
     const uint32_t maxBlocks = uint32_t(uint64_t(kMaxSeconds) * 44100 / kBlock);
     const int32_t n = engine.exportWav(fs(), path, stems, maxBlocks, &App::exportRunning, this);
     seq.stop();
+    if (job_.perf) perfCc->perfRevertKept();   // [I] #51: the song's scenes end with the render
     seq.setRendering(false);
     allVoicesOff();
     engine.clearEffects();

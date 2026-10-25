@@ -345,6 +345,8 @@ void FileScreen::refreshBar() {
         b.setName(3, "Export", "Patt Stems");   // [S snap 027]
         b.setName(4, "Export", "As .it");
         b.setName(5, "Export", "Samples");
+        // [I] #51: song exports with the song slots' Performance scenes / ramps.
+        b.set(6, "Perf FX", app_.exportPerfFx ? "On" : "Off");
         b.set(7, "Back");
         // Two-line grey set (+0x44): both lines font 3, drawn by draw()
         // [S snap 027]; the labels keep their text and enable state.
@@ -771,6 +773,9 @@ void FileScreen::onButton(uint8_t id, uint8_t st) {
     } else if (state == 4) {
         if (id == btn::F8) {
             state = 0;
+        } else if (id == btn::F7) {
+            a.exportPerfFx = !a.exportPerfFx;   // [I] #51
+            refreshBar();
         } else if (id == btn::F1 || id == btn::F2 || id == btn::F3 || id == btn::F4) {
             // spec 05 §2.12 / spec 04 §6.1 modes 0..3: song, song stems, pattern, pattern stems.
             exportMode_ = id;

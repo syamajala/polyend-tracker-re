@@ -51,4 +51,16 @@ Moving the fader yourself takes over until the next slot.
 ## Saved with the project
 
 Counts, scenes and ramps are stored in `song.bin` next to `project.mt`. Stock firmware
-plays every slot once, without scenes. Song exports still render without Performance FX.
+plays every slot once, without scenes.
+
+## Exporting
+
+**File > Export > Song** and **Song Stems** render the slots' scenes and ramps the way
+playback does. **F7 Perf FX** on the Export page turns this **On / Off** (On after every
+power-on); Off gives the stock export without Performance FX.
+
+- Stems get each track's Performance FX. The master FX (DJ filter, tape stop) act on the
+  whole mix, so only the full-mix export (**Song**) has them.
+- Only what the song stores is rendered: where the fader or the pads were when you pressed
+  Export doesn't matter, so the same song always exports the same way.
+- Pattern exports play no song slots, so they render without scenes.

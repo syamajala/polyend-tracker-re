@@ -304,6 +304,7 @@ void PerformanceScreen::applyAll(bool revertEverything) {
         if (src.type(s) == perf::kDjFilter) djFilter = cur[s];
         if (src.type(s) == perf::kTapeStop) tapeStop = cur[s];
     }
+    if (a.exportingStems()) djFilter = tapeStop = 0;   // [I] #51: master FX only on a full-mix export
     a.engine.setMasterDjFilter(djFilter);
     a.setTapeStop(tapeStop);
     for (int t = 0; t < kTrackCount; ++t) {
