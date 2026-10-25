@@ -630,6 +630,7 @@ void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
                 pending_[t] = 0;
             } else if (!keyUsed_[k]) {
                 setFxOff(uint16_t(a.project.perfFxOff ^ (1u << t)));
+                if (view == View::EditScene) editFxTouched_ = true;   // [I] #54: the edited scene's toggles
                 a.markProjectDirty();
                 applyAll(false);   // enable = apply the active slots, disable = revert
             }
@@ -995,6 +996,11 @@ void PerformanceScreen::editSceneStart(int scene) {
         liveValid[c] = false;
         held_[c] = false;
     }
+    // [I] #54: the F keys show and edit the scene's FX toggles (the live
+    // ones when it has none); the live toggles come back after.
+    savedFxOff_ = app_.project.perfFxOff;
+    editFxTouched_ = false;
+    if (app_.project.sceneHasFx(scene)) setFxOff(app_.project.perfSceneFxOff[scene]);
     applyAll(false);
     editScene = scene;
     view = View::EditScene;
@@ -1011,6 +1017,14 @@ void PerformanceScreen::editSceneEnd() {
             cur[c] = padValue(c);
             liveValid[c] = false;
         }
+        // [I] #54: F keys changed while editing are the scene's toggles; a
+        // scene without toggles whose keys weren't touched stays "-".
+        if (editFxTouched_ || a.project.sceneHasFx(editScene)) {
+            a.project.perfSceneFxOff[editScene] = a.project.perfFxOff;
+            a.project.perfSceneFxSet = uint16_t(a.project.perfSceneFxSet | (1u << editScene));
+        }
+        setFxOff(savedFxOff_);
+        fxKey_ = -1;   // the scenes on A / B apply their (maybe edited) toggles again
         a.markProjectDirty();
         char msg[32];
         std::snprintf(msg, sizeof(msg), "Scene %d saved", editScene + 1);

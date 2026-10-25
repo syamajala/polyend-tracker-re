@@ -743,6 +743,8 @@ private:
     void bankButton(uint8_t id, uint8_t state);
     void drawBank(Gfx& g);
     uint8_t savedRows_[12] = {};   // [I] the pad rows before a scene was opened for editing
+    uint16_t savedFxOff_ = 0;      // [I] #54: the live FX toggles while a scene is edited
+    bool editFxTouched_ = false;   // [I] #54: an F key was tapped while editing the scene
     bool held_[12] = {};
     bool keyHeld_[8] = {};   // per F key
     bool keyUsed_[8] = {};

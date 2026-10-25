@@ -186,3 +186,39 @@ TEST(perf_fx_toggles_song_slot_applies_scene) {
     p.perfSongSlot(0);     // the next slot start with the same scene: applied again
     CHECK(!p.fxOn[4]);
 }
+
+// Editing a scene (bank page, F3 Edit): the F keys edit that scene's
+// toggles; leaving saves them and puts the live toggles back (user report:
+// the scene on B kept its old toggles after being edited).
+TEST(perf_fx_toggles_edit_scene) {
+    Rig r;
+    App& a = r.a();
+    PerformanceScreen& p = r.p();
+    r.h.pad(12 * 1 + 0);
+    r.store(0);            // scene 1 on A: all on
+    r.h.pad(12 * 2 + 0);
+    r.store(1);            // scene 2 on B: all on
+    r.h.tap(btn::Performance);   // bank page
+    r.h.tap(btn::Right);         // scene 2
+    r.h.tap(btn::F3);            // Edit
+    CHECK(p.view == PerformanceScreen::View::EditScene);
+    r.h.tap(btn::F4);            // track 4 off in scene 2
+    CHECK(!p.fxOn[3]);
+    r.h.tap(btn::Performance);   // back to the bank: saved
+    CHECK(a.project.sceneHasFx(1));
+    CHECK_EQ(a.project.perfSceneFxOff[1], 0x0008);
+    CHECK(p.fxOn[3]);            // the live toggles are back
+    CHECK_EQ(a.project.perfFxOff, 0);
+    r.h.tap(btn::F8);            // playing
+    r.fade(70);                  // B: scene 2's edited toggles
+    CHECK(!p.fxOn[3]);
+    r.fade(20);                  // A: all on
+    CHECK(p.fxOn[3]);
+    // Editing a scene without toggles and not touching the F keys keeps "-".
+    p.clearSceneFx(0);
+    r.h.tap(btn::Performance);
+    r.h.tap(btn::Left);          // scene 1
+    r.h.tap(btn::F3);
+    r.h.tap(btn::Performance);
+    CHECK(!a.project.sceneHasFx(0));
+}
