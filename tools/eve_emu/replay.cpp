@@ -107,6 +107,9 @@ int main(int argc, char** argv) {
     }
     BT8XXEMU_EmulatorParameters p;
     BT8XXEMU_defaults(BT8XXEMU_VERSION_API, &p, BT8XXEMU_EmulatorFT813);
+    // Only the coprocessor: no audio (a CI runner has no audio device and the
+    // emulator crashes looking for one), keyboard, mouse or frame skipping.
+    p.Flags = BT8XXEMU_EmulatorEnableCoprocessor;
     p.Graphics = graphics;
     p.Log = logcb;
     BT8XXEMU_run(BT8XXEMU_VERSION_API, &E, &p);
