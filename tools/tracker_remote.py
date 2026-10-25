@@ -536,6 +536,9 @@ def main():
     runner.stop_on_fail = a.stop_on_fail
     try:
         link.connect()
+        # The image under test (#60): on the terminal, and in --log with
+        # the status line it came from.
+        print("build %s" % runner.status().get("build", "unknown"))
         for path in a.scripts:
             with open(path) as f:
                 runner.run_text(f.read())

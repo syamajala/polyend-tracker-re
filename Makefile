@@ -141,13 +141,23 @@ $(patsubst %,$(BUILD)/%.o,$(DPROMO)): WARN := -Wdouble-promotion
 
 all: $(BUILD)/opentracker.hex $(PTF)
 
+# The git commit, shown in Config > Firmware and the boot log
+# (src/core/build_id.h). Only build_id.cpp sees it: the stamp file changes
+# when the hash does, so that one file recompiles (unlike VERSION, which
+# needs `make clean`).
+BUILD_HASH := $(shell git describe --always --dirty --abbrev=7 --exclude '*' 2>/dev/null || echo unknown)
+HASH_STAMP := $(BUILD)/build_hash.txt
+$(shell mkdir -p $(BUILD); [ "$$(cat $(HASH_STAMP) 2>/dev/null)" = '$(BUILD_HASH)' ] || printf '%s' '$(BUILD_HASH)' > $(HASH_STAMP))
+$(BUILD)/src/core/build_id.cpp.o: $(HASH_STAMP)
+$(BUILD)/src/core/build_id.cpp.o: HASHDEF := -DOT_BUILD_HASH=\"$(BUILD_HASH)\"
+
 $(BUILD)/%.c.o: %.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(OPT) $(WARN) -c $< -o $@
 
 $(BUILD)/%.cpp.o: %.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(OPT) $(WARN) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(OPT) $(WARN) $(HASHDEF) -c $< -o $@
 
 $(BUILD)/opentracker.elf: $(OBJS) $(LDSCRIPT)
 	$(CXX) $(LDFLAGS) $(OBJS) -L$(CORE) $(LIBS) -o $@ -Wl,-Map=$(BUILD)/opentracker.map
