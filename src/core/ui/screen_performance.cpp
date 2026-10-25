@@ -110,10 +110,13 @@ void PerformanceScreen::engage() {
     }
     // Step 3: FX enabled on every track. 2.x tracks 9-16 take the FX too
     // but have no pattern override (the Tracker Mini stores 1-8 only).
+    // [I] #54: the toggles are remembered (Project::perfFxOff, saved with
+    // the project) instead of every track starting on.
     for (int t = 0; t < kTrackCount; ++t) {
-        fxOn[t] = true;
+        fxOn[t] = !((a.project.perfFxOff >> t) & 1u);
         pending_[t] = 0;
     }
+    fxKey_ = -1;
     fader = 0;   // [I] scenes: the crossfader starts at A, applied on its first move
     a.seq.setPerformanceMode(true);   // step 4
 }
@@ -213,6 +216,7 @@ void PerformanceScreen::perfSongSlot(int slot) {
     a.project.perfSceneOn[0] = uint8_t(sc - 1);
     if (to) a.project.perfSceneOn[1] = uint8_t(to - 1);
     fader = 0;
+    fxKey_ = -1;   // [I] #54: every slot start applies the scene's toggles again
     if (!editing) applyScenes();
     ui_.dirty();
 }
@@ -625,7 +629,8 @@ void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
                 trackPatternQueued(t, pending_[t]);
                 pending_[t] = 0;
             } else if (!keyUsed_[k]) {
-                fxOn[t] = !fxOn[t];
+                setFxOff(uint16_t(a.project.perfFxOff ^ (1u << t)));
+                a.markProjectDirty();
                 applyAll(false);   // enable = apply the active slots, disable = revert
             }
         }
@@ -850,6 +855,12 @@ void PerformanceScreen::storeScene(int scene) {
         ++count;
         last = s;
     }
+    if (!any) {   // [I] #54: a whole-scene store also keeps the FX toggles
+        const int i = a.project.perfSceneOn[scene ? 1 : 0] % Project::kPerfScenes;
+        a.project.perfSceneFxOff[i] = a.project.perfFxOff;
+        a.project.perfSceneFxSet = uint16_t(a.project.perfSceneFxSet | (1u << i));
+        fxKey_ = -1;
+    }
     a.markProjectDirty();
     char msg[64];
     const int num = a.project.perfSceneOn[scene ? 1 : 0] + 1;   // [I] the bank scene on A / B
@@ -931,6 +942,7 @@ void PerformanceScreen::clearScene(int scene) {
     for (bool h : held_) any = any || h;
     for (int s = 0; s < perf::kSlots; ++s)
         if (!any || held_[s]) a.project.sceneOn(scene)[s] = 0;
+    if (!any) clearSceneFx(a.project.perfSceneOn[scene ? 1 : 0]);   // [I] #54: back to "-"
     a.markProjectDirty();
     if (perfFaderUsed(a.project)) {
         applyScenes();
@@ -962,6 +974,7 @@ void PerformanceScreen::setSceneOn(int ab, int scene) {
     releaseDriven();
     a.project.perfSceneOn[ab ? 1 : 0] = uint8_t(clampi(scene, 0, Project::kPerfScenes - 1));
     a.markProjectDirty();
+    fxKey_ = -1;   // [I] #54: a scene put on A / B applies its toggles
     if (perfFaderUsed(a.project)) applyScenes();
     else applyAll(false);
     char msg[32];
@@ -1015,6 +1028,7 @@ void PerformanceScreen::clearBankScene(int scene) {
     const bool playing = scene == a.project.perfSceneOn[0] || scene == a.project.perfSceneOn[1];
     if (playing) releaseDriven();
     std::memset(a.project.perfScene[scene], 0, sizeof(a.project.perfScene[scene]));
+    clearSceneFx(scene);   // [I] #54
     a.markProjectDirty();
     if (playing) {
         if (perfFaderUsed(a.project)) applyScenes();
@@ -1041,6 +1055,20 @@ void PerformanceScreen::bankButton(uint8_t id, uint8_t state) {
     }
     refreshBar();
     ui_.dirty();
+}
+
+// [I] #54: the per-track FX toggles (bit t = track t+1 off), live and saved.
+void PerformanceScreen::setFxOff(uint16_t off) {
+    app_.project.perfFxOff = off;
+    for (int t = 0; t < kTrackCount; ++t) fxOn[t] = !((off >> t) & 1u);
+    refreshBar();
+}
+
+void PerformanceScreen::clearSceneFx(int scene) {
+    Project& p = app_.project;
+    p.perfSceneFxSet = uint16_t(p.perfSceneFxSet & ~(1u << (scene % Project::kPerfScenes)));
+    p.perfSceneFxOff[scene % Project::kPerfScenes] = 0;
+    fxKey_ = -1;
 }
 
 void PerformanceScreen::setFader(int x) {
@@ -1111,6 +1139,18 @@ void PerformanceScreen::applyScenes() {
         } else {
             const Pick& at = toB ? (fb.slot >= 0 ? fb : fa) : (fa.slot >= 0 ? fa : fb);
             place(at, lerp100(fa.slot >= 0 ? fa.v : 0, fb.slot >= 0 ? fb.v : 0, x));
+        }
+    }
+    // [I] #54: the FX toggles of the scene the fader is on (A below the
+    // middle, B from it), when that scene carries toggles; a scene with "-"
+    // leaves them. Applied once per change of that scene, so a track key
+    // tapped meanwhile keeps its effect until then.
+    {
+        const int i = p.perfSceneOn[toB ? 1 : 0] % Project::kPerfScenes;
+        const int key = p.sceneHasFx(i) ? i * 2 + (toB ? 1 : 0) : -1;
+        if (key != fxKey_) {
+            fxKey_ = key;
+            if (key >= 0) setFxOff(p.perfSceneFxOff[i]);
         }
     }
     // Slots of an involved type that the blend did not pick are off; FX in

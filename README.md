@@ -82,15 +82,20 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   - Shortcuts while playing: **Shift + Left / Right** store the pad rows into the scene on
     A / B, **Delete + Left / Right** clear it; hold pads to store or clear only those columns.
   - Rows of the scene on A are marked red, on B blue, and the pad LEDs follow the fader.
+  - A whole-scene store also keeps which tracks have their FX on (the F keys); loading the
+    scene, or the fader crossing to it, switches them, so arrangements can move tracks in
+    and out of the FX.
   - **Left / Right** (outside edit mode) switch the F keys between tracks 1–8 and 9–16
     (stock 2.x used the Performance key).
+- **The per-track FX toggles (F keys) are remembered** across visits and saved with the
+  project (stock turns every track on again each time).
 - **Master insert FX**, played like any other Performance column:
   - **DJ filter:** one filter on the whole mix; below 0 a low-pass sweeping down, above 0 a
     high-pass sweeping up.
   - **Tape stop:** hold its pad and the whole mix slows to a stop over 1 or 2 steps, beats
     or bars; release and it spins back up.
 - In edit mode, a tapped row's value can be changed with the encoder without holding the pad.
-- The scene bank and the master FX types are stored in `perf_scenes.bin` next to `project.mt`;
+- The scene bank, the FX toggles and the master FX types are stored in `perf_scenes.bin` next to `project.mt`;
   stock firmware sees those slots as empty.
 
 ### Song mode

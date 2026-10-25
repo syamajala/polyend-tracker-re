@@ -10,6 +10,7 @@ bool perfScenesUsed(const Project& p) {
             if (r) return true;
     for (uint8_t t : p.perfExtType)
         if (t) return true;
+    if (p.perfFxOff || p.perfSceneFxSet) return true;
     return p.perfSceneOn[0] != 0 || p.perfSceneOn[1] != 1;
 }
 
@@ -46,6 +47,15 @@ void encodePerfScenes(const Project& p, uint8_t out[pscn::kFileSize]) {
     ab[0] = p.perfSceneOn[0];
     ab[1] = p.perfSceneOn[1];
     ab[2] = sum8(ab, 2);
+    uint8_t* fx = out + pscn::kAbEnd;
+    auto put16 = [&](int i, uint16_t v) {
+        fx[2 * i] = uint8_t(v & 0xFF);
+        fx[2 * i + 1] = uint8_t(v >> 8);
+    };
+    put16(0, p.perfFxOff);
+    put16(1, p.perfSceneFxSet);
+    for (int i = 0; i < Project::kPerfScenes; ++i) put16(2 + i, p.perfSceneFxOff[i]);
+    fx[pscn::kFxBytes] = sum8(fx, pscn::kFxBytes);
 }
 
 FmtStatus decodePerfScenes(const uint8_t* file, size_t len, Project& p) {
@@ -53,6 +63,9 @@ FmtStatus decodePerfScenes(const uint8_t* file, size_t len, Project& p) {
     std::memset(p.perfExtType, 0, sizeof(p.perfExtType));
     p.perfSceneOn[0] = 0;
     p.perfSceneOn[1] = 1;
+    p.perfFxOff = 0;
+    std::memset(p.perfSceneFxOff, 0, sizeof(p.perfSceneFxOff));
+    p.perfSceneFxSet = 0;
     if (len < pscn::kHeaderSize) return FmtStatus::TooShort;
     if (std::memcmp(file, "OTPS", 4) != 0 || file[4] < 3) return FmtStatus::BadMagic;
     const uint32_t scenes = file[5], slots = file[6];
@@ -74,6 +87,14 @@ FmtStatus decodePerfScenes(const uint8_t* file, size_t len, Project& p) {
     if (len >= ab + 3 && sum8(file + ab, 2) == file[ab + 2]) {
         if (file[ab] < Project::kPerfScenes) p.perfSceneOn[0] = file[ab];
         if (file[ab + 1] < Project::kPerfScenes) p.perfSceneOn[1] = file[ab + 1];
+    }
+    // The FX toggles (version 4).
+    const size_t fx = ab + 3;
+    if (file[4] >= 4 && len >= fx + pscn::kFxBytes + 1 && sum8(file + fx, pscn::kFxBytes) == file[fx + pscn::kFxBytes]) {
+        auto get16 = [&](int i) { return uint16_t(file[fx + 2 * i] | (file[fx + 2 * i + 1] << 8)); };
+        p.perfFxOff = get16(0);
+        p.perfSceneFxSet = get16(1);
+        for (int i = 0; i < Project::kPerfScenes; ++i) p.perfSceneFxOff[i] = get16(2 + i);
     }
     return FmtStatus::Ok;
 }
