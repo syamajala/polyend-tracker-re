@@ -136,6 +136,12 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 - **Config > General > Note names: Sharps / Flats / Auto.** Auto spells the project's scale
   correctly, modes included (C Mixolydian shows Bb, not A#). Display only.
 
+### Piano pads
+- **Config > General > Pad layout: Stock / Piano.** Piano makes the pads a two-octave
+  keyboard: a semitone per column, black keys in the row above the white ones. The pad
+  lights draw the keys (root brightest, black keys dimmer, notes outside the scale barely
+  lit); the gaps play nothing.
+
 ### Remote control and on-device testing
 - **Config > USB > Remote control** (Off after every power-on):
   - **Panel mode:** a Tracker connected over USB becomes the simulator's front panel.

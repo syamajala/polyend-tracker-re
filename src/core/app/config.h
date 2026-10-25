@@ -90,6 +90,10 @@ struct Config {
     // 1 Flats, 2 Auto (from the project key). Extension record byte 28, after
     // upstream's bytes (fork-only, so it moves when upstream appends one).
     uint8_t noteNames = 0;
+    // [I] Config > General "Pad layout" (#42): 0 Stock (the project's Notes
+    // layout), 1 Piano (a semitone per column, black / white key rows, two
+    // octaves; the pad lights draw the keyboard). Extension record byte 41.
+    uint8_t padLayout = 0;
 
     // --- the stock config image --------------------------------------------
     static constexpr uint32_t kImageSize = 0xF4;   // spec 05 §5.4 version word 0xf4
@@ -114,8 +118,8 @@ struct Config {
     static constexpr uint32_t kExtOffset = kImageSize;
     static constexpr uint8_t kExtVersion = 5;
     // cpuMeter, synthVoices, streamMode, streamThreshold, extKeep[1], exportRate, themeFile[21],
-    // [I] noteNames, perfExt[12]
-    static constexpr uint32_t kExtPayload = 6 + 21 + 1 + 12;
+    // [I] noteNames, perfExt[12], padLayout
+    static constexpr uint32_t kExtPayload = 6 + 21 + 1 + 12 + 1;
     static constexpr uint32_t kExtSize = 5 + kExtPayload + 1;
     void toExt(uint8_t* out) const;                          // kExtSize bytes
     bool fromExt(const uint8_t* in, uint32_t len);           // false: none / bad (fields unchanged)

@@ -7,6 +7,34 @@ project's scale does, modes included: C Mixolydian shows B♭, not A♯. Display
 
 ![Config > General > Note names](../images/config-note-names.png)
 
+## Piano pads
+
+**Config > General > Pad layout: Stock / Piano.** Piano turns the pads into a two-octave
+keyboard that lights up as one. Each column is a semitone, C on the left to B on the right,
+and each pair of rows is an octave: white keys in the lower row, black keys in the row above.
+
+```
+·  C# ·  D# ·  ·  F# ·  G# ·  A# ·     upper octave
+C  ·  D  ·  E  F  ·  G  ·  A  ·  B
+·  C# ·  D# ·  ·  F# ·  G# ·  A# ·     lower octave
+C  ·  D  ·  E  F  ·  G  ·  A  ·  B
+```
+
+- The pads marked `·` are dark and play nothing.
+- The bottom-left C is the C of the project's root note octave. To play higher or lower,
+  change the root note.
+- The lights show the keyboard: the scale's root brightest, white keys lit, black keys a
+  little dimmer. Keys outside the project's scale stay playable but are barely lit, so the
+  scale shows on the keyboard.
+- It works wherever the pads play notes: the pattern editor's Note column, Sample
+  Playback, the instrument pages, the synth browser, the Sample Editor and the recorder.
+  In the pattern editor the step's note (and, with Pads preview, the notes on the current
+  line) lights at full brightness.
+- Pads that do something else keep their own lights: the Instr and FX columns,
+  Performance, the synth edit page, and Beat Slice instruments (one pad per slice).
+- Stock is the default and keeps the original layout. The setting is global, not saved
+  with the project.
+
 ## The 2.x features (from upstream)
 
 The 2.x line brings the newer Tracker features to the original hardware. In short:

@@ -116,11 +116,12 @@ TEST(note_names_config_record) {
     c.noteNames = kSpellAuto;   // a non-default spelling alone writes the record
     CHECK(c.save(nv));
     // Payload byte 28, after upstream's bytes (themeFile[21] ends at 27).
-    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 5, 40, 0, 4, 0, 1, 0, 1);
+    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 5, 41, 0, 4, 0, 1, 0, 1);
     for (int i = 5 + 6; i < 5 + 27; ++i) CHECK_EQ(nv.mem[0xF4 + i], 0);   // no theme file
     CHECK_EQ(nv.mem[0xF4 + 5 + 27], 2);
     for (int i = 5 + 28; i < 5 + 40; ++i) CHECK_EQ(nv.mem[0xF4 + i], 0);   // perfExt[12]
-    CHECK_EQ(nv.mem[0xF4 + 5 + 40], 8);                                     // sum
+    CHECK_EQ(nv.mem[0xF4 + 5 + 40], 0);                                     // padLayout (#42)
+    CHECK_EQ(nv.mem[0xF4 + 5 + 41], 8);                                     // sum
     Config r;
     CHECK(r.load(nv));
     CHECK_EQ(r.noteNames, kSpellAuto);
