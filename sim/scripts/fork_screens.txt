@@ -140,6 +140,12 @@ release INSTR
 wait 100
 tap INSTRPARAMS
 wait 200
+# The Parameters page: CC A-F as six 131-item lists (#71: froze the display on
+# upstream 2.2.1, ~2,230 words with CMD_TEXT rows).
+budget-reset
+wait 300
+budget midi-cc 1900
+fragcheck midi-cc
 tap INSTRPARAMS      # LFO page
 wait 200
 enc 1                # Target: the first CC

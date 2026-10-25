@@ -36,6 +36,7 @@ Options:
 | `--screenshot OUT.png` | headless: save the framebuffer when the script ends |
 | `--panel` | screenshots show the whole front panel, not only the 800x480 screen |
 | `--wav OUT.wav` | headless: record the rendered audio |
+| `--frames DIR` | headless: at each `budget NAME` also save the frame (fragment cache off) as `DIR/NAME.otf` and its RAM_DL count in `DIR/index.txt`, for the FT81x emulator replay (`make eve-check`, `tools/eve_emu`) |
 | `--instant-display` | show every frame at once (also `OT_SIM_BUSY=0`). Default: FT81x frame pacing -- a frame is uploaded, then shown at the next 54 Hz vsync, `frameReady()` false meanwhile |
 
 The workspace is autosaved to the SD folder when the window closes.

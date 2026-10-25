@@ -77,6 +77,50 @@ jobs:
           path: build/sim/*.png
           if-no-files-found: ignore
 
+  # RAM_DL on Bridgetek's FT81x emulator (#71): the display budget scripts'
+  # frames replayed under Wine (`make -C sim eve-check`, tools/eve_emu). Fails
+  # on a coprocessor fault, more than 2048 RAM_DL words, or a frame the UI's
+  # count got wrong. The emulator DLL is downloaded at a pinned commit and
+  # checked by SHA-256 (Bridgetek's licence: not redistributed here).
+  display-emulator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20   # normally a few minutes; a stuck step (apt) otherwise holds the runner 6 h
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install GCC 14, SDL2, Wine and MinGW
+        run: sudo apt-get update && sudo apt-get install -y g++-14 libsdl2-dev pkg-config wine wine64 mingw-w64
+      - name: Cache the emulator download
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/eve_emu/*.dll
+            build/eve_emu/*.h
+          key: eve-emu-${{ hashFiles('tools/eve_emu/check.py') }}
+      - name: Emulator replay
+        run: |
+          set -o pipefail
+          wineboot --init > /dev/null 2>&1 || true
+          status=0
+          make -C sim -j"$(nproc)" eve-check CXX=g++-14 2>&1 | tee eve-check.log || status=$?
+          {
+            echo '### FT81x emulator replay'
+            echo '```'
+            sed -n '/^dir  *frame/,$p' eve-check.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ]; then
+            grep -E "error:|\*\*\*|script:[0-9]+|FAIL|failed|mismatch" eve-check.log \
+              | grep -vE "^(g\+\+|ar) " | head -10 | while IFS= read -r line; do echo "::error::${line}"; done
+            exit 1
+          fi
+      - name: Upload the frames
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eve-frames-${{ github.sha }}
+          path: build/sim/eve
+          if-no-files-found: ignore
+
   # The fork's build: Games off (the default; OT_GAMES=1 is not built here).
   firmware:
     runs-on: ubuntu-24.04

@@ -62,6 +62,7 @@ struct Options {
     bool serve = false;   // [I] act as a Tracker for tools/tracker_remote.py (pseudo-terminal)
     std::string mirror, mirrorRecord;   // [I] show a Tracker's screen live (its serial port)
     std::string frame;                  // [I] draw a recorded frame (.otf) for --screenshot
+    std::string frames;                 // headless: save the frame at each "budget" as DIR/NAME.otf (#71)
     float lineInTone = 0.0f;   // headless: synthetic line input (Hz), 0 = none
     long quitAfterMs = -1;
 };
@@ -88,6 +89,8 @@ void usage() {
         "  --screenshot PNG  save the framebuffer at the end\n"
         "  --frame FILE.otf  draw a recorded Tracker frame (tracker_remote.py 'frame', --mirror-record)\n"
         "                    instead of running the app; with --screenshot\n"
+        "  --frames DIR      at each 'budget' also save the frame (fragment cache off) as DIR/NAME.otf\n"
+        "                    and its RAM_DL count in DIR/index.txt (tools/eve_emu: FT81x emulator replay)\n"
         "  --panel           screenshots include the whole front panel\n"
         "  --wav OUT.wav     record the rendered audio\n"
         "  --line-in-tone HZ synthetic line input: tone bursts (recorder tests)\n"
@@ -122,6 +125,7 @@ bool parseArgs(int argc, char** argv, Options& o) {
         if (a == "--mirror" && next(o.mirror)) continue;
         if (a == "--mirror-record" && next(o.mirrorRecord)) continue;
         if (a == "--frame" && next(o.frame)) continue;
+        if (a == "--frames" && next(o.frames)) continue;
         if (a == "--screenshot" && next(o.screenshot)) continue;
         if (a == "--wav" && next(o.wav)) continue;
         if (a == "--line-in-tone" && next(v)) { o.lineInTone = float(std::atof(v.c_str())); continue; }
@@ -274,11 +278,12 @@ struct Machine {
 
         ot::HalRefs h;
         h.display = &display;
-        if (bridge) {
+        if (bridge || !o.frames.empty()) {
             tap.reset(new ot::remote::DisplayTap(display));
-            tapBuf.assign(ot::remote::kFrameBufBytes, 0);
+            // --frames: room for a frame the guard would cut on the device.
+            tapBuf.assign(bridge ? ot::remote::kFrameBufBytes : 64 * 1024, 0);
             tap->setBuffer(tapBuf.data(), uint32_t(tapBuf.size()));
-            bridge->setTap(tap.get());
+            if (bridge) bridge->setTap(tap.get());
             h.display = tap.get();
         }
         h.audio = audio;
@@ -497,6 +502,7 @@ void recordNotice(const char* text) { gNotices.push_back(text); }
 struct Headless {
     Machine& m;
     bool panel;
+    std::string framesDir;   // --frames
     uint64_t frameAcc = 0;   // frames * 1000
     // Display budget (2.x performance workstream): the largest per-frame
     // command-FIFO upload since the last "budget" / "budget-reset".
@@ -531,7 +537,41 @@ struct Headless {
                      ok ? "" : "  <-- OVER BUDGET");
         if (!ok) std::fprintf(stderr, "script:%d: display budget exceeded for %s\n", line, name.c_str());
         maxUpload = maxDl = budgetFrames = 0;
+        if (!framesDir.empty() && !saveFrame(name, line)) return false;
         return ok;
+    }
+
+    // --frames: the current screen drawn once more with the fragment cache
+    // off (as the remote frame export records it: the stream has no RAM_G
+    // copies) into DIR/NAME.otf; DIR/index.txt gets "NAME words" with the
+    // UI's RAM_DL count of that frame (driver font setup not included).
+    bool saveFrame(const std::string& name, int line) {
+        ot::remote::DisplayTap* t = m.tap.get();
+        if (!m.app || !t) return true;
+        ot::Ui& ui = m.app->ui;
+        const bool was = ui.fragments.enabled;
+        ui.fragments.enabled = false;
+        t->request();
+        t->arm();
+        ui.render();
+        ui.fragments.enabled = was;
+        const bool got = t->ready() && !t->truncated();
+        if (got) {
+            const std::string path = framesDir + "/" + name + ".otf";
+            FILE* f = std::fopen(path.c_str(), "wb");
+            FILE* ix = std::fopen((framesDir + "/index.txt").c_str(), "a");
+            if (f) std::fwrite(t->frame(), 1, t->frameBytes(), f);
+            if (ix) std::fprintf(ix, "%s %u\n", name.c_str(), unsigned(ui.lastDlWords()));
+            if (f) std::fclose(f);
+            if (ix) std::fclose(ix);
+            if (!f || !ix) std::fprintf(stderr, "script:%d: cannot write %s\n", line, path.c_str());
+        } else {
+            std::fprintf(stderr, "script:%d: frame for %s not recorded%s\n", line, name.c_str(),
+                         t->truncated() ? " (cut)" : "");
+        }
+        t->release();
+        seenFrames = ui.frames();
+        return got;
     }
 
     // fragcheck NAME: the current screen drawn inline and through cached
@@ -1200,7 +1240,7 @@ int main(int argc, char** argv) {
         if (m.audio) m.audio->start();   // App::init already started it; harmless
         return runInteractive(m, o);
     }
-    Headless h{m, o.panelShot};
+    Headless h{m, o.panelShot, o.frames};
     if (m.audio) m.audio->start();
     h.advance(300);   // boot and first frame
     bool ok = o.script.empty() || h.run(o.script);
