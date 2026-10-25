@@ -161,6 +161,12 @@ public:
     bool debugWrite(uint32_t addr, uint32_t value, uint8_t bytes) override { return d_.debugWrite(addr, value, bytes); }
     void drawRgb332(int16_t x, int16_t y, uint32_t ramgAddr, uint16_t w, uint16_t h, uint8_t scale) override;
     bool frameReady() override { return d_.frameReady(); }
+    // Device feedback for the UI's RAM_DL fallback (low detail after a
+    // fault, guard calibration, the idle poll of #71). Without these the
+    // UI saw 0 / false through the tap on every fork image.
+    uint32_t frameFaultCount() const override { return d_.frameFaultCount(); }
+    uint32_t measuredDlBytes() const override { return d_.measuredDlBytes(); }
+    bool framePending() const override { return d_.framePending(); }
     bool fragmentsSupported() const override { return d_.fragmentsSupported(); }
     void fragmentBegin(uint8_t slot) override { d_.fragmentBegin(slot); }
     bool fragmentEnd(uint8_t slot) override { return d_.fragmentEnd(slot); }
