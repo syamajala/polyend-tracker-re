@@ -113,7 +113,9 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   next slot. With four columns the Song list no longer shows pattern names.
 - A slot's scene plays on any screen, not only on the Performance screen. It stops at Stop,
   or when the song reaches a `-` slot; on the Performance screen a `-` slot keeps what plays.
-  Exports still render without Performance FX.
+- **Song exports render the slots' scenes and ramps** like playback (File > Export, **F7 Perf
+  FX** On / Off; Off is the stock dry export). Stems get each track's FX; the master FX go on
+  the full mix only.
 - Counts, scenes and ramps are stored in `song.bin` next to `project.mt`; stock firmware
   plays every slot once, without scenes.
 
