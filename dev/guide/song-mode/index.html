@@ -570,6 +570,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#exporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exporting
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1006,6 +1017,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#exporting" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exporting
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1093,7 +1115,18 @@ resets the selected value.</p>
 </ul>
 <h2 id="saved-with-the-project">Saved with the project<a class="headerlink" href="#saved-with-the-project" title="Permanent link">&para;</a></h2>
 <p>Counts, scenes and ramps are stored in <code>song.bin</code> next to <code>project.mt</code>. Stock firmware
-plays every slot once, without scenes. Song exports still render without Performance FX.</p>
+plays every slot once, without scenes.</p>
+<h2 id="exporting">Exporting<a class="headerlink" href="#exporting" title="Permanent link">&para;</a></h2>
+<p><strong>File &gt; Export &gt; Song</strong> and <strong>Song Stems</strong> render the slots' scenes and ramps the way
+playback does. <strong>F7 Perf FX</strong> on the Export page turns this <strong>On / Off</strong> (On after every
+power-on); Off gives the stock export without Performance FX.</p>
+<ul>
+<li>Stems get each track's Performance FX. The master FX (DJ filter, tape stop) act on the
+  whole mix, so only the full-mix export (<strong>Song</strong>) has them.</li>
+<li>Only what the song stores is rendered: where the fader or the pads were when you pressed
+  Export doesn't matter, so the same song always exports the same way.</li>
+<li>Pattern exports play no song slots, so they render without scenes.</li>
+</ul>
 
 
 
