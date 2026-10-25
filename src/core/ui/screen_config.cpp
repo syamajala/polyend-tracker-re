@@ -126,8 +126,9 @@ const Opt kMetronome[] = {
 // spec 01 §5.1: HP_CTRL = 0x80 - round(v * 129), 0x18 = 0 dB, 0.5 dB/step.
 // Capped at 0.85 (HP-amp clipping risk above). Not saved.
 const char* const kHpLevels[] = {"0.50 (-19.5 dB)", "0.55 (-16.5 dB)", "0.60 (-13.5 dB)", "0.65 (-10.0 dB)",
-                                 "0.70 (-7.0 dB)",  "0.75 (-3.5 dB)",  "0.80 (-0.5 dB)",  "0.85 (+3.0 dB)"};
-uint8_t gHpLevel = 4;   // 0.70, app_main's boot value
+                                 "0.715 (-6.0 dB)", "0.75 (-3.5 dB)",  "0.80 (-0.5 dB)",  "0.85 (+3.0 dB)"};
+const float kHpValues[] = {0.50f, 0.55f, 0.60f, 0.65f, kHeadphoneBootLevel, 0.75f, 0.80f, 0.85f};
+uint8_t gHpLevel = 4;   // kHeadphoneBootLevel, app_main's boot value
 constexpr uint8_t kDev = 4;   // Opt::store: RAM only, /.develop rows (2.x uses 3 for kUsb)
 const Opt kFirmware[] = {
     {"Firmware update", kAction, kNone, 1, 0, 0, nullptr, 0},
@@ -225,7 +226,7 @@ constexpr int kLicenseLineCount = int(sizeof(kLicenseLines) / sizeof(kLicenseLin
 
 // Firmware-update file list (spec 06 §7.5): at most 101 entries, sorted.
 constexpr int kFwMax = ConfigScreen::kFwMax;
-char (*const gFw)[48] = static_cast<char (*)[48]>(browserListMem());   // shared (screens.h)
+char (*const gFw)[48] = reinterpret_cast<char (*)[48]>(g_browserLists);   // shared (screens.h)
 int gFwCount = 0;
 bool gFwMode = false;
 struct FwCtx {
@@ -463,7 +464,7 @@ void ConfigScreen::apply() {
     App& a = app_;
     if (!gFwMode && kCats[category].opts[option].store == kDev) {   // /.develop HP level (RAM only)
         gHpLevel = uint8_t(clampi(picker, 0, 7));
-        if (ui_.platform.setHeadphoneLevel) ui_.platform.setHeadphoneLevel(0.5f + 0.05f * float(gHpLevel));
+        if (ui_.platform.setHeadphoneLevel) ui_.platform.setHeadphoneLevel(kHpValues[gHpLevel]);
         editing = false;
         return;
     }

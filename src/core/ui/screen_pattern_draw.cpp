@@ -314,7 +314,11 @@ void PatternScreen::drawGridVertical(Gfx& g, bool threeTracks) {
     auto colEmpty = [&](const Step& st, int c) {
         switch (c) {
             case 0: return st.note == kNoteEmpty;
-            case 1: return st.note == kNoteEmpty && !isMidiInstrument(st.instrument);
+            // OFF / CUT / FADE show no instrument (stock photos of
+            // live-recorded OFF steps, USER_REPORTS_R3 R3-2).
+            case 1:
+                return (st.note == kNoteEmpty || st.note == kNoteOff || st.note == kNoteCut || st.note == kNoteFade) &&
+                       !isMidiInstrument(st.instrument);
             default: return st.fx[c - 2].type == 0;
         }
     };
@@ -433,7 +437,7 @@ void PatternScreen::drawGridVertical(Gfx& g, bool threeTracks) {
     // 9. Selection (block) outline and cursor.
     const SelRect sel = target();
     const bool hasSel = selState == 2 || wholeCol || allTracks;
-    const uint32_t curC = gc(th, edit() ? kGcRec : kGcCursor);
+    const uint32_t curC = gc(th, recordCursor() ? kGcRec : kGcCursor);
     if (hasSel) {
         int r0 = -1, r1 = -1;
         for (int r = 0; r < kRows; ++r)
@@ -705,7 +709,7 @@ void PatternScreen::drawListPopup(Gfx& g) {
         char buf[48];
         popupItem(&ctx, pop_.cursor(), buf, sizeof(buf));
         g.text(x + 13, 34 + 13, kFont1, th.slot(slot::kList + 4), buf, IDisplay::kOptCenterY);
-        wg::textBox(g, th, x + 8, 62, 232, 360, kFont5, fxDescription(kFxMenuOrder[pop_.cursor() < kFxCount ? pop_.cursor() : 0]), 3);
+        wg::textBox(g, th, x + 8, 62, 232, 360, kFont5, fxHelpText(kFxMenuOrder[pop_.cursor() < kFxCount ? pop_.cursor() : 0]), 3);
     }
 }
 
@@ -755,8 +759,9 @@ bool PatternScreen::popupMove(uint8_t id) {
     switch (id) {
         case btn::Up: d = keys ? 12 : -1; break;
         case btn::Down: d = keys ? -12 : 1; break;
-        case btn::Left: d = -1; break;
-        case btn::Right: d = 1; break;
+        // Lists page with Left / Right (manual p.101 / 103, MANUAL_AUDIT #19).
+        case btn::Left: d = keys ? -1 : -wg::listVisibleRows(pop_.kind() == 3 ? 409 : 394); break;
+        case btn::Right: d = keys ? 1 : wg::listVisibleRows(pop_.kind() == 3 ? 409 : 394); break;
         default: return false;
     }
     pop_.move(d);

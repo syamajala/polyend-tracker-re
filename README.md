@@ -5,7 +5,7 @@ written from behavioural specifications. It contains no Polyend code, fonts, ico
 graphics, and is not affiliated with or endorsed by Polyend.
 
 This is a fork of [sandlbn/polyend-tracker-re](https://github.com/sandlbn/polyend-tracker-re).
-It follows upstream's 2.x line (currently 2.1.2) and adds the features below. Projects stay
+It follows upstream's 2.x line (currently 2.2.1) and adds the features below. Projects stay
 compatible: everything the fork adds is stored in extra files next to `project.mt`, so stock
 firmware, upstream OpenTracker and the Tracker Mini still open them (see each feature for
 details).
@@ -148,22 +148,42 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 
 ## Upstream 2.x features
 
-Upstream's photos (2.0.1, on an original Tracker):
+Upstream's photos (2.2.1, on an original Tracker):
 
-| Pattern | Config: USB Storage |
+| Pattern (synth drums, FX) | 8-track view (Pattern + Note) |
 |---|---|
-| ![Pattern](screenshots/2.0.1/pattern.png) | ![Config, USB Storage](screenshots/2.0.1/config-usb-storage.png) |
-| **Sample Recorder** | **Synth Parameters: Load Patch** |
-| ![Sample Recorder](screenshots/2.0.1/sample-recorder.png) | ![Synth Load Patch](screenshots/2.0.1/synth-load-patch.png) |
+| ![Pattern](screenshots/2.2.1/pattern.png) | ![8-track view](screenshots/2.2.1/pattern-8-tracks.png) |
+| **Synth Parameters (ACD)** | **Edit Patch (PERC kit)** |
+| ![Synth Parameters](screenshots/2.2.1/synth-parameters.png) | ![Edit Patch](screenshots/2.2.1/edit-patch-perc.png) |
+| **Sample Editor, stereo sample** | **Live resampling** |
+| ![Sample Editor](screenshots/2.2.1/sample-editor-stereo.png) | ![Live resampling](screenshots/2.2.1/live-resampling.png) |
+| **Performance FX** | **Config: USB Storage** |
+| ![Performance](screenshots/2.2.1/performance.png) | ![Config, USB Storage](screenshots/2.0.1/config-usb-storage.png) |
 
-2.0 brings the newer Tracker features to the original hardware: 16 tracks, synth
+2.x brings the newer Tracker Mini features to the original hardware: 16 tracks, synth
 engines, stereo samples, Mini-compatible project files and USB Storage mode. These notes cover
-the whole 2.x line.
+the whole 2.x line (2.0 to 2.2.1); the full list is in the release notes of the
+[2.2.1 download](https://github.com/sandlbn/polyend-tracker-re/releases).
+
+### New in 2.1 to 2.2.1
+
+- **All five Mini synth models play:** FAT (2.1) and WTFM (2.2) joined ACD, VAP and PERC, with
+  74 presets of our own in the preset pack (`OpenTracker-Presets-1.2`).
+- **Live resampling** (2.1.2, contributed by syamajala): record the mix, one track or Line In
+  into a new instrument while the pattern keeps playing.
+- **Waveforms like the Tracker+ / Mini:** sample envelopes, stereo samples as two lanes, and a
+  preview playhead on the Sample Recorder and Sample Editor.
+- **Closer to the stock manual:** about 30 details fixed after a check against the stock 1.9.2
+  manual (live-record velocity, Slice-mode pads, Performance labels, MIDI CC lists and more).
+- **User-report fixes:** live recording (first note with Pre-roll, OFF steps, red cursor), MIDI
+  channels on the pads, a crack in the headphones at power-on, headphone level +1 dB.
+- **More free memory:** Games is no longer built into the image (`make OT_GAMES=1` brings it
+  back), and the file browsers share one buffer (PR #28, syamajala).
 
 ### New in 2.0
 
 #### Tracker Mini project compatibility
-- Projects are saved in the **Tracker 2.2.1 format**: 16-track patterns, the three
+- Projects are saved in the **Tracker Mini 2.2.1 format**: 16-track patterns, the three
   synth slots, track names and mutes for tracks 13–16.
 - **Synth patches** use the Mini's `.patch` files. They are stored with the project and in a
   library at `Patches/<ENGINE>/`. All 299 Mini factory patches load and save back unchanged.
@@ -178,13 +198,13 @@ the whole 2.x line.
 
 #### Synth engines (instruments S1–S3)
 - **Three synth slots**, played from any track as instruments S1–S3.
-- Engines, our own sound design following the Mini's parameter sets:
+- Five engines, our own sound design following the Mini's parameter sets:
   - **ACD**: acid bass and lead, with a 24 dB and a ladder-style filter, and glide;
   - **VAP**: virtual-analog poly, with morphing oscillators, hard sync, 15 filter types and a
     6-slot modulation matrix;
-  - **PERC**: drum kit with kick, snare, hats, cymbal, perc and tom.
-- **FAT** (unison supersaw) has an engine since 2.1. **WTFM** patches load and save
-  unchanged, but stay silent and show "not available".
+  - **PERC**: drum kit with kick, snare, hats, cymbal, perc and tom;
+  - **FAT** (2.1): a stack of detuned saws for supersaw pads, leads and basses;
+  - **WTFM** (2.2): two-operator wavetable FM, from electric pianos to bells.
 - **Macros:** FX columns A–F drive macros 1–6, and Volume drives macro 7.
 - **Voices:** a shared pool of 4 voices by default, adjustable in Config > General > Synth
   voices (1–8).
@@ -230,7 +250,7 @@ the whole 2.x line.
 
 1. Download the latest image from this fork's
    [Releases](https://github.com/syamajala/polyend-tracker-re/releases) and copy
-   `PolyendTrackerOTv212.ptf` to `/Firmware` on the SD card. Keep the name; the bootloader
+   `PolyendTrackerOTv221.ptf` to `/Firmware` on the SD card. Keep the name; the bootloader
    only accepts 24-character names.
 2. Go to **Config > Firmware update**, select it and confirm. If the screen stays dark
    after the update, press the power button once.
@@ -254,7 +274,6 @@ rules; not yet confirmed on a stock unit).
 
 - The synth sound is own design: settings match the Mini, the sound is close but not
   identical.
-- WTFM has no engine yet. Wavetable and granular samples play the left channel only.
 - Synth notes ignore the per-track Performance columns
   ([#30](https://github.com/syamajala/polyend-tracker-re/issues/30)); the master insert FX
   do include them.
@@ -262,9 +281,13 @@ rules; not yet confirmed on a stock unit).
 - USB Storage mode: back up the card before first use; Linux systems without a desktop may need
   `partprobe` or a re-plug to see the card.
 - The USB ID is the pid.codes test ID 1209:0001.
+- Live resampling from Line In starts 10–14 ms late (the round trip through external gear);
+  compensation is planned.
+- Games (the NES player) is not in the release image since 2.2.1.
 
 ## Test songs
 
-`make testsongs` builds nine OT Test songs and seven BLAST GRID synth remixes (Title,
-World 1, World 4, Battle, Battle FM, Boss, Final Boss) into `build/testsongs/`. Copy its
-`Projects/` and `Samples/` folders to the card.
+`make testsongs` builds eleven OT Test songs (among them one per synth engine and an IDM
+track using three engines at once) and seven BLAST GRID synth remixes (Title, World 1,
+World 4, Battle, Battle FM, Boss, Final Boss) into `build/testsongs/`. Copy its `Projects/`
+and `Samples/` folders to the card.

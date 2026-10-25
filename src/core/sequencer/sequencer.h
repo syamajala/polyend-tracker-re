@@ -136,7 +136,9 @@ public:
     // the selected instrument's volume used by velocity recording.
     int liveNoteOn(uint8_t note, uint8_t velocity, uint8_t cursorTrack, uint8_t instrument,
                    uint8_t instrumentVolume = 127);
-    void liveNoteOff(uint8_t note);
+    // writeOff = false: release only, no OFF step (Instr / FX column recording,
+    // manual p.95).
+    void liveNoteOff(uint8_t note, bool writeOff = true);
     // Step entry while stopped: write `note` at (step, track) (spec 03 §5.1).
     void stepEntry(uint8_t note, uint8_t velocity, int step, int track, uint8_t instrument);
     void setRecordEnabled(int track, bool en) { if (validTrack(track)) tracks_[track].recEnabled = en; }
@@ -189,6 +191,12 @@ public:
     bool isSongMode() const { return songMode_; }
     bool isSelectionPlaying() const { return playing_ && selection_; }
     bool isCountingIn() const { return countInSteps_ > 0; }
+    // Ticks until the count-in ends and playback starts (0 when not counting in).
+    uint32_t countInTicksLeft() const {
+        if (countInSteps_ <= 0) return 0;
+        const uint32_t total = uint32_t(countInSteps_) * uint32_t(seq::kTicksPerStep);
+        return countInTicks_ < total ? total - countInTicks_ : 0;
+    }
     float effectiveTempo() const;
     float tickPeriodUs() const;
     float externalTempo() const { return extBpm_; }
@@ -288,6 +296,7 @@ private:
         // live input
         bool liveHeld = false;
         uint8_t liveNote = 0;
+        uint8_t liveInstr = 0;   // the held live note's instrument (its recorded OFF gets it)
         int16_t liveStep = -1;
         int16_t skipStep = -1;
     };

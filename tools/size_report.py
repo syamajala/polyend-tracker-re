@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Memory use of two firmware images side by side (issue #25), as a Markdown
-table for a CI job summary:
+"""Memory use of two firmware images side by side, as a Markdown table for a
+CI job summary:
 
   tools/size_report.py BASE.elf HEAD.elf [--size-tool arm-none-eabi-size] [--nm-tool ...]
 
 Rows: flash (.text + .data, as telemetry_check.py size), the SRAM sections
 (.data with the SRAM code .fastrun, .bss, .dma, USB buffers), .sdram_bss, and
 the stack headroom _estack - _ebss with its limit (telemetry_check.STACK_MIN),
-then the free space: flash to its limit, SRAM over the stack rule, the
-.sdram_bss region (_sdram_bss_limit) and the rest of the SDRAM (the app
-layout's end otSdramLayoutEnd, app_main.cpp). Prints only; the limits are
+then the free space: flash to its limit, SRAM over the stack rule and, when
+the image has the symbols, the .sdram_bss region (_sdram_bss_limit) and the
+rest of the SDRAM (the app layout's end otSdramLayoutEnd). Prints only; the
+limits are
 checked by telemetry_check.py size and the linker.
 """
 import argparse

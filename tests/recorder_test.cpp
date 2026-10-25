@@ -90,6 +90,7 @@ TEST(recorder_record_trim_crop_undo) {
     // Cancel (b6) asks; Continue discards and returns to the setup state.
     h.tap(btn::F7);
     CHECK(a.ui.askOpen());
+    CHECK(h.disp.lastHasText("Yes"));   // manual p.196 "Confirm cancel with [Yes]" (MANUAL_AUDIT #30)
     h.tap(btn::F8);
     CHECK_EQ(r.state, 0);
 }
@@ -770,4 +771,43 @@ TEST(recorder_monitor_only_on_setup_and_while_recording) {
     h.tap(btn::F7);                // Cancel -> setup again
     h.run(20);
     if (rec(h).state == 0) CHECK(!a.inputMonitorMuted);
+}
+
+// Preview playhead (owner request): while Preview plays the selection, a
+// line follows the play position across the waveform; none when it stops.
+TEST(recorder_preview_shows_a_playhead) {
+    Harness h;
+    App& a = *h.app;
+    toneBlocks(h, 0, 400);
+    h.tap(btn::SampleRecorder);
+    RecorderScreen& r = rec(h);
+    recordSome(h, 400);   // ~1.16 s
+    CHECK_EQ(r.state, 1);
+    r.startM = 0;
+    r.endM = 65535;
+    CHECK_EQ(r.playheadX(), -1);
+    h.down(btn::F1);      // Preview (held)
+    h.audio.pump(20);
+    const int x0 = r.playheadX();
+    h.audio.pump(150);
+    const int x1 = r.playheadX();
+    CHECK(x0 >= 100 && x0 < 700);
+    CHECK(x1 > x0);       // it moves with the playback
+    h.run(10);
+    CHECK(a.ui.lastDlWords() > 0);
+    h.up(btn::F1);
+    h.run(10);
+    CHECK_EQ(r.playheadX(), -1);
+}
+
+TEST(recorder_metronome_label_two_lines) {
+    // Manual p.195-196 / spec 05 appC §2.3: F4 "Metronome / Config"
+    // (MANUAL_AUDIT_2026-10-23 #29).
+    Harness h;
+    h.tap(btn::SampleRecorder);
+    const BarLabel& l = h.app->ui.bar.label[3];
+    if (l.top[0]) {
+        CHECK(std::string(l.top) == "Metronome");
+        CHECK(std::string(l.bottom) == "Config");
+    }
 }
