@@ -179,6 +179,15 @@ struct Project {
     // [I] OpenTracker-only Performance FX types of the project presets
     // (perf::Source::ext; perf_scenes.bin v2). 0 = the slot's stock type.
     uint8_t perfExtType[kPerfSceneSlots] = {};
+    // [I] Per-track Performance FX toggles (#54): bit t set = track t+1's FX
+    // off (its F-key unlit). Remembered across visits of the Performance
+    // screen and saved with the project (perf_scenes.bin v4); 0 = all on.
+    uint16_t perfFxOff = 0;
+    // Each scene's toggles: perfSceneFxOff[i] when bit i of perfSceneFxSet is
+    // set, else "-" (loading the scene leaves the toggles alone).
+    uint16_t perfSceneFxOff[kPerfScenes] = {};
+    uint16_t perfSceneFxSet = 0;
+    bool sceneHasFx(int i) const { return (perfSceneFxSet >> (i % kPerfScenes)) & 1u; }
 
     Project() { setDefault(); }
 

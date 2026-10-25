@@ -663,7 +663,8 @@ public:
     bool edit = false;
     int column = 0;
     int bank = 0;                   // 2.x: F1..F8 = tracks 1-8 (0) or 9-16 (1)
-    // FX enabled per track (session state; every track on at screen start).
+    // FX enabled per track. [I] #54: mirrors Project::perfFxOff (remembered
+    // across visits, saved; stock reset them to all on at every start).
     bool fxOn[kTrackCount] = {true, true, true, true, true, true, true, true,
                               true, true, true, true, true, true, true, true};
     perf::Source src;               // active preset source (spec 12 §A.1)
@@ -687,6 +688,10 @@ public:
     // Empties the scene; the slots the scenes drove go back to their pad rows.
     void clearScene(int scene);
     void setFader(int x);
+    // [I] #54: sets the per-track FX toggles (Project::perfFxOff + fxOn);
+    // clearSceneFx puts a scene's toggles back to "-".
+    void setFxOff(uint16_t off);
+    void clearSceneFx(int scene);
     // Every FX type in scene A or B, blended at `fader` into the slots' cur values.
     void applyScenes();
     // Scene 0 / 1's share of slot c's sound at the fader, 0..kFaderMax: linear
@@ -719,6 +724,7 @@ private:
     void engage();   // the engine's start-up without the screen (start, song scenes)
     bool songSceneNow() const;   // [I] the song is playing a slot with a scene
     bool songRamp_ = false;      // [I] the playing slot ramps A -> B (until the fader is moved)
+    int fxKey_ = -1;             // [I] #54: scene (x2, +1 = B) whose FX toggles were applied last, -1 none
     void refreshBar();
     void applyAll(bool revertEverything);
     void revert();
@@ -737,6 +743,8 @@ private:
     void bankButton(uint8_t id, uint8_t state);
     void drawBank(Gfx& g);
     uint8_t savedRows_[12] = {};   // [I] the pad rows before a scene was opened for editing
+    uint16_t savedFxOff_ = 0;      // [I] #54: the live FX toggles while a scene is edited
+    bool editFxTouched_ = false;   // [I] #54: an F key was tapped while editing the scene
     bool held_[12] = {};
     bool keyHeld_[8] = {};   // per F key
     bool keyUsed_[8] = {};

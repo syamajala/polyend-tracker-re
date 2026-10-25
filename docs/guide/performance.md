@@ -15,7 +15,9 @@ crossfader**, a **bank of 16 scenes**, and **master FX** (DJ filter, tape stop).
   without holding the pad.
 - **The F keys** turn the effects on or off per track (lit = on). **Shift + F key** mutes
   the track. **Left / Right** (outside edit mode) switch the F keys between tracks 1–8 and
-  9–16.
+  9–16. In the fork the F keys are **remembered**: leaving the screen and coming back keeps
+  them, and they're saved with the project (stock turns every track on again).
+
 - Effect types include Volume, Panning, Tune, Low-pass / High-pass / Band-pass, Delay and
   Reverb send, Start / End pos, Direction, the LFOs, Repeater, Play mode, Length, Bit depth
   and Overdrive, plus the fork's **DJ filter** and **Tape stop**.
@@ -38,6 +40,22 @@ each play a scene; the encoder (outside edit mode) or **MIDI CC 63** fades betwe
 | **Shift + Left / Right** | Store the current pad rows into the scene on A / B. |
 | **Delete + Left / Right** | Clear the scene on A / B. |
 | Hold pads + **Shift / Delete + Left / Right** | Store / clear only the held columns. |
+
+### Which tracks get the effects
+
+Storing a **whole scene** (Shift + Left / Right with no pad held) also stores which tracks
+have their effects on (the F keys). When that scene is loaded again, the F keys follow it:
+
+- putting it on A or B (from the bank page or a song slot),
+- moving the fader past the middle, to the scene on the other side.
+
+So a song can have the drums in the Repeater in the verse and everything in the chorus.
+A scene stored before (or cleared with Delete) carries no F keys and leaves them as they
+are. Tapping an F key while a scene plays works as usual; the scene's setting comes back the
+next time the scene is loaded or the fader crosses the middle. Storing only some columns
+(pads held) doesn't change a scene's F keys. While a scene is open for editing (bank page,
+**F3 Edit**), the F keys show and change that scene's tracks; going back saves them and
+your live F keys come back.
 
 ## The scene bank
 
@@ -74,6 +92,6 @@ Set them like any column: in edit mode, **Down** on a column cycles its type thr
 
 ## Saved with the project
 
-The scene bank and the master FX types are stored in `perf_scenes.bin` next to
-`project.mt`. Stock firmware and the Tracker Mini see those columns as empty and ignore
+The scene bank, the F keys (live and per scene) and the master FX types are stored in
+`perf_scenes.bin` next to `project.mt`. Stock firmware and the Tracker Mini see those columns as empty and ignore
 the scenes.

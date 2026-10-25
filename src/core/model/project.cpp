@@ -105,6 +105,9 @@ void Project::setLoadPrefill() {
     perfSceneOn[0] = 0;
     perfSceneOn[1] = 1;
     std::memset(perfExtType, 0, sizeof(perfExtType));
+    perfFxOff = 0;
+    std::memset(perfSceneFxOff, 0, sizeof(perfSceneFxOff));
+    perfSceneFxSet = 0;
     setU16(mt::kU16_5FE, 20000);
     for (int i = 0; i < 8; ++i) {
         std::snprintf(buf, sizeof(buf), "Midi %d", i + 9);

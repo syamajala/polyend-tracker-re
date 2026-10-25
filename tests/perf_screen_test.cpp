@@ -329,14 +329,15 @@ TEST(perf_start_and_type_change_rules) {
     CHECK_EQ(p.src.type(1), 2);
     CHECK_EQ(p.src.value(1, 2), 33);
     CHECK_EQ(p.src.row(1), 0);
-    // Rows are cleared and the patterns reset on a fresh entry; all tracks enabled.
+    // Rows are cleared and the patterns reset on a fresh entry. [I] #54: the
+    // FX toggles are remembered (stock turned every track on again).
     r.h.pad(24 + 1);
     r.h.tap(btn::F2);
     CHECK(!p.fxOn[1]);
     r.h.tap(btn::Pattern);
     r.h.tap(btn::Performance);
     CHECK_EQ(p.src.row(1), 0);
-    CHECK(p.fxOn[1]);
+    CHECK(!p.fxOn[1]);
     CHECK(!p.edit);
 }
 
@@ -407,7 +408,8 @@ TEST(perf_bank_b_no_pattern_overrides) {
     r.h.up(btn::F6);
     CHECK_EQ(p.shownPattern(13), 1);
     CHECK(std::memcmp(before.values, a.project.values, sizeof(before.values)) == 0);
-    // Plain tap: FX enable of tracks 13-16 (owner decision), not stored.
+    // Plain tap: FX enable of tracks 13-16 (owner decision), not in
+    // project.mt ([I] #54: perf_scenes.bin).
     r.h.tap(btn::F7);
     CHECK(!p.fxOn[14]);
     CHECK(std::memcmp(before.values, a.project.values, sizeof(before.values)) == 0);
@@ -417,10 +419,10 @@ TEST(perf_bank_b_no_pattern_overrides) {
     r.h.enc(1);
     r.h.up(btn::F1);
     CHECK_EQ(a.project.u16(pf::kPerfPatterns + 0), 2);
-    // A fresh entry: FX enabled again on every track.
+    // A fresh entry keeps the toggle ([I] #54; stock: every track on again).
     r.h.tap(btn::Pattern);
     r.h.tap(btn::Performance);
-    CHECK(r.p().fxOn[14]);
+    CHECK(!r.p().fxOn[14]);
     CHECK_EQ(r.p().shownPattern(15), 1);
 }
 
