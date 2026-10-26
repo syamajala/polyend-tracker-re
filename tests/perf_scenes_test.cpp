@@ -361,9 +361,10 @@ TEST(perf_scene_marks_fit_the_display_list) {
     std::printf("performance + 24 scene marks: %u -> %u DL words\n", unsigned(before), unsigned(after));
     CHECK(after > before);
     // Two vertices per bar + colour / begin / end per scene colour, and the
-    // title-bar fader text that appears with the first scene (~22 words,
-    // + 4 for the scene numbers on A / B, scene bank #10).
-    CHECK(after - before <= 2 * 24 + 2 * 4 + 24 + 4);
+    // title-bar fader text that appears with the first scene (~38 words at
+    // the CMD_TEXT RAM_DL cost, #71; + 7 for the scene numbers on A / B,
+    // scene bank #10).
+    CHECK(after - before <= 2 * 24 + 2 * 4 + 40 + 8);
     CHECK(after <= Ui::kDlTargetWords);
 }
 

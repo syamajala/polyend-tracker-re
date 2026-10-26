@@ -579,7 +579,9 @@ void list(Gfx& g, const Theme& th, const ListView& v) {
             while (buf[n] && pen < room) pen += textWidth(v.font, buf + n++, 1);
             buf[n] = 0;
             const uint32_t tc = v.enabled ? th.slot(s + (marked ? 5 : 4)) : th.slot(slot::kBottomLabelOff);
-            g.text(v.x + 13, v.y + 17 + kListRowH * r, v.font, tc, buf, IDisplay::kOptCenterY);
+            // A glyph run: 1 RAM_DL word per glyph anywhere, where CMD_TEXT
+            // takes 2 right of x 511 (the MIDI instrument page's CC lists).
+            g.glyphRun(v.x + 13, v.y + 17 + kListRowH * r - fontHeight(v.font) / 2, v.font, buf, tc);
         }
         g.noClip();
     }

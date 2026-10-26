@@ -40,6 +40,7 @@ public:
 
     bool frameReady() override {
         ++readyPolls;
+        if (ready) RecordingDisplay::frameReady();   // the sent frame is reported
         return ready;
     }
     void dlStart() override {
@@ -200,8 +201,10 @@ TEST(performance_frame_budget) {
     std::printf("performance (values, edit, playing): max %u DL words\n", unsigned(words));
     // 1500 when gradients counted 5 words; ~1680 at Gfx::kGradientDlWords
     // (verified on a Tracker: ~7.4 KB of the 8 KB RAM_DL, no faults); ~1740
-    // since upstream 2.2.1's red labels of tracks with the FX off.
-    CHECK(words <= 1760);
+    // since upstream 2.2.1's red labels of tracks with the FX off; 1879 with
+    // CMD_TEXT at what the FT81x builds (#71: the Performance screen's 56
+    // strings, 100 glyphs right of x 511, were ~190 words over the old count).
+    CHECK(words <= 1900);
     r.h.tap(btn::Play);
 }
 
@@ -223,7 +226,7 @@ TEST(mixer_frame_budget) {
     uint32_t words = r.m.maxWords;
     std::printf("track mixer (playing): max %u DL words\n", unsigned(words));
     r.m.printTally();
-    CHECK(words <= 1700);
+    CHECK(words <= 1780);   // 1750 with CMD_TEXT at its RAM_DL cost (#71; was ~1620)
     r.h.tap(btn::Master);   // Global Mixer 3/3
     r.play(100);
     r.m.resetMax();
@@ -231,7 +234,7 @@ TEST(mixer_frame_budget) {
     words = r.m.maxWords;
     std::printf("global mixer (playing): max %u DL words\n", unsigned(words));
     r.m.printTally();
-    CHECK(words <= 1700);
+    CHECK(words <= 1780);   // 1715 (#71)
     r.h.tap(btn::Play);
 }
 
@@ -274,7 +277,7 @@ TEST(pattern_playing_sparse_frame_budget) {
     r.m.resetMax();
     r.play(1000);
     std::printf("pattern playing (sparse): max %u DL words, %u FIFO bytes\n", unsigned(r.m.maxWords), unsigned(r.m.maxBytes));
-    CHECK(r.m.maxWords <= 1050);              // measured 917
+    CHECK(r.m.maxWords <= 1100);              // measured 1053 (917 before #71's CMD_TEXT cost)
     CHECK(r.m.maxBytes <= 4400);              // measured 3900
     r.h.tap(btn::Play);
 }
@@ -502,7 +505,7 @@ struct WorstRig {
         recordNext();
     }
     // Largest frame over `ms` of redraws (or of play when playing).
-    void measure(const char* name, uint32_t ms = 60) {
+    void measure(const char* name, uint32_t ms = 60, uint32_t limit = Ui::kDlTargetWords) {
         current = name;
         m.resetMax();
         const uint32_t over0 = a.ui.overBudgetFrames(), low0 = a.ui.lowDetailFrames();
@@ -523,10 +526,10 @@ struct WorstRig {
             worstName = name;
         }
         CHECK(w > 0);
-        CHECK(w <= Ui::kDlTargetWords);
+        CHECK(w <= limit);
         CHECK(a.ui.overBudgetFrames() == over0);   // the guard never had to cut a frame
         CHECK(a.ui.lowDetailFrames() == low0);     // nor fall back to low detail
-        if (w > Ui::kDlTargetWords) m.printTally();
+        if (w > limit) m.printTally();
     }
     // A scene the device cannot draw in full: the guard must catch it (no
     // frame past kDlGuardWords reaches the display) and the low-detail
@@ -628,7 +631,10 @@ TEST(overlay_matrix_pattern) {
     h.down(btn::Shift);
     r.measure("pattern dense + mute page");
     h.tap(btn::Rec);
-    r.measure("pattern dense + Live-REC arm page (all armed)");
+    // 1960 words with CMD_TEXT at its RAM_DL cost (#71): over the design
+    // target, under the guard, and 48 words below the chip's 2048 with the
+    // driver's 36. Text as glyph runs (#71 part 4) brings it back under.
+    r.measure("pattern dense + Live-REC arm page (all armed)", 60, Ui::kDlGuardWords - 10);
     h.up(btn::Shift);
     r.measure("pattern dense + Live-REC arm page, Shift up");
     h.tap(btn::Rec);
@@ -1253,6 +1259,46 @@ TEST(device_fault_falls_back_to_low_detail) {
     CHECK(a.ui.dlScale() > 64);
     CHECK(a.ui.lowDetail());
     Harness::dlOverflowFatal = true;
+}
+
+// #71: a fault is only found when the driver polls the frame's outcome. On a
+// static screen nothing is dirty after the frame, so before the fix nothing
+// polled, the fault was never seen and the display stayed frozen (MIDI
+// instrument page). The frame that faults here is the screen's last one;
+// nobody calls dirty() after it.
+TEST(device_fault_on_a_static_screen_is_redrawn) {
+    Harness::dlOverflowFatal = false;
+    Harness h;
+    App& a = *h.app;
+    h.tap(btn::Master);
+    h.tap(btn::Master);   // Track Mixer 2/3, static (not playing)
+    h.run(200);
+    CHECK(!h.disp.sent);   // every frame's outcome was polled
+    const uint32_t frames0 = a.ui.frames(), low0 = a.ui.lowDetailFrames();
+    h.disp.faultNextFrames = 1;
+    a.ui.dirty();   // one more frame, and it faults
+    h.run(500);
+    CHECK_EQ(h.disp.faultCount, 1u);
+    CHECK_EQ(a.ui.hwFaultFrames(), 1u);
+    CHECK(a.ui.frames() >= frames0 + 2);    // the faulted frame, then a redraw
+    CHECK(a.ui.lowDetailFrames() > low0);   // in low detail
+    CHECK(!h.disp.sent);
+    Harness::dlOverflowFatal = true;
+}
+
+// The idle poll stops once the frame is reported: a static screen doesn't
+// keep the SPI busy.
+TEST(idle_screen_stops_polling_the_display) {
+    Harness h;
+    App& a = *h.app;
+    h.tap(btn::Master);
+    h.tap(btn::Master);
+    h.run(200);
+    const uint32_t frames0 = a.ui.frames(), polls0 = h.disp.readyPolls;
+    h.run(1000);
+    // Each frame is polled before it starts and once after it is sent.
+    CHECK(h.disp.readyPolls - polls0 <= 2 * (a.ui.frames() - frames0) + 1);
+    CHECK(!h.disp.sent);
 }
 
 TEST(device_measurement_calibrates_the_guard) {

@@ -739,6 +739,22 @@ TEST(remote_tap_records_only_the_requested_frame) {
     CHECK(!tap.ready() && !tap.busy());
 }
 
+// The UI draws through the tap on the device: the driver's fault count,
+// measured RAM_DL size and pending frame must reach it (#71).
+TEST(remote_tap_forwards_device_feedback) {
+    FullRecorder real;
+    DisplayTap tap(real);
+    real.faultCount = 3;
+    real.measuredBytes = 4752;
+    CHECK_EQ(tap.frameFaultCount(), 3u);
+    CHECK_EQ(tap.measuredDlBytes(), 4752u);
+    CHECK(!tap.framePending());
+    drawSample(tap);
+    CHECK(tap.framePending());   // swapped, outcome not polled yet
+    CHECK(tap.frameReady());
+    CHECK(!tap.framePending());
+}
+
 TEST(remote_tap_replay_round_trip) {
     FullRecorder real, again;
     DisplayTap tap(real);
