@@ -33,25 +33,24 @@ struct ScreenSet {
 #endif
     SynthScreen synth;
 };
-
-// The device's one Ui keeps its screens (~15 KB, mostly browser name lists)
-// in the SDRAM instead of on the SRAM heap (sdram_bss.h: main-loop data
-// only). A second Ui at the same time (host tests) falls back to the heap.
-OT_SDRAM_BSS alignas(ScreenSet) unsigned char g_screenMem[sizeof(ScreenSet)];
-OT_SDRAM_BSS bool g_screenMemUsed;
 }  // namespace
 
 // The browsers' shared name lists (screens.h browserListMem()).
 OT_SDRAM_BSS alignas(8) unsigned char g_browserLists[kBrowserListBytes];
 
+namespace {
+// The device's one Ui keeps its screens (~8 KB) in the SDRAM instead of on
+// the SRAM heap (sdram_bss.h: main-loop data only). A second Ui at the same
+// time (host tests) falls back to the heap.
+OT_SDRAM_BSS alignas(ScreenSet) unsigned char g_screenMem[sizeof(ScreenSet)];
+OT_SDRAM_BSS bool g_screenMemUsed;
+}  // namespace
+
 void* createScreens(Ui& ui, App& app, Screen** out) {
-    ScreenSet* s;
-    if (!g_screenMemUsed) {
-        g_screenMemUsed = true;
-        s = new (static_cast<void*>(g_screenMem)) ScreenSet(ui, app);
-    } else {
-        s = new ScreenSet(ui, app);
-    }
+    void* mem = g_screenMem;
+    if (g_screenMemUsed) mem = ::operator new(sizeof(ScreenSet));
+    else g_screenMemUsed = true;
+    ScreenSet* s = new (mem) ScreenSet(ui, app);
     out[kModFile] = &s->file;
     out[kModLoader] = &s->loader;
     out[kModPattern] = &s->pattern;
@@ -76,13 +75,9 @@ void* createScreens(Ui& ui, App& app, Screen** out) {
 
 void destroyScreens(void* owner, Screen** screens) {
     if (!owner) return;
-    auto* s = static_cast<ScreenSet*>(owner);
-    if (owner == static_cast<void*>(g_screenMem)) {
-        s->~ScreenSet();
-        g_screenMemUsed = false;
-    } else {
-        delete s;
-    }
+    static_cast<ScreenSet*>(owner)->~ScreenSet();
+    if (owner == static_cast<void*>(g_screenMem)) g_screenMemUsed = false;
+    else ::operator delete(owner);
     for (int i = 0; i < kModCount; ++i) screens[i] = nullptr;
 }
 

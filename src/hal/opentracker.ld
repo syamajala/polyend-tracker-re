@@ -59,7 +59,7 @@ SECTIONS
 		. = 0x400;
 		KEEP(*(.flashconfig*))
 		*(.text*)
-		KEEP(*(.rodata.ot_report))
+		KEEP(*(.rodata.otSdramLayoutEnd))   /* read by tools/size_report.py (CI) */
 		*(.rodata*)
 		. = ALIGN(4);
 		KEEP(*(.init))
@@ -124,6 +124,20 @@ SECTIONS
 		_edata = .; 
 	} > RAM
 
+	/* The update bootloader can leave the image's last 4 KB flash sector
+	 * unwritten, so it keeps the previous firmware's bytes; with the .data
+	 * load image there, globals such as newlib's _impure_ptr start as
+	 * garbage. Zeros after .data up to the next sector boundary plus one
+	 * more sector: the last sector holds only padding
+	 * (tools/check_image.py checks it). BYTE(0) gives the section
+	 * contents; without it ld emits no bytes. */
+	.flashpad LOADADDR(.data) + SIZEOF(.data) : {
+		FILL(0x00)
+		BYTE(0)
+		. = ALIGN(4096);
+		. = . + 4096;
+	} > FLASH
+
 	.noinit (NOLOAD) : {
 		*(.noinit*)
 	} > RAM
@@ -159,7 +173,7 @@ SECTIONS
 		. = ALIGN(16);
 		_esdram_bss = .;
 	} > SDRAM_BSS
-	/* End of the region, for tools/size_report.py (.sdram_bss free space). */
+	/* The region's end, for tools/size_report.py (CI memory report). */
 	_sdram_bss_limit = ORIGIN(SDRAM_BSS) + LENGTH(SDRAM_BSS);
 
 	_estack = ORIGIN(RAM) + LENGTH(RAM);

@@ -70,8 +70,16 @@ struct Config {
     uint8_t synthVoices = kDefaultSynthVoices;
     static constexpr uint8_t kDefaultSynthVoices = 4;
     static constexpr uint8_t kMaxSynthVoices = 8;
+    // [I] 2.x Config > General "Export sample rate": 1 = 44.1 kHz (the render
+    // converted, 44100 in the header; default), 0 = the device rate with
+    // 44117 in the header, as stock (spec 04 §6.1). Extension record byte 6.
+    uint8_t exportRate = 1;
+    // Extension record bytes 3..5: options of later 2.x builds this one does
+    // not know yet; read and written back unchanged (their defaults).
+    uint8_t extKeep[3] = {0, 1, 0};
     // [I] Config > General "Note names" (ui/notes.h NoteSpelling): 0 Sharps,
-    // 1 Flats, 2 Auto (from the project key). Extension record byte 3.
+    // 1 Flats, 2 Auto (from the project key). Extension record byte 7, after
+    // upstream's bytes (fork-only, so it moves when upstream appends one).
     uint8_t noteNames = 0;
 
     // --- the stock config image --------------------------------------------
@@ -86,7 +94,7 @@ struct Config {
     static constexpr uint32_t kOffPerfReserved = 0xC0;   // u8[8]
     uint8_t image[kImageSize];
     // [I] OpenTracker-only Performance FX types of the global presets
-    // (perf::Source::ext, perf::kDjFilter ...): extension record, not image.
+    // (perf::Source::ext, perf::kDjFilter ...): extension record bytes 8..19.
     uint8_t perfExt[12] = {};
 
     // --- 2.x extension record (M1 plan, spec gap 7) -------------------------
@@ -95,8 +103,8 @@ struct Config {
     // ignores it: "OTX" magic, version, payload length, payload, 8-bit sum of
     // the payload. A missing or bad record leaves the defaults.
     static constexpr uint32_t kExtOffset = kImageSize;
-    static constexpr uint8_t kExtVersion = 1;
-    static constexpr uint32_t kExtPayload = 15;              // cpuMeter, synthVoices, noteNames, perfExt[12]
+    static constexpr uint8_t kExtVersion = 4;
+    static constexpr uint32_t kExtPayload = 19;   // cpuMeter, synthVoices, extKeep[3], exportRate, [I] noteNames, perfExt[12]
     static constexpr uint32_t kExtSize = 5 + kExtPayload + 1;
     void toExt(uint8_t* out) const;                          // kExtSize bytes
     bool fromExt(const uint8_t* in, uint32_t len);           // false: none / bad (fields unchanged)

@@ -200,7 +200,6 @@ private:
     int kind_ = 0;
     int count_ = 0;
     int cursor_ = 0;
-    bool selAll_ = false;    // the whole name is selected (just opened)
     char title_[32] = {};
     ItemFn fn_ = nullptr;
     void* ctx_ = nullptr;
@@ -405,12 +404,13 @@ public:
     // press until its release (the board powers off after a 1.5 s hold).
     bool powerPopupOpen() const { return powerOpen_; }
     // Power-off hold (spec 05 §1.5 state 5): the board powers off after
-    // 1500 ms (0x14984); the "Shutting down" popup shows the elapsed part of
-    // the hold as a progress bar, 0..100 % (0x149c0), redrawn every >= 30 ms.
+    // 1500 ms (0x14984); the "Shutting down" popup shows the remaining part
+    // of the hold as a progress bar, 100..0 % (the bar shrinks as on stock),
+    // redrawn every >= 30 ms.
     static constexpr uint32_t kPowerHoldMs = 1500;
     static constexpr uint32_t kPowerRedrawMs = 30;
     static int powerPercent(uint32_t elapsedMs) {
-        return elapsedMs >= kPowerHoldMs ? 100 : int(elapsedMs * 100u / kPowerHoldMs);
+        return elapsedMs >= kPowerHoldMs ? 0 : 100 - int(elapsedMs * 100u / kPowerHoldMs);
     }
     int powerPopupPercent() const { return powerOpen_ ? powerPercent(now_ - powerAt_) : 0; }
     // `/.develop` existed on the card at boot (spec 06 §7.2).
@@ -526,6 +526,10 @@ private:
     uint32_t now_ = 0;
     uint32_t lastRender_ = 0;
     bool dirty_ = true;
+    // List marquee (wg::marqueeRunning): the last frame scrolled a selected
+    // list item; the next frame is due wg::kMarqueeTickMs after it.
+    bool marqueeOn_ = false;
+    uint32_t marqueeAt_ = 0;
     bool stripUnder_ = false;             // this frame drew the bottom strip under the screen
     uint32_t stripUnderC_ = 0;            // its fill colour
     bool titleDrawn_ = false;             // this frame drew a title bar (hairline pending)

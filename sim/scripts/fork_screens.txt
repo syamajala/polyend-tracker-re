@@ -85,6 +85,8 @@ wait 400
 enc -70              # Synth 1 (the first entry)
 release INSTR
 wait 100
+tap MASTER           # from Pattern, INSTRPARAMS would open the step's instrument (upstream #52)
+wait 200
 tap INSTRPARAMS
 wait 200
 tap DOWN
@@ -138,6 +140,8 @@ enc -70
 enc 51               # MIDI 1 (the list: Synth 1-3, samples 1-48, MIDI 1-16)
 release INSTR
 wait 100
+tap MASTER           # not from Pattern (upstream #52, above)
+wait 200
 tap INSTRPARAMS
 wait 200
 # The Parameters page: CC A-F as six 131-item lists (#71: froze the display on

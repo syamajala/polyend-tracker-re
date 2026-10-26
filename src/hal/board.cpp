@@ -53,8 +53,11 @@ HalSet gHal = {&gDisplay, &gAudio, &gStorage, &gMidi, &gInput, &gLeds, &gClock, 
 // Power button (spec 01 §10, spec 05 power-button handler). Button ids from
 // spec 05 §2.1.1 (core ui/buttons.h): Power is the virtual slot 0x2a, Shift 0x1d.
 constexpr uint8_t kBtnPower = 0x2a, kBtnShift = 0x1d;
-bool gPowerArmed = false;      // released at boot or since (a press that woke us is ignored)
-bool gPowerDown = false;       // debounced state
+bool gPowerArmed = false;      // seen released once since boot (a press that woke us is ignored)
+// Debounced state. Starts as "down": the wake-up press is released long before
+// the first service(), and only a release edge arms the button. A released
+// button at the first service() is that edge; a press still held stays unarmed.
+bool gPowerDown = true;
 bool gPowerRaw = false;
 uint32_t gPowerEdgeMs = 0;
 uint32_t gPowerPressMs = 0;
@@ -387,13 +390,6 @@ const BootReport& boardInit() {
     // MIDI (spec 01 §8).
     diagStage("MIDI init");
     gMidi.init();
-    // Power button: a switch already up at boot arms it, so the first press
-    // counts (a boot without the wake press, e.g. after a firmware update or
-    // a reset, used to swallow it); one still held waits for its release.
-    gPowerRaw = gPowerDown = powerSwitchOn();
-    gPowerArmed = !gPowerDown;
-    gPowerEdgeMs = millis();
-
     r.stage = 16;
     diagStage("step 14: boardInit done");
     // step 14: status LED (UNVERIFIED [I] that PTC19 is an LED): off = boot done.

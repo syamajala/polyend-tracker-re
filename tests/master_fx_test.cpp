@@ -169,8 +169,8 @@ TEST(master_fx_config_record) {
     Config r;
     CHECK(r.load(nv));
     CHECK_EQ(r.perfExt[4], perf::kDjFilter);
-    // An older 3-byte record: no ext types.
-    const uint8_t old[] = {'O', 'T', 'X', 1, 3, 0, 4, 1, 5};
+    // A shorter record (up to Note names, payload byte 7): no ext types.
+    const uint8_t old[] = {'O', 'T', 'X', 4, 7, 0, 4, 0, 1, 0, 1, 1, 7};
     for (size_t i = 0; i < sizeof(old); ++i) nv.mem[0xF4 + i] = old[i];
     for (size_t i = sizeof(old); i < Config::kExtSize; ++i) nv.mem[0xF4 + i] = 0xFF;
     CHECK(r.load(nv));
