@@ -124,6 +124,20 @@ check: $(BIN) $(JPEG_CHECK) visual-diff keyflow-check
 # Generates the test songs this build supports and opens / plays each one in
 # the headless sim on a card with only Projects/<name> (tools/make_testsongs).
 TESTSONGS_SD := $(abspath $(OUT)/testsongs)
+# RAM_DL on Bridgetek's FT81x emulator (#71, tools/eve_emu): the frames of the
+# display budget scripts replayed under Wine; fails on a fault, > 2048 words
+# or a count the UI got wrong. Needs wine and x86_64-w64-mingw32-g++; the
+# emulator is downloaded (pinned, checksummed) into build/eve_emu.
+eve-check: $(BIN)
+	rm -rf $(OUT)/eve $(OUT)/eve-dl $(OUT)/eve-dl.eeprom $(OUT)/eve-fork $(OUT)/eve-fork.eeprom
+	mkdir -p $(OUT)/eve/budget $(OUT)/eve/fork $(OUT)/eve-fork/Patches/DX7
+	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/eve-dl \
+	    --script scripts/display_budget.txt --frames $(OUT)/eve/budget
+	python3 fixtures/make_dx7_bank.py $(OUT)/eve-fork/Patches/DX7/testbank.syx
+	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/eve-fork --line-in-tone 440 \
+	    --script scripts/fork_screens.txt --frames $(OUT)/eve/fork
+	python3 $(ROOT)/tools/eve_emu/check.py $(OUT)/eve/budget $(OUT)/eve/fork
+
 testsongs-check: $(BIN)
 	$(MAKE) -C $(ROOT)/tools/make_testsongs run SD=$(TESTSONGS_SD)
 	sh $(ROOT)/tools/make_testsongs/sim_check.sh $(abspath $(BIN)) $(TESTSONGS_SD) $(abspath $(OUT)/testsongs-check)
@@ -132,4 +146,4 @@ clean:
 	rm -rf $(OUT)
 
 -include $(CORE_OBJS:.o=.d) $(SIM_OBJS:.o=.d) $(JPEG_CHECK_OBJS:.o=.d) $(VISUAL_DIFF_OBJS:.o=.d)
-.PHONY: all clean fonts check visual-diff testsongs-check
+.PHONY: all clean fonts check visual-diff testsongs-check eve-check
