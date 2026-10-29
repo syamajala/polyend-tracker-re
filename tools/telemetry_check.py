@@ -22,8 +22,9 @@
       slot incl. its peak block; DX7 <= 18k, the algorithm 4 / 6 feedback chain <= 22k)
       fails above N.
   telemetry_check.py size [--size-tool arm-none-eabi-size] [--nm-tool arm-none-eabi-nm] <firmware.elf>
-      Flash use = .text + .data (Berkeley size): fail above 720,000 B, warn above
-      600,000 B (docs/VERIFY_M1.md R4, docs/MINI_PLAN.md §5).
+      Flash use = .text + .data (Berkeley size): fail above 800,000 B, warn above
+      720,000 B (upstream's 720,000 B budget; tools/check_image.py caps the image at
+      the stock 1.9.2 extent, 877,664 B) [I].
       With nm (default: the size tool's sibling): no double-precision libm in the
       image, and the stack headroom _estack - _ebss: fail below 75 KiB
       (docs/OPTIMIZATION_2X.md OP-4 / OP-5; see STACK_MIN).
@@ -83,8 +84,11 @@ BENCH_PK_RE = re.compile(r"^\s+block\s+\d+ \(song pos \d+, step \d+\):\s+(\d+) M
 # run; docs/OPTIMIZATION_2X.md "CPU round 3" (predicted ~1.7 with the round-3 .fastrun).
 DEVICE_CPI = 1.94
 LIMIT_RE = re.compile(r"^\s+((?:acd|vap|fat|wtfm|perc|dx7|pswitch|stream)[\w.]*)\s+(\d+(?:\.\d+)?)\s.*\blimit (\d+)\b")
-FLASH_FAIL = 720000
-FLASH_WARN = 600000
+# [I] The fork's DX7, remote control and Performance mode add ~53 KB over upstream:
+# upstream's fail line (720,000 B) is the fork's warning. The hard ceiling is
+# check_image.py's STOCK_END (877,664 B), past which the update bootloader's data lies.
+FLASH_FAIL = 800000
+FLASH_WARN = 720000
 # _estack - _ebss holds the stack and newlib's heap (src/hal/stack_watch.h). With the stack
 # guard (src/hal/stack_guard.h) it also holds the 4 KB heap reserve and the 8 KB guard, so
 # the stack itself gets at least 63 KiB. Measured on the device (telemetry "stack peak"):
@@ -584,7 +588,9 @@ def selftest():
                         " 612000    6700  180000  798700   c2fec x.elf"], quiet=True)
     assert ok
     ok, flash = check_size([" 715000    6700  180000  901700   dc244 x.elf"], quiet=True)
-    assert not ok and flash == 721700
+    assert ok and flash == 721700   # [I] a warning in the fork
+    ok, flash = check_size([" 795000    6700  180000  981700   efac4 x.elf"], quiet=True)
+    assert not ok and flash == 801700
     nm = ["0006c138 T powf", "20030000 B _estack", "20017000 B _ebss", "0006b400 t helper"]
     ok, head = check_symbols(nm, quiet=True)
     assert ok and head == 0x19000, head

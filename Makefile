@@ -3,7 +3,7 @@
 # make SELFTEST=1 -> build/selftest/PolyendTracker_OTst<DIAG_N>.ptf (24 chars)
 # make host-test  -> build and run host-side unit tests
 # make perf-gate  -> bench-m4 instruction counts vs tests/perf_baseline.txt (+5 % max), engine
-#                    limits, flash <= 720,000 B, host bench, telemetry thresholds on LOG=<device log>
+#                    limits, flash <= 800,000 B, host bench, telemetry thresholds on LOG=<device log>
 #                    (docs/HARDWARE_TESTING.md)
 # OT_GAMES=1      -> image with Games (NES player, screen, menu entry; build dir build/games); off by default since 2.2.1
 # OT_SDRAM_CACHE=0 -> image without the LMEM system cache for the SDRAM (build dir build/nocache)
@@ -222,8 +222,9 @@ clean:
 #     The same run gates the per-engine limit lines (acd.* / vap* / fat* / perc*: "limit N").
 #  3. tools/telemetry_check.py: its built-in sample check, plus LOG=<captured device log>
 #     against the thresholds (render avg < 45 %, max < 70 %, loop max < 50 ms outside loading).
-#  4. Flash size of the firmware image (.text + .data): fail above 720,000 B, warn above
-#     600,000 B (docs/VERIFY_M1.md R4); builds build/opentracker.elf when it is stale.
+#  4. Flash size of the firmware image (.text + .data): fail above 800,000 B, warn above
+#     720,000 B (upstream's budget; the image cap is tools/check_image.py); builds
+#     build/opentracker.elf when it is stale.
 #  5. Stack frames (-fstack-usage .su files): fail when one function's frame reaches the stack
 #     guard (src/hal/stack_guard.h) less 256 B for an interrupt's exception frame, or is
 #     unbounded, or when an object of the image has no .su file (built before the flag:
