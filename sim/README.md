@@ -39,7 +39,9 @@ Options:
 | `--frames DIR` | headless: at each `budget NAME` also save the frame (fragment cache off) as `DIR/NAME.otf` and its RAM_DL count in `DIR/index.txt`, for the FT81x emulator replay (`make eve-check`, `tools/eve_emu`) |
 | `--instant-display` | show every frame at once (also `OT_SIM_BUSY=0`). Default: FT81x frame pacing -- a frame is uploaded, then shown at the next 54 Hz vsync, `frameReady()` false meanwhile |
 
-The workspace is autosaved to the SD folder when the window closes.
+The workspace is autosaved to the SD folder when the window closes. Symlinks
+inside that folder are refused and omitted from file listings, so card paths
+cannot follow them into other host directories.
 
 ## Front panel and key map
 
@@ -233,6 +235,12 @@ expect-sound N              fail if the output peak since the last
 expect-quiet N              fail if the output peak since the last
                             expect-sound / sound-reset is N or more
 sound-reset                 restart the output peak
+expect-notice TEXT          fail unless notice TEXT was shown since the last
+                            expect-open-ok (it no longer counts there)
+config stream all|auto|off  Config > Stream from card, applied like the Config
+                            screen (autosave, Workspace reload)
+expect-streams N            fail unless exactly N instruments stream from the card
+expect-underruns N          fail if the stream underruns (all voices) exceed N
 ```
 
 Button names: `F1`..`F8`, the panel labels or `INSTRPARAMS PERFORMANCE FILE

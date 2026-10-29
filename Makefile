@@ -15,7 +15,7 @@
 # make fonts      -> regenerate the committed UI font image (src/core/ui/fonts/font_data.*,
 #                    the firmware's packed font_data_z.inc / font_adv.inc,
 #                    sim/third_party/rom_fonts.inc); needs python3 + Pillow
-VERSION   ?= 2.2.2
+VERSION   ?= 2.2.3
 BUILD     := build
 # Image file names must be exactly 24 characters (like the stock
 # "PolyendTracker_1.9.2.ptf"): the device's update bootloader rejected a
@@ -51,7 +51,7 @@ OT_GAMES ?= 0
 ifeq ($(OT_GAMES),1)
 BUILD     := $(BUILD)/games
 endif
-# [I] Stack guard test build (src/hal/stack_guard.h, issue #23): 1 = with
+# Stack guard test build (src/hal/stack_guard.h): 1 = with
 # /Firmware/ot_guardtest.txt on the card, overflows the stack once on purpose.
 OT_STACK_GUARD_TEST ?= 0
 ifeq ($(OT_STACK_GUARD_TEST),1)
@@ -193,6 +193,8 @@ $(BUILD)/%.cpp.o: %.cpp
 $(BUILD)/opentracker.elf: $(OBJS) $(LDSCRIPT)
 	$(CXX) $(LDFLAGS) $(OBJS) -L$(CORE) $(LIBS) -o $@ -Wl,-Map=$(BUILD)/opentracker.map
 	$(SIZE) $@
+	@# No static constructor may touch SDRAM (it is not running before main()).
+	python3 -I tools/check_ctors.py $(CROSS)objdump $@ || { rm -f $@; exit 1; }
 
 $(BUILD)/opentracker.hex: $(BUILD)/opentracker.elf
 	$(OBJCOPY) -O ihex -R .eeprom $< $@
@@ -222,6 +224,10 @@ clean:
 #     against the thresholds (render avg < 45 %, max < 70 %, loop max < 50 ms outside loading).
 #  4. Flash size of the firmware image (.text + .data): fail above 720,000 B, warn above
 #     600,000 B (docs/VERIFY_M1.md R4); builds build/opentracker.elf when it is stale.
+#  5. Stack frames (-fstack-usage .su files): fail when one function's frame reaches the stack
+#     guard (src/hal/stack_guard.h) less 256 B for an interrupt's exception frame, or is
+#     unbounded, or when an object of the image has no .su file (built before the flag:
+#     make clean); warn above 75 % of the guard.
 PERF_OUT := build/perf
 perf-gate:
 	@mkdir -p $(PERF_OUT)
@@ -232,8 +238,9 @@ perf-gate:
 	@if command -v $(CXX) >/dev/null 2>&1; then \
 	    { $(MAKE) -s $(BUILD)/opentracker.elf > $(PERF_OUT)/firmware_build.txt 2>&1 || \
 	      { tail -20 $(PERF_OUT)/firmware_build.txt; exit 1; }; } && \
-	    python3 tools/telemetry_check.py size --size-tool $(SIZE) $(BUILD)/opentracker.elf; \
-	else echo "perf-gate: $(CXX) missing -- flash size check SKIPPED"; fi
+	    python3 tools/telemetry_check.py size --size-tool $(SIZE) $(BUILD)/opentracker.elf && \
+	    python3 tools/telemetry_check.py frames --objects $(OBJS); \
+	else echo "perf-gate: $(CXX) missing -- flash size and stack frame checks SKIPPED"; fi
 	@$(MAKE) -s -C tests bench > $(PERF_OUT)/bench_host.txt && sed 's/^/  host: /' $(PERF_OUT)/bench_host.txt | head -8
 	@python3 tools/telemetry_check.py selftest
 	@if [ -n "$(LOG)" ]; then python3 tools/telemetry_check.py log "$(LOG)" \
@@ -252,8 +259,9 @@ fonts:
 
 # 2.x hardware-test projects (TESTSONGS.md): build/testsongs/Projects/<name>/.
 # SONGS="1 3" limits the set; songs whose milestone is not built are skipped.
+# STEMS_SECONDS=180: song 19's stems 180 s long (default 30 s; the hardware run).
 testsongs:
-	$(MAKE) -C tools/make_testsongs run SONGS="$(SONGS)"
+	$(MAKE) -C tools/make_testsongs run SONGS="$(SONGS)" STEMS_SECONDS="$(STEMS_SECONDS)"
 .PHONY: testsongs
 
 # Synth preset pack (tools/make_patches/PRESETS.md): build/patches/Patches/<MODEL>/.
