@@ -34,9 +34,10 @@ TEST(cpu_config_extension_record) {
     c.cpuMeter = 1;
     CHECK(c.save(nv));
     CHECK(std::equal(stock.begin(), stock.end(), nv.mem.begin()));
-    // Payload: cpuMeter, synthVoices (2.x M3, OP-8), noteNames, the global
-    // presets' OpenTracker-only FX types [12], then the 8-bit sum.
-    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 1, 15, 1, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5);
+    // Payload: cpuMeter, synthVoices (2.x M3, OP-8), extKeep[3], exportRate,
+    // [I] noteNames, the global presets' OpenTracker-only FX types [12], then
+    // the 8-bit sum.
+    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 4, 19, 1, 4, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 7);
     Config r;
     CHECK(r.load(nv));
     CHECK_EQ(r.cpuMeter, 1);
@@ -78,7 +79,7 @@ TEST(synth_voices_config) {
     CHECK_EQ(c.synthVoices, 4);
     c.synthVoices = 6;   // a non-default budget alone writes the record
     CHECK(c.save(nv));
-    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 1, 15, 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6);
+    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 4, 19, 0, 6, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8);
     Config r;
     CHECK(r.load(nv));
     CHECK_EQ(r.synthVoices, 6);
@@ -170,4 +171,40 @@ TEST(cpu_cell_poll_and_frame) {
     h.run(300);
     CHECK(!a.ui.cpuCell().shown());
     audio::CpuMeter::setCycleSource(nullptr);
+}
+
+TEST(export_rate_config_record) {
+    // Config > General "Export sample rate" (record v4, payload byte 6):
+    // 1 = 44.1 kHz (converted, default), 0 = the device rate with 44117 in
+    // the header, as stock. Payload bytes 3..5 belong to later 2.x options:
+    // a build that doesn't know them keeps them as they are.
+    FakeNvStore nv;
+    Config c;
+    CHECK_EQ(c.exportRate, 1);
+    c.exportRate = 0;   // alone writes the record
+    CHECK(c.save(nv));
+    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 4, 19, 0, 4, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5);
+    Config r;
+    CHECK(r.load(nv));
+    CHECK_EQ(r.exportRate, 0);
+    // Bytes 3..5 written by another 2.x build survive a load and a save.
+    const uint8_t other[] = {'O', 'T', 'X', 4, 6, 0, 4, 2, 3, 1, 1, 11};
+    for (size_t i = 0; i < sizeof(other); ++i) nv.mem[0xF4 + i] = other[i];
+    CHECK(r.load(nv));
+    CHECK_EQ(r.exportRate, 1);
+    r.cpuMeter = 1;
+    CHECK(r.save(nv));
+    // [I] Written back with the fork's bytes 7..19 appended (defaults).
+    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 4, 19, 1, 4, 2, 3, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12);
+    // An older record (payload 2) loads with the default 44.1 kHz.
+    const uint8_t v1[] = {'O', 'T', 'X', 1, 2, 2, 4, 6};
+    for (size_t i = 0; i < sizeof(v1); ++i) nv.mem[0xF4 + i] = v1[i];
+    for (size_t i = sizeof(v1); i < 12; ++i) nv.mem[0xF4 + i] = 0xFF;
+    r.exportRate = 0;
+    CHECK(r.load(nv));
+    CHECK_EQ(r.cpuMeter, 2);
+    CHECK_EQ(r.exportRate, 1);
+    c.exportRate = 7;
+    c.sanitize();
+    CHECK_EQ(c.exportRate, 1);
 }

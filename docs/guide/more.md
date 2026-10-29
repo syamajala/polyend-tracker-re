@@ -43,6 +43,13 @@ The 2.x line brings the newer Tracker features to the original hardware. In shor
   columns on Global Mixer page 3.
 - Exports include separate stems `synth_1..3.wav`.
 
+### Export sample rate
+
+**Config > General > Export sample rate: 44.1 kHz (default) or 44117 Hz.** The Tracker's
+audio runs at 44,117 Hz. At 44.1 kHz, exported songs, patterns, stems and renders are
+converted to a standard 44,100 Hz WAV, so they play in time in any DAW. 44117 Hz writes
+the Tracker's own rate, as the original firmware does.
+
 ### Stereo samples
 
 Stereo WAVs keep both channels and play in stereo in one-shot, loop, slice and beat-slice

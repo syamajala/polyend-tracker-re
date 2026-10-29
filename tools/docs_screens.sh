@@ -269,7 +269,8 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
-tap DOWN             # Note names (the 14th row)
+tap DOWN
+tap DOWN             # Note names (the 15th row, after Export sample rate)
 wait 300
 EOF
 

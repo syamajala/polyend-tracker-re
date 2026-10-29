@@ -115,7 +115,8 @@ TEST(note_names_config_record) {
     CHECK_EQ(c.noteNames, 0);
     c.noteNames = kSpellAuto;   // a non-default spelling alone writes the record
     CHECK(c.save(nv));
-    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 1, 15, 0, 4, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6);
+    // Payload byte 7, after upstream's extKeep[3] and exportRate.
+    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 4, 19, 0, 4, 0, 1, 0, 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8);
     Config r;
     CHECK(r.load(nv));
     CHECK_EQ(r.noteNames, kSpellAuto);
@@ -145,7 +146,7 @@ TEST(note_names_config_screen_and_pattern) {
     App& a = *h.app;
     ConfigScreen& c = cfgScreen(h);
     char t[48];
-    c.optionText(1, 13, t, sizeof t);
+    c.optionText(1, 14, t, sizeof t);
     CHECK_STR(t, "Sharps");
     // Root note option 1 = C#1 with sharps.
     a.project.setU8(pf::kRootNote, 1);
@@ -157,7 +158,7 @@ TEST(note_names_config_screen_and_pattern) {
     a.pattern().tracks[0].steps[0].note = 61;
     h.app->ui.dirty();
     h.run(40);
-    c.optionText(1, 13, t, sizeof t);
+    c.optionText(1, 14, t, sizeof t);
     CHECK_STR(t, "Flats");
     c.optionText(0, 3, t, sizeof t);
     CHECK_STR(t, "Db1");

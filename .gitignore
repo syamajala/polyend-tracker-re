@@ -4,3 +4,5 @@ __pycache__/
 # MkDocs (docs/dev/docs.md)
 /site/
 /.venv/
+tools/make_demo/make_demo
+dist/
