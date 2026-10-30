@@ -124,6 +124,7 @@ void PerformanceScreen::engage() {
 void PerformanceScreen::stop() {
     App& a = app_;
     for (auto& h : held_) h = false;
+    typeList = false;   // [I] #89: closed unchanged
     if (view == View::EditScene) editSceneEnd();   // [I] leaving saves the scene being edited
     view = View::Play;
     // spec 16 §A.15: switching to Instrument Params or Master keeps the FX
@@ -502,6 +503,11 @@ bool PerformanceScreen::anyTrackKey() const {
 }
 
 void PerformanceScreen::onEncoder(int d) {
+    if (typeList) {   // [I] #89: the highlight (Shift: faster, Ui fastDelta)
+        typeCursor = clampi(typeCursor + d, 0, perf::kFxCount - 1);
+        ui_.dirty();
+        return;
+    }
     if (view == View::Bank) {   // [I] the selected scene
         bankCursor = clampi(bankCursor + d, 0, Project::kPerfScenes - 1);
         refreshBar();
@@ -565,16 +571,35 @@ void PerformanceScreen::editSelected(int d) {
     ui_.dirty();
 }
 
-void PerformanceScreen::changeType(int d) {
+void PerformanceScreen::setColumnType(uint8_t ty) {
     const int c = column;
+    const uint8_t old = src.type(c);
+    if (ty == old) return;
+    const perf::FxDesc &a = perf::fx(old), &b = perf::fx(ty);
+    // [I] #89: the values stay when they mean the same under the new type.
+    const bool keep = old != 0 && ty != 0 && a.min == b.min && a.max == b.max && a.labels == b.labels;
     // The old type is reverted first (spec 12 §A.5 [FW:0x445fc]).
-    src.setType(c, uint8_t((src.type(c) + perf::kFxCount + d) % perf::kFxCount));
-    for (int r = 0; r < perf::kRows; ++r) src.setValue(c, r, 0);
-    src.setRow(c, 0);
-    cur[c] = 0;
+    src.setType(c, ty);
+    if (!keep) {
+        for (int r = 0; r < perf::kRows; ++r) src.setValue(c, r, 0);
+        src.setRow(c, 0);
+    }
+    const int row = src.row(c);
+    cur[c] = keep && row >= 1 && row <= 3 ? src.value(c, row) : 0;
     liveValid[c] = false;
     edited();
     applyAll(false);
+}
+
+void PerformanceScreen::openTypeList() {
+    typeList = true;
+    typeCursor = src.type(column);
+    typeTop = wg::listFollow(typeCursor, perf::kFxCount, wg::listVisibleRows(wg::kPanelH), 0);
+}
+
+void PerformanceScreen::closeTypeList(bool apply) {
+    typeList = false;
+    if (apply) setColumnType(uint8_t(typeCursor));
 }
 
 void PerformanceScreen::swapColumn(int nc) {
@@ -600,6 +625,31 @@ void PerformanceScreen::swapColumn(int nc) {
 
 void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
     App& a = app_;
+    if (typeList) {
+        // [I] #89: the list takes the keys while open (the F keys too, so
+        // OK / Cancel never toggle a track's FX); Performance and Play
+        // close it unchanged and then act as usual.
+        if (id != btn::Performance && id != btn::Play) {
+            if (state == kPress) {
+                switch (id) {
+                    case btn::Up:
+                    case btn::Down:
+                        typeCursor = clampi(typeCursor + (id == btn::Down ? 1 : -1), 0, perf::kFxCount - 1);
+                        break;
+                    case btn::F8: closeTypeList(true); break;
+                    case btn::F7:
+                    case btn::Left:
+                    case btn::Right:
+                    case btn::Rec: closeTypeList(false); break;
+                    default: break;
+                }
+            }
+            refreshBar();
+            ui_.dirty();
+            return;
+        }
+        if (state == kPress) closeTypeList(false);
+    }
     if (id == btn::Performance) {
         // [I] The scene bank page: open / back to playing; from a scene
         // being edited, back to the bank (saving it). Stock 2.x toggled the
@@ -688,7 +738,7 @@ void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
                         trackPatternNow(t, trackPatternOf(t) + d);
                     }
             } else if (edit) {
-                changeType(d);
+                openTypeList();   // [I] #89 (stock 2.x stepped the type here)
             }
             break;
         }
@@ -1198,6 +1248,15 @@ void PerformanceScreen::refreshBar() {
         }
         return;
     }
+    if (typeList) {   // [I] #89, drawn by draw() as the bank page's labels
+        static const char* const kTop[8] = {"", "", "", "", "", "", "Cancel", "OK"};
+        for (int i = 0; i < 8; ++i) {
+            b.set(i, kTop[i], "");
+            b.highlight(i, true);
+            b.label[i].hidden = true;
+        }
+        return;
+    }
     for (int i = 0; i < 8; ++i) {
         const int t = bank * 8 + i;
         const bool m = trk::muted(a, t);
@@ -1245,10 +1304,15 @@ void PerformanceScreen::draw(Gfx& g) {
         }
         right = fade;
     }
-    if (view == View::EditScene) std::snprintf(title, sizeof(title), "Scene %d", editScene + 1);
+    if (typeList) std::snprintf(title, sizeof(title), "FX type: column %d", column + 1);   // [I] #89
+    else if (view == View::EditScene) std::snprintf(title, sizeof(title), "Scene %d", editScene + 1);
     else std::snprintf(title, sizeof(title), "Performance FX");
     ui_.drawTitle(g, title, right);
     if (!src.valid()) return;
+    if (typeList) {
+        drawTypeList(g);
+        return;
+    }
     // spec 20 §4.10 / VISUAL_DIFF §8.10: 12 FX panels (class 0x0b) 63 px
     // wide at x 11 + 65 i: a title band y 34..69 with the current (or live
     // MIDI-CC, spec 16 §A.14) value, the FX name as vertical font-2 text
@@ -1408,6 +1472,38 @@ void PerformanceScreen::draw(Gfx& g) {
         g.text(cx, wg::kLabelY1, kFont3, tc, l.top, IDisplay::kOptCenter);
         const bool queued = pending_[t] || app_.seq.queuedTrackPattern(t) != 0;
         if (!queued || blinkOn_ || ui_.shift()) g.text(cx, wg::kLabelY2, kFont2, vc, l.bottom, IDisplay::kOptCenter);
+    }
+}
+
+// [I] #89 FX type list: one list column over the edit column (kept on
+// screen), the column panels hidden. The edit column's current type is
+// marked; the bar shows Cancel / OK.
+namespace {
+void typeItem(void*, int i, char* out, int cap) {
+    std::snprintf(out, size_t(cap), "%s", i == 0 ? "Empty" : perf::fx(uint8_t(i)).name);
+}
+bool typeMarked(void* ctx, int i) { return i == *static_cast<const int*>(ctx); }
+}  // namespace
+
+void PerformanceScreen::drawTypeList(Gfx& g) {
+    const Theme& th = ui_.th();
+    wg::ListView v;
+    v.w = 197;
+    v.x = clampi(11 + 65 * column + 31 - v.w / 2, 1, 800 - v.w - 2);
+    v.count = perf::kFxCount;
+    typeTop = wg::listFollow(typeCursor, v.count, wg::listVisibleRows(v.h), typeTop);
+    v.top = typeTop;
+    v.sel = typeCursor;
+    v.active = true;
+    v.item = typeItem;
+    v.marked = typeMarked;
+    int curType = src.type(column);
+    v.ctx = &curType;
+    wg::list(g, th, v);
+    for (int t = 0; t < 8; ++t) {
+        const BarLabel& l = ui_.bar.label[t];
+        if (!l.top[0]) continue;
+        g.text(wg::labelCentre(t), wg::kLabelY, kFont3, th.slot(slot::kBottomLabel), l.top, IDisplay::kOptCenter);
     }
 }
 

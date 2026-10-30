@@ -656,6 +656,9 @@ public:
     void onPad(uint8_t pad, uint8_t state) override;
     void onEncoder(int d) override;
     bool encoderFast() const override { return true; }
+#if !(defined(OT_TARGET_DEVICE) && OT_TARGET_DEVICE)
+    bool encoderOnList() const override { return typeList; }
+#endif
     // [I] The Performance key opens the scene bank page (stock 2.x: it
     // toggled the track bank, now Left / Right outside edit mode).
     bool ownsModuleKey(uint8_t id) const override { return id == btn::Performance; }
@@ -722,6 +725,20 @@ public:
     int16_t padValue(int c) const;
     void editSelected(int d);   // [I] edit mode, nothing held: encoder on the edit column's row
 
+    // [I] #89 FX type list: in edit mode Up / Down open it on the edit
+    // column's type; the encoder (Shift: faster) and Up / Down move the
+    // highlight, F8 (OK) sets the type, F7 / Left / Right / Rec close it
+    // unchanged. Nothing is applied until OK. The column panels are hidden
+    // while it is open (the page's display list has ~600 B to spare).
+    bool typeList = false;
+    int typeCursor = 0;
+    int typeTop = 0;
+    void openTypeList();
+    void closeTypeList(bool apply);
+    // Sets the edit column's type; its values stay when the new type has
+    // the same range and labels, else they are cleared.
+    void setColumnType(uint8_t ty);
+
     // [I] Scene bank (#10): 16 scenes (Project::perfScene); the crossfader's
     // ends A / B each play one (Project::perfSceneOn). The Performance key
     // opens the bank page (a view of this screen, so the FX stay live): pick
@@ -751,7 +768,6 @@ private:
     void leave();
     void resetOthers(int slot);
     void edited();
-    void changeType(int d);
     void swapColumn(int nc);
     void play();
     bool anyTrackKey() const;
@@ -762,6 +778,7 @@ private:
     void releaseDriven();   // [I] the slots scenes A / B drive go back to their pad rows
     void bankButton(uint8_t id, uint8_t state);
     void drawBank(Gfx& g);
+    void drawTypeList(Gfx& g);   // [I] #89
     uint8_t savedRows_[12] = {};   // [I] the pad rows before a scene was opened for editing
     uint16_t savedFxOff_ = 0;      // [I] #54: the live FX toggles while a scene is edited
     bool editFxTouched_ = false;   // [I] #54: an F key was tapped while editing the scene

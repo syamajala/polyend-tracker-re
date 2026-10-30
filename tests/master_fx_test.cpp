@@ -194,6 +194,12 @@ struct PerfRig {
         h.enc(int8_t(value));
         h.push(InputEvent::kPadUp, uint8_t(pad));
     }
+    // Edit mode: the edit column's type through the type list (#89).
+    void pickType(int ty) {
+        h.tap(btn::Down);   // opens the list on the current type
+        h.enc(int8_t(ty - p().typeCursor));
+        h.tap(btn::F8);     // OK
+    }
 };
 }  // namespace
 
@@ -207,9 +213,7 @@ TEST(master_fx_perf_screen_project_presets) {
     r.h.tap(btn::Performance);
     PerformanceScreen& p = r.p();
     r.h.tap(btn::Rec);       // edit
-    r.h.tap(btn::Down);      // column 0: Volume -> empty
-    r.h.tap(btn::Down);      // -> Tape stop (wraps to the last type)
-    r.h.tap(btn::Down);      // -> DJ filter
+    r.pickType(perf::kDjFilter);   // column 0
     CHECK_EQ(p.src.type(0), perf::kDjFilter);
     CHECK_EQ(a.project.u8(pf::kPerfTypes), 0);   // stock byte: empty
     CHECK_EQ(a.project.perfExtType[0], perf::kDjFilter);
@@ -253,10 +257,7 @@ TEST(master_fx_perf_screen_global_presets) {
     r.h.tap(btn::Performance);
     r.h.tap(btn::Rec);
     r.h.tap(btn::Right);     // column 1
-    r.h.tap(btn::Down);
-    r.h.tap(btn::Down);
-    r.h.tap(btn::Down);
-    r.h.tap(btn::Down);      // Panning -> Volume -> empty -> Tape stop -> DJ filter
+    r.pickType(perf::kDjFilter);
     CHECK_EQ(r.p().src.type(1), perf::kDjFilter);
     CHECK_EQ(a.cfg.perfTypes()[1], 0);
     CHECK_EQ(a.cfg.perfExt[1], perf::kDjFilter);
@@ -276,9 +277,7 @@ TEST(master_fx_perf_scene_fader) {
     r.h.tap(btn::Performance);
     PerformanceScreen& p = r.p();
     r.h.tap(btn::Rec);
-    r.h.tap(btn::Down);
-    r.h.tap(btn::Down);
-    r.h.tap(btn::Down);      // Volume -> empty -> Tape stop -> DJ filter
+    r.pickType(perf::kDjFilter);
     r.setRow(12, -60);
     r.setRow(36, 50);
     r.h.tap(btn::Rec);
@@ -413,8 +412,7 @@ TEST(tape_stop_perf_pad_momentary) {
     r.h.tap(btn::Performance);
     PerformanceScreen& p = r.p();
     r.h.tap(btn::Rec);
-    r.h.tap(btn::Down);
-    r.h.tap(btn::Down);      // Volume -> empty -> Tape stop
+    r.pickType(perf::kTapeStop);
     CHECK_EQ(p.src.type(0), perf::kTapeStop);
     r.setRow(12, 3);         // row 1: 1 beat
     r.h.tap(btn::Rec);
@@ -446,8 +444,7 @@ TEST(tape_stop_scene_switches_at_middle) {
     r.h.tap(btn::Performance);
     PerformanceScreen& p = r.p();
     r.h.tap(btn::Rec);
-    r.h.tap(btn::Down);
-    r.h.tap(btn::Down);      // Tape stop
+    r.pickType(perf::kTapeStop);
     r.setRow(36, 5);         // row 3: 1 bar
     r.h.tap(btn::Rec);
     r.h.pad(0);              // row 0: off
