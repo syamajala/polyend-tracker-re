@@ -1091,20 +1091,25 @@ crossfader</strong>, a <strong>bank of 16 scenes</strong>, and <strong>master FX
 <ul>
 <li>Press <strong>Performance</strong>. Hold a pad to play that column's value on its row; release to go
   back. The top row shows what's playing.</li>
-<li><strong>Rec</strong> (edit mode): <strong>Up / Down</strong> change a column's effect type, the encoder changes
-  the value of the selected row. In the fork, a tapped row can be edited with the encoder
-  without holding the pad.</li>
-<li>
-<p><strong>The F keys</strong> turn the effects on or off per track (lit = on). <strong>Shift + F key</strong> mutes
+<li><strong>Rec</strong> (edit mode): the encoder changes the value of the selected row. In the fork, a
+  tapped row can be edited with the encoder without holding the pad.</li>
+<li><strong>Choosing a column's effect type</strong> (fork): in edit mode, <strong>Up / Down</strong> open a list of
+  every type on the column's current one. Move with the encoder (<strong>Shift</strong> + a quick turn for
+  bigger jumps) or Up / Down, then press <strong>OK (F8)</strong>. <strong>Cancel (F7)</strong>, <strong>Left / Right</strong> or
+  <strong>Rec</strong> close it without changing anything. Nothing is applied until OK, and the F keys
+  don't switch track effects while the list is open. The row values stay when the new
+  type has the same range (e.g. Volume to Panning); otherwise they're cleared as in stock.
+  Stock stepped the type with Up / Down, applying each one on the way.</li>
+</ul>
+<p><img alt="The effect type list" src="../../images/perf-type-list.png" />
+- <strong>The F keys</strong> turn the effects on or off per track (lit = on). <strong>Shift + F key</strong> mutes
   the track. <strong>Left / Right</strong> (outside edit mode) switch the F keys between tracks 1–8 and
   9–16. In the fork the F keys are <strong>remembered</strong>: leaving the screen and coming back keeps
   them, and they're saved with the project (stock turns every track on again).</p>
-</li>
-<li>
-<p>Effect types include Volume, Panning, Tune, Low-pass / High-pass / Band-pass, Delay and
+<ul>
+<li>Effect types include Volume, Panning, Tune, Low-pass / High-pass / Band-pass, Delay and
   Reverb send, Start / End pos, Direction, the LFOs, Repeater, Play mode, Length, Bit depth
-  and Overdrive, plus the fork's <strong>DJ filter</strong> and <strong>Tape stop</strong>.</p>
-</li>
+  and Overdrive, plus the fork's <strong>DJ filter</strong> and <strong>Tape stop</strong>.</li>
 </ul>
 <h2 id="scenes-and-the-crossfader">Scenes and the crossfader<a class="headerlink" href="#scenes-and-the-crossfader" title="Permanent link">&para;</a></h2>
 <p>A <strong>scene</strong> stores a row for every column. The crossfader's two ends, <strong>A</strong> and <strong>B</strong>,
@@ -1200,8 +1205,8 @@ limiter), instead of on each track:</p>
   free sample memory while it runs (shared with resampling), so it can refuse when
   memory is full.</li>
 </ul>
-<p>Set them like any column: in edit mode, <strong>Down</strong> on a column cycles its type through to
-<strong>DJ filter</strong> and <strong>Tape stop</strong>.</p>
+<p>Set them like any column: in edit mode, <strong>Up / Down</strong> open the type list; <strong>DJ filter</strong>
+and <strong>Tape stop</strong> are at the end.</p>
 <h2 id="saved-with-the-project">Saved with the project<a class="headerlink" href="#saved-with-the-project" title="Permanent link">&para;</a></h2>
 <p>The scene bank, the F keys (live and per scene) and the master FX types are stored in
 <code>perf_scenes.bin</code> next to <code>project.mt</code>. Stock firmware and the Tracker Mini see those columns as empty and ignore
