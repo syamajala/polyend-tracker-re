@@ -35,7 +35,7 @@ Projects must keep opening in stock firmware, upstream OpenTracker and the Track
 
 | File | Holds |
 |---|---|
-| `perf_scenes.bin` | the Performance scene bank, A / B, and the fork's column types (DJ filter, tape stop) |
+| `perf_scenes.bin` | the Performance scene bank, A / B, and the fork's column types (DJ filter, tape stop, MIDI CC) and MIDI CC targets |
 | `song.bin` | per-slot Count, Scene, Scene B and Ramp |
 | `midi_lfo.bin` | one LFO per MIDI instrument |
 | `.patch` field 100 | a DX7 voice (155 bytes), past every Mini field |

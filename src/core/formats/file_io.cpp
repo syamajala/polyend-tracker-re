@@ -124,6 +124,7 @@ FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoa
     p.perfSceneOn[0] = 0;
     p.perfSceneOn[1] = 1;
     std::memset(p.perfExtType, 0, sizeof(p.perfExtType));
+    std::memset(p.perfExtArg, 0, sizeof(p.perfExtArg));
     std::memset(p.playlistCount, 0, sizeof(p.playlistCount));
     char sp[352];
     if (sideFilePath(sp, sizeof(sp), path, mlfo::kFileName) && fs.exists(sp) &&

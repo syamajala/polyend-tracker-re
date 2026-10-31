@@ -205,9 +205,12 @@ $(PTF): $(BUILD)/opentracker.hex
 	cp $< $@
 
 HOSTCXX   ?= g++
+# Parallel by default (HOST_JOBS=1 for a serial run); -Otarget keeps each
+# test's output in one piece.
+HOST_JOBS ?= $(shell nproc 2>/dev/null || echo 4)
 host-test:
 	python3 -I tools/fonts/pack_fonts.py --check src/core/ui/fonts
-	$(MAKE) -C tests
+	$(MAKE) -C tests -j$(HOST_JOBS) -Otarget
 
 clean:
 	rm -rf $(BUILD)

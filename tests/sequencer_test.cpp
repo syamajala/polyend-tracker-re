@@ -1577,6 +1577,35 @@ TEST(midi_lfo_cc_fx_moves_center) {
     CHECK(!v2.empty() && v2.front() == 96);   // 64 + 32
 }
 
+// [I] #28 A Performance MIDI CC column sends a CC slot as a step FX does:
+// on the instrument's channel, and as the LFO's Center on that slot.
+TEST(perf_cc_sends_slot_and_moves_lfo_center) {
+    Rig r(120.0f);
+    MidiInstrument m = r.project.midiInstrument(1);
+    m.cc[2] = 74;   // slot C
+    m.cc[3] = 0x82;   // slot D: Poly AT, no note to send it for
+    r.project.setMidiInstrument(1, m);
+    r.seq.sendPerfCc(1, 2, 50);
+    CHECK(ccValues(r.sink, 0xB1, 74) == std::vector<int>{50});
+    r.seq.sendPerfCc(1, 3, 50);
+    CHECK_EQ(r.sink.midiStatus(0xA1).size(), 0u);
+    r.project.midiLfo[1] = lfo(3, 3, kRate1Step, 20);   // slot C, square +-20
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 1; });
+    r.seq.sendPerfCc(1, 2, 100);
+    r.runUntil([&] { return r.seq.step(0) == 3; });
+    bool hi = false, lo = false;
+    for (int x : ccValues(r.sink, 0xB1, 74)) {
+        hi = hi || x == 120;
+        lo = lo || x == 80;
+    }
+    CHECK(hi);
+    CHECK(lo);
+    r.seq.stop();
+    const auto v = ccValues(r.sink, 0xB1, 74);
+    CHECK(!v.empty() && v.back() == 100);
+}
+
 TEST(midi_lfo_pitch_bend_and_pressure) {
     Rig r(120.0f);
     r.project.midiLfo[0] = lfo(MidiLfo::kTargetPitchBend, 3, kRate1Step, 32);   // square, +-4096

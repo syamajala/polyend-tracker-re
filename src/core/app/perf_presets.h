@@ -21,7 +21,7 @@ constexpr int kSlots = 12;
 constexpr int kRows = 4;          // stored rows 0..3 (0 = off)
 constexpr int kLiveRow = 4;       // MIDI-CC live value (spec 12 §B.2)
 constexpr int kStockFxCount = 22; // 0 = empty, 1..21: the types stock stores
-constexpr int kFxCount = 24;      // [I] + OpenTracker-only types (Source::ext)
+constexpr int kFxCount = 25;      // [I] + OpenTracker-only types (Source::ext)
 
 // FX ids (spec 12 §E.2).
 enum Fx : uint8_t {
@@ -32,7 +32,19 @@ enum Fx : uint8_t {
     // Source::ext; the stock types byte of the slot stays 0 (empty).
     kDjFilter,
     kTapeStop,   // momentary: the pad's row is held only while pressed
+    // [I] #28: sends a CC slot of a MIDI instrument (Source::arg). Values
+    // are the CC value + 1, so 0 stays "---" (off): see ccValue().
+    kMidiCc,
 };
+
+// [I] #28 MIDI CC column target (Source::arg): MIDI instrument 0..15 (the
+// channel) and its CC slot A..F (0..5), as the MIDI LFO targets a slot.
+constexpr int kCcSlots = 6;
+inline uint8_t ccTarget(int midi, int slot) { return uint8_t((midi & 15) << 3 | (slot & 7)); }
+inline int targetMidi(uint8_t t) { return (t >> 3) & 15; }
+inline int targetSlot(uint8_t t) { return t & 7; }
+// A MIDI CC column's stored value -> the CC value 0..127; -1 = off.
+inline int ccValue(int v) { return v >= 1 && v <= 128 ? v - 1 : -1; }
 
 // Value descriptor (spec 12 §E.1): min, max, label table, exclusive-with
 // ids, global flag. Names are OpenTracker's.
@@ -69,8 +81,14 @@ struct Source {
     // bytes: Config's extension record / perf_scenes.bin. A slot with one
     // keeps types[s] = 0, so stock firmware sees it empty.
     uint8_t* ext = nullptr;
+    // [I] #28 u8[12]: a MIDI CC column's target (ccTarget), next to ext.
+    uint8_t* arg = nullptr;
 
     bool valid() const { return types && values && rows; }
+    uint8_t target(int s) const { return arg ? arg[s] : 0; }
+    void setTarget(int s, uint8_t t) const {
+        if (arg) arg[s] = t;
+    }
     uint8_t type(int s) const { return ext && ext[s] ? ext[s] : types[s]; }
     void setType(int s, uint8_t t) const {
         if (t >= kStockFxCount && ext) {

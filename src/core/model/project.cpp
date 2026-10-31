@@ -105,6 +105,7 @@ void Project::setLoadPrefill() {
     perfSceneOn[0] = 0;
     perfSceneOn[1] = 1;
     std::memset(perfExtType, 0, sizeof(perfExtType));
+    std::memset(perfExtArg, 0, sizeof(perfExtArg));
     perfFxOff = 0;
     std::memset(perfSceneFxOff, 0, sizeof(perfSceneFxOff));
     perfSceneFxSet = 0;

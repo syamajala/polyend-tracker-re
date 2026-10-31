@@ -180,6 +180,7 @@ void Config::toExt(uint8_t* out) const {
     out[32] = noteNames;   // [I] bytes 28..41, after upstream's
     std::memcpy(out + 33, perfExt, sizeof(perfExt));
     out[45] = padLayout;
+    std::memcpy(out + 46, perfArg, sizeof(perfArg));
     uint8_t sum = 0;
     for (uint32_t i = 0; i < kExtPayload; ++i) sum = uint8_t(sum + out[5 + i]);
     out[5 + kExtPayload] = sum;
@@ -209,6 +210,8 @@ bool Config::fromExt(const uint8_t* in, uint32_t len) {
     if (n >= 40) std::memcpy(perfExt, in + 33, sizeof(perfExt));   // checked by perf::Source::validate
     else std::memset(perfExt, 0, sizeof(perfExt));
     padLayout = (n >= 41 && in[45] <= 1) ? in[45] : 0;
+    if (n >= 53) std::memcpy(perfArg, in + 46, sizeof(perfArg));   // checked by perf::Source::validate
+    else std::memset(perfArg, 0, sizeof(perfArg));
     return true;
 }
 
@@ -233,6 +236,7 @@ bool Config::fromImage(const uint8_t* img) {
     c.noteNames = noteNames;
     c.padLayout = padLayout;
     std::memcpy(c.perfExt, perfExt, sizeof(perfExt));
+    std::memcpy(c.perfArg, perfArg, sizeof(perfArg));
     c.sanitize();
     *this = c;
     toImage();
@@ -255,6 +259,7 @@ bool Config::load(INvStore& nv) {
     noteNames = d.noteNames;
     padLayout = d.padLayout;
     std::memset(perfExt, 0, sizeof(perfExt));
+    std::memset(perfArg, 0, sizeof(perfArg));
     // The longest record that fits the store (older records are shorter;
     // fromExt reads the payload length from the record).
     for (uint32_t len = kExtSize; len >= 7; --len)
@@ -278,6 +283,7 @@ bool Config::save(INvStore& nv) {
                       std::memcmp(extKeep, d.extKeep, sizeof(extKeep)) == 0 && noteNames == d.noteNames &&
                       padLayout == d.padLayout;
     for (uint8_t t : perfExt) extDefault = extDefault && t == 0;
+    for (uint8_t t : perfArg) extDefault = extDefault && t == 0;
     if (extDefault) {
         Config probe;
         if (!nv.read(kExtOffset, ext, kExtSize) || !probe.fromExt(ext, kExtSize)) return true;
@@ -311,6 +317,7 @@ bool Config::load(IStorage& fs) {
         noteNames = d.noteNames;
         padLayout = d.padLayout;
         std::memset(perfExt, 0, sizeof(perfExt));
+    std::memset(perfArg, 0, sizeof(perfArg));
         fromExt(buf + 8 + kImageSize, avail - kImageSize);
         return true;
     }

@@ -148,7 +148,7 @@ TEST(master_fx_perf_scenes_ext_types) {
     p.perfScene[0][1] = 2;
     uint8_t buf[pscn::kFileSize];
     encodePerfScenes(p, buf);
-    CHECK_EQ(buf[4], 4);
+    CHECK_EQ(buf[4], 5);
     Project q;
     CHECK(decodePerfScenes(buf, sizeof(buf), q) == FmtStatus::Ok);
     CHECK_EQ(q.perfExtType[2], perf::kDjFilter);
