@@ -142,6 +142,10 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   row above. The pad lights draw the keys (root brightest, black keys dimmer, notes outside
   the scale barely lit); the gaps play nothing.
 
+### Chord entry
+- In the pattern editor's edit mode, pads held together enter a chord: one note per
+  track on the same step, from the cursor track rightwards. One Undo removes it.
+
 ### MIDI presets
 - **Instrument Params** on a MIDI instrument now steps through Parameters, LFO and a new
   **Preset** page: name the CC slots A–F ("Cutoff" instead of "CC A"), then **Save** the
