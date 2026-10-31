@@ -57,16 +57,11 @@ int lfoTargets(const MidiInstrument& m, uint8_t* out) {
     return n;
 }
 
-// [I] #13 a target that is a labelled CC slot shows the label ("Cutoff").
-void lfoTargetName(const MidiInstrument& m, const MidiPresetInfo& info, uint8_t t, char* out, int cap) {
-    for (int i = 0; i < 6; ++i) {
-        const bool same = t == MidiLfo::kTargetPressure ? m.cc[i] == 129 : (t >= 1 && t <= 128 && m.cc[i] == t - 1);
-        if (same && info.label[i][0]) {
-            std::snprintf(out, size_t(cap), "%s", info.label[i]);
-            return;
-        }
-    }
-    if (t == MidiLfo::kTargetOff) std::snprintf(out, size_t(cap), "Off");
+// [I] #13 a CC the instrument's chart names shows the name ("Cutoff").
+void lfoTargetName(const MidiCcNames& names, int midi, uint8_t t, char* out, int cap) {
+    const char* n = t >= 1 && t <= 128 ? names.name(midi, t - 1) : "";
+    if (n[0]) std::snprintf(out, size_t(cap), "%s", n);
+    else if (t == MidiLfo::kTargetOff) std::snprintf(out, size_t(cap), "Off");
     else if (t == MidiLfo::kTargetPitchBend) std::snprintf(out, size_t(cap), "Pitch bnd");
     else if (t == MidiLfo::kTargetPressure) std::snprintf(out, size_t(cap), "Chan AT");
     else midicc::ccValueName(t - 1, out, cap);
@@ -136,8 +131,18 @@ void listColumn(Gfx& g, const Theme& th, int col, int span, const char* const* i
 
 // MIDI instrument CC A-F: 131-item lists of CC names (spec 19 §4, manual
 // p.256-261; MANUAL_AUDIT_2026-10-23 #6).
-void ccItem(void*, int i, char* out, int cap) { midicc::ccValueName(i, out, cap); }
-void ccListColumn(Gfx& g, const Theme& th, int col, int sel) {
+// [I] #13 a CC the instrument's chart names reads "74 Cutoff".
+struct CcListCtx {
+    const MidiCcNames* names;
+    int midi;
+};
+void ccItem(void* ctx, int i, char* out, int cap) {
+    const auto* c = static_cast<const CcListCtx*>(ctx);
+    const char* n = c ? c->names->name(c->midi, i) : "";
+    if (n[0]) std::snprintf(out, size_t(cap), "%d %s", i, n);
+    else midicc::ccValueName(i, out, cap);
+}
+void ccListColumn(Gfx& g, const Theme& th, int col, int sel, const CcListCtx* ctx) {
     wg::ListView v;
     v.x = wg::columnX(col);
     v.w = wg::columnW(1);
@@ -146,6 +151,7 @@ void ccListColumn(Gfx& g, const Theme& th, int col, int sel) {
     v.top = wg::listFollow(sel, v.count, wg::listVisibleRows(v.h), 0);
     v.selStyle = wg::ListSel::kWhite;
     v.item = ccItem;
+    v.ctx = const_cast<CcListCtx*>(ctx);
     // [I] Six lists side by side: their fades (CMD_GRADIENT, ~24 RAM_DL words
     // each on the device, see Gfx::kGradientDlWords) took the page to ~2065
     // words, past the FT81x display list.
@@ -235,7 +241,7 @@ void InstrumentScreen::valueText(int c, char* out, int cap, float* frac, bool* b
         switch (c) {
             case 0: {
                 const MidiInstrument m = app_.project.midiInstrument(idx);
-                lfoTargetName(m, app_.project.midiPreset[idx], target, out, cap);
+                lfoTargetName(app_.midiNames, idx, target, out, cap);
                 uint8_t list[MidiLfo::kTargetCount];
                 const int n = lfoTargets(m, list);
                 for (int k = 0; k < n; ++k)
@@ -519,12 +525,13 @@ void InstrumentScreen::refreshBar() {
     // 050505 strip [S snap 011, Part 2 C5].
     b.stripBg = wg::mix(0x000000, ui_.th().slot(slot::kStrip + 1), 128);
     if (mode == 3) {
-        // [I] #13: a CC slot's label from the preset page replaces "CC A".
-        const MidiPresetInfo& info =
-            app_.project.midiPreset[(app_.currentInstrument() - kFirstMidiInstrument) % kMidiInstrumentCount];
+        // [I] #13: the name of a slot's CC (the instrument's chart) replaces "CC A".
+        const int mi = (app_.currentInstrument() - kFirstMidiInstrument) % kMidiInstrumentCount;
+        const MidiInstrument m = app_.project.midiInstrument(mi);
         for (int i = 0; i < 8; ++i) {
             valueText(i, v, sizeof(v), &fr, &bi);
-            b.set(i, i >= 2 && info.label[i - 2][0] ? info.label[i - 2] : kMidi[i], v);
+            const char* n = i >= 2 ? app_.midiNames.name(mi, m.cc[i - 2]) : "";
+            b.set(i, n[0] ? n : kMidi[i], v);
         }
         return;
     }
@@ -536,7 +543,7 @@ void InstrumentScreen::refreshBar() {
             b.set(0, "Load");
             b.set(1, "Save");
             b.set(2, "Save As");
-            b.set(5, "Label");
+            b.set(5, "Name");
         }
         return;
     }
@@ -586,6 +593,10 @@ void InstrumentScreen::onButton(uint8_t id, uint8_t state) {
         if (state == kPress && (mode == 3 || mode == 4 || mode == 5)) {
             commitLfoTarget();
             mode = mode == 3 ? 4 : mode == 4 ? 5 : 3;   // [I] MIDI: Parameters -> LFO -> Preset (#13)
+            if (mode == 5) {   // the chart opens on CC A
+                const uint8_t a0 = app_.project.midiInstrument(app_.currentInstrument() - kFirstMidiInstrument).cc[0];
+                if (a0 <= 127) presetCc = a0;
+            }
             column = 0;
             presetList = false;
         } else if (state == kPress) {
@@ -945,7 +956,8 @@ void InstrumentScreen::draw(Gfx& g) {
             }
             if (mode == 3 && c >= 2) {
                 const MidiInstrument m = a.project.midiInstrument(ci - kFirstMidiInstrument);
-                ccListColumn(g, th, c, clampi(m.cc[c - 2], 0, midicc::kCcValueCount - 1));
+                const CcListCtx cx{&a.midiNames, ci - kFirstMidiInstrument};
+                ccListColumn(g, th, c, clampi(m.cc[c - 2], 0, midicc::kCcValueCount - 1), &cx);
                 continue;
             }
             valueText(c, v, sizeof(v), &fr, &bi);
@@ -960,29 +972,37 @@ void InstrumentScreen::draw(Gfx& g) {
 }
 
 // ---------------------------------------------------------------------------
-// [I] #13 MIDI Instrument Preset page (mode 5): the CC slots A..F with their
-// labels on the left, the preset name (or the Load list of MidiPresets/*.txt)
-// on the right. F1 Load, F2 Save, F3 Save As, F6 Label, Delete clears the
-// slot's label; in the Load list the encoder / Up / Down move, F8 loads into
-// this instrument (its channel stays), F7 / Left cancel.
+// [I] #13 MIDI Instrument Preset page (mode 5): the synth's CC chart on the
+// left (CC 0..127, their names, the slots A..F using each), the preset name
+// and the slots on the right (or the Load list of MidiPresets/*.txt). F1
+// Load, F2 Save, F3 Save As, F6 Name the selected CC, Delete clears its name;
+// in the Load list the encoder / Up / Down move, F8 loads into this
+// instrument (its channel stays), F7 / Left cancel.
 
 namespace {
 struct PresetNames {
-    char n[InstrumentScreen::kPresetMax][MidiPresetInfo::kNameMax + 1];
+    char n[InstrumentScreen::kPresetMax][MidiCcNames::kPresetNameMax + 1];
 };
 static_assert(sizeof(PresetNames) <= kBrowserListBytes, "the preset names fit the shared list buffer");
 PresetNames& presetNames() { return *static_cast<PresetNames*>(browserListMem()); }
 int midiIndex(const App& a) { return (a.currentInstrument() - kFirstMidiInstrument) % kMidiInstrumentCount; }
-void slotItem(void* ctx, int i, char* out, int cap) {
+void chartItem(void* ctx, int i, char* out, int cap) {
+    const App* a = static_cast<const App*>(ctx);
+    std::snprintf(out, size_t(cap), "%-3d  %s", i, a->midiNames.name(midiIndex(*a), i));
+}
+// The slots using CC i ("A", "B D").
+const char* chartTag(void* ctx, int i) {
+    static char t[12];
     const App* a = static_cast<const App*>(ctx);
     const MidiInstrument m = a->project.midiInstrument(midiIndex(*a));
-    char v[24];
-    midicc::ccValueName(m.cc[i % 6], v, sizeof(v));
-    std::snprintf(out, size_t(cap), "%c   %s", 'A' + i, v);
-}
-const char* slotTag(void* ctx, int i) {
-    const App* a = static_cast<const App*>(ctx);
-    return a->project.midiPreset[midiIndex(*a)].label[i % 6];
+    int n = 0;
+    for (int k = 0; k < 6; ++k)
+        if (m.cc[k] == i) {
+            if (n) t[n++] = ' ';
+            t[n++] = char('A' + k);
+        }
+    t[n] = 0;
+    return t;
 }
 void presetItem(void*, int i, char* out, int cap) { std::snprintf(out, size_t(cap), "%s", presetNames().n[i]); }
 // A name typed on the keyboard as a file name: no trailing spaces, no slashes.
@@ -999,7 +1019,7 @@ void InstrumentScreen::listPresets() {
         auto* s = static_cast<InstrumentScreen*>(c);
         if (e.isDir || e.name[0] == '.' || s->presetCount >= kPresetMax) return true;
         const size_t n = std::strlen(e.name), x = std::strlen(mpreset::kExt);
-        if (n <= x || n - x > size_t(MidiPresetInfo::kNameMax)) return true;
+        if (n <= x || n - x > size_t(MidiCcNames::kPresetNameMax)) return true;
         for (size_t i = 0; i < x; ++i)
             if ((e.name[n - x + i] | 32) != mpreset::kExt[i]) return true;
         char* d = presetNames().n[s->presetCount++];
@@ -1018,7 +1038,7 @@ void InstrumentScreen::listPresets() {
     };
     for (int i = 1; i < presetCount; ++i)
         for (int j = i; j > 0 && less(p.n[j], p.n[j - 1]); --j) {
-            char t[MidiPresetInfo::kNameMax + 1];
+            char t[MidiCcNames::kPresetNameMax + 1];
             std::memcpy(t, p.n[j], sizeof(t));
             std::memcpy(p.n[j], p.n[j - 1], sizeof(t));
             std::memcpy(p.n[j - 1], t, sizeof(t));
@@ -1027,7 +1047,7 @@ void InstrumentScreen::listPresets() {
 
 void InstrumentScreen::presetMove(int d) {
     if (presetList) presetCursor = clampi(presetCursor + d, 0, presetCount > 0 ? presetCount - 1 : 0);
-    else presetSlot = clampi(presetSlot + d, 0, 5);
+    else presetCc = clampi(presetCc + d, 0, 127);
     ui_.dirty();
 }
 
@@ -1057,16 +1077,16 @@ void InstrumentScreen::onPresetButton(uint8_t id) {
             presetList = true;
             presetCursor = presetTop_ = 0;
             for (int i = 0; i < presetCount; ++i)
-                if (std::strcmp(presetNames().n[i], a.project.midiPreset[mi].name) == 0) presetCursor = i;
+                if (std::strcmp(presetNames().n[i], a.midiNames.preset[mi]) == 0) presetCursor = i;
             break;
         case btn::F2: savePreset(); break;
         case btn::F3: savePresetAs(); break;
-        case btn::F6: editLabel(); break;
+        case btn::F6: editName(); break;
         case btn::Up: presetMove(-1); break;
         case btn::Down: presetMove(1); break;
         case btn::Delete:
-            if (a.project.midiPreset[mi].label[presetSlot][0]) {
-                a.project.midiPreset[mi].label[presetSlot][0] = 0;
+            if (a.midiNames.name(mi, presetCc)[0]) {
+                a.midiNames.setName(mi, presetCc, "");
                 a.markProjectDirty();
             }
             break;
@@ -1077,18 +1097,26 @@ void InstrumentScreen::onPresetButton(uint8_t id) {
 
 void InstrumentScreen::loadPreset() {
     if (presetCursor < 0 || presetCursor >= presetCount) return;
-    const bool ok = app_.loadMidiPreset(midiIndex(app_), presetNames().n[presetCursor]);
-    ui_.notify(ok ? "Preset loaded" : "Preset could not be loaded");
-    if (ok) presetList = false;
+    const char* name = presetNames().n[presetCursor];
+    const bool ok = app_.loadMidiPreset(midiIndex(app_), name);
+    // A load that ran out of name room still loaded the rest.
+    if (!ok && std::strcmp(app_.midiNames.preset[midiIndex(app_)], name) == 0) ui_.notify("CC name list full");
+    else ui_.notify(ok ? "Preset loaded" : "Preset could not be loaded");
+    if (std::strcmp(app_.midiNames.preset[midiIndex(app_)], name) == 0) {
+        presetList = false;
+        const uint8_t a0 = app_.project.midiInstrument(midiIndex(app_)).cc[0];
+        if (a0 <= 127) presetCc = a0;   // the chart at the preset's CC A
+    }
+    refreshBar();
 }
 
 void InstrumentScreen::savePreset() {
-    const MidiPresetInfo& info = app_.project.midiPreset[midiIndex(app_)];
-    if (!info.name[0]) {
+    const char* name = app_.midiNames.preset[midiIndex(app_)];
+    if (!name[0]) {
         savePresetAs();
         return;
     }
-    std::snprintf(presetName_, sizeof(presetName_), "%s", info.name);
+    std::snprintf(presetName_, sizeof(presetName_), "%s", name);
     savePresetNow();
 }
 
@@ -1100,11 +1128,11 @@ void InstrumentScreen::savePresetNow() {
 }
 
 void InstrumentScreen::savePresetAs() {
-    const MidiPresetInfo& info = app_.project.midiPreset[midiIndex(app_)];
-    char init[MidiPresetInfo::kNameMax + 1];
-    if (info.name[0]) std::snprintf(init, sizeof(init), "%s", info.name);
+    const char* name = app_.midiNames.preset[midiIndex(app_)];
+    char init[MidiCcNames::kPresetNameMax + 1];
+    if (name[0]) std::snprintf(init, sizeof(init), "%s", name);
     else Keyboard::autoName(init, sizeof(init), ui_.now());
-    ui_.kb.open("Save Preset As", init, MidiPresetInfo::kNameMax, "Save",
+    ui_.kb.open("Save Preset As", init, MidiCcNames::kPresetNameMax, "Save",
                 [](void* c, bool ok, const char* text) {
                     auto* s = static_cast<InstrumentScreen*>(c);
                     if (!ok) return;
@@ -1129,17 +1157,20 @@ void InstrumentScreen::savePresetAs() {
                 this);
 }
 
-void InstrumentScreen::editLabel() {
-    const MidiPresetInfo& info = app_.project.midiPreset[midiIndex(app_)];
-    ui_.kb.open("CC Label", info.label[presetSlot], MidiPresetInfo::kLabelMax, "OK",
+void InstrumentScreen::editName() {
+    char init[MidiCcNames::kNameMax + 1];
+    std::snprintf(init, sizeof(init), "%s", app_.midiNames.name(midiIndex(app_), presetCc));
+    ui_.kb.open("CC Name", init, MidiCcNames::kNameMax, "OK",
                 [](void* c, bool ok, const char* text) {
                     auto* s = static_cast<InstrumentScreen*>(c);
                     if (!ok) return;
-                    MidiPresetInfo& m = s->app_.project.midiPreset[midiIndex(s->app_)];
-                    char* l = m.label[s->presetSlot];
-                    std::snprintf(l, MidiPresetInfo::kLabelMax + 1, "%s", text ? text : "");
-                    for (size_t n = std::strlen(l); n > 0 && l[n - 1] == ' '; --n) l[n - 1] = 0;
-                    m.sanitize();
+                    char n[MidiCcNames::kNameMax + 1];
+                    std::snprintf(n, sizeof(n), "%s", text ? text : "");
+                    for (size_t k = std::strlen(n); k > 0 && n[k - 1] == ' '; --k) n[k - 1] = 0;
+                    if (!s->app_.midiNames.setName(midiIndex(s->app_), s->presetCc, n)) {
+                        s->ui_.notify("CC name list full");
+                        return;
+                    }
                     s->app_.markProjectDirty();
                     s->refreshBar();
                     s->ui_.dirty();
@@ -1152,11 +1183,13 @@ void InstrumentScreen::drawPreset(Gfx& g) {
     wg::ListView v;
     v.x = 1;
     v.w = 397;
-    v.count = 6;
-    v.sel = presetSlot;
+    v.count = 128;
+    presetCcTop_ = wg::listFollow(presetCc, 128, wg::listVisibleRows(v.h), presetCcTop_);
+    v.top = presetCcTop_;
+    v.sel = presetCc;
     v.active = !presetList;
-    v.item = slotItem;
-    v.tag = slotTag;
+    v.item = chartItem;
+    v.tag = chartTag;
     v.ctx = &app_;
     wg::list(g, th, v);
     wg::ListView r;
@@ -1173,9 +1206,20 @@ void InstrumentScreen::drawPreset(Gfx& g) {
         return;
     }
     wg::list(g, th, r);   // the empty panel
-    const MidiPresetInfo& info = app_.project.midiPreset[midiIndex(app_)];
+    const int mi = midiIndex(app_);
+    const char* name = app_.midiNames.preset[mi];
     g.text(412, wg::kPanelY + 20, kFont1, th.dim, "Preset", IDisplay::kOptCenterY);
-    g.text(412, wg::kPanelY + 48, kFont1, th.text, info.name[0] ? info.name : "(none)", IDisplay::kOptCenterY);
+    g.text(412, wg::kPanelY + 48, kFont1, th.text, name[0] ? name : "(none)", IDisplay::kOptCenterY);
+    // The slots A..F: their CC and its name.
+    const MidiInstrument m = app_.project.midiInstrument(mi);
+    for (int i = 0; i < 6; ++i) {
+        char row[32], cc[16];
+        midicc::ccValueName(m.cc[i], cc, sizeof(cc));
+        const char* n = app_.midiNames.name(mi, m.cc[i]);
+        if (n[0] && m.cc[i] <= 127) std::snprintf(row, sizeof(row), "%c   %d %s", 'A' + i, m.cc[i], n);
+        else std::snprintf(row, sizeof(row), "%c   %s", 'A' + i, cc);
+        g.text(412, wg::kPanelY + 96 + i * 28, kFont1, th.text, row, IDisplay::kOptCenterY);
+    }
 }
 
 }  // namespace ot

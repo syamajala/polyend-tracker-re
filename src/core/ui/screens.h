@@ -8,6 +8,7 @@
 #include "app/pattern_ops.h"
 #include "app/perf_presets.h"
 #include "app/project_browser.h"
+#include "model/midi_cc_names.h"
 #include "model/synth_patch.h"
 #include "ui/loader_list.h"
 #include "ui/ui.h"
@@ -283,9 +284,9 @@ public:
     // 0 params, 1 automation, 2 MIDI Mapping, 3 MIDI instrument, 4 MIDI LFO ([I]),
     // 5 MIDI preset ([I] #13); effects = mode 0 + effects flag
     int mode = 0;
-    // [I] #13 MIDI Instrument Preset page: the selected CC slot (A..F) and the
-    // Load list (MidiPresets/*.txt names in browserListMem()).
-    int presetSlot = 0;
+    // [I] #13 MIDI Instrument Preset page: the selected CC (0..127) of the
+    // chart and the Load list (MidiPresets/*.txt names in browserListMem()).
+    int presetCc = 0;
     bool presetList = false;
     int presetCursor = 0;
     int presetCount = 0;
@@ -310,10 +311,11 @@ private:
     void savePreset();
     void savePresetAs();
     void savePresetNow();
-    void editLabel();
+    void editName();
     void drawPreset(Gfx& g);
     int presetTop_ = 0;
-    char presetName_[MidiPresetInfo::kNameMax + 1] = {};
+    int presetCcTop_ = 0;
+    char presetName_[MidiCcNames::kPresetNameMax + 1] = {};
     // [I] MIDI LFO Target: a pick waits here until the encoder has rested
     // kLfoSettleMs, so scrolling past CCs does not send the LFO to them.
     static constexpr uint32_t kLfoSettleMs = 400;

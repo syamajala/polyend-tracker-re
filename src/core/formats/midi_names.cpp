@@ -4,50 +4,66 @@
 
 namespace ot {
 
-bool midiNamesUsed(const Project& p) {
-    for (const MidiPresetInfo& m : p.midiPreset)
-        if (!m.isDefault()) return true;
-    return false;
-}
+uint32_t midiNamesSize(const MidiCcNames& n) { return mnames::kFixedSize + n.count * mnames::kEntrySize + 1; }
 
-void encodeMidiNames(const Project& p, uint8_t out[mnames::kFileSize]) {
-    std::memset(out, 0, mnames::kFileSize);
+void encodeMidiNames(const MidiCcNames& n, uint8_t* out) {
+    const uint32_t size = midiNamesSize(n);
+    std::memset(out, 0, size);
     std::memcpy(out, "OTMN", 4);
     out[4] = mnames::kVersion;
     out[5] = uint8_t(kMidiInstrumentCount);
-    out[6] = uint8_t(mnames::kRecordSize);
-    uint8_t sum = 0;
-    for (int i = 0; i < kMidiInstrumentCount; ++i) {
-        const MidiPresetInfo& m = p.midiPreset[i];
-        uint8_t* r = out + mnames::kHeaderSize + i * mnames::kRecordSize;
-        std::strncpy(reinterpret_cast<char*>(r), m.name, mnames::kNameSize - 1);
-        for (int k = 0; k < 6; ++k)
-            std::strncpy(reinterpret_cast<char*>(r + mnames::kNameSize + k * mnames::kLabelSize), m.label[k],
-                         mnames::kLabelSize - 1);
-        for (uint32_t k = 0; k < mnames::kRecordSize; ++k) sum = uint8_t(sum + r[k]);
+    out[6] = uint8_t(mnames::kPresetSize);
+    uint8_t* w = out + mnames::kHeaderSize;
+    for (const auto& p : n.preset) {
+        std::strncpy(reinterpret_cast<char*>(w), p, mnames::kPresetSize - 1);
+        w += mnames::kPresetSize;
     }
-    out[mnames::kFileSize - 1] = sum;
+    for (uint8_t c : n.chart) *w++ = c;
+    *w++ = uint8_t(n.count & 0xFF);
+    *w++ = uint8_t(n.count >> 8);
+    for (int i = 0; i < n.count; ++i) {
+        *w++ = n.entry[i].chart;
+        *w++ = n.entry[i].cc;
+        std::strncpy(reinterpret_cast<char*>(w), n.entry[i].name, MidiCcNames::kNameMax);
+        w += MidiCcNames::kNameMax + 1;
+    }
+    uint8_t sum = 0;
+    for (uint8_t* q = out + mnames::kHeaderSize; q < w; ++q) sum = uint8_t(sum + *q);
+    *w = sum;
 }
 
-FmtStatus decodeMidiNames(const uint8_t* file, size_t len, Project& p) {
-    for (MidiPresetInfo& m : p.midiPreset) m = MidiPresetInfo{};
-    if (len < mnames::kHeaderSize) return FmtStatus::TooShort;
-    if (std::memcmp(file, "OTMN", 4) != 0 || file[4] == 0) return FmtStatus::BadMagic;
-    const uint32_t count = file[5], size = file[6];
-    if (size < mnames::kRecordSize) return FmtStatus::BadMagic;
-    const size_t body = size_t(count) * size;
-    if (len < mnames::kHeaderSize + body + 1) return FmtStatus::TooShort;
+FmtStatus decodeMidiNames(const uint8_t* file, size_t len, MidiCcNames& n) {
+    n.clear();
+    if (len < mnames::kFixedSize + 1) return FmtStatus::TooShort;
+    if (std::memcmp(file, "OTMN", 4) != 0 || file[4] != mnames::kVersion || file[5] != kMidiInstrumentCount ||
+        file[6] != mnames::kPresetSize)
+        return FmtStatus::BadMagic;
+    const uint8_t* r = file + mnames::kHeaderSize + kMidiInstrumentCount * (mnames::kPresetSize + 1);
+    const uint32_t count = uint32_t(r[0]) | uint32_t(r[1]) << 8;
+    if (count > uint32_t(MidiCcNames::kEntryMax)) return FmtStatus::BadMagic;
+    const size_t size = mnames::kFixedSize + count * mnames::kEntrySize + 1;
+    if (len < size) return FmtStatus::TooShort;
     uint8_t sum = 0;
-    for (size_t k = 0; k < body; ++k) sum = uint8_t(sum + file[mnames::kHeaderSize + k]);
-    if (sum != file[mnames::kHeaderSize + body]) return FmtStatus::BadMagic;
-    for (uint32_t i = 0; i < count && i < uint32_t(kMidiInstrumentCount); ++i) {
-        const uint8_t* r = file + mnames::kHeaderSize + i * size;
-        MidiPresetInfo& m = p.midiPreset[i];
-        std::memcpy(m.name, r, mnames::kNameSize - 1);
-        for (int k = 0; k < 6; ++k)
-            std::memcpy(m.label[k], r + mnames::kNameSize + k * mnames::kLabelSize, mnames::kLabelSize - 1);
-        m.sanitize();
+    for (size_t k = mnames::kHeaderSize; k + 1 < size; ++k) sum = uint8_t(sum + file[k]);
+    if (sum != file[size - 1]) return FmtStatus::BadMagic;
+    r = file + mnames::kHeaderSize;
+    for (auto& p : n.preset) {
+        std::memcpy(p, r, mnames::kPresetSize - 1);
+        p[mnames::kPresetSize - 1] = 0;
+        r += mnames::kPresetSize;
     }
+    for (uint8_t& c : n.chart) c = *r++;
+    r += 2;
+    n.count = uint16_t(count);
+    for (uint32_t i = 0; i < count; ++i) {
+        MidiCcNames::Entry& e = n.entry[i];
+        e.chart = *r++;
+        e.cc = *r++;
+        std::memcpy(e.name, r, MidiCcNames::kNameMax);
+        e.name[MidiCcNames::kNameMax] = 0;
+        r += MidiCcNames::kNameMax + 1;
+    }
+    n.sanitize();
     return FmtStatus::Ok;
 }
 

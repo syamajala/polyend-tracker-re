@@ -18,6 +18,12 @@ bool eqi(const char* a, const char* b) {
     return *a == *b;
 }
 
+bool prefixi(const char* s, const char* prefix) {
+    for (; *prefix; ++s, ++prefix)
+        if (!*s || (*s | 32) != (*prefix | 32)) return false;
+    return true;
+}
+
 // A whole decimal number in [lo, hi]; false otherwise.
 bool number(const char* s, int lo, int hi, int& v) {
     if (!*s) return false;
@@ -60,9 +66,10 @@ size_t encodeMidiPreset(const MidiPreset& p, char* out, size_t cap) {
     for (int i = 0; i < 6; ++i) {
         char t[8];
         ccToken(p.cc[i], t, sizeof(t));
-        if (p.label[i][0]) put("cc %c = %s %s\n", 'A' + i, t, p.label[i]);
-        else put("cc %c = %s\n", 'A' + i, t);
+        put("slot %c = %s\n", 'A' + i, t);
     }
+    for (int c = 0; c < 128; ++c)
+        if (p.name[c][0]) put("cc %d = %s\n", c, p.name[c]);
     const MidiLfo& l = p.lfo;
     if (l.target == MidiLfo::kTargetPitchBend) put("%s", "lfo target = PB\n");
     else if (l.target == MidiLfo::kTargetPressure) put("%s", "lfo target = AT\n");
@@ -81,7 +88,7 @@ size_t encodeMidiPreset(const MidiPreset& p, char* out, size_t cap) {
 }
 
 bool decodeMidiPreset(const char* text, size_t len, MidiPreset& p) {
-    p = MidiPreset{};
+    p.reset();
     bool any = false;
     size_t i = 0;
     while (i < len) {
@@ -111,19 +118,12 @@ bool decodeMidiPreset(const char* text, size_t len, MidiPreset& p) {
             if (number(val, 0, 127, v)) p.velocity = uint8_t(v), any = true;
         } else if (eqi(key, "offset")) {
             if (number(val, 0, 100, v)) p.offset = uint8_t(v), any = true;
-        } else if (std::strlen(key) == 4 && (key[0] | 32) == 'c' && (key[1] | 32) == 'c' && key[2] == ' ' &&
-                   (key[3] | 32) >= 'a' && (key[3] | 32) <= 'f') {
-            const int slot = (key[3] | 32) - 'a';
-            char* sp = std::strchr(val, ' ');
-            const char* label = "";
-            if (sp) {
-                *sp = 0;
-                label = trim(sp + 1);
-            }
-            if (ccFromToken(val, p.cc[slot])) {
-                std::snprintf(p.label[slot], sizeof(p.label[slot]), "%s", label);
-                any = true;
-            }
+        } else if (std::strlen(key) == 6 && prefixi(key, "slot ") && (key[5] | 32) >= 'a' &&
+                   (key[5] | 32) <= 'f') {
+            if (ccFromToken(val, p.cc[(key[5] | 32) - 'a'])) any = true;
+        } else if ((key[0] | 32) == 'c' && (key[1] | 32) == 'c' && key[2] == ' ' && number(key + 3, 0, 127, v)) {
+            std::snprintf(p.name[v], sizeof(p.name[v]), "%s", val);
+            any = true;
         } else if (eqi(key, "lfo target")) {
             if (eqi(val, "off")) p.lfo.target = MidiLfo::kTargetOff, any = true;
             else if (eqi(val, "PB")) p.lfo.target = MidiLfo::kTargetPitchBend, any = true;
@@ -142,7 +142,7 @@ bool decodeMidiPreset(const char* text, size_t len, MidiPreset& p) {
             if (number(val, 0, MidiLfo::kRetrigCount - 1, v)) p.lfo.retrig = uint8_t(v), any = true;
         }
     }
-    for (auto& l : p.label)
+    for (auto& l : p.name)
         for (char* c = l; *c; ++c)
             if (*c < 32 || *c > 126) *c = '_';
     return any;

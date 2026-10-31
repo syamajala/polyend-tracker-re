@@ -6,7 +6,9 @@
 //   # OpenTracker MIDI preset
 //   velocity = 127
 //   offset = 0
-//   cc A = 43 Cutoff          (CC number 0..127, PC, AT or PAT, then the label)
+//   slot A = 74               (CC A..F: CC number 0..127, PC, AT or PAT)
+//   ...
+//   cc 74 = Cutoff            (the synth's CC chart: a name per CC)
 //   ...
 //   lfo target = CC 74        (off, CC n, PB or AT)
 //   lfo shape = 2             (0..4: Rev saw, Saw, Triangle, Square, Random)
@@ -23,6 +25,7 @@
 #include <cstdint>
 
 #include "model/instrument.h"
+#include "model/midi_cc_names.h"
 
 namespace ot {
 
@@ -30,15 +33,25 @@ struct MidiPreset {
     uint8_t velocity = 127;
     uint8_t offset = 0;                            // MidiInstrument::extra[0], 0..100
     uint8_t cc[6] = {1, 5, 7, 11, 64, 128};        // as MidiInstrument::cc (128 PC, 129 AT, 130 PAT)
-    char label[6][MidiPresetInfo::kLabelMax + 1] = {};
+    char name[128][MidiCcNames::kNameMax + 1] = {};   // CC 0..127, "" = unnamed
     MidiLfo lfo;
+
+    // The defaults, in place (no 1.3 KB temporary on the stack).
+    void reset() {
+        velocity = 127;
+        offset = 0;
+        const uint8_t d[6] = {1, 5, 7, 11, 64, 128};
+        for (int i = 0; i < 6; ++i) cc[i] = d[i];
+        for (auto& n : name) n[0] = 0;
+        lfo = MidiLfo{};
+    }
 };
 
 namespace mpreset {
 constexpr const char* kDir = "MidiPresets";
 constexpr const char* kExt = ".txt";
-constexpr int kNameMax = MidiPresetInfo::kNameMax;
-constexpr size_t kTextMax = 1024;   // the longest file written, with room to spare
+constexpr int kNameMax = MidiCcNames::kPresetNameMax;
+constexpr size_t kTextMax = 3072;   // all 128 CCs named at the longest: ~2.7 KB
 }  // namespace mpreset
 
 // Writes the preset as text (NUL-terminated); returns its length, 0 if `cap` is too small.

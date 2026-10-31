@@ -1,36 +1,37 @@
-// [I] #13 midi_names.bin: each MIDI instrument's preset name and CC slot labels
-// (model/instrument.h MidiPresetInfo), next to project.mt. OpenTracker only:
-// stock firmware and the Tracker Mini never read it, so project.mt stays
+// [I] #13 midi_names.bin: each MIDI instrument's preset name and CC chart
+// (model/midi_cc_names.h), next to project.mt. OpenTracker only: stock
+// firmware and the Tracker Mini never read it, so project.mt stays
 // byte-compatible.
 //
-// Layout: "OTMN", version, record count, record size, 0, the records (name
-// [25], then labels A..F [10 each], zero-padded), then the 8-bit sum of the
-// record bytes. Newer versions may append fields to a record (larger record
-// size) or records; a reader takes the fields it knows.
+// Layout (version 2): "OTMN", version, instrument count (16), preset name
+// size (25), 0; the preset names (16 x 25, zero-padded); the chart of each
+// instrument (16 bytes); the entry count (u16 LE); the entries (chart, CC,
+// name [10] zero-padded); then the 8-bit sum of every byte after the header.
+// Version 1 (slot labels) is not read: there are no such projects yet.
 #pragma once
 
 #include <cstddef>
 #include <cstdint>
 
 #include "formats/format_common.h"
-#include "model/project.h"
+#include "model/midi_cc_names.h"
 
 namespace ot {
 
 namespace mnames {
-constexpr uint8_t kVersion = 1;
+constexpr uint8_t kVersion = 2;
 constexpr uint32_t kHeaderSize = 8;
-constexpr uint32_t kNameSize = MidiPresetInfo::kNameMax + 1;
-constexpr uint32_t kLabelSize = MidiPresetInfo::kLabelMax + 1;
-constexpr uint32_t kRecordSize = kNameSize + 6 * kLabelSize;
-constexpr uint32_t kFileSize = kHeaderSize + kMidiInstrumentCount * kRecordSize + 1;
+constexpr uint32_t kPresetSize = MidiCcNames::kPresetNameMax + 1;
+constexpr uint32_t kEntrySize = 2 + MidiCcNames::kNameMax + 1;
+constexpr uint32_t kFixedSize = kHeaderSize + kMidiInstrumentCount * (kPresetSize + 1) + 2;
+constexpr uint32_t kFileSize = kFixedSize + MidiCcNames::kEntryMax * kEntrySize + 1;   // the largest
 constexpr const char* kFileName = "midi_names.bin";
 }  // namespace mnames
 
-// True when any instrument has a preset name or a label (only then is a file written).
-bool midiNamesUsed(const Project& p);
-void encodeMidiNames(const Project& p, uint8_t out[mnames::kFileSize]);
-// Bad magic / size / checksum: every name and label empty, BadMagic or TooShort.
-FmtStatus decodeMidiNames(const uint8_t* file, size_t len, Project& p);
+// Bytes encodeMidiNames() writes for `n`.
+uint32_t midiNamesSize(const MidiCcNames& n);
+void encodeMidiNames(const MidiCcNames& n, uint8_t* out);
+// Bad magic / version / size / checksum: `n` cleared, BadMagic or TooShort.
+FmtStatus decodeMidiNames(const uint8_t* file, size_t len, MidiCcNames& n);
 
 }  // namespace ot

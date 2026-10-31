@@ -23,6 +23,7 @@ namespace {
 // runs on it at static initialisation (the SDRAM is not up yet).
 struct AppSdram {
     alignas(PatternNames) unsigned char names[sizeof(PatternNames)];
+    alignas(MidiCcNames) unsigned char midiNames[sizeof(MidiCcNames)];
     alignas(ProjectJob) unsigned char pj[sizeof(ProjectJob)];
     alignas(Project) unsigned char jobProject[sizeof(Project)];
     alignas(SynthPatch) unsigned char patches[sizeof(SynthPatch) * kSynthSlotCount];
@@ -32,7 +33,8 @@ OT_SDRAM_BSS AppSdram gAppSdram;
 }  // namespace
 
 App::App()
-    : names(*reinterpret_cast<PatternNames*>(gAppSdram.names)), bank(engine.bank()), ui(*this),
+    : names(*reinterpret_cast<PatternNames*>(gAppSdram.names)),
+      midiNames(*reinterpret_cast<MidiCcNames*>(gAppSdram.midiNames)), bank(engine.bank()), ui(*this),
       extKeep_(*reinterpret_cast<ExtKeep*>(gAppSdram.extKeep)),
       patches_(*reinterpret_cast<SynthPatches*>(gAppSdram.patches)), pj_(*reinterpret_cast<ProjectJob*>(gAppSdram.pj)),
       jobProject_(*reinterpret_cast<Project*>(gAppSdram.jobProject)) {}
@@ -87,6 +89,7 @@ bool App::init(const HalRefs& hal, const AppMemory& mem) {
     for (auto& in : instruments) in.setDefault();
     project.setDefault();
     names.clear();
+    midiNames.clear();
     resetPatternStore();
     defaultPattern(mem_.seqBuffers[0]);
     defaultPattern(mem_.seqBuffers[1]);

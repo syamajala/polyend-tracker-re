@@ -166,7 +166,6 @@ struct Project {
 
     // [I] MIDI LFO per MIDI instrument 0..15 (midi_lfo.bin, not project.mt).
     MidiLfo midiLfo[kMidiInstrumentCount];
-    MidiPresetInfo midiPreset[kMidiInstrumentCount];   // [I] #13 (midi_names.bin)
 
     // [I] Performance scene bank: the stored row (0 = off, 1..3) of each of
     // the 12 Performance slots per scene (perf_scenes.bin, not project.mt).

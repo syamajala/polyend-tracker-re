@@ -125,34 +125,6 @@ struct MidiInstrument {
     uint8_t extra[8] = {};
 };
 
-// [I] #13 MIDI preset info, one per MIDI instrument (not in stock or the
-// Tracker Mini): the name of the preset it came from or was saved as, and a
-// label per CC slot A..F ("Cutoff" shown instead of "CC A"). Stored in the
-// project folder's midi_names.bin (formats/midi_names.h), not in project.mt.
-struct MidiPresetInfo {
-    static constexpr int kNameMax = 24;
-    static constexpr int kLabelMax = 9;   // fits a bottom-bar label
-    char name[kNameMax + 1] = {};
-    char label[6][kLabelMax + 1] = {};
-
-    bool isDefault() const {
-        if (name[0]) return false;
-        for (const auto& l : label)
-            if (l[0]) return false;
-        return true;
-    }
-    // Keeps printable ASCII only and terminates every field.
-    void sanitize() {
-        auto clean = [](char* s, int max) {
-            s[max] = 0;
-            for (int i = 0; i < max && s[i]; ++i)
-                if (s[i] < 32 || s[i] > 126) s[i] = '_';
-        };
-        clean(name, kNameMax);
-        for (auto& l : label) clean(l, kLabelMax);
-    }
-};
-
 // [I] MIDI LFO, one per MIDI instrument (not in stock or the Tracker Mini):
 // a tempo-locked LFO sent as CC, pitch bend or channel pressure on the
 // instrument's channel while the sequencer plays. Stored in the project

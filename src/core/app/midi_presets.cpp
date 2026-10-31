@@ -11,6 +11,7 @@ namespace ot {
 
 namespace {
 OT_SDRAM_BSS char g_presetText[mpreset::kTextMax];
+OT_SDRAM_BSS MidiPreset g_preset;   // 1.3 KB of CC names: not on the stack
 
 bool presetPath(char* out, size_t cap, const char* name) {
     if (!name || !name[0] || std::strlen(name) > size_t(mpreset::kNameMax)) return false;
@@ -27,7 +28,7 @@ bool App::loadMidiPreset(int midi, const char* name) {
     if (readWholeFile(fs(), path, reinterpret_cast<uint8_t*>(g_presetText), mpreset::kTextMax - 1, &got) !=
         FmtStatus::Ok)
         return false;
-    MidiPreset p;
+    MidiPreset& p = g_preset;
     if (!decodeMidiPreset(g_presetText, got, p)) return false;
     MidiInstrument m = project.midiInstrument(midi);
     m.velocity = p.velocity;
@@ -36,13 +37,17 @@ bool App::loadMidiPreset(int midi, const char* name) {
     project.setMidiInstrument(midi, m);
     project.midiLfo[midi] = p.lfo;
     project.midiLfo[midi].sanitize();
-    MidiPresetInfo& info = project.midiPreset[midi];
-    info = MidiPresetInfo{};
-    std::snprintf(info.name, sizeof(info.name), "%s", name);
-    for (int i = 0; i < 6; ++i) std::snprintf(info.label[i], sizeof(info.label[i]), "%s", p.label[i]);
-    info.sanitize();
+    // The CC names: shared with the instruments that have this preset (the
+    // file's names replace theirs), else a chart of this instrument's own.
+    MidiCcNames& n = midiNames;
+    if (!n.share(midi, name)) n.unshare(midi);
+    n.clearChart(midi);
+    bool full = false;
+    for (int c = 0; c < 128; ++c)
+        if (p.name[c][0] && !n.setName(midi, c, p.name[c])) full = true;
+    std::snprintf(n.preset[midi], sizeof(n.preset[midi]), "%s", name);
     markProjectDirty();
-    return true;
+    return !full;
 }
 
 bool App::saveMidiPreset(int midi, const char* name) {
@@ -50,13 +55,13 @@ bool App::saveMidiPreset(int midi, const char* name) {
     char path[64], tmp[72];
     if (!presetPath(path, sizeof(path), name)) return false;
     const MidiInstrument m = project.midiInstrument(midi);
-    MidiPreset p;
+    MidiPreset& p = g_preset;
+    p.reset();
     p.velocity = m.velocity;
     p.offset = m.extra[0] > 100 ? 100 : m.extra[0];
     std::memcpy(p.cc, m.cc, sizeof(p.cc));
     p.lfo = project.midiLfo[midi];
-    MidiPresetInfo& info = project.midiPreset[midi];
-    for (int i = 0; i < 6; ++i) std::snprintf(p.label[i], sizeof(p.label[i]), "%s", info.label[i]);
+    for (int c = 0; c < 128; ++c) std::snprintf(p.name[c], sizeof(p.name[c]), "%s", midiNames.name(midi, c));
     const size_t n = encodeMidiPreset(p, g_presetText, mpreset::kTextMax);
     if (!n) return false;
     IStorage& f = fs();
@@ -68,7 +73,7 @@ bool App::saveMidiPreset(int midi, const char* name) {
     }
     if (f.exists(path) && !f.remove(path)) return false;
     if (!f.rename(tmp, path)) return false;
-    std::snprintf(info.name, sizeof(info.name), "%s", name);
+    std::snprintf(midiNames.preset[midi], sizeof(midiNames.preset[midi]), "%s", name);
     markProjectDirty();
     return true;
 }
