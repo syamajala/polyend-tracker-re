@@ -583,6 +583,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#piano-pads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Piano pads
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-2x-features-from-upstream" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1013,6 +1024,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#piano-pads" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Piano pads
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-2x-features-from-upstream" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1131,6 +1153,35 @@
 <p><strong>Config &gt; General &gt; Note names: Sharps / Flats / Auto.</strong> Auto spells notes the way the
 project's scale does, modes included: C Mixolydian shows B♭, not A♯. Display only.</p>
 <p><img alt="Config &gt; General &gt; Note names" src="../../images/config-note-names.png" /></p>
+<h2 id="piano-pads">Piano pads<a class="headerlink" href="#piano-pads" title="Permanent link">&para;</a></h2>
+<p><strong>Config &gt; General &gt; Pad layout: Stock / Piano.</strong> Piano turns the pads into two keyboards
+that light up as ones, laid out as on grid controllers: each pair of rows is a keyboard,
+with the white keys along the lower row and the black keys in the row above, each black
+key over the white key to its right.</p>
+<div class="highlight"><pre><span></span><code>·  C# D# ·  F# G# A# ·  C# D# ·  F#     upper keyboard
+C  D  E  F  G  A  B  C  D  E  F  G
+·  C# D# ·  F# G# A# ·  C# D# ·  F#     lower keyboard
+C  D  E  F  G  A  B  C  D  E  F  G
+</code></pre></div>
+<ul>
+<li>Each keyboard spans an octave and a fifth; the upper one is the same keyboard an octave
+  higher.</li>
+<li>The pads marked <code>·</code> (over C and F, where a piano has no black key) are dark and play
+  nothing.</li>
+<li>The bottom-left C is the C of the project's root note octave. To play higher or lower,
+  change the root note.</li>
+<li>The lights show the keyboard: the scale's root brightest, white keys lit, black keys a
+  little dimmer. Keys outside the project's scale stay playable but are barely lit, so the
+  scale shows on the keyboard.</li>
+<li>It works wherever the pads play notes: the pattern editor's Note column, Sample
+  Playback, the instrument pages, the synth browser, the Sample Editor and the recorder.
+  In the pattern editor the step's note (and, with Pads preview, the notes on the current
+  line) lights at full brightness.</li>
+<li>Pads that do something else keep their own lights: the Instr and FX columns,
+  Performance, the synth edit page, and Beat Slice instruments (one pad per slice).</li>
+<li>Stock is the default and keeps the original layout. The setting is global, not saved
+  with the project.</li>
+</ul>
 <h2 id="the-2x-features-from-upstream">The 2.x features (from upstream)<a class="headerlink" href="#the-2x-features-from-upstream" title="Permanent link">&para;</a></h2>
 <p>The 2.x line brings the newer Tracker features to the original hardware. In short:</p>
 <h3 id="tracker-mini-project-compatibility">Tracker Mini project compatibility<a class="headerlink" href="#tracker-mini-project-compatibility" title="Permanent link">&para;</a></h3>
