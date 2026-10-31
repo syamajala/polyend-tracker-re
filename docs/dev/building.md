@@ -50,6 +50,9 @@ compiler (CI uses GCC 14, with AddressSanitizer and UBSan):
 make host-test
 ```
 
+It builds and runs the tests on every core (`nproc`); `HOST_JOBS=N` sets the number of
+jobs, `HOST_JOBS=1` runs them one by one.
+
 On some kernels AddressSanitizer needs `sudo sysctl -w vm.mmap_rnd_bits=28`. A newer GCC
 can miss warnings that GCC 14 reports (CI builds with `-Werror`); to reproduce CI exactly:
 `make -C tests CXX="g++ -D_FORTIFY_SOURCE=2"`.

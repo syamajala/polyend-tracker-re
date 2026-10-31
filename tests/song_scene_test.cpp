@@ -1,6 +1,7 @@
 // [I] Performance scene per song slot (#10): song.bin fields 1-3, the Song
 // screen's Scene and Ramp columns, the scene going on as the slot starts,
 // on any screen (PerformanceScreen::KeepAlive::Song), and the A -> B ramp.
+#include <cstring>
 #include <memory>
 
 #include "test.h"
@@ -330,4 +331,28 @@ TEST(song_scene_ramps_and_the_fader_takes_over) {
     for (int i = 0; i < 20000 && a.seq.songPass() < 2; ++i) r.h.audio.pump(1);
     r.h.run(20);
     CHECK_EQ(p.fader, 0);
+}
+
+// [I] A slot's scene with FX toggles applies while the Song screen shows;
+// the Performance labels must not land on the Song screen's bar (device
+// report: the bar flickered to "Track 1 Patt: 1" at each slot start).
+TEST(song_scene_keeps_the_song_bar) {
+    Rig r;
+    App& a = *r.h.app;
+    r.pj().perfSceneFxOff[5] = 1;   // scene 6 (slot 3) carries FX toggles
+    r.pj().perfSceneFxSet = 1u << 5;
+    r.h.tap(btn::F2);   // Play Song
+    r.h.run(20);
+    CHECK(a.seq.isSongMode());
+    CHECK_EQ(a.ui.active(), kModSong);
+    // Step the app loop across the start of slot 3, checking the bar each time.
+    bool perfLabels = false, reached = false;
+    for (int i = 0; i < 20000 && !reached; ++i) {
+        r.h.audio.pump(1);
+        a.loop();
+        reached = a.seq.songPosition() == 2;
+        perfLabels = perfLabels || std::strstr(a.ui.bar.label[0].bottom, "Patt") != nullptr;
+    }
+    CHECK(reached);
+    CHECK(!perfLabels);
 }

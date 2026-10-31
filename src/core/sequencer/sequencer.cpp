@@ -1365,6 +1365,15 @@ void Sequencer::sendCcFx(int t, uint8_t letter, uint8_t value, const NoteRec& re
     }
 }
 
+void Sequencer::sendPerfCc(int midi, int slot, uint8_t v) {
+    if (midi < 0 || midi >= kMidiInstrumentCount || slot < 0 || slot >= 6) return;
+    if (midiInstr(uint8_t(48 + midi)).cc[slot] == 0x82) return;
+    NoteRec rec{};
+    rec.instr = uint8_t(48 + midi);
+    rec.note = -1;
+    sendCcFx(0, uint8_t(slot), v, rec);
+}
+
 void Sequencer::sendPitchBendFx(uint8_t instr, uint8_t value) {
     const int v = value > 198 ? 198 : value;
     if (!isMidiInstr(instr)) return;  // 64..66: no output channel defined (spec 03 §7 item 5)
