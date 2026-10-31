@@ -147,7 +147,7 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   track on the same step, from the cursor track rightwards. One Undo removes it.
 
 ### Slices to pattern
-- Sample Editor, slice **More** page: **To Pattern** (F5) writes the sliced sample on the
+- Sample Playback, slice **More** page: **To Pattern** (F5) writes the sliced sample on the
   pattern's current track, one trig per slice where it starts, so a chopped break plays
   back at once and you flip it from there. **Steps** (F4) is the sample's length in steps,
   guessed from the song tempo.

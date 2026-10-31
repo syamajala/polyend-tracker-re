@@ -53,7 +53,7 @@ pads together, release them, and play the next chord.
 
 ## Slices to pattern
 
-Chop a break, then press one key to get a pattern that plays it. In the Sample Editor
+Chop a break, then press one key to get a pattern that plays it. On the Sample Playback screen
 (Slice or Beat Slice mode), open the **More** page (F6):
 
 | Key | Does |
