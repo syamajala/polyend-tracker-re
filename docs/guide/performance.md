@@ -43,6 +43,8 @@ each play a scene; the encoder (outside edit mode) or **MIDI CC 63** fades betwe
 - The title bar shows the pair (`A 1 |------| B 2`) and where the fader is. Rows of the
   scene on A are marked red, on B blue; the pad LEDs and the green (active) row follow
   the fader.
+- A pad pressed on a column the scenes drive takes it over: its row plays and turns
+  green. The next fader move hands the column back to the scenes.
 
 ### Store and clear while playing
 

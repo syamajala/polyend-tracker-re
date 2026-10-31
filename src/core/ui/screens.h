@@ -775,6 +775,9 @@ public:
     // [I] #28 MIDI CC columns: the CC value last sent, -1 none (sent again
     // when the column comes back on).
     int16_t ccSent_[12] = {};
+    // [I] A pad pressed since the scenes last set the column: its row plays,
+    // so the green row and pad LEDs show it until the next fader move.
+    bool padOver_[12] = {};
     // The name on a column: the FX type's, or a MIDI CC column's "MIDI 3 Cutoff".
     void columnName(int c, char* out, int cap) const;
     uint8_t shownPattern(int t) const;   // "Patt" label value of track t

@@ -571,3 +571,29 @@ TEST(perf_scene_green_row_follows_the_scenes) {
     r.h.tap(btn::Rec);
     CHECK_EQ(p.shownRow(0), p.src.row(0));
 }
+
+// [I] A pad pressed on a column the scenes drive plays its row, so the green
+// row and pad light show it until the fader moves again (user report: on
+// scene B the green row stayed put on Step Repeater pads).
+TEST(perf_scene_pad_press_shows_its_row) {
+    Rig r;
+    PerformanceScreen& p = r.p();
+    auto led = [&](int pad) {
+        uint8_t lv[48] = {};
+        p.padLeds(lv);
+        return int(lv[pad]);
+    };
+    r.h.pad(12 * 1 + 0);
+    r.store(0);
+    r.h.pad(12 * 3 + 0);
+    r.store(1);
+    r.fade(100);
+    CHECK_EQ(p.shownRow(0), 3);
+    r.h.pad(12 * 2 + 0);
+    CHECK_EQ(p.shownRow(0), 2);
+    CHECK_EQ(p.cur[0], p.src.value(0, 2));
+    CHECK(led(12 * 2 + 0) > 0);
+    CHECK_EQ(led(12 * 3 + 0), 0);
+    r.fade(90);   // the fader takes the column back
+    CHECK_EQ(p.shownRow(0), 3);
+}

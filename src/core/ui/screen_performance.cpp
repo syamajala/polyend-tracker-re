@@ -84,6 +84,7 @@ void PerformanceScreen::start(int opt) {
     edit = false;
     copySrc_ = -1;
     sceneCcPending_ = false;
+    for (bool& o : padOver_) o = false;
     view = View::Play;
     editScene = -1;
     labelsDirty_ = false;
@@ -391,6 +392,7 @@ void PerformanceScreen::resetOthers(int c) {
         src.setRow(s, 0);
         cur[s] = 0;
         liveValid[s] = false;
+        padOver_[s] = true;
     }
 }
 
@@ -416,6 +418,7 @@ void PerformanceScreen::onPad(uint8_t pad, uint8_t state) {
         const uint8_t row = uint8_t(src.type(c) ? r : 0);
         src.setRow(c, row);
         held_[c] = true;
+        padOver_[c] = true;   // [I] the pad wins over the scenes until the fader moves
         resetOthers(c);
         cur[c] = row ? src.value(c, row) : 0;
         ccSent_[c] = -1;   // [I] #28: a press always sends (the synth may have moved since)
@@ -455,7 +458,7 @@ void PerformanceScreen::padLeds(uint8_t* lv) {
     }
     for (int c = 0; c < perf::kSlots; ++c) {
         const uint8_t rA = a.project.sceneOn(0)[c], rB = a.project.sceneOn(1)[c];
-        if (src.type(c) && (rA || rB) && !edit && view == View::Play) {
+        if (src.type(c) && (rA || rB) && !padOver_[c] && !edit && view == View::Play) {
             auto level = [&](int share) { return uint8_t(dim + (full - dim) * share / kFaderMax); };
             const int pa = (rA <= 3 ? rA : 0) * 12 + c, pb = (rB <= 3 ? rB : 0) * 12 + c;
             if (pa == pb) {
@@ -999,7 +1002,7 @@ int PerformanceScreen::sceneShare(int scene, int c) const {
 
 int PerformanceScreen::shownRow(int c) const {
     const uint8_t rA = app_.project.sceneOn(0)[c], rB = app_.project.sceneOn(1)[c];
-    if (!src.type(c) || !(rA || rB) || edit || view != View::Play) return src.row(c);
+    if (!src.type(c) || !(rA || rB) || padOver_[c] || edit || view != View::Play) return src.row(c);
     const int r = sceneShare(1, c) > sceneShare(0, c) ? rB : rA;
     return r <= 3 ? r : 0;
 }
@@ -1278,6 +1281,7 @@ void PerformanceScreen::applyScenes() {
         if (src.type(s) == perf::kMidiCc && picked[s]) {
             cur[s] = next[s];
             liveValid[s] = false;
+            padOver_[s] = false;
         }
     // [I] #54: the FX toggles of the scene the fader is on (A below the
     // middle, B from it), when that scene carries toggles; a scene with "-"
@@ -1299,6 +1303,7 @@ void PerformanceScreen::applyScenes() {
         if (!picked[s]) next[s] = 0;
         cur[s] = next[s];
         liveValid[s] = false;
+        padOver_[s] = false;
     }
     applyAll(false);
 }
