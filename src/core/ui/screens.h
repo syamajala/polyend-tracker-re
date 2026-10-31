@@ -699,6 +699,13 @@ public:
     void slicesEvenly();
     void slicesAuto();
     void requestSlices(bool autoMode);   // with the overwrite confirmation
+    // [I] Slices to pattern (#86, More page): Steps = the sample's length in
+    // steps (0: App::sliceStepsGuess), To Pattern writes the slices on the
+    // pattern's current track (asks first when the track has steps).
+    int toPatternSteps() const;
+    void requestToPattern();
+    void slicesToPattern();
+    int patternSteps = 0;
 
 private:
     void refreshBar();

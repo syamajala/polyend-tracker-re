@@ -51,6 +51,28 @@ pads together, release them, and play the next chord.
   ends the chord there.
 - Live recording (Rec while playing) already spreads a chord over the next free tracks.
 
+## Slices to pattern
+
+Chop a break, then press one key to get a pattern that plays it. On the Sample Playback screen
+(Slice or Beat Slice mode), open the **More** page (F6):
+
+| Key | Does |
+|---|---|
+| **Steps** (F4) | How many steps the sample lasts. The guess is its length at the song tempo, rounded to 1, 2, 4 or 8 bars; turn the encoder if it guessed wrong (a 2-bar break at 92 BPM in a 140 BPM song reads as 4 bars). |
+| **To Pattern** (F5) | Writes the slices on the pattern's current track (the one the cursor was on). |
+
+- Slice i goes on the step nearest where it starts, as note 24 + i, with the steps in
+  between empty, so each slice plays on to the next one. The trigs repeat every Steps
+  steps to the end of the track.
+- The track is cleared first; it asks when the track had steps. Undo in the pattern
+  editor brings them back.
+- A Slice instrument turns Beat Slice, so each note plays its own slice.
+- At another song tempo the slices play at their own speed and pitch (as REX loops do):
+  a faster song cuts each slice short at the next trig, a slower one leaves a short gap
+  after it. The pattern keeps its
+  length; a sample longer than the track is placed once, cut at the track's end.
+- Slice first: Auto (F1) for drum breaks, Evenly (F2) for loops in time.
+
 ## The 2.x features (from upstream)
 
 The 2.x line brings the newer Tracker features to the original hardware. In short:

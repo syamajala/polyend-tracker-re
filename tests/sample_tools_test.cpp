@@ -210,6 +210,67 @@ TEST(playback_auto_finishes_when_leaving) {
     CHECK_EQ(a.instruments[0].sliceCount, 3);
 }
 
+// [I] #86 Slices to pattern: More page F4 Steps, F5 To Pattern.
+TEST(playback_slices_to_pattern) {
+    Harness h;
+    App& a = *h.app;
+    // 2 bars at 120 BPM (4 s); the song at 140 BPM: 2.33 bars -> 2.
+    putWav(h, "brk.wav", std::vector<int16_t>(176400, 0));
+    CHECK(a.importSample("brk.wav", 0));
+    a.setCurrentInstrument(0);
+    a.project.setTempo(140.0f);
+    CHECK_EQ(a.sliceStepsGuess(0), 32);
+    a.project.setTempo(60.0f);   // 1 bar
+    CHECK_EQ(a.sliceStepsGuess(0), 16);
+    a.project.setTempo(140.0f);
+    a.instruments[0].playMode = uint8_t(PlayMode::Slice);
+    h.tap(btn::SamplePlayback);
+    PlaybackScreen& p = pb(h);
+    h.tap(btn::F6);   // More
+    CHECK(p.more);
+    CHECK_STR(a.ui.bar.label[3].top, "Steps");
+    CHECK_STR(a.ui.bar.label[3].bottom, "32");
+    // No slices yet: nothing written.
+    a.editorTrack = 2;
+    h.tap(btn::F5);
+    CHECK(a.pattern().tracks[2].blank());
+    h.tap(btn::F2);   // Evenly, 8 slices
+    CHECK_EQ(a.instruments[0].sliceCount, 8);
+    Track& tr = a.pattern().tracks[2];
+    tr.lastStep = 63;
+    tr.steps[1].note = 50;   // old data: asks first
+    h.tap(btn::F5);
+    CHECK(a.ui.askOpen());
+    h.tap(btn::F7);   // Cancel
+    CHECK_EQ(tr.steps[1].note, 50);
+    h.tap(btn::F5);
+    h.tap(btn::F8);   // Confirm
+    // Slice i on step 4i, again from step 32; the steps in between cleared.
+    for (int s = 0; s < 64; ++s) {
+        if (s % 4) CHECK_EQ(tr.steps[s].note, kNoteEmpty);
+        else {
+            CHECK_EQ(tr.steps[s].note, 24 + (s % 32) / 4);
+            CHECK_EQ(tr.steps[s].instrument, 0);
+        }
+    }
+    CHECK_EQ(a.instruments[0].playMode, uint8_t(PlayMode::BeatSlice));
+    CHECK(p.more);   // the mode change keeps the page
+    // Steps: F4 then the encoder; 16 steps squeezes the slices onto 0, 2, ..
+    h.tap(btn::F4);
+    CHECK_EQ(p.sel, 3);
+    h.enc(-16);
+    CHECK_STR(a.ui.bar.label[3].bottom, "16");
+    h.tap(btn::F5);
+    h.tap(btn::F8);
+    CHECK_EQ(tr.steps[2].note, 25);
+    CHECK_EQ(tr.steps[16].note, 24);
+    CHECK_EQ(tr.steps[18].note, 25);
+    // Undo brings back the previous write.
+    CHECK(a.undoEdit());
+    CHECK_EQ(tr.steps[2].note, kNoteEmpty);
+    CHECK_EQ(tr.steps[4].note, 25);
+}
+
 TEST(playback_zoom_points_and_multiselect) {
     Harness h;
     App& a = *h.app;

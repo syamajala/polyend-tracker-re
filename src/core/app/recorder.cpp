@@ -344,6 +344,60 @@ void App::placeResample(int slot, uint32_t bars, const uint16_t* sliceSteps, int
     if (every > len) ui.notify("Resample is longer than the pattern: placed once", 3000);
 }
 
+int App::sliceStepsGuess(uint8_t instr) const {
+    const int bar = resampleBarSteps();
+    if (instr >= kSampleInstrumentCount || bar <= 0) return bar > 0 ? bar : 16;
+    // Steps at the song tempo (tsDen + 1 steps a beat, as the slice grid).
+    const double secs = double(bank.fullFrames(instr)) / 44100.0;
+    const double bars = secs * double(project.tempo()) / 60.0 * double(cfg.tsDen + 1) / double(bar);
+    // The nearest of 1, 2, 4, 8 bars by ratio: a break at another tempo is
+    // still a power-of-two loop (2 bars at 120 BPM, song at 140: 2.33 -> 2).
+    // Past a tempo ratio of 1.41 it picks the other power (2 bars at 92 at
+    // 140: 3.04 -> 4); the Steps value corrects it.
+    // Ratio distance (>= 1) instead of |log2|: no double libm on the device.
+    auto off = [bars](int b) { return bars > b ? bars / b : b / bars; };
+    int best = 1;
+    for (int b = 2; b <= 8 && b * bar <= int(kStepCount); b *= 2)
+        if (bars > 0.0 && off(b) < off(best)) best = b;
+    return best * bar;
+}
+
+int App::slicesToPattern(uint8_t instr, int track, int steps) {
+    if (instr >= kSampleInstrumentCount || track < 0 || track >= Sequencer::kVoiceTracks || steps <= 0) return 0;
+    Instrument& in = instruments[instr];
+    const int count = in.sliceCount > kSliceCount ? kSliceCount : in.sliceCount;
+    if (count <= 0) return 0;
+    // Slice i starts on step round(slices[i] * steps / 65535) (placeResample's
+    // inverse); slices closer than a step share it and the first one plays.
+    int at[kSliceCount];
+    uint8_t slice[kSliceCount];
+    int placed = 0;
+    for (int i = 0; i < count; ++i) {
+        const int s = int((uint32_t(in.slices[i]) * uint32_t(steps) + 32767u) / 65535u);
+        if (s >= steps || (placed && s <= at[placed - 1])) continue;
+        at[placed] = s;
+        slice[placed++] = uint8_t(i);
+    }
+    if (!placed) return 0;
+    pushUndo();
+    Track& tr = pattern().tracks[track];
+    const int len = tr.length();
+    for (int s = 0; s < len; ++s) tr.steps[s].clear();
+    // The steps in between stay empty: each slice plays on to the next one.
+    for (int start = 0; start < len; start += steps)
+        for (int k = 0; k < placed && start + at[k] < len; ++k) {
+            Step& st = tr.steps[start + at[k]];
+            st.note = int8_t(24 + slice[k]);   // Beat Slice: note n plays slice n - 24
+            st.instrument = instr;
+        }
+    if (in.playMode == uint8_t(PlayMode::Slice)) {
+        in.playMode = uint8_t(PlayMode::BeatSlice);
+        markInstrumentDirty(instr);
+    }
+    patternEdited();
+    return placed;
+}
+
 bool App::writeWav(const char* path, const int16_t* l, const int16_t* r, uint32_t frames) {
     if (!r) return writeWav(path, l, frames);
     IStorage& f = fs();
