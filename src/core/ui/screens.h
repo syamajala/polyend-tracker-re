@@ -758,6 +758,10 @@ public:
     // for blending FX, all-or-nothing at the middle for stepped ones, the
     // filter cross-over for filters of different types (the scene marks).
     int sceneShare(int scene, int c) const;
+    // [I] The row the green label marks: in a column scene A or B drives
+    // (play view), the row of the scene with the larger share at the fader
+    // (as the pad lights); otherwise the selected row.
+    int shownRow(int c) const;
     // The value slot c's pad row sets (the stored row, the live MIDI-CC row, or off).
     int16_t padValue(int c) const;
     void editSelected(int d);   // [I] edit mode, nothing held: encoder on the edit column's row

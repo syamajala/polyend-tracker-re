@@ -952,6 +952,13 @@ int PerformanceScreen::sceneShare(int scene, int c) const {
     return scene ? x : kFaderMax - x;
 }
 
+int PerformanceScreen::shownRow(int c) const {
+    const uint8_t rA = app_.project.sceneOn(0)[c], rB = app_.project.sceneOn(1)[c];
+    if (!src.type(c) || !(rA || rB) || edit || view != View::Play) return src.row(c);
+    const int r = sceneShare(1, c) > sceneShare(0, c) ? rB : rA;
+    return r <= 3 ? r : 0;
+}
+
 int16_t PerformanceScreen::padValue(int c) const {
     const int row = src.row(c);
     if (row >= 1 && row <= 3) return src.value(c, row);
@@ -1385,7 +1392,7 @@ void PerformanceScreen::draw(Gfx& g) {
         for (int r = 0; r < perf::kRows; ++r) {
             v[0] = 0;
             if (ty != 0) cellText(ty, src.value(c, r), v, sizeof(v));
-            put(cx, kRowY + 30 * r, src.row(c) == r, v);
+            put(cx, kRowY + 30 * r, shownRow(c) == r, v);   // [I] follows the scenes
         }
     }
     g.alpha(222);

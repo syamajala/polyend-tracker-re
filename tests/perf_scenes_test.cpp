@@ -535,3 +535,39 @@ TEST(perf_scene_pad_leds) {
     CHECK_EQ(led(12 * 1 + 0), 0);
     CHECK_EQ(led(12 * 3 + 0), dim);    // the row the B snapshot latched
 }
+
+// [I] The green row follows the scenes as the pad lights do (user report: it
+// stayed on the last tapped row when switching scenes).
+TEST(perf_scene_green_row_follows_the_scenes) {
+    Rig r;
+    App& a = r.a();
+    PerformanceScreen& p = r.p();
+    // Scene 1: column 0 row 1, column 1 row 2. Scene 2: column 0 row 3 only.
+    r.h.pad(12 * 1 + 0);
+    r.h.pad(12 * 2 + 1);
+    r.store(0);
+    r.h.pad(12 * 3 + 0);
+    r.h.pad(12 * 0 + 1);
+    r.store(1);
+    r.h.pad(12 * 2 + 6);   // column 6 in no scene: the tapped row
+    a.project.perfScene[0][6] = a.project.perfScene[1][6] = 0;
+    r.fade(0);
+    CHECK_EQ(p.shownRow(0), 1);
+    CHECK_EQ(p.shownRow(1), 2);
+    CHECK_EQ(p.shownRow(6), 2);
+    r.fade(100);
+    CHECK_EQ(p.shownRow(0), 3);
+    CHECK_EQ(p.shownRow(1), 0);   // scene 2 leaves it off
+    CHECK_EQ(p.src.row(0), 3);    // the tapped rows are not rewritten
+    CHECK_EQ(p.shownRow(6), 2);
+    // Another scene on A: the rows follow it.
+    r.fade(0);
+    r.h.pad(12 * 2 + 0);
+    r.store(0);
+    a.project.perfScene[2][0] = 1;
+    p.setSceneOn(0, 2);
+    CHECK_EQ(p.shownRow(0), 1);
+    // Edit mode: the selected rows.
+    r.h.tap(btn::Rec);
+    CHECK_EQ(p.shownRow(0), p.src.row(0));
+}
