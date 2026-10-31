@@ -57,6 +57,18 @@ int App::remoteStatus(char* out, int cap) {
     fieldInt(out, cap, n, "govB", engine.governor().budget());
     fieldInt(out, cap, n, "cuts", long(engine.governor().cuts()));
     fieldInt(out, cap, n, "freeKB", long(bank.freeSamples() * 2 / 1024));
+    // [I] USB audio in (#97): packets, under-runs, drops, ring fill (frames),
+    // feedback (10.14), playing.
+    if (hal_.usbInStats) {
+        HalRefs::UsbInStats u{};
+        hal_.usbInStats(&u);
+        fieldInt(out, cap, n, "usbPk", long(u.packets));
+        fieldInt(out, cap, n, "usbUr", long(u.underruns));
+        fieldInt(out, cap, n, "usbDr", long(u.dropped));
+        fieldInt(out, cap, n, "usbFill", long(u.fill));
+        fieldInt(out, cap, n, "usbFb", long(u.feedback));
+        fieldInt(out, cap, n, "usbOn", u.playing ? 1 : 0);
+    }
     // A confirm dialog is open (Ui::ask: "Unsaved changes", "This will stop
     // the pattern", ...), so scripts answer it without matching its wording.
     fieldInt(out, cap, n, "ask", ui.askOpen() ? 1 : 0);
@@ -92,7 +104,7 @@ void App::serviceRemote() {
     }
     if (r->takeRedraw()) ui.dirty();
     if (r->takeQuery()) {
-        char s[remote::kLineMax + 192];   // status fields (~190 B with build=) + a notice of up to 63 chars
+        char s[remote::kLineMax + 272];   // status fields (~260 B with build= and usb*) + a notice of up to 63 chars
         remoteStatus(s, sizeof s);
         r->sendLine(s);
     }

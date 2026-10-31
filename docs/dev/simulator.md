@@ -20,6 +20,10 @@ build/sim/opentracker-sim [--sd DIR] [--scale 2] [--line-in]
   Down = encoder. **Tab** switches between command mode (letters = module keys, e.g. `2`
   Performance, `0` Song) and pad mode (letter rows = pads). The mouse works on every
   control; right-click latches a button (e.g. Shift).
+- `--usb-in NAME` stands in for USB audio from the computer ([USB audio](../guide/usb-audio.md)):
+  a capture device, e.g. the monitor of a null sink the browser plays into
+  (`--usb-in list` prints the names; see `sim/README.md`). `--usb-in-tone HZ` is the
+  headless version.
 
 ## Scripts
 

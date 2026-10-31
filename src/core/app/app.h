@@ -55,6 +55,14 @@ struct HalRefs {
     // feedback). Null when the build has no USB audio (simulator, OT_USB_AUDIO=0).
     const int16_t* (*usbIn)(void* ctx) = nullptr;
     void* usbInCtx = nullptr;
+    // [I] USB audio in diagnostics for the remote status line (main loop):
+    // packets received, under-runs, frames dropped, ring fill, feedback
+    // (10.14 frames per ms), playing. Null: not reported.
+    struct UsbInStats {
+        uint32_t packets, underruns, dropped, fill, feedback;
+        bool playing;
+    };
+    void (*usbInStats)(UsbInStats* out) = nullptr;
     // Recorder input routing (spec 05 appendix C §2.4/§2.5): source 0 line
     // in, 1 radio, 2 mic low gain, 3 mic high gain; gain 0..100. Returns
     // false when the source is not available. Null: only line in (no

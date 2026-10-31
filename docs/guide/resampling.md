@@ -18,7 +18,7 @@ slice or re-record.
 
 | Column (key) | Choices |
 |---|---|
-| **From** (F1) | **Master** (after the limiter), **Track 1–8** (the track's sample voice plus the synth notes it plays, dry), **Line in** (with the recorder's channel mode). |
+| **From** (F1) | **Master** (after the limiter), **Track 1–8** (the track's sample voice plus the synth notes it plays, dry), **Line in** (with the recorder's channel mode), **USB** (what the computer plays into the Tracker, [USB audio](usb-audio.md)). |
 | **Length** (F2) | **Manual** (until you stop it, snapped to a bar) or 1, 2, 4, 8, 16 bars. |
 | **Slices** (F3) | **Off**, **Per beat**, **Per step** (equal slices), **Beat hits**, **Step hits** (a slice only where a new hit starts, so empty steps stay empty). |
 | **Into** (F4) | **New** (the next free instrument) or **instrument 1–48** (re-record into it). |

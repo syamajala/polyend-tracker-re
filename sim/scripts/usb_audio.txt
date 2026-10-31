@@ -43,6 +43,7 @@ tap F6                   # Resample
 wait 300
 expect-screen Resample
 tap F1
+enc -20
 enc 10                   # From: USB
 tap F2
 enc -5

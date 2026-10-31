@@ -22,6 +22,7 @@
 #include "hal/stack_guard.h"
 #include "hal/stack_watch.h"
 #include "hal/usb_storage.h"
+#include "hal/usb_audio.h"
 #include "remote/display_tap.h"
 #include "remote/remote.h"
 #include "sdram_bss.h"
@@ -495,6 +496,14 @@ void otAppMain(ot::hal::HalSet& hal) {
     refs.requestFirmwareUpdate = &hal::requestFirmwareUpdate;
     refs.lineIn = &hal::lineIn;            // I2S RX (spec 01 §5.3)
     refs.lineInCtx = nullptr;
+    // [I] USB audio in (#97); null in an image without the USB audio function.
+    refs.usbIn = hal::usbAudioAvailable() ? &hal::usbAudioIn : nullptr;
+    refs.usbInCtx = nullptr;
+    if (hal::usbAudioAvailable())
+        refs.usbInStats = [](ot::HalRefs::UsbInStats* o) {
+            const hal::UsbAudioStats s = hal::usbAudioStats();
+            *o = {s.packets, s.underruns, s.dropped, s.fill, s.feedback, s.playing};
+        };
     refs.selectInput = &selectInputThunk;  // codec input mux + tuner (spec 01 §5.4-§5.6)
     refs.inputCtx = nullptr;
     refs.radio = &hal::radio();
