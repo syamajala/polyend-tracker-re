@@ -22,11 +22,12 @@ resets the selected value.
 
 - **Scene** puts a scene from the [scene bank](performance.md#the-scene-bank) on the
   crossfader's **A** end as the slot starts, with the fader at A. The encoder picks the
-  scene; `-` keeps whatever plays.
+  scene, or `-` for none.
 - **Shift + encoder** adds a second scene for **B** (shown as `3>4`).
-- A slot's scene plays on **any screen**, not only on the Performance screen. It stops at
-  Stop, or when the song reaches a `-` slot (on the Performance screen, a `-` slot keeps
-  what plays).
+- A slot's scene plays on **any screen**, not only on the Performance screen, until Stop
+  or the next slot.
+- A `-` slot (no scene): on the Performance screen what plays stays; on other screens the
+  song's scene ends (FX off). To hold a scene across slots, set it on each slot.
 
 ## Ramps
 
