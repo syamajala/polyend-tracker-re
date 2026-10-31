@@ -38,8 +38,9 @@ or less immediate? If it costs one of the three, it needs a very good reason.
 
 ## Build and test
 
-- Firmware: `make clean && make -j VERSION=2.1.2` (the Makefile default VERSION is stale;
-  run `make clean` whenever VERSION changes). See `docs/dev/building.md`.
+- Firmware: `make clean && make -j`. Don't pass `VERSION`: the Makefile default follows the
+  last upstream merge (bump it there when merging; run `make clean` whenever it changes).
+  See `docs/dev/building.md`.
 - Host tests: `make host-test`. Simulator: `make -C sim check`, then `tools/sim_remote_check.sh`.
 - Audio changes: `make perf-gate`. Size checks: `tools/telemetry_check.py size` and `frames`.
 - Test in the simulator and on the host first. Use the device only for sound, real CPU and
