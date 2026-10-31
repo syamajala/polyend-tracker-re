@@ -1605,7 +1605,10 @@ void PerformanceScreen::drawTypeList(Gfx& g) {
     typeTop = wg::listFollow(typeCursor, v.count, wg::listVisibleRows(v.h), typeTop);
     v.top = typeTop;
     v.sel = typeCursor;
-    v.active = typeFocus_ == 0;
+    // [I] #28: with three lists, the focused one's box is red, the others
+    // white (as the file browser's lists).
+    const auto sel = [cc, this](int l) { return cc && typeFocus_ == l ? wg::ListSel::kRed : wg::ListSel::kWhite; };
+    v.selStyle = sel(0);
     v.fade = !cc;   // three lists: no fades, to keep the display list small
     v.item = typeItem;
     v.marked = typeMarked;
@@ -1619,7 +1622,7 @@ void PerformanceScreen::drawTypeList(Gfx& g) {
         midiTop_ = wg::listFollow(midiCursor_, m.count, wg::listVisibleRows(m.h), midiTop_);
         m.top = midiTop_;
         m.sel = midiCursor_;
-        m.active = typeFocus_ == 1;
+        m.selStyle = sel(1);
         m.item = midiItem;
         m.marked = nullptr;
         m.ctx = &app_;
@@ -1630,7 +1633,7 @@ void PerformanceScreen::drawTypeList(Gfx& g) {
         sl.count = perf::kCcSlots;
         sl.top = 0;
         sl.sel = slotCursor_;
-        sl.active = typeFocus_ == 2;
+        sl.selStyle = sel(2);
         sl.item = slotItem;
         sl.ctx = &sx;
         wg::list(g, th, sl);
