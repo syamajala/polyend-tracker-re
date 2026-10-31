@@ -1114,14 +1114,16 @@
 <h2 id="firmware">Firmware<a class="headerlink" href="#firmware" title="Permanent link">&para;</a></h2>
 <p>Needs the <strong>Arm GNU toolchain</strong> (<code>arm-none-eabi-gcc</code>; CI uses 14.2.Rel1) and Python 3.</p>
 <div class="highlight"><pre><span></span><code>make<span class="w"> </span>clean
-make<span class="w"> </span>-j<span class="w"> </span><span class="nv">VERSION</span><span class="o">=</span><span class="m">2</span>.2.1
+make<span class="w"> </span>-j
 </code></pre></div>
-<p>This writes <code>build/opentracker.elf</code>, <code>build/opentracker.hex</code> and the flashable image
-<code>build/PolyendTrackerOTv212.ptf</code>.</p>
+<p><code>VERSION</code> defaults to the Makefile's value, which follows the last upstream merge, so leave
+it unset unless you need a different one. This writes <code>build/opentracker.elf</code>,
+<code>build/opentracker.hex</code> and the flashable image <code>build/PolyendTrackerOTv&lt;digits&gt;.ptf</code>
+(e.g. <code>PolyendTrackerOTv223.ptf</code> for 2.2.3).</p>
 <div class="admonition warning">
 <p class="admonition-title">Change VERSION? Run <code>make clean</code> first</p>
 <p>Objects aren't rebuilt when only <code>VERSION</code> changes, so the image would report the old
-version. Check with <code>strings build/opentracker.elf | grep -x 2.2.1</code>.</p>
+version. Check with <code>strings build/opentracker.elf | grep -x &lt;version&gt;</code>.</p>
 </div>
 <p>The image name must be exactly 24 characters (the update bootloader rejects other
 lengths), so it carries the version digits only.</p>
