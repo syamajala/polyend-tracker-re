@@ -2,6 +2,9 @@
 // midi_names.bin side file (CC charts), App load / save and the MIDI
 // Instrument Preset page.
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <sstream>
 #include <string>
 
 #include "test.h"
@@ -299,4 +302,35 @@ TEST(midi_lfo_target_is_a_slot_and_settles) {
     // Leaving the page hands the pick over at once.
     h.tap(btn::InstrParams);
     CHECK_EQ(a.project.midiLfo[2].target, MidiLfo::kTargetPitchBend);
+}
+
+// The presets shipped in midi_presets/ (release MidiPresets.zip): each parses,
+// fits the text buffer, keeps every name it lists, and its name fits the
+// Load list.
+TEST(midi_presets_shipped_files_parse) {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    int files = 0;
+    for (const auto& de : fs::directory_iterator("../midi_presets", ec)) {
+        if (de.path().extension() != ".txt") continue;
+        ++files;
+        std::ifstream f(de.path());
+        std::stringstream ss;
+        ss << f.rdbuf();
+        const std::string t = ss.str();
+        static MidiPreset p;
+        CHECK(t.size() < mpreset::kTextMax);
+        CHECK(decodeMidiPreset(t.data(), t.size(), p));
+        CHECK(de.path().stem().string().size() <= size_t(mpreset::kNameMax));
+        int lines = 0, named = 0;
+        for (size_t k = 0; k + 3 < t.size(); ++k)
+            if ((k == 0 || t[k - 1] == '\n') && t.compare(k, 3, "cc ") == 0) {
+                ++lines;
+                const size_t eq = t.find('=', k), end = t.find('\n', k);
+                CHECK(end - eq - 2 <= size_t(MidiCcNames::kNameMax));   // no name cut short
+            }
+        for (const auto& n : p.name) named += n[0] != 0;
+        CHECK_EQ(named, lines);
+    }
+    CHECK(files >= 6);
 }

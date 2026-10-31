@@ -43,6 +43,22 @@ preset name are saved with the project (`midi_names.bin`, next to `project.mt`),
 `project.mt` stays readable by the original firmware. A project holds up to 400 CC names
 in all (about eight fully named synths).
 
+## Presets that come with OpenTracker
+
+Each release has a `MidiPresets.zip`: unzip it to the root of the card. It holds:
+
+| Preset | Channels | Slots A–F |
+|---|---|---|
+| **Model Cycles** | one per track (load it on each) | Color, Shape, Sweep, Contour, Decay, Delay send |
+| **Syntakt** | audio tracks 1–12 (Syn A–H = the machine's parameters) | Cutoff, Reso, Filter env, Amp decay, Delay send, Reverb send |
+| **Syntakt FX** | the FX track | Filter freq, Filter reso, Drive, Delay mix, Reverb mix, Delay time |
+| **volca fm2** | its channel (needs MIDI RX ShortMessage on) | Mod decay, Carrier decay, Algorithm, LFO rate, LFO pitch, Reverb |
+| **SP-404MKII** | 1–4 = BUS 1–4, 5 = INPUT FX | Ctrl 1–4, FX on, FX select |
+| **S-1** | its channel | Cutoff, Reso, Filter env, Decay, Delay, Reverb |
+
+Each names every CC in the synth's MIDI chart. They are in `midi_presets/` in the source;
+more synths are welcome.
+
 ## The preset file
 
 Presets are text files in `MidiPresets/` on the card, named `<name>.txt`, so they can be

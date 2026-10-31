@@ -1,0 +1,23 @@
+# OpenTracker MIDI preset
+# Roland SP-404MKII effects (MIDI implementation, OS 5): channel 1-4 = BUS 1-4,
+# channel 5 = INPUT FX. Ctrl 1-6 are the selected effect's knobs; FX Select
+# picks the effect (0 = off), FX On switches it (0-63 off, 64-127 on).
+velocity = 127
+offset = 0
+slot A = 16
+slot B = 17
+slot C = 18
+slot D = 80
+slot E = 19
+slot F = 83
+cc 7 = Volume
+cc 8 = X-Fade
+cc 16 = Ctrl 1
+cc 17 = Ctrl 2
+cc 18 = Ctrl 3
+cc 19 = FX On
+cc 80 = Ctrl 4
+cc 81 = Ctrl 5
+cc 82 = Ctrl 6
+cc 83 = FX Select
+lfo target = off

@@ -151,7 +151,8 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   **Preset** page: name the synth's CCs ("74 Cutoff"), and the names show for CC A–F
   ("Cutoff" instead of "CC A"), in the CC lists and as the LFO target. **Save** the setup
   (velocity, offset, CC A–F, the CC names, LFO) to `MidiPresets/<name>.txt` and **Load** it
-  into any MIDI instrument. Presets hold no channel and no program change.
+  into any MIDI instrument. Presets hold no channel and no program change. Releases include
+  `MidiPresets.zip` with presets for the Model:Cycles, Syntakt, volca fm2, SP-404MKII and S-1.
 
 ### Remote control and on-device testing
 - **Config > USB > Remote control** (Off after every power-on):
