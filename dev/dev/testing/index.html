@@ -1159,7 +1159,8 @@ Python scripts can call <code>Runner.peek</code> / <code>poke</code> / <code>ftr
 <code>tools/int_n_probe.py</code> uses them to find out whether the FT81x <code>INT_N</code> pin reaches the MCU
 (it toggles the pin and reads every port, then restores everything).</p>
 <h2 id="ci">CI<a class="headerlink" href="#ci" title="Permanent link">&para;</a></h2>
-<p>Every push and pull request runs <code>.github/workflows/ci.yml</code>:</p>
+<p>Pull requests and pushes to <code>main</code> run <code>.github/workflows/ci.yml</code> (other branches: <strong>Run
+workflow</strong> on the Actions tab):</p>
 <table>
 <thead>
 <tr>
