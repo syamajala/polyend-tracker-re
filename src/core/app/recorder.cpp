@@ -1,6 +1,5 @@
 // App side of the Sample Recorder (spec 05 §2.11, appendix C §2; spec 02
 // §8.3 recordings): input routing, output folder and file naming, WAV write.
-#include <cmath>
 #include <cstdio>
 #include <cstring>
 
@@ -355,9 +354,11 @@ int App::sliceStepsGuess(uint8_t instr) const {
     // still a power-of-two loop (2 bars at 120 BPM, song at 140: 2.33 -> 2).
     // Past a tempo ratio of 1.41 it picks the other power (2 bars at 92 at
     // 140: 3.04 -> 4); the Steps value corrects it.
+    // Ratio distance (>= 1) instead of |log2|: no double libm on the device.
+    auto off = [bars](int b) { return bars > b ? bars / b : b / bars; };
     int best = 1;
     for (int b = 2; b <= 8 && b * bar <= int(kStepCount); b *= 2)
-        if (bars > 0.0 && std::fabs(std::log2(bars / b)) < std::fabs(std::log2(bars / best))) best = b;
+        if (bars > 0.0 && off(b) < off(best)) best = b;
     return best * bar;
 }
 
