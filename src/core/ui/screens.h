@@ -267,6 +267,8 @@ public:
     using Screen::Screen;
     const char* name() const override { return "Instrument"; }
     void start(int opt) override;
+    void stop() override;
+    void update(uint32_t now) override;
     void draw(Gfx& g) override;
     void onButton(uint8_t id, uint8_t state) override;
     void onEncoder(int d) override;
@@ -312,6 +314,14 @@ private:
     void drawPreset(Gfx& g);
     int presetTop_ = 0;
     char presetName_[MidiPresetInfo::kNameMax + 1] = {};
+    // [I] MIDI LFO Target: a pick waits here until the encoder has rested
+    // kLfoSettleMs, so scrolling past CCs does not send the LFO to them.
+    static constexpr uint32_t kLfoSettleMs = 400;
+    int lfoPending_ = -1;
+    uint8_t lfoPendingInstr_ = 0;
+    uint32_t lfoPendingAt_ = 0;
+    uint8_t lfoTarget() const;
+    void commitLfoTarget();
     void edit(int col, int d, bool tap);
     void reset(int col);
     void refreshBar();

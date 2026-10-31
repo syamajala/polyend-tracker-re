@@ -187,3 +187,39 @@ TEST(midi_preset_page) {
     h.tap(btn::Delete);
     CHECK_EQ(a.project.midiPreset[6].label[1][0], 0);
 }
+
+TEST(midi_lfo_target_slots_first_and_settles) {
+    Harness h;
+    App& a = *h.app;
+    MidiInstrument m = a.project.midiInstrument(2);
+    const uint8_t cc[6] = {74, 71, 24, 75, 92, 91};
+    std::memcpy(m.cc, cc, 6);
+    a.project.setMidiInstrument(2, m);
+    std::strcpy(a.project.midiPreset[2].label[0], "Cutoff");
+    std::strcpy(a.project.midiPreset[2].label[1], "Reso");
+    a.setCurrentInstrument(kFirstMidiInstrument + 2);
+    h.tap(btn::InstrParams);
+    h.tap(btn::InstrParams);   // LFO
+    InstrumentScreen& scr = *static_cast<InstrumentScreen*>(a.ui.screen(kModInstrument));
+    CHECK_EQ(scr.mode, 4);
+    scr.column = 0;
+    // One click past Off is slot A, shown by its label; two is slot B.
+    h.enc(1);
+    h.run(20);
+    CHECK(h.disp.lastHasText("Cutoff"));
+    CHECK_EQ(a.project.midiLfo[2].target, MidiLfo::kTargetOff);   // not sent while scrolling
+    h.enc(1);
+    h.run(100);
+    CHECK(h.disp.lastHasText("Reso"));
+    CHECK_EQ(a.project.midiLfo[2].target, MidiLfo::kTargetOff);
+    h.run(500);   // the encoder rests: Reso (CC 71) reaches the LFO
+    CHECK_EQ(a.project.midiLfo[2].target, 71 + 1);
+    // Past the six slots: pitch bend, channel pressure, then CC 0.
+    for (int i = 0; i < 5; ++i) h.enc(1);
+    h.run(20);
+    CHECK(h.disp.lastHasText("Pitch bnd"));
+    CHECK_EQ(a.project.midiLfo[2].target, 71 + 1);
+    // Leaving the page hands the pick over at once.
+    h.tap(btn::InstrParams);
+    CHECK_EQ(a.project.midiLfo[2].target, MidiLfo::kTargetPitchBend);
+}

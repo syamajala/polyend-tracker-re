@@ -35,6 +35,43 @@ const char* kSpeedNames[29] = {"128 steps", "96 steps", "64 steps", "48 steps", 
 static_assert(MidiLfo::kRateCount <= 29, "MIDI LFO rates are the first kSpeedNames");
 const char* kRetrigNames[MidiLfo::kRetrigCount] = {"Free", "Note"};   // [I] MIDI LFO
 
+// [I] MIDI LFO Target order: Off, the instrument's CC slots A..F (the synth's
+// knobs, as a preset sets them up), pitch bend, channel pressure, then every
+// other CC. Returns the count (at most MidiLfo::kTargetCount).
+int lfoTargets(const MidiInstrument& m, uint8_t* out) {
+    bool used[MidiLfo::kTargetCount] = {};
+    int n = 0;
+    auto add = [&](int t) {
+        if (used[t]) return;
+        used[t] = true;
+        out[n++] = uint8_t(t);
+    };
+    add(MidiLfo::kTargetOff);
+    for (uint8_t cc : m.cc) {
+        if (cc <= 127) add(cc + 1);
+        else if (cc == 129) add(MidiLfo::kTargetPressure);   // Chan AT; PC / Poly AT cannot be an LFO target
+    }
+    add(MidiLfo::kTargetPitchBend);
+    add(MidiLfo::kTargetPressure);
+    for (int t = 1; t <= 128; ++t) add(t);
+    return n;
+}
+
+// [I] #13 a target that is a labelled CC slot shows the label ("Cutoff").
+void lfoTargetName(const MidiInstrument& m, const MidiPresetInfo& info, uint8_t t, char* out, int cap) {
+    for (int i = 0; i < 6; ++i) {
+        const bool same = t == MidiLfo::kTargetPressure ? m.cc[i] == 129 : (t >= 1 && t <= 128 && m.cc[i] == t - 1);
+        if (same && info.label[i][0]) {
+            std::snprintf(out, size_t(cap), "%s", info.label[i]);
+            return;
+        }
+    }
+    if (t == MidiLfo::kTargetOff) std::snprintf(out, size_t(cap), "Off");
+    else if (t == MidiLfo::kTargetPitchBend) std::snprintf(out, size_t(cap), "Pitch bnd");
+    else if (t == MidiLfo::kTargetPressure) std::snprintf(out, size_t(cap), "Chan AT");
+    else midicc::ccValueName(t - 1, out, cap);
+}
+
 // Column -> parameter for the sample-instrument pages (appendix C §4-§6).
 const InstrParam kParamCols[7] = {InstrParam::Volume,     InstrParam::Panning, InstrParam::Tune,
                                   InstrParam::Finetune,   InstrParam::FilterType, InstrParam::Cutoff,
@@ -124,6 +161,7 @@ int firstRow(int sel, int count) {
 }  // namespace
 
 void InstrumentScreen::start(int opt) {
+    commitLfoTarget();
     const uint8_t ci = app_.currentInstrument();
     // Appendix C §1: MIDI instruments force mode 3; re-entry keeps only
     // modes 0/1 (MIDI Mapping is entered from the Effects page).
@@ -137,6 +175,28 @@ void InstrumentScreen::start(int opt) {
     if (mode == 1 && ci < kSampleInstrumentCount && iedit::autoType(app_.instruments[ci], dest) == 0 && column > 1)
         column = 1;
     refreshBar();
+}
+
+void InstrumentScreen::stop() { commitLfoTarget(); }
+
+void InstrumentScreen::update(uint32_t now) {
+    if (lfoPending_ >= 0 && now - lfoPendingAt_ >= kLfoSettleMs) commitLfoTarget();
+}
+
+// [I] The Target shown on the LFO page: a pending pick, else the LFO's own.
+uint8_t InstrumentScreen::lfoTarget() const {
+    const uint8_t ci = app_.currentInstrument();
+    if (lfoPending_ >= 0 && lfoPendingInstr_ == ci) return uint8_t(lfoPending_);
+    return isMidiInstrument(ci) ? app_.project.midiLfo[ci - kFirstMidiInstrument].target : MidiLfo::kTargetOff;
+}
+
+void InstrumentScreen::commitLfoTarget() {
+    if (lfoPending_ < 0) return;
+    if (isMidiInstrument(lfoPendingInstr_)) {
+        app_.project.midiLfo[lfoPendingInstr_ - kFirstMidiInstrument].target = uint8_t(lfoPending_);
+        app_.markProjectDirty();
+    }
+    lfoPending_ = -1;
 }
 
 bool InstrumentScreen::selectable(int c) const {
@@ -169,15 +229,19 @@ void InstrumentScreen::valueText(int c, char* out, int cap, float* frac, bool* b
     const uint8_t ci = app_.currentInstrument();
     if (mode == 4) {
         // [I] MIDI LFO: Target, Shape, Rate, Depth, Center, Retrigger.
-        const MidiLfo& l = app_.project.midiLfo[(ci - kFirstMidiInstrument) % kMidiInstrumentCount];
+        const int idx = (ci - kFirstMidiInstrument) % kMidiInstrumentCount;
+        const MidiLfo& l = app_.project.midiLfo[idx];
+        const uint8_t target = lfoTarget();
         switch (c) {
-            case 0:
-                if (l.target == MidiLfo::kTargetOff) std::snprintf(out, size_t(cap), "Off");
-                else if (l.target == MidiLfo::kTargetPitchBend) std::snprintf(out, size_t(cap), "Pitch bnd");
-                else if (l.target == MidiLfo::kTargetPressure) std::snprintf(out, size_t(cap), "Chan AT");
-                else midicc::ccValueName(l.target - 1, out, cap);
-                *frac = float(l.target) / float(MidiLfo::kTargetCount - 1);
+            case 0: {
+                const MidiInstrument m = app_.project.midiInstrument(idx);
+                lfoTargetName(m, app_.project.midiPreset[idx], target, out, cap);
+                uint8_t list[MidiLfo::kTargetCount];
+                const int n = lfoTargets(m, list);
+                for (int k = 0; k < n; ++k)
+                    if (list[k] == target) *frac = float(k) / float(n - 1);
                 break;
+            }
             case 1: std::snprintf(out, size_t(cap), "%s", kShapeNames[l.shape % 5]); break;
             case 2: std::snprintf(out, size_t(cap), "%s", kSpeedNames[l.rate % MidiLfo::kRateCount]); break;
             case 3:
@@ -186,10 +250,10 @@ void InstrumentScreen::valueText(int c, char* out, int cap, float* frac, bool* b
                 break;
             case 4:
                 // Pitch bend: the bend the LFO swings around, -64..63.
-                if (l.target == MidiLfo::kTargetPitchBend) std::snprintf(out, size_t(cap), "%d", l.center - 64);
+                if (target == MidiLfo::kTargetPitchBend) std::snprintf(out, size_t(cap), "%d", l.center - 64);
                 else std::snprintf(out, size_t(cap), "%d", l.center);
                 *frac = float(l.center) / 127.0f;
-                *bipolar = l.target == MidiLfo::kTargetPitchBend;
+                *bipolar = target == MidiLfo::kTargetPitchBend;
                 break;
             default: std::snprintf(out, size_t(cap), "%s", kRetrigNames[l.retrig % MidiLfo::kRetrigCount]); break;
         }
@@ -319,7 +383,22 @@ void InstrumentScreen::edit(int c, int d, bool tap) {
         // Lists (Shape, Rate, Retrigger): a tap wraps.
         auto list = [&](uint8_t& v, int n) { v = uint8_t(tap ? (v + d + n) % n : clampi(v + d, 0, n - 1)); };
         switch (c) {
-            case 0: l.target = uint8_t(clampi(l.target + clampi(d, -10, 10), 0, MidiLfo::kTargetCount - 1)); break;
+            case 0: {
+                // [I] Scrolling only picks the target; update() hands it to
+                // the LFO once the encoder rests, so the CCs passed on the way
+                // are never sent to the synth.
+                uint8_t list[MidiLfo::kTargetCount];
+                const int n = lfoTargets(a.project.midiInstrument(ci - kFirstMidiInstrument), list);
+                const uint8_t cur = lfoTarget();
+                int pos = 0;
+                for (int k = 0; k < n; ++k)
+                    if (list[k] == cur) pos = k;
+                const uint8_t t = list[clampi(pos + clampi(d, -10, 10), 0, n - 1)];
+                lfoPending_ = t == l.target ? -1 : t;
+                lfoPendingInstr_ = ci;
+                lfoPendingAt_ = a.millis();
+                return;
+            }
             case 1: list(l.shape, MidiLfo::kShapeCount); break;
             case 2: list(l.rate, MidiLfo::kRateCount); break;
             case 3: l.depth = uint8_t(clampi(l.depth + d, 0, 100)); break;
@@ -368,7 +447,10 @@ void InstrumentScreen::reset(int c) {
         MidiLfo& l = a.project.midiLfo[ci - kFirstMidiInstrument];
         const MidiLfo def;
         switch (c) {
-            case 0: l.target = def.target; break;
+            case 0:
+                l.target = def.target;
+                lfoPending_ = -1;
+                break;
             case 1: l.shape = def.shape; break;
             case 2: l.rate = def.rate; break;
             case 3: l.depth = def.depth; break;
@@ -460,7 +542,7 @@ void InstrumentScreen::refreshBar() {
     }
     if (mode == 4) {
         static const char* kMidiLfo[6] = {"Target", "Shape", "Rate", "Depth", "Center", "Retrigger"};
-        const bool on = app_.project.midiLfo[(app_.currentInstrument() - kFirstMidiInstrument) % kMidiInstrumentCount].active();
+        const bool on = lfoTarget() != MidiLfo::kTargetOff;
         for (int i = 0; i < 6; ++i) {
             valueText(i, v, sizeof(v), &fr, &bi);
             b.set(i, kMidiLfo[i], v, i == 0 || on);
@@ -502,6 +584,7 @@ void InstrumentScreen::onButton(uint8_t id, uint8_t state) {
     if (id == btn::InstrParams) {
         // Own module key toggles Parameters <-> Automation (appendix C §1).
         if (state == kPress && (mode == 3 || mode == 4 || mode == 5)) {
+            commitLfoTarget();
             mode = mode == 3 ? 4 : mode == 4 ? 5 : 3;   // [I] MIDI: Parameters -> LFO -> Preset (#13)
             column = 0;
             presetList = false;

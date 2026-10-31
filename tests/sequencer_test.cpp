@@ -1583,6 +1583,26 @@ TEST(midi_lfo_pitch_bend_and_pressure) {
     if (!at.empty()) { CHECK_EQ(at[0].b, 90); CHECK_EQ(at[0].len, 2); }
 }
 
+TEST(midi_lfo_new_target_restores_the_old_one) {
+    Rig r(120.0f);
+    r.project.midiLfo[1] = lfo(74 + 1, 1, kRate8Steps, 100, 40);   // CC 74, saw around 40
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 2; });
+    r.project.midiLfo[1].target = 71 + 1;   // the page commits CC 71
+    r.runUntil([&] { return r.seq.step(0) == 3; });
+    const auto old = ccValues(r.sink, 0xB1, 74);
+    CHECK(!old.empty() && old.back() == 40);   // CC 74 left at the center
+    CHECK(!ccValues(r.sink, 0xB1, 71).empty());
+    // Off restores too, and then nothing more is sent.
+    r.project.midiLfo[1].target = MidiLfo::kTargetOff;
+    r.blocks(4);
+    const auto v = ccValues(r.sink, 0xB1, 71);
+    CHECK(!v.empty() && v.back() == 40);
+    const size_t n = r.sink.ev.size();
+    r.blocks(200);
+    CHECK_EQ(r.sink.ev.size(), n);
+}
+
 TEST(midi_lfo_output_budget_round_robin) {
     Rig r(240.0f);
     for (int i = 0; i < kMidiInstrumentCount; ++i) r.project.midiLfo[i] = lfo(74 + 1, 4, kRate8thStep);   // random

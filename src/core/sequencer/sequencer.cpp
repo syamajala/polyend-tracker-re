@@ -1530,20 +1530,26 @@ MidiLfoState* Sequencer::lfoStorage() { return &lfoOwn_; }
 
 void Sequencer::midiLfoReset(bool sendCenter) {
     for (int i = 0; i < kMidiInstrumentCount; ++i) {
-        if (sendCenter && project_ && lfo_->sent[i] >= 0) {
-            const MidiLfo& l = project_->midiLfo[i];
-            if (l.active()) {
-                const int c = lfo_->center[i] >= 0 ? lfo_->center[i]
-                                                 : (l.target == MidiLfo::kTargetPitchBend ? l.center * 128 : l.center);
-                sendMidiLfo(i, l.target, c);
-            }
-        }
+        if (sendCenter) midiLfoRestore(i);
         lfo_->origin[i] = 1;   // tick_ at play start
         lfo_->sent[i] = -1;
         lfo_->center[i] = -1;
     }
     lfo_->next = 0;
     lfo_->budgetUs = kLfoBudgetMaxUs;
+}
+
+// Sends the center to the target the LFO last moved, so a target left behind
+// (Stop, a new target, Off) does not stay wherever the wave was.
+void Sequencer::midiLfoRestore(int i) {
+    if (!project_ || lfo_->sent[i] < 0) return;
+    const uint8_t t = lfo_->target[i];
+    const int c = lfo_->center[i] >= 0 ? lfo_->center[i]
+                                       : (t == MidiLfo::kTargetPitchBend ? project_->midiLfo[i].center * 128
+                                                                         : project_->midiLfo[i].center);
+    sendMidiLfo(i, t, c);
+    lfo_->sent[i] = -1;
+    lfo_->center[i] = -1;   // an FX center belongs to the old target
 }
 
 void Sequencer::midiLfoFxCenter(uint8_t instr, uint8_t target, int value) {
@@ -1592,6 +1598,7 @@ void Sequencer::sendMidiLfo(int i, uint8_t target, int value) {
     else
         sendMidi(uint8_t(0xB0 | ch), uint8_t(target - 1), uint8_t(value), 3);
     lfo_->sent[i] = int16_t(value);
+    lfo_->target[i] = target;
 }
 
 void Sequencer::midiLfoUpdate(float elapsedUs) {
@@ -1602,10 +1609,11 @@ void Sequencer::midiLfoUpdate(float elapsedUs) {
     for (int k = 0; k < kMidiInstrumentCount; ++k) {
         const int i = (start + k) % kMidiInstrumentCount;
         const MidiLfo& l = project_->midiLfo[i];
-        if (!l.active()) {
-            lfo_->sent[i] = -1;
-            continue;
+        if (lfo_->sent[i] >= 0 && (!l.active() || l.target != lfo_->target[i])) {
+            lfo_->budgetUs -= kLfoMsgUs;   // may run short; the budget refills from 0
+            midiLfoRestore(i);
         }
+        if (!l.active()) continue;
         const int v = midiLfoValue(i, l);
         if (v == lfo_->sent[i]) continue;
         if (lfo_->budgetUs < kLfoMsgUs) {

@@ -135,17 +135,21 @@ TEST(midi_lfo_instrument_page) {
     CHECK(h.disp.lastHasText("Retrigger"));
     CHECK(h.disp.lastHasText("Off"));
     MidiLfo& l = a.project.midiLfo[1];
-    // Target: encoder steps through CC 0.. (at most 10 per event, as the CC
-    // columns), Up/Down too.
+    // Target (at most 10 per event, as the CC columns), Up/Down too: Off, the
+    // CC slots (default 1 5 7 11 64; PC is no target), pitch bend, pressure,
+    // then the other CCs. A pick reaches the LFO once the encoder rests.
     h.enc(75);
-    CHECK_EQ(l.target, 10);
+    CHECK_EQ(l.target, MidiLfo::kTargetOff);
+    h.run(500);
+    CHECK_EQ(l.target, 3 + 1);   // list[10] = CC 3
     for (int i = 0; i < 6; ++i) h.enc(10);
-    h.enc(5);
-    CHECK_EQ(l.target, 75);
-    h.run(40);
+    h.enc(7);
+    h.run(500);
+    CHECK_EQ(l.target, 74 + 1);
     CHECK(h.disp.lastHasText("74"));
     h.tap(btn::Up);
-    CHECK_EQ(l.target, 76);
+    h.run(500);
+    CHECK_EQ(l.target, 75 + 1);
     // Shape (list, F2): a tap on the selected list column wraps.
     h.tap(btn::F2);
     CHECK_EQ(l.shape, 2);
