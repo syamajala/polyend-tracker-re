@@ -56,10 +56,16 @@ struct Sim {
             return;
         }
         CHECK(b == out);
+        // A discontinuity counts once, then the check follows the stream again.
         bool ok = true;
         if (!synced) expect = uint16_t(out[0]);   // (re)start: any position
         for (uint32_t i = 0; i < kBlockFrames; ++i, ++expect) {
-            ok = ok && uint16_t(out[2 * i]) == expect && uint16_t(out[2 * i + 1]) == uint16_t(~expect);
+            const uint16_t v = uint16_t(out[2 * i]);
+            ok = ok && uint16_t(out[2 * i + 1]) == uint16_t(~v);   // L and R from the same frame
+            if (v != expect) {
+                ok = false;
+                expect = v;
+            }
         }
         if (!ok) ++gaps;
         synced = true;
@@ -163,6 +169,32 @@ TEST(feedback_ignored_recovers) {
     CHECK(g_in.underruns() > 0u);
     CHECK(g_in.playing() || s.silent > 0);
     CHECK_EQ(s.gaps, 0L);
+}
+
+// The audio blocks pause (a project load) while the computer keeps sending:
+// the ring fills; afterwards it skips back to the target instead of playing
+// ~10 ms late, and keeps playing in order.
+TEST(pause_skips_back_to_target) {
+    reset();
+    Sim s(g_in);
+    s.run(2.0);
+    CHECK(g_in.playing());
+    for (int i = 0; i < 30; ++i) s.hostFrame();   // 30 ms of packets, no audio block
+    CHECK(g_in.fill() > kTarget + kBlockFrames + kSkipAbove);
+    s.tBlock = s.tHost;
+    s.run(0.01);
+    CHECK(g_in.fill() <= kTarget + kBlockFrames);
+    CHECK(g_in.dropped() > 0u);
+    // The ring overflowed during the pause: one hole where the frames that
+    // didn't fit were, nothing else.
+    CHECK(s.gaps <= 2);
+    const long gaps = s.gaps;
+    s.minFill = ~0u;
+    s.maxFill = 0;
+    s.run(10.0, 2.0);
+    CHECK_EQ(s.gaps, gaps);
+    CHECK_EQ(g_in.underruns(), 0u);
+    CHECK(s.maxFill <= kTarget + 80);
 }
 
 TEST(overflow_drops_newest) {

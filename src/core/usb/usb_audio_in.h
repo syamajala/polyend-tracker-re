@@ -34,6 +34,9 @@ constexpr uint32_t kFeedbackSpan = 7228;
 // No packet for this many blocks (about 12 ms): the computer stopped
 // streaming; the ring is flushed and primed again on the next packet.
 constexpr uint32_t kIdleBlocks = 4;
+// Fill above target + one block + this (the audio blocks paused while the
+// computer kept sending): the excess is skipped.
+constexpr uint32_t kSkipAbove = 128;
 
 class UsbAudioIn {
 public:
@@ -52,10 +55,10 @@ public:
     bool playing() const { return playing_; }
     uint32_t fill() const { return w_ - r_; }
 
-    // Diagnostics (telemetry): under-runs while playing, frames dropped on
-    // overflow, packets received.
+    // Diagnostics (telemetry): under-runs while playing, frames dropped (ring
+    // full, or skipped after a pause), packets received.
     uint32_t underruns() const { return underruns_; }
-    uint32_t dropped() const { return dropped_; }
+    uint32_t dropped() const { return dropped_ + skipped_; }
     uint32_t packets() const { return packets_; }
 
 private:
@@ -68,6 +71,7 @@ private:
     uint32_t seenPackets_;        // packets_ at the last block (consumer)
     uint32_t idle_;               // blocks without a packet
     uint32_t underruns_;
+    uint32_t skipped_;            // frames skipped after a pause (consumer)
     int32_t fillQ8_;              // low-passed fill after a block, Q8 frames
     int32_t integ_;               // integral term, feedback LSBs
     volatile uint32_t fb_;        // 0 = nominal

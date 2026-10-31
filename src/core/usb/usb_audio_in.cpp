@@ -33,8 +33,19 @@ const int16_t* UsbAudioIn::block(int16_t* out) {
         idle_ = 0;
         seenPackets_ = pk;
     }
-    const uint32_t r = r_;
+    uint32_t r = r_;
     uint32_t fill = w_ - r;
+    // Far over the target (the audio blocks stopped for a while, e.g. a
+    // project load, while the computer kept sending): skip to the target
+    // instead of playing late until the feedback has drained it.
+    if (fill > kTarget + kBlockFrames + kSkipAbove) {
+        const uint32_t skip = fill - (kTarget + kBlockFrames);
+        r += skip;
+        r_ = r;
+        fill -= skip;
+        skipped_ = skipped_ + skip;
+        fillQ8_ = int32_t(kTarget << 8);
+    }
     if (!playing_) {
         // Start once a block plus the target is queued, so the first blocks
         // don't under-run while the feedback settles.
