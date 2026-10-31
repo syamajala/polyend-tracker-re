@@ -27,6 +27,12 @@ struct PerfRig {
     }
     App& a() { return *h.app; }
     PerformanceScreen& p() { return *static_cast<PerformanceScreen*>(h.app->ui.screen(kModPerformance)); }
+    // Edit mode: the edit column's type through the type list (#89).
+    void pickType(int ty) {
+        h.tap(btn::Down);   // opens the list on the current type
+        h.enc(int8_t(ty - p().typeCursor));
+        h.tap(btn::F8);     // OK
+    }
 };
 
 int16_t imgValue(const std::vector<uint8_t>& m, int s, int r) {
@@ -119,7 +125,7 @@ TEST(perf_project_presets_and_selector) {
     PerformanceScreen& p = r.p();
     CHECK_EQ(p.sourceIndex, 1);
     r.h.tap(btn::Rec);
-    r.h.tap(btn::Up);        // column 0 type 1 -> 2: values/row cleared (spec 06 §3.4)
+    r.pickType(2);           // column 0 type 1 -> 2
     CHECK_EQ(a.project.u8(pf::kPerfTypes), 2);
     r.h.push(InputEvent::kPadDown, 24);   // row 2
     r.h.enc(-9);
@@ -309,13 +315,12 @@ TEST(perf_start_and_type_change_rules) {
     CHECK_EQ(a.engine.voice(0).perf().volume, 50);
     // Type change in edit mode reverts the old type and clears the slot.
     r.h.tap(btn::Rec);
-    r.h.tap(btn::Down);   // type 1 -> 0
+    r.pickType(0);        // type 1 -> 0
     CHECK_EQ(p.src.type(0), 0);
     CHECK_EQ(p.src.row(0), 0);
     CHECK_EQ(p.src.value(0, 1), 0);
     CHECK_EQ(a.engine.voice(0).perf().volume, 0);
-    r.h.tap(btn::Up);
-    r.h.tap(btn::Up);     // 0 -> 2 (panning): values stay 0, no default ramp
+    r.pickType(2);        // 0 -> 2 (panning): values stay 0, no default ramp
     CHECK_EQ(p.src.type(0), 2);
     for (int k = 0; k < 4; ++k) CHECK_EQ(p.src.value(0, k), 0);
     // Copy / paste in edit mode: type + values, row reset.
@@ -339,6 +344,68 @@ TEST(perf_start_and_type_change_rules) {
     CHECK_EQ(p.src.row(1), 0);
     CHECK(!p.fxOn[1]);
     CHECK(!p.edit);
+}
+
+// [I] #89: Up / Down open the type list; nothing changes until OK (F8);
+// F7 / Left / Right / Rec close it unchanged, and the F keys never toggle
+// a track's FX while it is open.
+TEST(perf_type_list) {
+    PerfRig r;
+    App& a = r.a();
+    r.h.tap(btn::Performance);
+    PerformanceScreen& p = r.p();
+    r.h.tap(btn::Down);   // outside edit mode: no list
+    CHECK(!p.typeList);
+    r.h.tap(btn::Rec);
+    p.src.setValue(0, 1, 40);
+    r.h.pad(12);          // row 1
+    CHECK_EQ(a.engine.voice(0).perf().volume, 40);
+    r.h.tap(btn::Up);
+    CHECK(p.typeList);
+    CHECK_EQ(p.typeCursor, 1);
+    CHECK_STR(a.ui.bar.label[7].top, "OK");
+    r.h.run(40);
+    const uint32_t dl = a.ui.lastDlWords();   // panels hidden: well inside RAM_DL
+    std::printf("performance type list: %u DL words\n", unsigned(dl));
+    CHECK(dl > 0 && dl <= Ui::kDlTargetWords);
+    r.h.tap(btn::Down);
+    r.h.enc(3);
+    CHECK_EQ(p.typeCursor, 5);
+    CHECK_EQ(p.src.type(0), 1);   // not applied while moving
+    CHECK_EQ(a.engine.voice(0).perf().volume, 40);
+    r.h.enc(-100);
+    CHECK_EQ(p.typeCursor, 0);    // clamped
+    r.h.enc(100);
+    CHECK_EQ(p.typeCursor, perf::kFxCount - 1);
+    for (int key : {int(btn::F7), int(btn::Left), int(btn::Right), int(btn::Rec)}) {
+        if (!p.typeList) r.h.tap(btn::Up);
+        r.h.enc(4);
+        r.h.tap(uint8_t(key));
+        CHECK(!p.typeList);
+        CHECK(p.edit);
+        CHECK_EQ(p.column, 0);
+        CHECK_EQ(p.src.type(0), 1);
+        CHECK(p.fxOn[6]);
+    }
+    // OK: Volume -> Panning, the same range: the values and row stay.
+    r.pickType(2);
+    CHECK(!p.typeList);
+    CHECK_EQ(p.src.type(0), 2);
+    CHECK_EQ(p.src.value(0, 1), 40);
+    CHECK_EQ(p.src.row(0), 1);
+    CHECK_EQ(a.engine.voice(0).perf().volume, 0);   // the old type reverted
+    CHECK(a.engine.voice(0).perf().pan != 0);
+    CHECK(p.fxOn[7]);                               // F8 = OK only
+    // A different range clears them (stock).
+    r.pickType(perf::kRepeater);
+    CHECK_EQ(p.src.value(0, 1), 0);
+    CHECK_EQ(p.src.row(0), 0);
+    // Leaving closes it unchanged.
+    r.h.tap(btn::Up);
+    r.h.enc(1);
+    r.h.tap(btn::Pattern);
+    CHECK(!p.typeList);
+    CHECK_EQ(p.src.type(0), perf::kRepeater);
 }
 
 // ---- 2.x M1-WP6: bank B (docs/specs/2x-01 §5, M1 plan §4) -------------------
@@ -434,7 +501,7 @@ TEST(perf_apply_all_covers_16_tracks) {
     PerformanceScreen& p = r.p();
     // Slot 0 = Play mode, row 1 = 3 (spec 12 §D): a sequencer-side FX.
     r.h.tap(btn::Rec);
-    for (int i = 0; i < perf::kPlayMode - 1; ++i) r.h.tap(btn::Up);
+    r.pickType(perf::kPlayMode);
     CHECK_EQ(p.src.type(0), perf::kPlayMode);
     r.h.push(InputEvent::kPadDown, 12);
     r.h.enc(3);

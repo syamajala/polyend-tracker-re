@@ -75,13 +75,13 @@ wait 300
 tap PERFORMANCE
 wait 300
 tap REC
-tap DOWN
-tap DOWN
-tap DOWN             # column 1: DJ filter
+tap DOWN             # type list on column 1 (Volume)
+enc 21
+tap F8               # DJ filter
 tap RIGHT
-tap DOWN
-tap DOWN
-tap DOWN             # column 2: Tape stop
+tap DOWN             # column 2 (Panning)
+enc 21
+tap F8               # Tape stop
 pad 12 tap
 enc 3
 pad 13 tap
@@ -93,6 +93,19 @@ tap PLAY
 wait 1500
 pad 12 down
 wait 800
+EOF
+
+# The FX type list (#89): Down in edit mode on column 3, moved to Overdrive.
+shot perf-type-list project <<'EOF'
+wait 300
+tap PERFORMANCE
+wait 300
+tap REC
+tap RIGHT
+tap RIGHT
+tap DOWN
+enc 18
+wait 300
 EOF
 
 # The scene bank page: scenes 3 and 4 edited, on A and B.

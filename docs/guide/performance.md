@@ -10,9 +10,17 @@ crossfader**, a **bank of 16 scenes**, and **master FX** (DJ filter, tape stop).
 
 - Press **Performance**. Hold a pad to play that column's value on its row; release to go
   back. The top row shows what's playing.
-- **Rec** (edit mode): **Up / Down** change a column's effect type, the encoder changes
-  the value of the selected row. In the fork, a tapped row can be edited with the encoder
-  without holding the pad.
+- **Rec** (edit mode): the encoder changes the value of the selected row. In the fork, a
+  tapped row can be edited with the encoder without holding the pad.
+- **Choosing a column's effect type** (fork): in edit mode, **Up / Down** open a list of
+  every type on the column's current one. Move with the encoder (**Shift** + a quick turn for
+  bigger jumps) or Up / Down, then press **OK (F8)**. **Cancel (F7)**, **Left / Right** or
+  **Rec** close it without changing anything. Nothing is applied until OK, and the F keys
+  don't switch track effects while the list is open. The row values stay when the new
+  type has the same range (e.g. Volume to Panning); otherwise they're cleared as in stock.
+  Stock stepped the type with Up / Down, applying each one on the way.
+
+![The effect type list](../images/perf-type-list.png)
 - **The F keys** turn the effects on or off per track (lit = on). **Shift + F key** mutes
   the track. **Left / Right** (outside edit mode) switch the F keys between tracks 1–8 and
   9–16. In the fork the F keys are **remembered**: leaving the screen and coming back keeps
@@ -87,8 +95,8 @@ limiter), instead of on each track:
   free sample memory while it runs (shared with resampling), so it can refuse when
   memory is full.
 
-Set them like any column: in edit mode, **Down** on a column cycles its type through to
-**DJ filter** and **Tape stop**.
+Set them like any column: in edit mode, **Up / Down** open the type list; **DJ filter**
+and **Tape stop** are at the end.
 
 ## Saved with the project
 
