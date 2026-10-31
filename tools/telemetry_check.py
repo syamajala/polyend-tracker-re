@@ -22,16 +22,19 @@
       slot incl. its peak block; DX7 <= 18k, the algorithm 4 / 6 feedback chain <= 22k)
       fails above N.
   telemetry_check.py size [--size-tool arm-none-eabi-size] [--nm-tool arm-none-eabi-nm] <firmware.elf>
-      Flash use = .text + .data (Berkeley size): fail above 720,000 B, warn above
-      600,000 B (docs/VERIFY_M1.md R4, docs/MINI_PLAN.md §5).
+      Flash use = .text + .data (Berkeley size): fail above 800,000 B, warn above
+      720,000 B (upstream's 720,000 B budget; tools/check_image.py caps the image at
+      the stock 1.9.2 extent, 877,664 B) [I].
       With nm (default: the size tool's sibling): no double-precision libm in the
       image, and the stack headroom _estack - _ebss: fail below 75 KiB
-      (docs/OPTIMIZATION_2X.md OP-4 / OP-5; was 90 KiB, see STACK_MIN).
-  telemetry_check.py frames <build dir> [--guard-header src/hal/stack_guard.h]
-      Per-function stack frames from the build's -fstack-usage .su files against
-      the stack guard (#23, kStackGuardBytes): a frame as large as the guard could
-      step over it, so fail at >= the guard and on unbounded dynamic frames, warn
-      above 75 % of it. Prints the deepest few.
+      (docs/OPTIMIZATION_2X.md OP-4 / OP-5; see STACK_MIN).
+  telemetry_check.py frames <build dir> | --objects <x.o ...> [--guard-header src/hal/stack_guard.h]
+      Per-function stack frames from the -fstack-usage .su files (of the given
+      objects, failing when one has none; else every .su under the build dir) against
+      the stack guard (kStackGuardBytes): a frame plus an interrupt's exception
+      frame (104 B with FP state) must stay inside the guard, so fail at >= the
+      guard - 256 B and on unbounded dynamic frames, warn above 75 % of it.
+      Prints the deepest few.
   telemetry_check.py cpi <device.log> <bench_m4 output> [--top 5]
       CPI calibration (docs/OPTIMIZATION_2X.md "CPU round 3"): device cycles per bench-m4
       instruction, per phase and over the render, from the device's peak blocks (the `pk`
@@ -47,6 +50,7 @@ import argparse
 import os
 import re
 import sys
+import tempfile
 
 BUDGET = 522240
 
@@ -57,12 +61,16 @@ IO_RE = re.compile(r"telemetry: io sd cmds (\d+) read (\d+) B \((\d+) KB/s\) wri
                    r"(?: direct (\d+) bounced (\d+))?(?: \| cache sdram (\w+) \(selftest ([\w-]*)\))?")
 # Stack high-water mark on the render line (src/hal/stack_watch.h): peak since boot, the newlib
 # heap below it, both out of _estack - _ebss.
-# "(free F B)" is the device's own figure: S - H - P before the stack guard (#23), S - P
+# "(free F B)" is the device's own figure: S - H - P before the stack guard, S - P
 # with it (S is then the room above the guard and the heap has its own reserve).
 STACK_RE = re.compile(r"\| stack peak (\d+) B heap (\d+) B of (\d+) B(?: \(free (\d+) B\))?")
 UI_RE = re.compile(r"telemetry: ui (\d+) frames \((\d+)\.(\d+) fps\) render avg (\d+)\.(\d+) max (\d+)\.(\d+) ms")
 LOAD_RE = re.compile(r"telemetry: load op (\d+) run (\d) passes (\d+)")
 TS_RE = re.compile(r"^\[\s*(\d+)\.(\d+)\]")
+# 2.x SD streaming (C11): the 5 s stream service window (hal/telemetry.h formatStream).
+STREAM_RE = re.compile(r"telemetry: stream streams (\d+) active (\d+) \| chunks (\d+) read avg (\d+)\.(\d) "
+                       r"max (\d+)\.(\d) ms \| lead min (-|\d+) ms \| underruns (\d+) \(\+(\d+)\) errors (\d+) "
+                       r"\| passes (\d+)( \| loading)?")
 CPU_RE = re.compile(r"telemetry: cpu avg=(\d+)\.(\d)% peak=(\d+)\.(\d)% overruns=(\d+) cap=(\d+)/(\d+)"
                     r" synth_voices=(\d+) cyc_per_voice=(\d+)")
 # Peak-block attribution after the cpu line (spec 2x-02 §4, audio/block_profile.h).
@@ -76,15 +84,16 @@ BENCH_PK_RE = re.compile(r"^\s+block\s+\d+ \(song pos \d+, step \d+\):\s+(\d+) M
 # run; docs/OPTIMIZATION_2X.md "CPU round 3" (predicted ~1.7 with the round-3 .fastrun).
 DEVICE_CPI = 1.94
 LIMIT_RE = re.compile(r"^\s+((?:acd|vap|fat|wtfm|perc|dx7|pswitch|stream)[\w.]*)\s+(\d+(?:\.\d+)?)\s.*\blimit (\d+)\b")
-FLASH_FAIL = 720000
-FLASH_WARN = 600000
-# _estack - _ebss holds the stack and newlib's heap (src/hal/stack_watch.h). Measured on the
-# device (2026-10-20, telemetry "stack peak"): stack peak 18.1 KB over playback, song mode,
-# Sample Editor effects, save, resample and USB storage; the heap ~0.2 KB once the UI screens
-# moved to the SDRAM (it held them, 15 KB, before). 90 KiB -> 75 KiB keeps the stack the room
-# it effectively had (90 KiB less those 15 KB), about 4x the measured peak.
-# With the stack guard (#23, src/hal/stack_guard.h) this headroom also holds the 4 KB heap
-# reserve and the 8 KB guard: the stack itself gets at least 63 KiB.
+# [I] The fork's DX7, remote control and Performance mode add ~53 KB over upstream:
+# upstream's fail line (720,000 B) is the fork's warning. The hard ceiling is
+# check_image.py's STOCK_END (877,664 B), past which the update bootloader's data lies.
+FLASH_FAIL = 800000
+FLASH_WARN = 720000
+# _estack - _ebss holds the stack and newlib's heap (src/hal/stack_watch.h). With the stack
+# guard (src/hal/stack_guard.h) it also holds the 4 KB heap reserve and the 8 KB guard, so
+# the stack itself gets at least 63 KiB. Measured on the device (telemetry "stack peak"):
+# 10,852 B over playback, synths + chords, Sample Editor effects, open / save / Open Recent,
+# export and import, resample, USB storage; the heap ~0.2 KB. Was 90 KiB.
 STACK_MIN = 75 * 1024
 # newlib double-precision libm entry points / kernels (the float ones end in f).
 DOUBLE_LIBM = {"__ieee754_pow", "__ieee754_exp", "__ieee754_log", "__ieee754_log10", "__ieee754_sqrt",
@@ -234,6 +243,25 @@ def cpu_lines(lines):
     return out
 
 
+def stream_lines(lines):
+    """Yields dicts for the 2.x SD streaming "telemetry: stream" lines (C11)."""
+    out = []
+    for n, line in enumerate(lines, 1):
+        m = STREAM_RE.search(line)
+        if not m:
+            continue
+        ts = TS_RE.search(line)
+        out.append({
+            "line": n, "t": f"{ts.group(1)}.{ts.group(2)}" if ts else "?",
+            "streams": int(m.group(1)), "active": int(m.group(2)), "chunks": int(m.group(3)),
+            "read_avg": float(f"{m.group(4)}.{m.group(5)}"), "read_max": float(f"{m.group(6)}.{m.group(7)}"),
+            "lead": None if m.group(8) == "-" else int(m.group(8)),
+            "underruns": int(m.group(9)), "new_underruns": int(m.group(10)), "errors": int(m.group(11)),
+            "passes": int(m.group(12)), "loading": m.group(13) is not None,
+        })
+    return out
+
+
 def check_log(lines, render_avg=45.0, render_max=70.0, loop_max_ms=50.0, loading_bytes=65536, quiet=False,
               cpu_peak=70.0, stack_free_min=4096):
     ws = windows(lines)
@@ -264,6 +292,20 @@ def check_log(lines, render_avg=45.0, render_max=70.0, loop_max_ms=50.0, loading
         if free < stack_free_min:
             fails.append(f"line {w['line']} [{w['t']}]: stack free {free} B < {stack_free_min} B "
                          f"(peak {peak} B, heap {heap} B, of {size} B)")
+    # SD streaming (C11): outside loading, a window with streams playing must
+    # have no new underrun and keep at least 100 ms read ahead; a slow read
+    # (> 20 ms) is a warning (card stalls up to 79 ms were measured, P0).
+    streams = stream_lines(lines)
+    for st in streams:
+        if not st["active"] or st["loading"]:
+            continue
+        where = f"line {st['line']} [{st['t']}]"
+        if st["new_underruns"]:
+            fails.append(f"{where}: stream underruns +{st['new_underruns']} (not loading)")
+        if st["lead"] is not None and st["lead"] < 100:
+            fails.append(f"{where}: stream lead min {st['lead']} ms < 100 ms (not loading)")
+        if st["read_max"] > 20.0 and not quiet:
+            print(f"WARN {where}: stream read max {st['read_max']:.1f} ms > 20 ms")
     for c in cpus:
         if c["peak"] >= cpu_peak:
             fails.append(f"line {c['line']} [{c['t']}]: cpu peak {c['peak']:.1f}% >= {cpu_peak:g}%")
@@ -278,6 +320,12 @@ def check_log(lines, render_avg=45.0, render_max=70.0, loop_max_ms=50.0, loading
                 top = sorted(w["pk"]["parts"], key=lambda kv: -kv[1])[:5]
                 print(f"telemetry: worst peak block {w['pk']['total']}k cycles (line {w['line']} [{w['t']}]): "
                       + ", ".join(f"{n} {v}k" for n, v in top) + f" | {w['pk']['ev']}")
+        if streams:
+            act = [st for st in streams if st["active"]]
+            leads = [st["lead"] for st in act if st["lead"] is not None]
+            print(f"telemetry: {len(streams)} stream lines ({len(act)} playing); underruns "
+                  f"{streams[-1]['underruns']}, min lead {min(leads) if leads else '-'} ms, read max "
+                  f"{max(st['read_max'] for st in streams):.1f} ms")
         caches = sorted({f"{w['io']['cache']}/{w['io']['cachetest']}" for w in ws if w["io"] and w["io"]["cache"]})
         print(f"telemetry: {len(ws)} windows ({audio} with audio, {loading} loading); worst render avg "
               f"{worst_avg:.1f}% max {worst_max:.1f}%, worst loop {worst_loop:.3f} ms outside loading"
@@ -405,6 +453,10 @@ def check_symbols(nm_output, quiet=False):
 
 GUARD_HEADER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src", "hal", "stack_guard.h")
 FRAME_WARN = 0.75   # warn above this share of the guard
+# An interrupt can push its exception frame (26 words with FP state, plus
+# alignment) right below a frame that only just reached the guard, so the frame
+# alone must leave that much of the guard: 256 B covers it with room to spare.
+FRAME_SLACK = 256
 
 
 def guard_bytes(header=GUARD_HEADER):
@@ -416,10 +468,26 @@ def guard_bytes(header=GUARD_HEADER):
     return int(m.group(1))
 
 
+def read_su(objects):
+    """Object files -> (their -fstack-usage lines, objects without a .su file).
+    gcc writes x.su next to x.o; an object built before -fstack-usage (an
+    incremental build) has none, and its frames would go unchecked."""
+    lines, missing = [], []
+    for obj in objects:
+        su = (obj[:-2] if obj.endswith(".o") else obj) + ".su"
+        try:
+            with open(su, errors="replace") as f:
+                lines.extend(f.read().splitlines())
+        except FileNotFoundError:
+            missing.append(obj)
+    return lines, missing
+
+
 def check_frames(su_lines, guard, quiet=False, top=5):
-    """-fstack-usage lines -> (ok, deepest frame bytes). A frame as large as the
-    stack guard (#23) could step over it, so the overflow would write the heap
-    reserve instead of faulting: fail at >= guard; warn above FRAME_WARN of it.
+    """-fstack-usage lines -> (ok, deepest frame bytes). A frame (plus an
+    interrupt's exception frame below it) as large as the stack guard could step
+    over it, so the overflow would write the heap reserve instead of faulting:
+    fail at >= guard - FRAME_SLACK; warn above FRAME_WARN of the guard.
     Dynamic frames (alloca / VLAs) have no bound: they fail too."""
     frames, dynamic = [], []
     for line in su_lines:
@@ -431,14 +499,15 @@ def check_frames(su_lines, guard, quiet=False, top=5):
             dynamic.append(f[0])
     frames.sort(reverse=True)
     deepest = frames[0][0] if frames else 0
-    ok = bool(frames) and deepest < guard and not dynamic
+    limit = guard - FRAME_SLACK
+    ok = bool(frames) and deepest < limit and not dynamic
     if not quiet:
         if not frames:
             print("frames: FAIL no -fstack-usage output found")
         else:
-            state = "FAIL" if deepest >= guard else ("WARN" if deepest > guard * FRAME_WARN else "ok")
+            state = "FAIL" if deepest >= limit else ("WARN" if deepest > guard * FRAME_WARN else "ok")
             print(f"frames: {state} deepest {deepest} B of a {guard} B stack guard "
-                  f"({len(frames)} functions); fail >= {guard} B, warn > {int(guard * FRAME_WARN)} B")
+                  f"({len(frames)} functions); fail >= {limit} B, warn > {int(guard * FRAME_WARN)} B")
             for size, name in frames[:top]:
                 print(f"  {size:6d} B  {name}")
         for name in dynamic:
@@ -454,12 +523,15 @@ SAMPLE_OK = """\
 [  25.001] telemetry: io sd cmds 0 read 0 B (0 KB/s) write 0 B (0 KB/s) direct 0 bounced 0 | cache sdram on (selftest ok) | sd->sdram dma read direct write direct
 [  25.002] telemetry: render cyc/block min 150000 avg 193000 max 250000 (47.8% of 522240) blocks 1723 | loop max 31.250 ms (n 160) | SDRAM free 600000 B | i2c errors i2c0 0 i2c2 0 | stack peak 30000 B heap 1000 B of 97856 B (free 66856 B) | rx restarts 0 stale 0
 [  26.000] telemetry: cpu avg=37.2% peak=48.0% overruns=0 cap=4/4 synth_voices=0 cyc_per_voice=0
+[  25.003] telemetry: stream streams 4 active 3 | chunks 212 read avg 2.7 max 3.1 ms | lead min 612 ms | underruns 0 (+0) errors 0 | passes 1180
+[  20.004] telemetry: stream streams 4 active 2 | chunks 40 read avg 3.0 max 9.0 ms | lead min 40 ms | underruns 1 (+1) errors 0 | passes 900 | loading
 """
 SAMPLE_BAD = """\
 [  27.001] telemetry: io sd cmds 3 read 1536 B (0 KB/s) write 0 B (0 KB/s) direct 1 bounced 0 | cache sdram on (selftest ok) | sd->sdram dma read direct write bounced
 [  27.001] telemetry: load op 2 run 1 passes 40 units 90 total 300000 us max pass 9000 us (stage 3/1) max unit 4000 us (stage 3) | open 1 us n1 read 1 us n1 0 KB write 0 us n0 0 KB dir 1 us n1 decode 0 us commit 0 us
 [  27.002] telemetry: render cyc/block min 20000 avg 30000 max 40000 (7.6% of 522240) blocks 1723 | loop max 90.000 ms (n 90) | SDRAM free 1 B | i2c errors i2c0 0 i2c2 0
 [  30.002] telemetry: render cyc/block min 150000 avg 240000 max 380000 (72.7% of 522240) blocks 1723 | loop max 61.000 ms (n 80) | SDRAM free 1 B | i2c errors i2c0 0 i2c2 0 RENDER>70%
+[  30.003] telemetry: stream streams 4 active 3 | chunks 230 read avg 2.8 max 3.4 ms | lead min 612 ms | underruns 2 (+1) errors 0 | passes 1190
 [  31.000] telemetry: cpu avg=52.0% peak=72.7% overruns=0 cap=3/4 synth_voices=3 cyc_per_voice=21000 | pk 380k: seq 5k on 8k/9k ctl 5k smp 160k syn 15k VAP 85k ACD 27k PERC 21k dly 8k rev 40k out 36k | ev on 8 VAP 4 ACD 1 PERC 2 rl 0 fc 0 mc 0 st 6 pd 2 df 3 vx 10/8
 """
 SAMPLE_BENCH = """\
@@ -482,7 +554,10 @@ def selftest():
     assert ok and len(ws) == 2, (ok, fails)
     assert ws[0]["io"]["read"] == 4194304 and ws[0]["io"]["cache"] == "on"   # loading window: 140 ms allowed
     ok, fails, _ = check_log((SAMPLE_OK + SAMPLE_BAD).splitlines(), quiet=True)
-    assert not ok and len(fails) == 4, fails     # avg 46 %, max 72.8 %, loop 61 ms (90 ms: job running), cpu peak
+    assert not ok and len(fails) == 5, fails     # avg 46 %, max 72.8 %, loop 61 ms (90 ms: job running), cpu peak,
+    assert any("stream underruns +1" in f for f in fails), fails   # + a stream underrun (the loading one is allowed)
+    sl = stream_lines(SAMPLE_OK.splitlines())
+    assert len(sl) == 2 and sl[0]["lead"] == 612 and sl[1]["loading"] and sl[1]["new_underruns"] == 1, sl
     assert any("cpu peak 72.7%" in f for f in fails), fails
     cs = cpu_lines(SAMPLE_OK.splitlines())
     assert len(cs) == 1 and cs[0]["peak"] == 48.0 and cs[0]["cap"] == 4 and cs[0]["budget"] == 4, cs
@@ -491,7 +566,7 @@ def selftest():
     assert pk["total"] == 380 and ("smp", 160) in pk["parts"] and ("on.syn", 9) in pk["parts"], pk
     assert ("PERC", 21) in pk["parts"] and pk["ev"].startswith("on 8 VAP 4"), pk
     assert ws[1]["stack"] == (30000, 1000, 97856, 66856) and "stack" not in ws[0], ws
-    # With the stack guard (#23) the device prints free = room - peak: the printed figure counts.
+    # With the stack guard the device prints free = room - peak: the printed figure counts.
     gws = windows([l.replace("of 97856 B (free 66856 B)", "of 89664 B (free 59664 B)") for l in SAMPLE_OK.splitlines()])
     assert gws[1]["stack"] == (30000, 1000, 89664, 59664), gws
     ok, fails, _ = check_log(SAMPLE_OK.splitlines(), quiet=True, stack_free_min=70000)
@@ -513,7 +588,9 @@ def selftest():
                         " 612000    6700  180000  798700   c2fec x.elf"], quiet=True)
     assert ok
     ok, flash = check_size([" 715000    6700  180000  901700   dc244 x.elf"], quiet=True)
-    assert not ok and flash == 721700
+    assert ok and flash == 721700   # [I] a warning in the fork
+    ok, flash = check_size([" 795000    6700  180000  981700   efac4 x.elf"], quiet=True)
+    assert not ok and flash == 801700
     nm = ["0006c138 T powf", "20030000 B _estack", "20017000 B _ebss", "0006b400 t helper"]
     ok, head = check_symbols(nm, quiet=True)
     assert ok and head == 0x19000, head
@@ -527,8 +604,21 @@ def selftest():
     ok, deep = check_frames(su, 8192, quiet=True)
     assert ok and deep == 6032, deep
     assert not check_frames(su + ["d.cpp:4:6:void big()\t8192\tstatic"], 8192, quiet=True)[0]
+    assert not check_frames(su + ["d.cpp:4:6:void big()\t8100\tstatic"], 8192, quiet=True)[0]
+    assert check_frames(su + ["d.cpp:4:6:void big()\t7935\tstatic"], 8192, quiet=True)[0]
     assert not check_frames(su + ["e.cpp:5:6:void vla(int)\t16\tdynamic"], 8192, quiet=True)[0]
     assert not check_frames([], 8192, quiet=True)[0]
+    with tempfile.TemporaryDirectory() as d:
+        objs = [os.path.join(d, n) for n in ("a.cpp.o", "b.c.o")]
+        for o in objs:
+            open(o, "w").close()
+        with open(os.path.join(d, "a.cpp.su"), "w") as f:
+            f.write(su[0] + "\n")
+        lines, missing = read_su(objs)
+        assert lines == [su[0]] and missing == [objs[1]], (lines, missing)
+        with open(os.path.join(d, "b.c.su"), "w") as f:
+            f.write(su[1] + "\n")
+        assert read_su(objs) == ([su[0], su[1]], [])
     assert guard_bytes() > 0
     print("telemetry_check: selftest ok")
 
@@ -553,7 +643,9 @@ def main(argv):
     sz.add_argument("--nm-tool", default=None)
     sz.add_argument("elf")
     fr = sub.add_parser("frames")
-    fr.add_argument("build_dir")
+    fr.add_argument("build_dir", nargs="?")
+    fr.add_argument("--objects", nargs="+", default=None,
+                    help="the image's object files: only their .su files, and fail on a missing one")
     fr.add_argument("--guard-header", default=GUARD_HEADER)
     cp = sub.add_parser("cpi")
     cp.add_argument("log")
@@ -593,13 +685,22 @@ def main(argv):
             ok_sym, _ = check_symbols(r.stdout.splitlines())
             ok = ok and ok_sym
         elif a.cmd == "frames":
-            su = []
-            for root, _, files in os.walk(a.build_dir):
-                for name in files:
-                    if name.endswith(".su"):
-                        with open(os.path.join(root, name), errors="replace") as f:
-                            su.extend(f.read().splitlines())
+            su, missing = [], []
+            if a.objects:
+                su, missing = read_su(a.objects)
+            elif a.build_dir:
+                for root, _, files in os.walk(a.build_dir):
+                    for name in files:
+                        if name.endswith(".su"):
+                            with open(os.path.join(root, name), errors="replace") as f:
+                                su.extend(f.read().splitlines())
+            else:
+                fr.error("give a build dir or --objects")
             ok, _ = check_frames(su, guard_bytes(a.guard_header))
+            if missing:
+                print(f"frames: FAIL {len(missing)} of {len(a.objects)} objects have no .su file "
+                      f"(built before -fstack-usage? make clean), e.g. {missing[0]}")
+                ok = False
         else:
             selftest()
             ok = True

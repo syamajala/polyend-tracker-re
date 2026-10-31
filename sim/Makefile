@@ -123,7 +123,9 @@ check: $(BIN) $(JPEG_CHECK) visual-diff keyflow-check
 
 # Generates the test songs this build supports and opens / plays each one in
 # the headless sim on a card with only Projects/<name> (tools/make_testsongs).
+# Song 19's stems are 20 s here (TESTSONGS_STEMS_SECONDS) to keep the check fast.
 TESTSONGS_SD := $(abspath $(OUT)/testsongs)
+TESTSONGS_STEMS_SECONDS ?= 20
 # RAM_DL on Bridgetek's FT81x emulator (#71, tools/eve_emu): the frames of the
 # display budget scripts replayed under Wine; fails on a fault, > 2048 words
 # or a count the UI got wrong. Needs wine and x86_64-w64-mingw32-g++; the
@@ -139,7 +141,7 @@ eve-check: $(BIN)
 	python3 $(ROOT)/tools/eve_emu/check.py $(OUT)/eve/budget $(OUT)/eve/fork
 
 testsongs-check: $(BIN)
-	$(MAKE) -C $(ROOT)/tools/make_testsongs run SD=$(TESTSONGS_SD)
+	$(MAKE) -C $(ROOT)/tools/make_testsongs run SD=$(TESTSONGS_SD) STEMS_SECONDS=$(TESTSONGS_STEMS_SECONDS)
 	sh $(ROOT)/tools/make_testsongs/sim_check.sh $(abspath $(BIN)) $(TESTSONGS_SD) $(abspath $(OUT)/testsongs-check)
 
 clean:

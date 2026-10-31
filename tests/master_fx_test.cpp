@@ -169,8 +169,10 @@ TEST(master_fx_config_record) {
     Config r;
     CHECK(r.load(nv));
     CHECK_EQ(r.perfExt[4], perf::kDjFilter);
-    // A shorter record (up to Note names, payload byte 7): no ext types.
-    const uint8_t old[] = {'O', 'T', 'X', 4, 7, 0, 4, 0, 1, 0, 1, 1, 7};
+    // A shorter record (up to Note names, payload byte 28): no ext types.
+    uint8_t old[5 + 28 + 1] = {'O', 'T', 'X', 5, 28, 0, 4, 0, 1, 0, 1};   // themeFile[21] empty
+    old[5 + 27] = 1;                                                       // [I] Note names: Flats
+    old[5 + 28] = 7;                                                       // sum
     for (size_t i = 0; i < sizeof(old); ++i) nv.mem[0xF4 + i] = old[i];
     for (size_t i = sizeof(old); i < Config::kExtSize; ++i) nv.mem[0xF4 + i] = 0xFF;
     CHECK(r.load(nv));

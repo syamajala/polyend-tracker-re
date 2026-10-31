@@ -184,7 +184,48 @@ size_t formatTelemetry(char* out, size_t cap, const TelemetrySample& s) {
         o.str(" B (free ").dec(s.stackSize - peak).str(" B)");
     }
     o.str(" | rx restarts ").dec(s.rxRestarts).str(" stale ").dec(s.rxStale);
+    if (s.dinClocks) {
+        o.str(" | din clock late max ").dec(s.dinClockLateMaxUs / 1000).ch('.');
+        const uint32_t c = s.dinClockLateMaxUs % 1000;
+        o.ch(char('0' + c / 100)).ch(char('0' + c / 10 % 10)).ch(char('0' + c % 10));
+        o.str(" ms (n ").dec(s.dinClocks).str(")");
+    }
     if (permille >= kRenderAlarmPermille) o.str(" RENDER>70%");
+    return o.len;
+}
+
+StreamSample streamSample(const audio::StreamServiceStats& st, uint32_t streams, uint32_t active,
+                          uint32_t& lastUnderruns, bool loading) {
+    StreamSample s;
+    s.loading = loading;
+    s.streams = streams;
+    s.active = active;
+    s.chunks = st.chunks;
+    s.errors = st.readErrors;
+    s.passes = st.passes;
+    s.readAvgUs = st.chunks ? st.sumReadUs / st.chunks : 0;
+    s.readMaxUs = st.maxReadUs;
+    s.leadMinMs = st.minLeadFrames == 0xFFFFFFFFu
+                      ? 0xFFFFFFFFu
+                      : uint32_t((uint64_t(st.minLeadFrames) * 1000u + 22059u) / 44118u);   // device rate, rounded
+    s.underruns = st.underruns;
+    s.underrunsDelta = st.underruns > lastUnderruns ? st.underruns - lastUnderruns : 0;
+    lastUnderruns = st.underruns;
+    return s;
+}
+
+size_t formatStream(char* out, size_t cap, const StreamSample& s) {
+    Fmt o(out, cap);
+    o.str("telemetry: stream streams ").dec(s.streams).str(" active ").dec(s.active);
+    o.str(" | chunks ").dec(s.chunks);
+    o.str(" read avg ").dec(s.readAvgUs / 1000).ch('.').dec((s.readAvgUs % 1000) / 100);
+    o.str(" max ").dec(s.readMaxUs / 1000).ch('.').dec((s.readMaxUs % 1000) / 100).str(" ms");
+    o.str(" | lead min ");
+    if (s.leadMinMs == 0xFFFFFFFFu) o.ch('-');
+    else o.dec(s.leadMinMs);
+    o.str(" ms | underruns ").dec(s.underruns).str(" (+").dec(s.underrunsDelta).str(") errors ").dec(s.errors);
+    o.str(" | passes ").dec(s.passes);
+    if (s.loading) o.str(" | loading");
     return o.len;
 }
 

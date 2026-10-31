@@ -198,9 +198,12 @@ CpuCell cpuCell(uint8_t mode, bool hasData, uint32_t peak, bool overrunRecent, b
     c.overrun = overrunRecent;
     const uint32_t pct = (peak + 5) / 10;
     c.percent = uint8_t(pct > 99 ? 99 : pct);
-    if (peak >= 850 || overrunRecent) c.level = CpuLevel::kCritical;
-    else if (peak >= 700 || cutRecent) c.level = CpuLevel::kAlarm;
-    else if (peak >= 600) c.level = CpuLevel::kWarn;
+    // Polyend's levels on the Tracker Mini 2.0 / Tracker+ (yellow 85 %, orange
+    // 93 %, red 99 %; Polyend on backstage.polyend.com "CPU almost always in
+    // red"), on the peak block; the governor cut and an overrun as before.
+    if (peak >= 990 || overrunRecent) c.level = CpuLevel::kCritical;
+    else if (peak >= 930 || cutRecent) c.level = CpuLevel::kAlarm;
+    else if (peak >= 850) c.level = CpuLevel::kWarn;
     else c.level = mode == 1 ? CpuLevel::kNormal : CpuLevel::kHidden;
     if (c.level == CpuLevel::kHidden) c = CpuCell{};
     return c;
@@ -400,9 +403,8 @@ void fullPopupHeader(Gfx& g, const Theme& th, const char* title) {
 // Bottom bar
 
 uint32_t stripColour(const Theme& th, StripStyle style) {
-    const uint32_t c = th.slot(slot::kStrip + 1);
-    if (style == StripStyle::kDark && c == 0x0A0A0Au) return 0x050505u;
-    return c;
+    // Dark: 050505 on Original (0a0a0a halved), the strip elsewhere.
+    return style == StripStyle::kDark ? th.darkStrip() : th.slot(slot::kStrip + 1);
 }
 
 void bottomStrip(Gfx& g, const Theme& th, uint8_t separators, uint32_t bg) {
@@ -522,7 +524,7 @@ void bottomFade(Gfx& g, const Theme& th, int x, int y, int w, int h, uint32_t bg
     const int fy = y + h - kFadeH;
     if (!g.saveContext(2 + Gfx::kGradientDlWords)) return;   // scissor 2 + CMD_GRADIENT
     g.clip(x, fy, w + 1, kFadeH + 2);
-    g.gradient(x, fy, x, y + h + 2, bg, 0x000000);
+    g.gradient(x, fy, x, y + h + 2, bg, th.bg);   // stock: 000000 (Original's background)
     g.restoreContext();
 }
 
@@ -647,7 +649,7 @@ void list(Gfx& g, const Theme& th, const ListView& v) {
     if (v.item) {
         g.clip(v.x + 3, v.y, innerW, v.h);
         // Text from x + 13; the column ends at the clip's right edge.
-        const int left = v.x + 3, right = v.x + 3 + innerW;
+        const int left = v.x + 3, colRight = v.x + 3 + innerW;
         for (int r = 0; r < visible; ++r) {
             const int idx = v.top + r;
             if (idx >= v.count) break;
@@ -657,6 +659,14 @@ void list(Gfx& g, const Theme& th, const ListView& v) {
             const bool marked = v.marked && v.marked(v.ctx, idx);
             const uint32_t tc = v.enabled ? th.slot(s + (marked ? 5 : 4)) : th.slot(slot::kBottomLabelOff);
             const int ty = v.y + 17 + kListRowH * r;
+            // A tag takes the row's right end; the name column shrinks by it.
+            const char* tag = v.tag ? v.tag(v.ctx, idx) : nullptr;
+            int right = colRight, tagW = 0;
+            if (tag && tag[0]) {
+                tagW = textWidth(v.font, tag) + 8;
+                right -= tagW;
+                g.text(colRight - 4, ty, v.font, tc, tag, IDisplay::kOptRightX | IDisplay::kOptCenterY);
+            }
             const int tw = textWidth(v.font, buf);
             if (idx == v.sel && v.selStyle != ListSel::kNone && v.x + 13 + tw > right) {
                 // Marquee (spec 20 §1.6): the text and its repeat after a
@@ -669,7 +679,7 @@ void list(Gfx& g, const Theme& th, const ListView& v) {
             }
             // Glyphs that start right of the clip are invisible but still
             // cost RAM_DL words (31-char names: VERIFY_1.9.5 R4): cut them.
-            const int room = innerW - 10;
+            const int room = innerW - 10 - tagW;
             int n = 0, pen = 0;
             while (buf[n] && pen < room) pen += textWidth(v.font, buf + n++, 1);
             buf[n] = 0;
@@ -736,7 +746,7 @@ void valueBar(Gfx& g, const Theme& th, int x, int y, int w, int h, float value, 
     g.rectsEnd();
     g.alpha(255);
     g.fill(tx, ty, tw, tH, track);
-    if (th.flag(slot::kFlagValueBarGrad)) g.gradientRect(tx, ty, 9 < tw ? 9 : tw, tH, 0x000000, track, false);
+    if (th.flag(slot::kFlagValueBarGrad)) g.gradientRect(tx, ty, 9 < tw ? 9 : tw, tH, th.bg, track, false);
     const uint32_t fc = pick(st.fill, th.slot(s));
     const int fx = x + 11, fw = w - 21, base = y + h - 15, span = h - 24;
     auto band = [&](int y0, int y1, uint32_t c) {   // solid rows y0..y1 with soft edges
@@ -802,7 +812,7 @@ void valueBars(Gfx& g, const Theme& th, const ValueBarItem* bars, int n) {
     if (th.flag(slot::kFlagValueBarGrad))
         for (int i = 0; i < n; ++i) {
             const ValueBarItem& b = bars[i];
-            if (shown(b)) g.gradientRect(b.x + 10, b.y + 11, 9 < b.w - 19 ? 9 : b.w - 19, b.h - 24, 0x000000, track, false);
+            if (shown(b)) g.gradientRect(b.x + 10, b.y + 11, 9 < b.w - 19 ? 9 : b.w - 19, b.h - 24, th.bg, track, false);
         }
     // Fills (rows y0..y1 with soft edges), one edge batch and one fill batch
     // per colour.

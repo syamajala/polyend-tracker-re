@@ -4,6 +4,7 @@
 // OpenTracker device glue: hands the HAL drivers and the SDRAM buffers to the
 // App (core stays free of hal headers; ARCHITECTURE.md rules).
 #include "app/app.h"
+#include "hal/sd_stream_reader.h"
 #include "hal/audio_sgtl5000.h"
 #include "hal/board.h"
 #include "hal/diag.h"
@@ -11,6 +12,7 @@
 #include "hal/fw_update.h"
 #include "hal/hal.h"
 #include "hal/i2c_bus.h"
+#include "hal/midi_ports.h"
 #include "hal/input.h"
 #include "hal/nvstore_eeprom.h"
 #include "hal/pad_leds.h"
@@ -278,6 +280,7 @@ void telemetryTick() {
     s.loopMaxUs = gTelemetry.loopMaxUs();
     s.loops = gTelemetry.loops();
     gTelemetry.resetWindow();
+    ot::hal::midi().takeDinClockStats(&s.dinClockLateMaxUs, &s.dinClocks);
     if (!ot::hal::diagTerminalOpen()) return;
     s.sdramFree = kSdramFree;
     s.i2c0Errors = ot::hal::i2c0().errorCount();
@@ -292,6 +295,16 @@ void telemetryTick() {
     char line[448];
     ot::diag::formatTelemetry(line, sizeof line, s);
     ot::hal::diagLog(line);
+    // SD streaming (C11, docs/HARDWARE_TESTING.md "SD streaming"): the 5 s
+    // window of the stream service, while the option is on.
+    if (gApp.streamingOn()) {
+        static uint32_t lastUnderruns = 0;
+        const ot::diag::StreamSample ss =
+            ot::diag::streamSample(gApp.takeStreamStats(), uint32_t(gApp.streamedCount()),
+                                   uint32_t(gApp.streamActive()), lastUnderruns, gApp.jobBusy());
+        ot::diag::formatStream(line, sizeof line, ss);
+        ot::hal::diagLog(line);
+    }
     // UI line (docs/HARDWARE_TESTING.md "telemetry: ui"): frames and render
     // time as before, then the last frame's SPI upload (bytes, time), the
     // frames deferred by a busy display, the longest frame-to-frame gap, the
@@ -488,6 +501,8 @@ void otAppMain(ot::hal::HalSet& hal) {
     refs.nvstore = &hal::nvStore();        // config image in the stock EEPROM area (spec 05 §5.4)
     refs.usbStorage = hal::usbStorage();
     refs.remote = gRemote;   // 2.x USB Storage mode (null in an OT_USB_MSC=0 image)
+    static hal::SdStreamReader sStreamReader(hal::storage());
+    refs.streamReader = &sStreamReader;   // SD streaming (raw sectors through the cluster map)   // 2.x USB Storage mode (null in an OT_USB_MSC=0 image)
     if (!gApp.init(refs, mem)) return;   // falls back to the selftest
     hal::setPowerOffHook(&powerOffHook);
     gApp.ui.platform.devStats = &devStats;         // Config /.develop overlay (spec 06 §7.2)
@@ -497,8 +512,11 @@ void otAppMain(ot::hal::HalSet& hal) {
     gApp.ui.platform.bootChecks = &bootChecks;     // factory test (spec 05 §2.12)
     gApp.ui.platform.dlOverflow = &dlOverflow;     // RAM_DL guard (Ui::render)
     if (hal::bootReport().sdMounted) gApp.boot();
-    // Stack guard (#23): an overflow resets the Tracker; say so on screen, not
-    // only in the USB diag log, so it never looks like a random reboot.
-    if (hal::lastResetWasLockup()) gApp.ui.notify("Restarted after a crash (stack overflow)", 8000);
+    // Stack guard: an overflow resets the Tracker; say so on screen, not
+    // only in the USB diag log, so it never looks like a random reboot. With
+    // the guard off (ot_noguard.txt) a lockup is some other double fault.
+    if (hal::lastResetWasLockup())
+        gApp.ui.notify(hal::stackGuardArmed() ? "Restarted after a crash (stack overflow)"
+                                              : "Restarted after a crash", 8000);
     gApp.run();
 }

@@ -1,4 +1,4 @@
-// OpenTracker -- stack guard (issue #23).
+// OpenTracker -- stack guard.
 //
 // _ebss.._estack holds newlib's heap (growing up from _ebss) and the one
 // main stack (MSP, growing down from _estack; the audio DMA interrupt renders
@@ -19,7 +19,8 @@
 //   guard that is not a stack overflow is an ordinary BusFault with the
 //   diag fault report; diag.cpp adds the SYSMPU error address to it.
 // - The guard is larger than the deepest single stack frame of the firmware
-//   (6 KB, startOpenRecent; -fstack-usage), so no frame can step over it.
+//   plus an interrupt's exception frame (telemetry_check.py frames), so no
+//   frame can step over it.
 #pragma once
 
 #include <stdint.h>
@@ -28,7 +29,7 @@ namespace ot {
 namespace hal {
 
 constexpr uint32_t kHeapReserveBytes = 4096;   // measured heap use 0.2 KB (telemetry, 2026-10-20)
-constexpr uint32_t kStackGuardBytes = 8192;    // > the deepest frame (6,032 B)
+constexpr uint32_t kStackGuardBytes = 8192;    // > the deepest frame (5,672 B, startOpenProject)
 
 // Lowest guard address (32-byte aligned, the SYSMPU granule) and the first
 // address above it, where the stack's room begins.

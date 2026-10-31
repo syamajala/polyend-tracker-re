@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #include "audio/block_profile.h"
+#include "audio/stream_source.h"
 
 namespace ot {
 struct JobProfile;   // core app/project_io.h
@@ -36,6 +37,8 @@ struct TelemetrySample {
     uint32_t stackPeak = 0;                        // deepest stack use since boot (stack_watch.h)
     uint32_t heap = 0;                             // newlib heap in its reserve (__brkval - _ebss)
     uint32_t rxRestarts = 0, rxStale = 0;          // cumulative I2S RX restarts / input blocks lost
+    uint32_t dinClocks = 0;                        // MIDI clocks sent on DIN in the window
+    uint32_t dinClockLateMaxUs = 0;                // longest clock queued -> UART (shown with clocks)
 };
 
 // Stack high-water mark: the device paints the free stack at boot
@@ -88,6 +91,25 @@ CpuSample cpuSample(const audio::CpuMeter& m, const audio::Governor& g, const au
 // note-ons, synth and sample voices rendered).
 size_t formatCpu(char* out, size_t cap, const CpuSample& s);
 
+// 2.x SD streaming (docs/PLAN_SD_STREAMING_P1C_P2.md C11): one telemetry
+// window of the stream service, logged with the 5 s lines while streaming is on.
+struct StreamSample {
+    bool loading = false;                  // a project job ran (reads compete with it)
+    uint32_t streams = 0, active = 0;      // bound sources, rings playing a stream
+    uint32_t chunks = 0, errors = 0, passes = 0;
+    uint32_t readAvgUs = 0, readMaxUs = 0;
+    uint32_t leadMinMs = 0xFFFFFFFFu;      // smallest lead, 0xFFFFFFFF = nothing left to read
+    uint32_t underruns = 0;                // the rings' running total
+    uint32_t underrunsDelta = 0;           // new in this window
+};
+// From one window of the service stats; lastUnderruns carries the previous
+// total (updated) for the delta.
+StreamSample streamSample(const audio::StreamServiceStats& st, uint32_t streams, uint32_t active,
+                          uint32_t& lastUnderruns, bool loading);
+// "telemetry: stream streams S active A | chunks C read avg X.Y max X.Y ms | lead min L ms
+//  | underruns U (+D) errors E | passes P" (+ " | loading"; lead "-" when none)
+size_t formatStream(char* out, size_t cap, const StreamSample& s);
+
 // Once-per-second "cpu" line (kPeriodMs): due() starts the period on its
 // first call like Telemetry::due().
 class CpuTelemetry {
@@ -134,7 +156,8 @@ private:
 
 // "telemetry: render cyc/block min A avg B max C (P.P% of 522240) blocks N |
 //  loop max M.MMM ms (n L) | SDRAM free F B | i2c errors i2c0 X i2c2 Y[ nak i2c0 A i2c2 B]
-//  [| stack peak P B heap H B of S B (free F B)] | rx restarts R stale T"
+//  [| stack peak P B heap H B of S B (free F B)] | rx restarts R stale T
+//  [ | din clock late max M.MMM ms (n C)]" (the last part while MIDI clock goes out on DIN)
 // with " RENDER>70%" appended when the max crosses the alarm. Returns length.
 size_t formatTelemetry(char* out, size_t cap, const TelemetrySample& s);
 
