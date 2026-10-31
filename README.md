@@ -136,6 +136,10 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 - **Config > General > Note names: Sharps / Flats / Auto.** Auto spells the project's scale
   correctly, modes included (C Mixolydian shows Bb, not A#). Display only.
 
+### Chord entry
+- In the pattern editor's edit mode, pads held together enter a chord: one note per
+  track on the same step, from the cursor track rightwards. One Undo removes it.
+
 ### Remote control and on-device testing
 - **Config > USB > Remote control** (Off after every power-on):
   - **Panel mode:** a Tracker connected over USB becomes the simulator's front panel.

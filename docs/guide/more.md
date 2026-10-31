@@ -7,6 +7,18 @@ project's scale does, modes included: C Mixolydian shows B♭, not A♯. Display
 
 ![Config > General > Note names](../images/config-note-names.png)
 
+## Chord entry
+
+In the pattern editor's edit mode (stopped), pads pressed while another note pad is still
+held make a chord: the first note goes on the cursor's step and the cursor moves on as
+usual; each further note goes on the same step, one track to the right. Hold the chord's
+pads together, release them, and play the next chord.
+
+- One Undo removes the whole chord.
+- A track that can't play the current instrument (a MIDI track for a sample instrument)
+  ends the chord there.
+- Live recording (Rec while playing) already spreads a chord over the next free tracks.
+
 ## The 2.x features (from upstream)
 
 The 2.x line brings the newer Tracker features to the original hardware. In short:
