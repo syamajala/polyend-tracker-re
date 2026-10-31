@@ -39,7 +39,8 @@ each play a scene; the encoder (outside edit mode) or **MIDI CC 63** fades betwe
   middle (a low-pass on A and a high-pass on B don't fight). Stepped effects (Repeater,
   Direction, Tape stop …) switch at the middle.
 - The title bar shows the pair (`A 1 |------| B 2`) and where the fader is. Rows of the
-  scene on A are marked red, on B blue; the pad LEDs follow the fader.
+  scene on A are marked red, on B blue; the pad LEDs and the green (active) row follow
+  the fader.
 
 ### Store and clear while playing
 
