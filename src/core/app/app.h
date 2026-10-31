@@ -672,6 +672,16 @@ public:
     // the count (0: not sliced). Equal slices, or at hits (findHitCells) on
     // the beat / step grid, which doubles until at most kSliceCount fit.
     int resampleSliceSteps(const int16_t* l, const int16_t* r, uint32_t n, uint32_t bars, uint16_t* steps) const;
+    // [I] Slices to pattern (#86). The guess for how many steps sample slot
+    // `instr` lasts: its length at the song tempo in whole bars, rounded to
+    // 1, 2, 4 or 8 bars (at most a full pattern).
+    int sliceStepsGuess(uint8_t instr) const;
+    // [I] Writes the slices of `instr` on track `track` of the current pattern
+    // for a sample `steps` steps long: the track's steps cleared (undoable),
+    // then slice i (Beat Slice note 24 + i) on the step nearest its start,
+    // repeating every `steps` over the track. A Slice instrument turns Beat
+    // Slice. Returns the slices placed per repeat (0: nothing written).
+    int slicesToPattern(uint8_t instr, int track, int steps);
     // Main loop: a finished recording becomes an instrument.
     void serviceResample();
     // [I] Master tape stop (audio::TapeStop, perf::kTapeStop): v = 0 off

@@ -146,6 +146,12 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 - In the pattern editor's edit mode, pads held together enter a chord: one note per
   track on the same step, from the cursor track rightwards. One Undo removes it.
 
+### Slices to pattern
+- Sample Editor, slice **More** page: **To Pattern** (F5) writes the sliced sample on the
+  pattern's current track, one trig per slice where it starts, so a chopped break plays
+  back at once and you flip it from there. **Steps** (F4) is the sample's length in steps,
+  guessed from the song tempo.
+
 ### MIDI presets
 - **Instrument Params** on a MIDI instrument now steps through Parameters, LFO and a new
   **Preset** page: name the synth's CCs ("74 Cutoff"), and the names show for CC A–F

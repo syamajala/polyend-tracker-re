@@ -75,6 +75,7 @@ void PlaybackScreen::start(int opt) {
             view.centre = isSlice(in.playMode) && in.sliceCount ? in.slices[in.selectedSlice] : in.startPoint;
             sel = 6;
             more = false;
+            patternSteps = 0;   // [I] another sample: guess its length again
         }
         lastInstr_ = ci;
         lastMode_ = in.playMode;
@@ -270,8 +271,10 @@ void PlaybackScreen::refreshBar() {
         b.setName(1, "Slice", "Evenly");
         std::snprintf(v, sizeof(v), "%d", a.cfg.sliceCount);
         b.set(2, "No of Slices", v);
-        b.set(3, "", nullptr, false);
-        b.set(4, "", nullptr, false);
+        // [I] #86: F4 / F5 are blank on stock.
+        std::snprintf(v, sizeof(v), "%d", toPatternSteps());
+        b.set(3, "Steps", v);
+        b.setName(4, "To", "Pattern");
         b.set(5, "More");
         b.highlight(5, true);
     } else if (mode == 7) {
@@ -420,6 +423,9 @@ void PlaybackScreen::change(int d) {
             a.cfg.sliceCount = uint8_t(clampi(a.cfg.sliceCount + d, 1, 48));
             a.markConfigDirty();
             return;
+        } else if (sel == 3 && more) {
+            patternSteps = clampi(toPatternSteps() + d, 1, kStepCount);   // [I] #86
+            return;
         } else if (sel == 4) {
             if (in.sliceCount) view.centre = in.slices[in.selectedSlice];
             view.step(d);
@@ -553,6 +559,50 @@ void PlaybackScreen::requestSlices(bool autoMode) {
             this);
 }
 
+// [I] Slices to pattern (#86).
+
+int PlaybackScreen::toPatternSteps() const {
+    return patternSteps > 0 ? patternSteps : app_.sliceStepsGuess(app_.currentInstrument());
+}
+
+void PlaybackScreen::requestToPattern() {
+    App& a = app_;
+    const uint8_t ci = a.currentInstrument();
+    if (ci >= kSampleInstrumentCount || slicer.busy()) return;
+    if (!a.instruments[ci].sliceCount) {
+        ui_.notify("No slices: slice the sample first", 2000);
+        return;
+    }
+    if (a.editorTrack >= Sequencer::kVoiceTracks) return;
+    if (a.pattern().tracks[a.editorTrack].blank()) {
+        slicesToPattern();
+        return;
+    }
+    char line[40];
+    std::snprintf(line, sizeof(line), "Track %d will be overwritten", a.editorTrack + 1);
+    ui_.ask(line, "Do you want to continue?", nullptr, "Cancel", "Confirm",
+            +[](void* ctx, int key) {
+                auto* self = static_cast<PlaybackScreen*>(ctx);
+                if (key == btn::F8) self->slicesToPattern();
+                self->refreshBar();
+            },
+            this);
+}
+
+void PlaybackScreen::slicesToPattern() {
+    App& a = app_;
+    const uint8_t ci = a.currentInstrument();
+    const int steps = toPatternSteps();
+    const int n = a.slicesToPattern(ci, a.editorTrack, steps);
+    if (!n) return;
+    lastMode_ = a.instruments[ci].playMode;   // Slice -> Beat Slice keeps this page
+    char msg[64];
+    const int len = a.pattern().tracks[a.editorTrack].length();
+    std::snprintf(msg, sizeof(msg), "%d slices -> track %d, every %d steps%s", n, a.editorTrack + 1, steps,
+                  steps > len ? " (longer than the pattern)" : "");
+    ui_.notify(msg, 3000);
+}
+
 // ---------------------------------------------------------------------------
 // Input
 
@@ -639,11 +689,13 @@ void PlaybackScreen::onButton(uint8_t id, uint8_t state) {
             }
             break;
         case btn::F4:
-            if (slice && !more) removeSlice();
+            if (slice && more) sel = 3;   // [I] #86 Steps
+            else if (slice) removeSlice();
             else if (mode == 7) sel = 3;
             break;
         case btn::F5:
-            if (slice && !more) sel = 4;
+            if (slice && more) requestToPattern();   // [I] #86
+            else if (slice) sel = 4;
             else if (mode == 7) sel = 4;
             break;
         case btn::F6:
@@ -687,14 +739,14 @@ void PlaybackScreen::onButton(uint8_t id, uint8_t state) {
             static const int kPoint0[] = {1, 4, 5, 6};
             static const int kPointL[] = {1, 2, 3, 4, 5, 6};
             static const int kSlice0[] = {0, 1, 4, 6};
-            static const int kSlice1[] = {2, 6};
+            static const int kSlice1[] = {2, 3, 6};   // [I] 3 Steps (#86)
             static const int kGran[] = {1, 2, 3, 4, 6};
             static const int kWave[] = {1, 2, 6};
             const int* l;
             int n;
             if (mode == 0) l = kPoint0, n = 4;
             else if (mode <= 3) l = kPointL, n = 6;
-            else if (slice) l = more ? kSlice1 : kSlice0, n = more ? 2 : 4;
+            else if (slice) l = more ? kSlice1 : kSlice0, n = more ? 3 : 4;
             else if (mode == 7) l = kGran, n = 5;
             else l = kWave, n = 3;
             int i = 0;
