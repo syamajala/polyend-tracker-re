@@ -29,6 +29,8 @@ Options:
 | `--scale 1\|2` | window scale (the window is also resizable) |
 | `--line-in` | open the default capture device as line-in (off by default) |
 | `--line-in-tone HZ` | synthetic line input (tone bursts), e.g. to test the Sample Recorder headless |
+| `--usb-in NAME` | capture device NAME as USB audio in (`default`; `list` prints the names) |
+| `--usb-in-tone HZ` | synthetic USB audio in (the same tone bursts), for headless scripts |
 | `--no-audio` / `--no-midi` | skip the audio device / ALSA ports |
 | `--demo` | renderer and input demo instead of the app |
 | `--quit-after MS` | exit after MS milliseconds |
@@ -273,6 +275,7 @@ Resampling end to end (`make check` runs `scripts/resample_e2e.txt` with
 
 ```
 line-in on|off              the --line-in-tone input plays or is silent
+usb-in on|off               the --usb-in-tone input plays or is silent
 expect-resample SLOT [PEAK] fail unless the last take finished into instrument SLOT
                             (1-based) with a recorded peak of at least PEAK
 expect-instrument SLOT MINFRAMES [NAME]
@@ -324,4 +327,20 @@ uncompressed deflate, so files are ~1 MB).
 - Line-in (`--line-in`) is captured and fed to the audio engine (level,
   mute and delay/reverb sends from the project); it is silent while the
   project's line-in mute is on (the default).
+- USB audio in (`--usb-in`, #97) stands in for the computer playing into the
+  Tracker over USB: Global Mixer USB column (muted in a new project), the
+  Sample Recorder's USB source, Resample From USB. To play the computer's own
+  audio into it, give it a separate output and capture that output's monitor,
+  so the sim's own sound doesn't loop back:
+
+  ```
+  pactl load-module module-null-sink sink_name=tracker_usb \
+      sink_properties=device.description=TrackerUSB
+  build/sim/opentracker-sim --usb-in "Monitor of TrackerUSB"
+  ```
+
+  then pick TrackerUSB as the output of the browser or DAW. The sim prefers
+  SDL's PulseAudio backend with `--usb-in` (PipeWire serves it too): only that
+  backend lists monitor sources. `make check` runs `scripts/usb_audio.txt`
+  with `--usb-in-tone`.
 - Panel layout and key labels are approximations of the real hardware.

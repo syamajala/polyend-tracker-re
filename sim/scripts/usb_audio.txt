@@ -1,0 +1,53 @@
+# [I] USB audio in (#97), run by `make check` with --usb-in-tone 440 (the
+# computer streaming tone bursts) on an empty card. A new project has USB
+# muted in the Global Mixer; unmuted it plays; the Sample Recorder's USB
+# source monitors it; Resample From USB takes it into an instrument.
+wait 300
+sound-reset
+wait 1500
+expect-quiet 50          # new project: Global Mixer USB muted
+tap MASTER
+tap MASTER
+tap MASTER
+wait 200
+expect-screen Master          # Global Mixer 3/3
+tap F8                   # USB: unmute
+sound-reset
+wait 1500
+expect-sound 3000
+tap F8                   # mute again
+wait 100
+sound-reset
+wait 1500
+expect-quiet 50
+# Sample Recorder, source USB: the monitor plays it at unity (mixer muted).
+tap SAMPLERECORDER
+wait 300
+expect-screen Sample Recorder
+tap F1
+tap F1
+tap F1
+tap F1                   # Line in -> Radio -> Mic LG -> Mic HG -> USB
+wait 100
+sound-reset
+wait 1500
+expect-sound 3000
+# Resample From USB: 1 bar into instrument 1.
+tap PATTERN
+wait 300
+tap PLAY
+wait 200
+tap SAMPLERECORDER
+wait 300
+tap F6                   # Resample
+wait 300
+expect-screen Resample
+tap F1
+enc 10                   # From: USB
+tap F2
+enc -5
+enc 1                    # Length: 1 bar
+tap F8                   # Record (starts on the next bar)
+wait 5000
+expect-resample 1 3000
+expect-instrument 1 80000 Resample USB
