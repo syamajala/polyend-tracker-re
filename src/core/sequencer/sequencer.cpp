@@ -1580,7 +1580,8 @@ int Sequencer::midiLfoValue(int i, const MidiLfo& l, uint8_t wire) const {
             break;
         }
     }
-    const float b = (2.0f * u - 1.0f) * float(l.depth) / 100.0f;   // -1..1 scaled by depth
+    // Center + depth x wave (wave -1..1): b is -1..1 of the half range.
+    const float b = (2.0f * u - 1.0f) * float(l.depth) / float(MidiLfo::kDepthMax);
     if (wire == MidiLfo::kWirePitchBend) {
         const int c = lfo_->center[i] >= 0 ? lfo_->center[i] : l.center * 128;
         return clampi(c + int(b * 8192.0f + (b >= 0 ? 0.5f : -0.5f)), 0, 16383);

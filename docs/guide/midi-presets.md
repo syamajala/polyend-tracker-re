@@ -76,7 +76,8 @@ lfo depth = 30
   works: it picks the slot set to CC n.
 - `lfo shape`: 0 Rev saw, 1 Saw, 2 Triangle, 3 Square, 4 Random.
 - `lfo rate`: 0 (128 steps per cycle) to 22 (1/8 step), as listed on the LFO page.
-- `lfo depth` 0–100, `lfo center` 0–127, `lfo retrigger` 0 Free or 1 Note.
+- `lfo depth` 0–64 (the swing either side of the center), `lfo center` 0–127,
+  `lfo retrigger` 0 Free or 1 Note.
 
 Lines starting with `#` are comments, keys ignore case, and a missing or unknown line keeps
 the default, so a preset can be as short as one `cc` line.

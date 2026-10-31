@@ -17,7 +17,7 @@ MidiLfo sample() {
     l.target = 2;   // slot B
     l.shape = 4;
     l.rate = 12;
-    l.depth = 80;
+    l.depth = 50;
     l.center = 40;
     l.retrig = 1;
     return l;
@@ -170,9 +170,11 @@ TEST(midi_lfo_instrument_page) {
     // Depth (F4) and reset with Delete.
     h.tap(btn::F4);
     h.enc(-20);
-    CHECK_EQ(l.depth, 30);
+    CHECK_EQ(l.depth, 12);
     h.tap(btn::Delete);
-    CHECK_EQ(l.depth, 50);
+    CHECK_EQ(l.depth, 32);
+    h.enc(100);
+    CHECK_EQ(l.depth, MidiLfo::kDepthMax);
     // Retrigger (F6).
     h.tap(btn::F6);
     h.tap(btn::F6);

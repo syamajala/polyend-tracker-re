@@ -138,7 +138,7 @@ bool decodeMidiPreset(const char* text, size_t len, MidiPreset& p) {
         } else if (eqi(key, "lfo rate")) {
             if (number(val, 0, MidiLfo::kRateCount - 1, v)) p.lfo.rate = uint8_t(v), any = true;
         } else if (eqi(key, "lfo depth")) {
-            if (number(val, 0, 100, v)) p.lfo.depth = uint8_t(v), any = true;
+            if (number(val, 0, MidiLfo::kDepthMax, v)) p.lfo.depth = uint8_t(v), any = true;
         } else if (eqi(key, "lfo center")) {
             if (number(val, 0, 127, v)) p.lfo.center = uint8_t(v), any = true;
         } else if (eqi(key, "lfo retrigger")) {

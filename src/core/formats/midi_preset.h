@@ -13,7 +13,7 @@
 //   lfo target = slot A       (off, slot A..F, PB or AT; CC n = the slot with CC n)
 //   lfo shape = 2             (0..4: Rev saw, Saw, Triangle, Square, Random)
 //   lfo rate = 8              (0..22: 128 steps .. 1/8 step)
-//   lfo depth = 50            (0..100)
+//   lfo depth = 32            (0..64: the swing either side of the center)
 //   lfo center = 64           (0..127)
 //   lfo retrigger = 0         (0 Free, 1 Note)
 //

@@ -236,8 +236,9 @@ void InstrumentScreen::valueText(int c, char* out, int cap, float* frac, bool* b
             case 1: std::snprintf(out, size_t(cap), "%s", kShapeNames[l.shape % 5]); break;
             case 2: std::snprintf(out, size_t(cap), "%s", kSpeedNames[l.rate % MidiLfo::kRateCount]); break;
             case 3:
+                // The swing either side of Center, in the target's units.
                 std::snprintf(out, size_t(cap), "%d", l.depth);
-                *frac = float(l.depth) / 100.0f;
+                *frac = float(l.depth) / float(MidiLfo::kDepthMax);
                 break;
             case 4:
                 // Pitch bend: the bend the LFO swings around, -64..63.
@@ -387,7 +388,7 @@ void InstrumentScreen::edit(int c, int d, bool tap) {
             }
             case 1: list(l.shape, MidiLfo::kShapeCount); break;
             case 2: list(l.rate, MidiLfo::kRateCount); break;
-            case 3: l.depth = uint8_t(clampi(l.depth + d, 0, 100)); break;
+            case 3: l.depth = uint8_t(clampi(l.depth + d, 0, MidiLfo::kDepthMax)); break;
             case 4: l.center = uint8_t(clampi(l.center + d, 0, 127)); break;
             default: list(l.retrig, MidiLfo::kRetrigCount); break;
         }

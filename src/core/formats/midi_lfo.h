@@ -18,7 +18,7 @@
 namespace ot {
 
 namespace mlfo {
-constexpr uint8_t kVersion = 2;   // 2: target = slot A..F (1: a CC number, not read)
+constexpr uint8_t kVersion = 2;   // 2: target = slot A..F, depth 0..64 (1: CC number, %; not read)
 constexpr uint32_t kHeaderSize = 8;
 constexpr uint32_t kRecordSize = 6;
 constexpr uint32_t kFileSize = kHeaderSize + kMidiInstrumentCount * kRecordSize + 1;

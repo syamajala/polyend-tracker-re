@@ -1473,7 +1473,7 @@ TEST(tracks16_track16_perf_length_keeps_song_advance) {
 // --- [I] MIDI LFO (model/instrument.h MidiLfo) -------------------------------
 
 namespace {
-MidiLfo lfo(int target, int shape, int rate, int depth = 100, int center = 64, int retrig = 0) {
+MidiLfo lfo(int target, int shape, int rate, int depth = 64, int center = 64, int retrig = 0) {
     MidiLfo l;
     l.target = uint8_t(target);
     l.shape = uint8_t(shape);
@@ -1528,7 +1528,7 @@ TEST(midi_lfo_retrigger_note_vs_free) {
     for (int retrig = 0; retrig < 2; ++retrig) {
         Rig r(120.0f);
         slotA(r.project, 1, 74);
-        r.project.midiLfo[1] = lfo(kSlotA, 1, kRate8Steps, 100, 64, retrig);
+        r.project.midiLfo[1] = lfo(kSlotA, 1, kRate8Steps, 64, 64, retrig);
         r.setNote(8, 0, 60, 49);
         r.setNote(8, 2, 62, 49);
         r.seq.play(0);
@@ -1551,7 +1551,7 @@ TEST(midi_lfo_retrigger_note_vs_free) {
 
 TEST(midi_lfo_cc_fx_moves_center) {
     Rig r(120.0f);
-    r.project.midiLfo[1] = lfo(kSlotA, 3, kRate1Step, 50);   // CC 1 (CC A's default), square +-32
+    r.project.midiLfo[1] = lfo(kSlotA, 3, kRate1Step, 32);   // CC 1 (CC A's default), square +-32
     r.setNote(8, 0, 60, 49);
     r.fxA(8, 0, 8, 100);                                     // CC A = 100 on step 0
     r.seq.play(0);
@@ -1579,7 +1579,7 @@ TEST(midi_lfo_cc_fx_moves_center) {
 
 TEST(midi_lfo_pitch_bend_and_pressure) {
     Rig r(120.0f);
-    r.project.midiLfo[0] = lfo(MidiLfo::kTargetPitchBend, 3, kRate1Step, 50);   // square, +-4096
+    r.project.midiLfo[0] = lfo(MidiLfo::kTargetPitchBend, 3, kRate1Step, 32);   // square, +-4096
     r.project.midiLfo[2] = lfo(MidiLfo::kTargetPressure, 2, kRate1Step, 0, 90);   // depth 0: one value
     r.seq.play(0);
     r.runUntil([&] { return r.seq.step(0) == 2; });
@@ -1595,7 +1595,7 @@ TEST(midi_lfo_pitch_bend_and_pressure) {
 TEST(midi_lfo_new_target_restores_the_old_one) {
     Rig r(120.0f);
     slotA(r.project, 1, 74);
-    r.project.midiLfo[1] = lfo(kSlotA, 1, kRate8Steps, 100, 40);   // CC 74, saw around 40
+    r.project.midiLfo[1] = lfo(kSlotA, 1, kRate8Steps, 64, 40);   // CC 74, saw around 40
     r.seq.play(0);
     r.runUntil([&] { return r.seq.step(0) == 2; });
     slotA(r.project, 1, 71);   // slot A moves to CC 71: the LFO follows

@@ -27,7 +27,7 @@ MidiPreset sample() {
     p.lfo.target = 2;   // slot B
     p.lfo.shape = 4;
     p.lfo.rate = 12;
-    p.lfo.depth = 80;
+    p.lfo.depth = 50;
     p.lfo.center = 40;
     p.lfo.retrig = 1;
     return p;
