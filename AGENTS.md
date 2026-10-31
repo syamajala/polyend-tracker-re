@@ -4,6 +4,38 @@ OpenTracker fork: reverse-engineered firmware for the original Polyend Tracker (
 Cortex-M4, 256 KB SRAM, 16 MB SDRAM). The developer docs in `docs/dev/` are the
 reference; this file lists the rules that are easy to break.
 
+## Vision
+
+A Polyend Tracker that stays **cohesive, immediate and fun**. Check every feature idea
+against it.
+
+**Cohesive: it feels like one instrument, not a pile of features.**
+- Reuse what's there: store or extend existing concepts (Performance mode, step FX,
+  swing) before inventing new ones.
+- One way to do each thing: if a feature overlaps an existing one, one replaces the
+  other or it isn't built.
+- It's still a Tracker: an idea that mainly makes it more like an M8 or an Octatrack
+  doesn't belong.
+- Stock projects still load and play; fork data degrades gracefully on stock.
+
+**Intuitive and immediate: usable within a minute, without the manual.**
+- Defaults mean stock behaviour: a plain song or pattern looks and works as on stock;
+  depth shows up only when used.
+- One key away, and it sounds right: no menu diving (e.g. Performance pad rows are
+  curated presets).
+- Key combos are shortcuts only: every action is also reachable without one; check the
+  screen's key map before adding another.
+- Keep each screen readable: new columns and cells have to earn their space.
+
+**Fun: it makes you want to pick it up and play.**
+- Sound and play first (synths, FX, performance, flipping samples): ideas that make
+  music sound or feel better beat ideas that are merely more complete.
+- Making music decides: friction found while making real tracks ranks the work, not the
+  issue list.
+
+**The test:** does it make the Tracker more fun to play without making it less cohesive
+or less immediate? If it costs one of the three, it needs a very good reason.
+
 ## Build and test
 
 - Firmware: `make clean && make -j VERSION=2.1.2` (the Makefile default VERSION is stale;
