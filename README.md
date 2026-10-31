@@ -136,6 +136,12 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 - **Config > General > Note names: Sharps / Flats / Auto.** Auto spells the project's scale
   correctly, modes included (C Mixolydian shows Bb, not A#). Display only.
 
+### Piano pads
+- **Config > General > Pad layout: Stock / Piano.** Piano makes the pads two keyboards an
+  octave apart, as on grid controllers: the white keys along a row, the black keys in the
+  row above. The pad lights draw the keys (root brightest, black keys dimmer, notes outside
+  the scale barely lit); the gaps play nothing.
+
 ### Chord entry
 - In the pattern editor's edit mode, pads held together enter a chord: one note per
   track on the same step, from the cursor track rightwards. One Undo removes it.
