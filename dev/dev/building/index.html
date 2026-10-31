@@ -1129,7 +1129,7 @@ lengths), so it carries the version digits only.</p>
 python3<span class="w"> </span>tools/telemetry_check.py<span class="w"> </span>frames<span class="w"> </span>build
 </code></pre></div>
 <ul>
-<li><strong>Flash</strong> (<code>.text + .data</code>): fails above 720,000 B, warns above 600,000 B.</li>
+<li><strong>Flash</strong> (<code>.text + .data</code>): fails above 800,000 B, warns above 720,000 B (upstream fails at 720,000 B; the fork's DX7, remote control and Performance mode need more). The image itself may not pass 877,664 B, the stock 1.9.2 extent (<code>tools/check_image.py</code>).</li>
 <li><strong>Stack headroom</strong> (<code>_estack − _ebss</code>): fails below 75 KiB.</li>
 <li><strong>libm</strong>: fails if double-precision math functions get linked.</li>
 <li><strong>Frames</strong>: fails if any single function's stack frame is as large as the stack guard
