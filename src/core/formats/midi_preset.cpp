@@ -54,7 +54,7 @@ size_t encodeMidiPreset(const MidiPreset& p, char* out, size_t cap) {
         const int w = std::snprintf(out + n, cap - n, fmt, args...);
         n = w < 0 ? cap : n + size_t(w);
     };
-    put("# OpenTracker MIDI preset\n");
+    put("%s", "# OpenTracker MIDI preset\n");
     put("velocity = %d\n", p.velocity);
     put("offset = %d\n", p.offset);
     for (int i = 0; i < 6; ++i) {
@@ -64,10 +64,10 @@ size_t encodeMidiPreset(const MidiPreset& p, char* out, size_t cap) {
         else put("cc %c = %s\n", 'A' + i, t);
     }
     const MidiLfo& l = p.lfo;
-    if (l.target == MidiLfo::kTargetPitchBend) put("lfo target = PB\n");
-    else if (l.target == MidiLfo::kTargetPressure) put("lfo target = AT\n");
+    if (l.target == MidiLfo::kTargetPitchBend) put("%s", "lfo target = PB\n");
+    else if (l.target == MidiLfo::kTargetPressure) put("%s", "lfo target = AT\n");
     else if (l.active()) put("lfo target = CC %d\n", l.target - 1);
-    else put("lfo target = off\n");
+    else put("%s", "lfo target = off\n");
     put("lfo shape = %d\n", l.shape);
     put("lfo rate = %d\n", l.rate);
     put("lfo depth = %d\n", l.depth);
