@@ -190,6 +190,18 @@ struct Project {
     uint16_t perfSceneFxOff[kPerfScenes] = {};
     uint16_t perfSceneFxSet = 0;
     bool sceneHasFx(int i) const { return (perfSceneFxSet >> (i % kPerfScenes)) & 1u; }
+    // [I] USB audio in (#97; usb_audio.bin, not project.mt): its Global Mixer
+    // level (TRK index) and mute, off in a new project like Line in; recUsb:
+    // the Sample Recorder records USB (project.mt's source byte reads Line in).
+    static constexpr uint8_t kUsbLevelDefault = 86;
+    uint8_t usbLevel = kUsbLevelDefault;
+    uint8_t usbMute = 1;
+    uint8_t recUsb = 0;
+    void resetUsbAudio() {
+        usbLevel = kUsbLevelDefault;
+        usbMute = 1;
+        recUsb = 0;
+    }
 
     Project() { setDefault(); }
 

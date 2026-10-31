@@ -9,6 +9,7 @@
 #include "formats/midi_names.h"
 #include "formats/perf_scenes.h"
 #include "formats/song_side.h"
+#include "formats/usb_audio_side.h"
 #include "formats/patterns_metadata.h"
 #include "sdram_bss.h"
 
@@ -126,6 +127,7 @@ FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoa
     std::memset(p.perfExtType, 0, sizeof(p.perfExtType));
     std::memset(p.perfExtArg, 0, sizeof(p.perfExtArg));
     std::memset(p.playlistCount, 0, sizeof(p.playlistCount));
+    p.resetUsbAudio();
     char sp[352];
     if (sideFilePath(sp, sizeof(sp), path, mlfo::kFileName) && fs.exists(sp) &&
         readWholeFile(fs, sp, g_io, mlfo::kFileSize, &got) == FmtStatus::Ok)
@@ -142,6 +144,9 @@ FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoa
     if (sideFilePath(sp, sizeof(sp), path, song::kFileName) && fs.exists(sp) &&
         readWholeFile(fs, sp, g_io, song::kFileSize, &got) == FmtStatus::Ok)
         decodeSongSide(g_io, got, p);
+    if (sideFilePath(sp, sizeof(sp), path, usbside::kFileName) && fs.exists(sp) &&
+        readWholeFile(fs, sp, g_io, usbside::kFileSize, &got) == FmtStatus::Ok)
+        decodeUsbAudioSide(g_io, got, p);
     return FmtStatus::Ok;
 }
 
@@ -149,7 +154,8 @@ FmtStatus saveProjectFile(IStorage& fs, const char* path, const Project& p, cons
     encodeProject(p, g_io);
     const FmtStatus st = writeWholeFile(fs, path, g_io, mt::kFileSize);
     if (st != FmtStatus::Ok) return st;
-    // [I] OpenTracker side files (midi_lfo.bin, midi_names.bin, perf_scenes.bin, song.bin), each only
+    // [I] OpenTracker side files (midi_lfo.bin, midi_names.bin, perf_scenes.bin, song.bin,
+    // usb_audio.bin), each only
     // while it holds something, so other projects keep exactly the stock file set.
     const FmtStatus side = saveSideFile(fs, path, mlfo::kFileName, midiLfosUsed(p),
                                   [&](uint8_t* out) { encodeMidiLfos(p, out); }, mlfo::kFileSize);
@@ -161,7 +167,13 @@ FmtStatus saveProjectFile(IStorage& fs, const char* path, const Project& p, cons
                                        [&](uint8_t* out) { encodePerfScenes(p, out); }, pscn::kFileSize);
     const FmtStatus sng = saveSideFile(fs, path, song::kFileName, songSideUsed(p),
                                        [&](uint8_t* out) { encodeSongSide(p, out); }, song::kFileSize);
-    return side != FmtStatus::Ok ? side : nms != FmtStatus::Ok ? nms : scn != FmtStatus::Ok ? scn : sng;
+    const FmtStatus usb = saveSideFile(fs, path, usbside::kFileName, usbAudioSideUsed(p),
+                                       [&](uint8_t* out) { encodeUsbAudioSide(p, out); }, usbside::kFileSize);
+    return side != FmtStatus::Ok ? side
+           : nms != FmtStatus::Ok ? nms
+           : scn != FmtStatus::Ok ? scn
+           : sng != FmtStatus::Ok ? sng
+                                  : usb;
 }
 
 FmtStatus copyMidiNamesFile(IStorage& fs, const char* srcProjectPath, const char* dstProjectPath) {
