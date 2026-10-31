@@ -16,7 +16,7 @@
         <link rel="prev" href="../song-mode/">
       
       
-        <link rel="next" href="../more/">
+        <link rel="next" href="../midi-presets/">
       
       
         
@@ -581,6 +581,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../midi-presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MIDI presets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../more/" class="md-nav__link">
         
   
@@ -966,8 +994,9 @@
 <h2 id="set-it-up">Set it up<a class="headerlink" href="#set-it-up" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Select a MIDI instrument: hold <strong>Instrument</strong> and turn the encoder.</li>
-<li>Press <strong>Instrument Params</strong>, then <strong>Instrument Params</strong> again: the key toggles
-   between the MIDI parameters page and the <strong>MIDI Instrument LFO</strong> page.</li>
+<li>Press <strong>Instrument Params</strong>, then <strong>Instrument Params</strong> again: the key steps
+   through the MIDI parameters page, the <strong>MIDI Instrument LFO</strong> page and the
+   <a href="../midi-presets/">MIDI Instrument Preset</a> page.</li>
 </ol>
 <table>
 <thead>
@@ -979,7 +1008,7 @@
 <tbody>
 <tr>
 <td><strong>Target</strong> (F1)</td>
-<td>Off, a CC (0–127, named where common, e.g. <code>1 ModWh</code>), pitch bend, or channel pressure.</td>
+<td>Off, one of the CC slots <strong>A–F</strong>, pitch bend or channel pressure; the whole list is on screen, slots shown by their CC's name ("A Cutoff"). The LFO follows the slot: change the slot's CC on the parameters page and the LFO moves with it. A slot set to Prg Chg or Poly AT sends nothing. Turning the encoder only picks the target; the LFO moves to it once the encoder rests, so the slots passed on the way are left alone.</td>
 </tr>
 <tr>
 <td><strong>Shape</strong> (F2)</td>
@@ -991,11 +1020,11 @@
 </tr>
 <tr>
 <td><strong>Depth</strong> (F4)</td>
-<td>How far it moves around Center.</td>
+<td>How far it swings either side of Center, 0–64: Center 64 and Depth 32 sweep 32–96; Depth 64 sweeps the whole range.</td>
 </tr>
 <tr>
 <td><strong>Center</strong> (F5)</td>
-<td>The value it moves around.</td>
+<td>The value it swings around (0–127): value = Center + Depth × wave, kept within 0–127. On pitch bend, -64..63 around no bend, in the same steps as Depth.</td>
 </tr>
 <tr>
 <td><strong>Retrigger</strong> (F6)</td>
@@ -1007,10 +1036,10 @@
 <ul>
 <li>LFO messages use at most <strong>half of a DIN MIDI port's bandwidth</strong>, so notes are never
   delayed by them.</li>
-<li>The LFO runs while the sequencer plays. At Stop, its target is left at <strong>Center</strong>.</li>
-<li><strong>Depth</strong> is a percentage of half the target's range around Center.</li>
-<li>A step FX on the same target (a CC FX on the LFO's CC, pitch bend, or pressure) moves
-  the LFO's <strong>Center</strong>, so the pattern can shift the wobble around.</li>
+<li>The LFO runs while the sequencer plays. At Stop, its target is left at <strong>Center</strong>, and so
+  is a target you switch away from (or turn Off) while playing.</li>
+<li>A step FX on the same target (the LFO's CC slot, pitch bend, or pressure) moves the
+  LFO's <strong>Center</strong>, so the pattern can shift the wobble around.</li>
 <li>Stored in <code>midi_lfo.bin</code> next to <code>project.mt</code>; other firmware ignores it.</li>
 </ul>
 
@@ -1065,13 +1094,13 @@
         
         
           
-          <a href="../more/" class="md-footer__link md-footer__link--next" aria-label="Next: More features">
+          <a href="../midi-presets/" class="md-footer__link md-footer__link--next" aria-label="Next: MIDI presets">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                More features
+                MIDI presets
               </div>
             </div>
             <div class="md-footer__button md-icon">
