@@ -91,8 +91,9 @@ struct Config {
     // upstream's bytes (fork-only, so it moves when upstream appends one).
     uint8_t noteNames = 0;
     // [I] Config > General "Pad layout" (#42): 0 Stock (the project's Notes
-    // layout), 1 Piano (a semitone per column, black / white key rows, two
-    // octaves; the pad lights draw the keyboard). Extension record byte 41.
+    // layout), 1 Piano (two keyboards an octave apart: white keys along a
+    // row, black keys in the row above; the pad lights draw the keys).
+    // Extension record byte 41.
     uint8_t padLayout = 0;
 
     // --- the stock config image --------------------------------------------

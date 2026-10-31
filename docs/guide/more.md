@@ -9,18 +9,22 @@ project's scale does, modes included: C Mixolydian shows B♭, not A♯. Display
 
 ## Piano pads
 
-**Config > General > Pad layout: Stock / Piano.** Piano turns the pads into a two-octave
-keyboard that lights up as one. Each column is a semitone, C on the left to B on the right,
-and each pair of rows is an octave: white keys in the lower row, black keys in the row above.
+**Config > General > Pad layout: Stock / Piano.** Piano turns the pads into two keyboards
+that light up as ones, laid out as on grid controllers: each pair of rows is a keyboard,
+with the white keys along the lower row and the black keys in the row above, each black
+key over the white key to its right.
 
 ```
-·  C# ·  D# ·  ·  F# ·  G# ·  A# ·     upper octave
-C  ·  D  ·  E  F  ·  G  ·  A  ·  B
-·  C# ·  D# ·  ·  F# ·  G# ·  A# ·     lower octave
-C  ·  D  ·  E  F  ·  G  ·  A  ·  B
+·  C# D# ·  F# G# A# ·  C# D# ·  F#     upper keyboard
+C  D  E  F  G  A  B  C  D  E  F  G
+·  C# D# ·  F# G# A# ·  C# D# ·  F#     lower keyboard
+C  D  E  F  G  A  B  C  D  E  F  G
 ```
 
-- The pads marked `·` are dark and play nothing.
+- Each keyboard spans an octave and a fifth; the upper one is the same keyboard an octave
+  higher.
+- The pads marked `·` (over C and F, where a piano has no black key) are dark and play
+  nothing.
 - The bottom-left C is the C of the project's root note octave. To play higher or lower,
   change the root note.
 - The lights show the keyboard: the scale's root brightest, white keys lit, black keys a
