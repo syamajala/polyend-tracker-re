@@ -6,15 +6,17 @@ Needs the **Arm GNU toolchain** (`arm-none-eabi-gcc`; CI uses 14.2.Rel1) and Pyt
 
 ```sh
 make clean
-make -j VERSION=2.2.1
+make -j
 ```
 
-This writes `build/opentracker.elf`, `build/opentracker.hex` and the flashable image
-`build/PolyendTrackerOTv212.ptf`.
+`VERSION` defaults to the Makefile's value, which follows the last upstream merge, so leave
+it unset unless you need a different one. This writes `build/opentracker.elf`,
+`build/opentracker.hex` and the flashable image `build/PolyendTrackerOTv<digits>.ptf`
+(e.g. `PolyendTrackerOTv223.ptf` for 2.2.3).
 
 !!! warning "Change VERSION? Run `make clean` first"
     Objects aren't rebuilt when only `VERSION` changes, so the image would report the old
-    version. Check with `strings build/opentracker.elf | grep -x 2.2.1`.
+    version. Check with `strings build/opentracker.elf | grep -x <version>`.
 
 The image name must be exactly 24 characters (the update bootloader rejects other
 lengths), so it carries the version digits only.
