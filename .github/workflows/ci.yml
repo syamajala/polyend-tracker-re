@@ -5,8 +5,12 @@
 # headroom of the PR against its base, in the run's summary (#25).
 name: CI
 
+# Pushes to main and pull requests: a PR branch runs once (its merge
+# commit), not once per push and again for the PR. Other branches: Run
+# workflow (workflow_dispatch).
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

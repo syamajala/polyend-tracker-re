@@ -63,7 +63,8 @@ Python scripts can call `Runner.peek` / `poke` / `ftrd` / `ftwr` from `tracker_r
 
 ## CI
 
-Every push and pull request runs `.github/workflows/ci.yml`:
+Pull requests and pushes to `main` run `.github/workflows/ci.yml` (other branches: **Run
+workflow** on the Actions tab):
 
 | Job | Does |
 |---|---|
