@@ -7,8 +7,9 @@ Each MIDI instrument (MIDI 1–16) gets one **tempo-locked LFO**, sent alongside
 ## Set it up
 
 1. Select a MIDI instrument: hold **Instrument** and turn the encoder.
-2. Press **Instrument Params**, then **Instrument Params** again: the key toggles
-   between the MIDI parameters page and the **MIDI Instrument LFO** page.
+2. Press **Instrument Params**, then **Instrument Params** again: the key steps
+   through the MIDI parameters page, the **MIDI Instrument LFO** page and the
+   [MIDI Instrument Preset](midi-presets.md) page.
 
 | Setting (key) | Choices |
 |---|---|

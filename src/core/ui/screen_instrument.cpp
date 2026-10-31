@@ -9,6 +9,7 @@
 #include "app/app.h"
 #include "app/instrument_edit.h"
 #include "app/midi_cc.h"
+#include "formats/midi_preset.h"
 #include "ui/screens.h"
 
 namespace ot {
@@ -126,9 +127,10 @@ void InstrumentScreen::start(int opt) {
     const uint8_t ci = app_.currentInstrument();
     // Appendix C §1: MIDI instruments force mode 3; re-entry keeps only
     // modes 0/1 (MIDI Mapping is entered from the Effects page).
-    if (isMidiInstrument(ci)) mode = mode == 4 ? 4 : 3;   // [I] the LFO page stays open
+    if (isMidiInstrument(ci)) mode = mode == 4 || mode == 5 ? mode : 3;   // [I] the LFO / preset page stays open
     else if (opt == 2) mode = 1;
-    else if (mode == 3 || mode == 2 || mode == 4) mode = 0;
+    else if (mode == 3 || mode == 2 || mode == 4 || mode == 5) mode = 0;
+    presetList = false;
     effects = false;
     column = clampi(column, 0, columns() - 1);
     // Appendix C §6 entry fix-up: destination Off -> column <= 1.
@@ -155,6 +157,7 @@ bool InstrumentScreen::selectable(int c) const {
 int InstrumentScreen::columns() const {
     if (mode == 3) return 8;
     if (mode == 4) return 6;
+    if (mode == 5) return 6;   // [I] #13 the CC slots
     if (mode == 2) return 2;
     if (mode == 1) return 7;
     return effects ? 4 : 7;
@@ -434,9 +437,24 @@ void InstrumentScreen::refreshBar() {
     // 050505 strip [S snap 011, Part 2 C5].
     b.stripBg = wg::mix(0x000000, ui_.th().slot(slot::kStrip + 1), 128);
     if (mode == 3) {
+        // [I] #13: a CC slot's label from the preset page replaces "CC A".
+        const MidiPresetInfo& info =
+            app_.project.midiPreset[(app_.currentInstrument() - kFirstMidiInstrument) % kMidiInstrumentCount];
         for (int i = 0; i < 8; ++i) {
             valueText(i, v, sizeof(v), &fr, &bi);
-            b.set(i, kMidi[i], v);
+            b.set(i, i >= 2 && info.label[i - 2][0] ? info.label[i - 2] : kMidi[i], v);
+        }
+        return;
+    }
+    if (mode == 5) {   // [I] #13
+        if (presetList) {
+            b.set(6, "Cancel");
+            b.set(7, "Load");
+        } else {
+            b.set(0, "Load");
+            b.set(1, "Save");
+            b.set(2, "Save As");
+            b.set(5, "Label");
         }
         return;
     }
@@ -483,9 +501,10 @@ void InstrumentScreen::onButton(uint8_t id, uint8_t state) {
     App& a = app_;
     if (id == btn::InstrParams) {
         // Own module key toggles Parameters <-> Automation (appendix C §1).
-        if (state == kPress && (mode == 3 || mode == 4)) {
-            mode = mode == 3 ? 4 : 3;   // [I] MIDI: Parameters <-> LFO
+        if (state == kPress && (mode == 3 || mode == 4 || mode == 5)) {
+            mode = mode == 3 ? 4 : mode == 4 ? 5 : 3;   // [I] MIDI: Parameters -> LFO -> Preset (#13)
             column = 0;
+            presetList = false;
         } else if (state == kPress) {
             mode = mode == 0 ? 1 : 0;
             effects = false;
@@ -518,6 +537,11 @@ void InstrumentScreen::onButton(uint8_t id, uint8_t state) {
         return;
     }
     if (ui_.picker.isOpen()) return;
+    if (mode == 5) {   // [I] #13
+        if (state == kPress) onPresetButton(id);
+        refreshBar();
+        return;
+    }
     if (btn::isFKey(id)) {
         const int f = id;
         if (state == kPress) {
@@ -614,7 +638,7 @@ uint8_t InstrumentScreen::auditionNote() const {
 
 #if !(defined(OT_TARGET_DEVICE) && OT_TARGET_DEVICE)
 bool InstrumentScreen::encoderOnList() const {
-    if (mode == 2) return true;   // CC mapping list
+    if (mode == 2 || mode == 5) return true;   // CC mapping list; [I] #13 slots / presets
     if (mode == 0) return !effects && column == 4;   // filter type
     if (mode == 3) return column >= 2;
     const uint8_t ci = app_.currentInstrument();
@@ -627,6 +651,10 @@ bool InstrumentScreen::encoderOnList() const {
 void InstrumentScreen::onEncoder(int d) {
     if (mode == 2) {
         mappingMove(d);
+        return;
+    }
+    if (mode == 5) {   // [I] #13
+        presetMove(d);
         return;
     }
     // Several held F-keys edit all their columns at once (appendix C §3).
@@ -767,7 +795,8 @@ void InstrumentScreen::draw(Gfx& g) {
     const Theme& th = ui_.th();
     const uint8_t ci = a.currentInstrument();
     char title[48], sub[48];
-    if (mode == 3) std::snprintf(title, sizeof(title), "MIDI Instrument Parameters");
+    if (mode == 5) std::snprintf(title, sizeof(title), "MIDI Instrument Preset");   // [I] #13
+    else if (mode == 3) std::snprintf(title, sizeof(title), "MIDI Instrument Parameters");
     else if (mode == 4) std::snprintf(title, sizeof(title), "MIDI Instrument LFO");
     else if (mode == 1) std::snprintf(title, sizeof(title), "Instrument Automation 2/2");
     else if (effects) std::snprintf(title, sizeof(title), "Instrument Effects");
@@ -778,6 +807,10 @@ void InstrumentScreen::draw(Gfx& g) {
     else if (isSynthInstrument(ci)) synthui::slotLabel(a, synthSlotOf(ci), sub, sizeof(sub));
     else std::snprintf(sub, sizeof(sub), "%d. MIDI Channel %d", ci + 1, ci - kFirstMidiInstrument + 1);
     ui_.drawTitle(g, title, sub);
+    if (mode == 5) {
+        drawPreset(g);
+        return;
+    }
     char v[24];
     float fr;
     bool bi;
@@ -841,6 +874,225 @@ void InstrumentScreen::draw(Gfx& g) {
     for (int c = 0; c < 8; ++c)
         if (!drawn[c]) wg::panelColumn(g, th, c);
     if (focusX >= 0) wg::panelFocus(g, th, focusX, focusW);
+}
+
+// ---------------------------------------------------------------------------
+// [I] #13 MIDI Instrument Preset page (mode 5): the CC slots A..F with their
+// labels on the left, the preset name (or the Load list of MidiPresets/*.txt)
+// on the right. F1 Load, F2 Save, F3 Save As, F6 Label, Delete clears the
+// slot's label; in the Load list the encoder / Up / Down move, F8 loads into
+// this instrument (its channel stays), F7 / Left cancel.
+
+namespace {
+struct PresetNames {
+    char n[InstrumentScreen::kPresetMax][MidiPresetInfo::kNameMax + 1];
+};
+static_assert(sizeof(PresetNames) <= kBrowserListBytes, "the preset names fit the shared list buffer");
+PresetNames& presetNames() { return *static_cast<PresetNames*>(browserListMem()); }
+int midiIndex(const App& a) { return (a.currentInstrument() - kFirstMidiInstrument) % kMidiInstrumentCount; }
+void slotItem(void* ctx, int i, char* out, int cap) {
+    const App* a = static_cast<const App*>(ctx);
+    const MidiInstrument m = a->project.midiInstrument(midiIndex(*a));
+    char v[24];
+    midicc::ccValueName(m.cc[i % 6], v, sizeof(v));
+    std::snprintf(out, size_t(cap), "%c   %s", 'A' + i, v);
+}
+const char* slotTag(void* ctx, int i) {
+    const App* a = static_cast<const App*>(ctx);
+    return a->project.midiPreset[midiIndex(*a)].label[i % 6];
+}
+void presetItem(void*, int i, char* out, int cap) { std::snprintf(out, size_t(cap), "%s", presetNames().n[i]); }
+// A name typed on the keyboard as a file name: no trailing spaces, no slashes.
+void cleanName(char* s) {
+    for (size_t n = std::strlen(s); n > 0 && s[n - 1] == ' '; --n) s[n - 1] = 0;
+    for (char* q = s; *q; ++q)
+        if (*q == '/' || *q == '\\') *q = '_';
+}
+}  // namespace
+
+void InstrumentScreen::listPresets() {
+    presetCount = 0;
+    app_.fs().listDir(mpreset::kDir, [](const IStorage::DirEntry& e, void* c) {
+        auto* s = static_cast<InstrumentScreen*>(c);
+        if (e.isDir || e.name[0] == '.' || s->presetCount >= kPresetMax) return true;
+        const size_t n = std::strlen(e.name), x = std::strlen(mpreset::kExt);
+        if (n <= x || n - x > size_t(MidiPresetInfo::kNameMax)) return true;
+        for (size_t i = 0; i < x; ++i)
+            if ((e.name[n - x + i] | 32) != mpreset::kExt[i]) return true;
+        char* d = presetNames().n[s->presetCount++];
+        std::memcpy(d, e.name, n - x);
+        d[n - x] = 0;
+        return true;
+    }, this);
+    // Alphabetical, ignoring case.
+    PresetNames& p = presetNames();
+    auto less = [](const char* a, const char* b) {
+        for (; *a && *b; ++a, ++b) {
+            const int x = (*a >= 'A' && *a <= 'Z') ? *a + 32 : *a, y = (*b >= 'A' && *b <= 'Z') ? *b + 32 : *b;
+            if (x != y) return x < y;
+        }
+        return *a == 0 && *b != 0;
+    };
+    for (int i = 1; i < presetCount; ++i)
+        for (int j = i; j > 0 && less(p.n[j], p.n[j - 1]); --j) {
+            char t[MidiPresetInfo::kNameMax + 1];
+            std::memcpy(t, p.n[j], sizeof(t));
+            std::memcpy(p.n[j], p.n[j - 1], sizeof(t));
+            std::memcpy(p.n[j - 1], t, sizeof(t));
+        }
+}
+
+void InstrumentScreen::presetMove(int d) {
+    if (presetList) presetCursor = clampi(presetCursor + d, 0, presetCount > 0 ? presetCount - 1 : 0);
+    else presetSlot = clampi(presetSlot + d, 0, 5);
+    ui_.dirty();
+}
+
+void InstrumentScreen::onPresetButton(uint8_t id) {
+    App& a = app_;
+    const int mi = midiIndex(a);
+    if (presetList) {
+        switch (id) {
+            case btn::Up: presetMove(-1); break;   // lists: Up moves up
+            case btn::Down: presetMove(1); break;
+            case btn::F8: loadPreset(); break;
+            case btn::F7:
+            case btn::Left: presetList = false; break;
+            case btn::Play: Screen::onButton(id, kPress); break;
+            default: break;
+        }
+        ui_.dirty();
+        return;
+    }
+    switch (id) {
+        case btn::F1:
+            listPresets();
+            if (presetCount == 0) {
+                ui_.notify("No presets in MidiPresets");
+                break;
+            }
+            presetList = true;
+            presetCursor = presetTop_ = 0;
+            for (int i = 0; i < presetCount; ++i)
+                if (std::strcmp(presetNames().n[i], a.project.midiPreset[mi].name) == 0) presetCursor = i;
+            break;
+        case btn::F2: savePreset(); break;
+        case btn::F3: savePresetAs(); break;
+        case btn::F6: editLabel(); break;
+        case btn::Up: presetMove(-1); break;
+        case btn::Down: presetMove(1); break;
+        case btn::Delete:
+            if (a.project.midiPreset[mi].label[presetSlot][0]) {
+                a.project.midiPreset[mi].label[presetSlot][0] = 0;
+                a.markProjectDirty();
+            }
+            break;
+        default: Screen::onButton(id, kPress); break;
+    }
+    ui_.dirty();
+}
+
+void InstrumentScreen::loadPreset() {
+    if (presetCursor < 0 || presetCursor >= presetCount) return;
+    const bool ok = app_.loadMidiPreset(midiIndex(app_), presetNames().n[presetCursor]);
+    ui_.notify(ok ? "Preset loaded" : "Preset could not be loaded");
+    if (ok) presetList = false;
+}
+
+void InstrumentScreen::savePreset() {
+    const MidiPresetInfo& info = app_.project.midiPreset[midiIndex(app_)];
+    if (!info.name[0]) {
+        savePresetAs();
+        return;
+    }
+    std::snprintf(presetName_, sizeof(presetName_), "%s", info.name);
+    savePresetNow();
+}
+
+void InstrumentScreen::savePresetNow() {
+    const bool ok = app_.saveMidiPreset(midiIndex(app_), presetName_);
+    ui_.notify(ok ? "Preset saved" : "Preset could not be saved");
+    refreshBar();
+    ui_.dirty();
+}
+
+void InstrumentScreen::savePresetAs() {
+    const MidiPresetInfo& info = app_.project.midiPreset[midiIndex(app_)];
+    char init[MidiPresetInfo::kNameMax + 1];
+    if (info.name[0]) std::snprintf(init, sizeof(init), "%s", info.name);
+    else Keyboard::autoName(init, sizeof(init), ui_.now());
+    ui_.kb.open("Save Preset As", init, MidiPresetInfo::kNameMax, "Save",
+                [](void* c, bool ok, const char* text) {
+                    auto* s = static_cast<InstrumentScreen*>(c);
+                    if (!ok) return;
+                    std::snprintf(s->presetName_, sizeof(s->presetName_), "%s", text ? text : "");
+                    cleanName(s->presetName_);
+                    if (!s->presetName_[0]) {
+                        s->ui_.notify("Preset name is empty");
+                        return;
+                    }
+                    char path[64];
+                    std::snprintf(path, sizeof(path), "%s/%s%s", mpreset::kDir, s->presetName_, mpreset::kExt);
+                    if (s->app_.fs().exists(path)) {
+                        s->ui_.ask("Preset exists", "Overwrite?", nullptr, "Cancel", "Overwrite",
+                                   [](void* c2, int key) {
+                                       if (key == btn::F8) static_cast<InstrumentScreen*>(c2)->savePresetNow();
+                                   },
+                                   s);
+                        return;
+                    }
+                    s->savePresetNow();
+                },
+                this);
+}
+
+void InstrumentScreen::editLabel() {
+    const MidiPresetInfo& info = app_.project.midiPreset[midiIndex(app_)];
+    ui_.kb.open("CC Label", info.label[presetSlot], MidiPresetInfo::kLabelMax, "OK",
+                [](void* c, bool ok, const char* text) {
+                    auto* s = static_cast<InstrumentScreen*>(c);
+                    if (!ok) return;
+                    MidiPresetInfo& m = s->app_.project.midiPreset[midiIndex(s->app_)];
+                    char* l = m.label[s->presetSlot];
+                    std::snprintf(l, MidiPresetInfo::kLabelMax + 1, "%s", text ? text : "");
+                    for (size_t n = std::strlen(l); n > 0 && l[n - 1] == ' '; --n) l[n - 1] = 0;
+                    m.sanitize();
+                    s->app_.markProjectDirty();
+                    s->refreshBar();
+                    s->ui_.dirty();
+                },
+                this);
+}
+
+void InstrumentScreen::drawPreset(Gfx& g) {
+    const Theme& th = ui_.th();
+    wg::ListView v;
+    v.x = 1;
+    v.w = 397;
+    v.count = 6;
+    v.sel = presetSlot;
+    v.active = !presetList;
+    v.item = slotItem;
+    v.tag = slotTag;
+    v.ctx = &app_;
+    wg::list(g, th, v);
+    wg::ListView r;
+    r.x = 400;
+    r.w = 399;
+    if (presetList) {
+        r.count = presetCount;
+        presetTop_ = wg::listFollow(presetCursor, presetCount, wg::listVisibleRows(r.h), presetTop_);
+        r.top = presetTop_;
+        r.sel = presetCursor;
+        r.active = true;
+        r.item = presetItem;
+        wg::list(g, th, r);
+        return;
+    }
+    wg::list(g, th, r);   // the empty panel
+    const MidiPresetInfo& info = app_.project.midiPreset[midiIndex(app_)];
+    g.text(412, wg::kPanelY + 20, kFont1, th.dim, "Preset", IDisplay::kOptCenterY);
+    g.text(412, wg::kPanelY + 48, kFont1, th.text, info.name[0] ? info.name : "(none)", IDisplay::kOptCenterY);
 }
 
 }  // namespace ot

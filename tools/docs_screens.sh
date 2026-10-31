@@ -22,6 +22,9 @@ card() {   # card KIND DIR
     rm -rf "$2" "$2.eeprom"   # the sim keeps Config in DIR.eeprom: start clean
     mkdir -p "$2/Patches/DX7"
     python3 "$root/sim/fixtures/make_dx7_bank.py" "$2/Patches/DX7/Example bank.syx"
+    mkdir -p "$2/MidiPresets"   # an example MIDI preset (#13)
+    printf '# OpenTracker MIDI preset\ncc A = 74 Cutoff\ncc B = 71 Resonance\ncc C = 73 Attack\ncc D = 72 Release\ncc E = 1 Mod\ncc F = PC\nlfo target = CC 74\nlfo depth = 30\n' \
+        > "$2/MidiPresets/Example synth.txt"
     if [ "$1" = project ]; then
         cp -R "$songs/." "$2/"
         mkdir -p "$2/Workspace"
@@ -245,6 +248,27 @@ tap INSTRPARAMS      # Synth Macros
 wait 200
 enc 20               # M1 Bright up a little
 wait 300
+EOF
+
+# MIDI 1's Preset page (#13) with the example preset loaded.
+shot midi-presets empty <<'EOF'
+wait 300
+press INSTR
+wait 400
+enc -70
+enc 51               # MIDI 1
+release INSTR
+wait 100
+tap INSTRPARAMS
+wait 200
+tap INSTRPARAMS
+wait 200
+tap INSTRPARAMS      # Preset page
+wait 200
+tap F1               # Load list
+wait 200
+tap F8               # Load
+wait 3500            # the notice fades
 EOF
 
 # MIDI 1's LFO page, target CC 1.

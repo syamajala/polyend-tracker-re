@@ -142,6 +142,12 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   row above. The pad lights draw the keys (root brightest, black keys dimmer, notes outside
   the scale barely lit); the gaps play nothing.
 
+### MIDI presets
+- **Instrument Params** on a MIDI instrument now steps through Parameters, LFO and a new
+  **Preset** page: name the CC slots A–F ("Cutoff" instead of "CC A"), then **Save** the
+  setup (velocity, offset, CC A–F with names, LFO) to `MidiPresets/<name>.txt` and **Load**
+  it into any MIDI instrument. Presets hold no channel and no program change.
+
 ### Remote control and on-device testing
 - **Config > USB > Remote control** (Off after every power-on):
   - **Panel mode:** a Tracker connected over USB becomes the simulator's front panel.

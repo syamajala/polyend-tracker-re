@@ -101,6 +101,7 @@ void Project::setLoadPrefill() {
         setMidiInstrument(i, m);
     }
     for (MidiLfo& l : midiLfo) l = MidiLfo{};
+    for (MidiPresetInfo& m : midiPreset) m = MidiPresetInfo{};   // [I] #13
     std::memset(perfScene, 0, sizeof(perfScene));
     perfSceneOn[0] = 0;
     perfSceneOn[1] = 1;

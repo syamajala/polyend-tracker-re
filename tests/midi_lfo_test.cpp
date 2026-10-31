@@ -163,7 +163,11 @@ TEST(midi_lfo_instrument_page) {
     h.tap(btn::F6);
     h.tap(btn::F6);
     CHECK_EQ(l.retrig, 1);
-    // Back to the parameters page; another MIDI instrument keeps the LFO page.
+    // On to the preset page (#13), back to the parameters page; another MIDI
+    // instrument keeps the LFO page.
+    h.tap(btn::InstrParams);
+    h.run(40);
+    CHECK(h.disp.lastHasText("MIDI Instrument Preset"));
     h.tap(btn::InstrParams);
     h.run(40);
     CHECK(h.disp.lastHasText("MIDI Instrument Parameters"));

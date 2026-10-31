@@ -480,6 +480,12 @@ public:
     // Slot s's patch -> Patches/<MODEL>/<name>.patch (atomic; folders made),
     // record name = name.
     bool saveSynthLibraryPatch(int s, const char* name);
+    // [I] #13 MIDI presets (app/midi_presets.cpp): MidiPresets/<name>.txt,
+    // loaded into / saved from MIDI instrument `midi` (0..15). Load sets
+    // velocity, offset, CC A..F, their labels and the MIDI LFO, and names the
+    // instrument after the preset; the channel stays the instrument's own.
+    bool loadMidiPreset(int midi, const char* name);
+    bool saveMidiPreset(int midi, const char* name);
     // Load Patch popup preview (Tracker+ 1.0; docs/SYNTH_UX_MINI_VS_OT.md
     // row 24): Patches/<MODEL>/<name>.patch plays in slot s (its patch and
     // the audio-side record with the patch's macro defaults) while the
