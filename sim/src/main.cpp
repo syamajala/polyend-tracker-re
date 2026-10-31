@@ -30,6 +30,7 @@
 #include "sim_usb_storage.h"
 #include "panel.h"
 #include "png.h"
+#include "remote/display_tap.h"
 #include "sdl_audio.h"
 #include "sim_nvstore.h"
 #include "sw_display.h"
@@ -48,6 +49,8 @@ struct Options {
     bool romFonts = false, romText = false;   // OP-6 checks (also OT_SIM_ROM_FONTS / OT_SIM_ROM_TEXT = 1)
     bool busyDisplay = true;                  // FT81x pacing model (off: --instant-display / OT_SIM_BUSY = 0)
     std::string script, screenshot, wav;
+    std::string frame;    // [I] draw a recorded frame (.otf) for --screenshot
+    std::string frames;   // headless: save the frame at each "budget" as DIR/NAME.otf (tools/eve_emu)
     float lineInTone = 0.0f;   // headless: synthetic line input (Hz), 0 = none
     long quitAfterMs = -1;
 };
@@ -66,6 +69,9 @@ void usage() {
         "  --script FILE     replay scripted input (see README)\n"
         "  --screenshot PNG  save the framebuffer at the end\n"
         "  --panel           screenshots include the whole front panel\n"
+        "  --frames DIR      at each 'budget' also save the frame (fragment cache off) as DIR/NAME.otf\n"
+        "                    (tools/eve_emu replays them on the FT81x emulator)\n"
+        "  --frame FILE.otf  draw a saved frame (with --screenshot)\n"
         "  --wav OUT.wav     record the rendered audio\n"
         "  --line-in-tone HZ synthetic line input: tone bursts (recorder tests)\n"
         "  --rom-fonts       never bind the custom fonts (FT81x ROM font fallback)\n"
@@ -95,6 +101,8 @@ bool parseArgs(int argc, char** argv, Options& o) {
         if (a == "--instant-display") { o.busyDisplay = false; continue; }
         if (a == "--script" && next(o.script)) continue;
         if (a == "--screenshot" && next(o.screenshot)) continue;
+        if (a == "--frame" && next(o.frame)) continue;
+        if (a == "--frames" && next(o.frames)) continue;
         if (a == "--wav" && next(o.wav)) continue;
         if (a == "--line-in-tone" && next(v)) { o.lineInTone = float(std::atof(v.c_str())); continue; }
         if (a == "--quit-after" && next(v)) { o.quitAfterMs = std::atol(v.c_str()); continue; }
@@ -121,6 +129,8 @@ bool parseArgs(int argc, char** argv, Options& o) {
 struct Machine {
     SimClock clock;
     SwDisplay display;
+    std::unique_ptr<ot::remote::DisplayTap> tap;   // --frames: the display recorder
+    std::vector<uint8_t> tapBuf;
     SimInput input{clock};
     SimLeds leds;
     HostStorage storage;
@@ -202,6 +212,14 @@ struct Machine {
 
         ot::HalRefs h;
         h.display = &display;
+        if (!o.frames.empty()) {
+            // --frames: the display recorder, with room for a frame the
+            // guard would cut on the device.
+            tap.reset(new ot::remote::DisplayTap(display));
+            tapBuf.assign(64 * 1024, 0);
+            tap->setBuffer(tapBuf.data(), uint32_t(tapBuf.size()));
+            h.display = tap.get();
+        }
         h.audio = audio;
         h.storage = &storage;
         h.streamReader = &streamReader;
@@ -402,6 +420,7 @@ void recordNotice(const char* text) { gNotices.push_back(text); }
 struct Headless {
     Machine& m;
     bool panel;
+    std::string framesDir;   // --frames
     uint64_t frameAcc = 0;   // frames * 1000
     // Display budget (2.x performance workstream): the largest per-frame
     // command-FIFO upload since the last "budget" / "budget-reset".
@@ -436,8 +455,66 @@ struct Headless {
                      ok ? "" : "  <-- OVER BUDGET");
         if (!ok) std::fprintf(stderr, "script:%d: display budget exceeded for %s\n", line, name.c_str());
         maxUpload = maxDl = budgetFrames = 0;
+        if (!framesDir.empty() && !saveFrame(name, line)) return false;
         return ok;
     }
+
+    // --frames: the current screen drawn once more with the fragment cache
+    // off (the recorded stream has no RAM_G copies) into DIR/NAME.otf;
+    // DIR/index.txt gets "NAME words" with the
+    // UI's RAM_DL count of that frame (driver font setup not included). With
+    // custom fonts also DIR/NAME.text.otf: the same screen with its text as
+    // CMD_TEXT (kCustomText, the guard lifted), the pixel reference for the
+    // glyph runs.
+    bool captureFrame(const std::string& path, int line) {
+        ot::remote::DisplayTap* t = m.tap.get();
+        ot::Ui& ui = m.app->ui;
+        const bool was = ui.fragments.enabled;
+        ui.fragments.enabled = false;
+        t->request();
+        t->arm();
+        ui.render();
+        ui.fragments.enabled = was;
+        bool got = t->ready() && !t->truncated();
+        if (got) {
+            FILE* f = std::fopen(path.c_str(), "wb");
+            got = f && std::fwrite(t->frame(), 1, t->frameBytes(), f) == t->frameBytes();
+            if (f) std::fclose(f);
+            if (!got) std::fprintf(stderr, "script:%d: cannot write %s\n", line, path.c_str());
+        } else {
+            std::fprintf(stderr, "script:%d: frame %s not recorded%s\n", line, path.c_str(),
+                         t->truncated() ? " (cut)" : "");
+        }
+        t->release();
+        return got;
+    }
+    bool saveFrame(const std::string& name, int line) {
+        if (!m.app || !m.tap) return true;
+        ot::Ui& ui = m.app->ui;
+        bool ok = captureFrame(framesDir + "/" + name + ".otf", line);
+        const uint32_t words = ui.lastDlWords();
+        if (ok && ot::customFontsBound() && ot::customTextMode() == ot::kCustomGlyphs) {
+            const uint32_t limit = ui.dlFrameLimit();
+            ui.setDlFrameLimit(0);
+            ot::setCustomTextMode(ot::kCustomText);
+            ok = captureFrame(framesDir + "/" + name + ".text.otf", line);
+            ot::setCustomTextMode(ot::kCustomGlyphs);
+            ui.setDlFrameLimit(limit);
+            // The display shows the last frame sent: leave it showing the
+            // screen as drawn (a following fragcheck reads the front buffer).
+            ui.render();
+            advance(20);
+        }
+        if (ok) {
+            if (FILE* ix = std::fopen((framesDir + "/index.txt").c_str(), "a")) {
+                std::fprintf(ix, "%s %u\n", name.c_str(), unsigned(words));
+                std::fclose(ix);
+            }
+        }
+        seenFrames = ui.frames();
+        return ok;
+    }
+
 
     // fragcheck NAME: the current screen drawn inline and through cached
     // fragments (probe, capture, append) must give identical pixels.
@@ -911,6 +988,21 @@ int keyToPad(SDL_Scancode sc) {
     return -1;
 }
 
+// --frame: a saved frame (core/remote/display_tap.h) into a PNG.
+int drawFrameFile(Machine& m, const Options& o) {
+    std::ifstream f(o.frame, std::ios::binary);
+    if (!f) {
+        std::fprintf(stderr, "cannot read %s\n", o.frame.c_str());
+        return 2;
+    }
+    const std::vector<uint8_t> data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    m.display.setRomFontsOnly(o.romFonts);
+    const bool ok = ot::remote::replayFrame(data.data(), data.size(), m.display);
+    if (!ok) std::fprintf(stderr, "%s: malformed or cut frame (drawn up to there)\n", o.frame.c_str());
+    if (!o.screenshot.empty()) saveShot(m, o.screenshot, o.panelShot);
+    return ok ? 0 : 1;
+}
+
 int runInteractive(Machine& m, const Options& o) {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS) != 0) {
         std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
@@ -1059,6 +1151,7 @@ int main(int argc, char** argv) {
     if (!parseArgs(argc, argv, o)) return 2;
     const bool headless = !o.script.empty() || !o.screenshot.empty();
     Machine m;
+    if (!o.frame.empty()) return drawFrameFile(m, o);
     m.display.setRomFontsOnly(o.romFonts);
     if (o.busyDisplay) m.display.setBusyClock(&m.clock);
     ot::setRomTextMode(o.romText ? ot::kRomText : ot::kRomGlyphs);
@@ -1067,7 +1160,7 @@ int main(int argc, char** argv) {
         if (m.audio) m.audio->start();   // App::init already started it; harmless
         return runInteractive(m, o);
     }
-    Headless h{m, o.panelShot};
+    Headless h{m, o.panelShot, o.frames};
     if (m.audio) m.audio->start();
     h.advance(300);   // boot and first frame
     bool ok = o.script.empty() || h.run(o.script);
