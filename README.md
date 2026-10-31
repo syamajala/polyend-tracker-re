@@ -142,6 +142,10 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   row above. The pad lights draw the keys (root brightest, black keys dimmer, notes outside
   the scale barely lit); the gaps play nothing.
 
+### Chord entry
+- In the pattern editor's edit mode, pads held together enter a chord: one note per
+  track on the same step, from the cursor track rightwards. One Undo removes it.
+
 ### Remote control and on-device testing
 - **Config > USB > Remote control** (Off after every power-on):
   - **Panel mode:** a Tracker connected over USB becomes the simulator's front panel.
