@@ -633,6 +633,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#slices-to-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slices to pattern
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-2x-features-from-upstream" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1085,6 +1096,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#slices-to-pattern" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slices to pattern
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-2x-features-from-upstream" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1242,6 +1264,40 @@ pads together, release them, and play the next chord.</p>
 <li>A track that can't play the current instrument (a MIDI track for a sample instrument)
   ends the chord there.</li>
 <li>Live recording (Rec while playing) already spreads a chord over the next free tracks.</li>
+</ul>
+<h2 id="slices-to-pattern">Slices to pattern<a class="headerlink" href="#slices-to-pattern" title="Permanent link">&para;</a></h2>
+<p>Chop a break, then press one key to get a pattern that plays it. On the Sample Playback screen
+(Slice or Beat Slice mode), open the <strong>More</strong> page (F6):</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Steps</strong> (F4)</td>
+<td>How many steps the sample lasts. The guess is its length at the song tempo, rounded to 1, 2, 4 or 8 bars; turn the encoder if it guessed wrong (a 2-bar break at 92 BPM in a 140 BPM song reads as 4 bars).</td>
+</tr>
+<tr>
+<td><strong>To Pattern</strong> (F5)</td>
+<td>Writes the slices on the pattern's current track (the one the cursor was on).</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Slice i goes on the step nearest where it starts, as note 24 + i, with the steps in
+  between empty, so each slice plays on to the next one. The trigs repeat every Steps
+  steps to the end of the track.</li>
+<li>The track is cleared first; it asks when the track had steps. Undo in the pattern
+  editor brings them back.</li>
+<li>A Slice instrument turns Beat Slice, so each note plays its own slice.</li>
+<li>At another song tempo the slices play at their own speed and pitch (as REX loops do):
+  a faster song cuts each slice short at the next trig, a slower one leaves a short gap
+  after it. The pattern keeps its
+  length; a sample longer than the track is placed once, cut at the track's end.</li>
+<li>Slice first: Auto (F1) for drum breaks, Evenly (F2) for loops in time.</li>
 </ul>
 <h2 id="the-2x-features-from-upstream">The 2.x features (from upstream)<a class="headerlink" href="#the-2x-features-from-upstream" title="Permanent link">&para;</a></h2>
 <p>The 2.x line brings the newer Tracker features to the original hardware. In short:</p>
