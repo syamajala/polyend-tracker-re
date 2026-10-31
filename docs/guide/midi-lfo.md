@@ -13,7 +13,7 @@ Each MIDI instrument (MIDI 1–16) gets one **tempo-locked LFO**, sent alongside
 
 | Setting (key) | Choices |
 |---|---|
-| **Target** (F1) | Off, the instrument's CC slots A–F, pitch bend, channel pressure, then every other CC (0–127). A CC named in the [preset](midi-presets.md) shows its name. Turning the encoder only picks the target; the LFO moves to it once the encoder rests, so the CCs passed on the way are left alone. |
+| **Target** (F1) | Off, one of the CC slots **A–F**, pitch bend or channel pressure; the whole list is on screen, slots shown by their CC's name ("A Cutoff"). The LFO follows the slot: change the slot's CC on the parameters page and the LFO moves with it. A slot set to Prg Chg or Poly AT sends nothing. Turning the encoder only picks the target; the LFO moves to it once the encoder rests, so the slots passed on the way are left alone. |
 | **Shape** (F2) | Rev saw, Saw, Triangle, Square, Random. |
 | **Rate** (F3) | From 128 steps per cycle down to 1/8 step, locked to the tempo. |
 | **Depth** (F4) | How far it moves around Center. |
@@ -27,6 +27,6 @@ Each MIDI instrument (MIDI 1–16) gets one **tempo-locked LFO**, sent alongside
 - The LFO runs while the sequencer plays. At Stop, its target is left at **Center**, and so
   is a target you switch away from (or turn Off) while playing.
 - **Depth** is a percentage of half the target's range around Center.
-- A step FX on the same target (a CC FX on the LFO's CC, pitch bend, or pressure) moves
-  the LFO's **Center**, so the pattern can shift the wobble around.
+- A step FX on the same target (the LFO's CC slot, pitch bend, or pressure) moves the
+  LFO's **Center**, so the pattern can shift the wobble around.
 - Stored in `midi_lfo.bin` next to `project.mt`; other firmware ignores it.

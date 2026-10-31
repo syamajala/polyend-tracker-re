@@ -23,7 +23,7 @@ card() {   # card KIND DIR
     mkdir -p "$2/Patches/DX7"
     python3 "$root/sim/fixtures/make_dx7_bank.py" "$2/Patches/DX7/Example bank.syx"
     mkdir -p "$2/MidiPresets"   # an example MIDI preset (#13)
-    printf '# OpenTracker MIDI preset\nslot A = 74\nslot B = 71\nslot C = 73\nslot D = 72\nslot E = 1\nslot F = PC\ncc 1 = Mod\ncc 3 = LFO Rate\ncc 71 = Resonance\ncc 72 = Release\ncc 73 = Attack\ncc 74 = Cutoff\ncc 75 = Decay\ncc 76 = Fine Tune\nlfo target = CC 74\nlfo depth = 30\n' \
+    printf '# OpenTracker MIDI preset\nslot A = 74\nslot B = 71\nslot C = 73\nslot D = 72\nslot E = 1\nslot F = PC\ncc 1 = Mod\ncc 3 = LFO Rate\ncc 71 = Resonance\ncc 72 = Release\ncc 73 = Attack\ncc 74 = Cutoff\ncc 75 = Decay\ncc 76 = Fine Tune\nlfo target = slot A\nlfo depth = 30\n' \
         > "$2/MidiPresets/Example synth.txt"
     if [ "$1" = project ]; then
         cp -R "$songs/." "$2/"
@@ -284,7 +284,7 @@ tap INSTRPARAMS
 wait 200
 tap INSTRPARAMS      # LFO page
 wait 200
-enc 1                # Target: CC 1 (Mod), slot A
+enc 1                # Target: slot A (CC 1 Mod)
 wait 600            # the pick reaches the LFO
 EOF
 

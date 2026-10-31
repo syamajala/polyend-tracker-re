@@ -24,7 +24,7 @@ MidiPreset sample() {
     std::strcpy(p.name[43], "Cutoff");
     std::strcpy(p.name[44], "Resonance");
     std::strcpy(p.name[103], "Chop Ovt");   // a named CC on no slot
-    p.lfo.target = 75;   // CC 74
+    p.lfo.target = 2;   // slot B
     p.lfo.shape = 4;
     p.lfo.rate = 12;
     p.lfo.depth = 80;
@@ -55,7 +55,7 @@ TEST(midi_preset_text_round_trip) {
     CHECK(t.find("slot F = PC\n") != std::string::npos);
     CHECK(t.find("cc 43 = Cutoff\n") != std::string::npos);
     CHECK(t.find("cc 103 = Chop Ovt\n") != std::string::npos);
-    CHECK(t.find("lfo target = CC 74\n") != std::string::npos);
+    CHECK(t.find("lfo target = slot B\n") != std::string::npos);
     CHECK(t.find("channel") == std::string::npos);   // a preset has no channel
     MidiPreset q;
     CHECK(decodeMidiPreset(buf, n, q));
@@ -92,6 +92,13 @@ TEST(midi_preset_text_is_forgiving) {
     const std::string l = text("cc 1 = AVeryLongLabelName\n");
     CHECK(decodeMidiPreset(l.data(), l.size(), p));
     CHECK_EQ(std::strlen(p.name[1]), size_t(MidiCcNames::kNameMax));
+    // "lfo target = CC n": the slot with CC n, else off.
+    const std::string c = text("slot C = 74\nlfo target = CC 74\n");
+    CHECK(decodeMidiPreset(c.data(), c.size(), p));
+    CHECK_EQ(p.lfo.target, 3);
+    const std::string d = text("lfo target = CC 99\n");
+    CHECK(decodeMidiPreset(d.data(), d.size(), p));
+    CHECK_EQ(p.lfo.target, MidiLfo::kTargetOff);
     // Not a preset.
     const std::string junk = text("hello\nworld = 1\n");
     CHECK(!decodeMidiPreset(junk.data(), junk.size(), p));
@@ -162,7 +169,7 @@ TEST(midi_preset_save_and_load_into_any_instrument) {
     a.project.setMidiInstrument(2, m);
     CHECK(a.midiNames.setName(2, 74, "Cutoff"));
     CHECK(a.midiNames.setName(2, 103, "Chop Ovt"));
-    a.project.midiLfo[2].target = 75;
+    a.project.midiLfo[2].target = 1;   // slot A
     CHECK(a.saveMidiPreset(2, "Cycles"));
     CHECK(h.fs.exists("MidiPresets/Cycles.txt"));
     CHECK_STR(a.midiNames.preset[2], "Cycles");
@@ -174,7 +181,7 @@ TEST(midi_preset_save_and_load_into_any_instrument) {
     CHECK_EQ(n.velocity, 99);
     CHECK_EQ(n.cc[0], 74);
     CHECK_EQ(n.channel, ch);
-    CHECK_EQ(a.project.midiLfo[5].target, 75);
+    CHECK_EQ(a.project.midiLfo[5].target, 1);
     CHECK_STR(a.midiNames.preset[5], "Cycles");
     CHECK_STR(a.midiNames.name(5, 103), "Chop Ovt");
     CHECK_EQ(a.midiNames.chart[5], a.midiNames.chart[2]);
@@ -255,7 +262,7 @@ TEST(midi_preset_page) {
     CHECK_STR(a.midiNames.name(2, 71), "");
 }
 
-TEST(midi_lfo_target_slots_first_and_settles) {
+TEST(midi_lfo_target_is_a_slot_and_settles) {
     Harness h;
     App& a = *h.app;
     MidiInstrument m = a.project.midiInstrument(2);
@@ -270,22 +277,25 @@ TEST(midi_lfo_target_slots_first_and_settles) {
     InstrumentScreen& scr = *static_cast<InstrumentScreen*>(a.ui.screen(kModInstrument));
     CHECK_EQ(scr.mode, 4);
     scr.column = 0;
-    // One click past Off is slot A, shown by its name; two is slot B.
+    h.run(40);
+    // The whole list, slots by their CC's name.
+    CHECK(h.disp.lastHasText("A Cutoff"));
+    CHECK(h.disp.lastHasText("B Reso"));
+    CHECK(h.disp.lastHasText("C 24"));
+    CHECK(h.disp.lastHasText("Pitch bnd"));
     h.enc(1);
     h.run(20);
-    CHECK(h.disp.lastHasText("Cutoff"));
     CHECK_EQ(a.project.midiLfo[2].target, MidiLfo::kTargetOff);   // not sent while scrolling
     h.enc(1);
     h.run(100);
-    CHECK(h.disp.lastHasText("Reso"));
     CHECK_EQ(a.project.midiLfo[2].target, MidiLfo::kTargetOff);
-    h.run(500);   // the encoder rests: Reso (CC 71) reaches the LFO
-    CHECK_EQ(a.project.midiLfo[2].target, 71 + 1);
-    // Past the six slots: pitch bend, channel pressure, then CC 0.
+    h.run(500);   // the encoder rests: slot B reaches the LFO
+    CHECK_EQ(a.project.midiLfo[2].target, 2);
+    CHECK_EQ(a.project.midiLfo[2].wire(a.project.midiInstrument(2)), 71 + 1);
+    // Past the six slots: pitch bend.
     for (int i = 0; i < 5; ++i) h.enc(1);
     h.run(20);
-    CHECK(h.disp.lastHasText("Pitch bnd"));
-    CHECK_EQ(a.project.midiLfo[2].target, 71 + 1);
+    CHECK_EQ(a.project.midiLfo[2].target, 2);
     // Leaving the page hands the pick over at once.
     h.tap(btn::InstrParams);
     CHECK_EQ(a.project.midiLfo[2].target, MidiLfo::kTargetPitchBend);

@@ -34,7 +34,7 @@ void encodeMidiLfos(const Project& p, uint8_t out[mlfo::kFileSize]) {
 FmtStatus decodeMidiLfos(const uint8_t* file, size_t len, Project& p) {
     for (MidiLfo& l : p.midiLfo) l = MidiLfo{};
     if (len < mlfo::kHeaderSize) return FmtStatus::TooShort;
-    if (std::memcmp(file, "OTML", 4) != 0 || file[4] == 0) return FmtStatus::BadMagic;
+    if (std::memcmp(file, "OTML", 4) != 0 || file[4] < mlfo::kVersion) return FmtStatus::BadMagic;
     const uint32_t count = file[5], size = file[6];
     if (size < mlfo::kRecordSize) return FmtStatus::BadMagic;
     const size_t body = size_t(count) * size;

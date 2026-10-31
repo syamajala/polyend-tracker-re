@@ -14,7 +14,7 @@ using namespace ot;
 namespace {
 MidiLfo sample() {
     MidiLfo l;
-    l.target = 75;   // CC 74
+    l.target = 2;   // slot B
     l.shape = 4;
     l.rate = 12;
     l.depth = 80;
@@ -37,7 +37,7 @@ TEST(midi_lfo_codec_round_trip) {
     uint8_t buf[mlfo::kFileSize];
     encodeMidiLfos(p, buf);
     CHECK(std::memcmp(buf, "OTML", 4) == 0);
-    CHECK_EQ(buf[4], 1);
+    CHECK_EQ(buf[4], 2);
     CHECK_EQ(buf[5], 16);
     CHECK_EQ(buf[6], 6);
     Project q;
@@ -58,9 +58,13 @@ TEST(midi_lfo_codec_round_trip) {
     CHECK(decodeMidiLfos(buf, sizeof(buf), q) == FmtStatus::Ok);
     CHECK_EQ(q.midiLfo[3].shape, MidiLfo().shape);
     CHECK_EQ(q.midiLfo[3].depth, MidiLfo().depth);
-    CHECK_EQ(q.midiLfo[3].target, 75);
+    CHECK_EQ(q.midiLfo[3].target, 2);
+    // Version 1 (target = a CC number): not read.
+    encodeMidiLfos(p, buf);
+    buf[4] = 1;
+    CHECK(decodeMidiLfos(buf, sizeof(buf), q) == FmtStatus::BadMagic);
     // A newer file with longer records keeps the known fields.
-    uint8_t big[8 + 16 * 8 + 1] = {'O', 'T', 'M', 'L', 2, 16, 8, 0};
+    uint8_t big[8 + 16 * 8 + 1] = {'O', 'T', 'M', 'L', 3, 16, 8, 0};
     uint8_t s2 = 0;
     for (int i = 0; i < 16; ++i) {
         uint8_t* x = big + 8 + i * 8;
@@ -135,21 +139,27 @@ TEST(midi_lfo_instrument_page) {
     CHECK(h.disp.lastHasText("Retrigger"));
     CHECK(h.disp.lastHasText("Off"));
     MidiLfo& l = a.project.midiLfo[1];
-    // Target (at most 10 per event, as the CC columns), Up/Down too: Off, the
-    // CC slots (default 1 5 7 11 64; PC is no target), pitch bend, pressure,
-    // then the other CCs. A pick reaches the LFO once the encoder rests.
-    h.enc(75);
+    // Target, a list: Off, slots A..F by their CC (default 1 5 7 11 64 PC),
+    // pitch bend, pressure. A pick reaches the LFO once the encoder rests.
+    CHECK(h.disp.lastHasText("A 1 ModWh"));
+    CHECK(h.disp.lastHasText("Chan AT"));   // the whole list is on screen
+    h.enc(2);
     CHECK_EQ(l.target, MidiLfo::kTargetOff);
     h.run(500);
-    CHECK_EQ(l.target, 3 + 1);   // list[10] = CC 3
-    for (int i = 0; i < 6; ++i) h.enc(10);
-    h.enc(7);
+    CHECK_EQ(l.target, 2);   // slot B
+    h.enc(20);
     h.run(500);
-    CHECK_EQ(l.target, 74 + 1);
-    CHECK(h.disp.lastHasText("74"));
+    CHECK_EQ(l.target, MidiLfo::kTargetPressure);   // clamped at the end
+    h.tap(btn::Down);   // lists: Down moves down, Up up
+    h.tap(btn::Up);
     h.tap(btn::Up);
     h.run(500);
-    CHECK_EQ(l.target, 75 + 1);
+    CHECK_EQ(l.target, MidiLfo::kTargetPitchBend - 1);   // slot F
+    h.tap(btn::F1);   // a tap on the selected list steps on and wraps
+    h.tap(btn::F1);
+    h.tap(btn::F1);
+    h.run(500);
+    CHECK_EQ(l.target, MidiLfo::kTargetOff);
     // Shape (list, F2): a tap on the selected list column wraps.
     h.tap(btn::F2);
     CHECK_EQ(l.shape, 2);

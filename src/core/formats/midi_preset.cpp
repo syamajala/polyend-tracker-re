@@ -73,7 +73,7 @@ size_t encodeMidiPreset(const MidiPreset& p, char* out, size_t cap) {
     const MidiLfo& l = p.lfo;
     if (l.target == MidiLfo::kTargetPitchBend) put("%s", "lfo target = PB\n");
     else if (l.target == MidiLfo::kTargetPressure) put("%s", "lfo target = AT\n");
-    else if (l.active()) put("lfo target = CC %d\n", l.target - 1);
+    else if (l.active()) put("lfo target = slot %c\n", 'A' + l.target - 1);
     else put("%s", "lfo target = off\n");
     put("lfo shape = %d\n", l.shape);
     put("lfo rate = %d\n", l.rate);
@@ -90,6 +90,7 @@ size_t encodeMidiPreset(const MidiPreset& p, char* out, size_t cap) {
 bool decodeMidiPreset(const char* text, size_t len, MidiPreset& p) {
     p.reset();
     bool any = false;
+    int lfoCc = -1;   // "lfo target = CC n": the slot with CC n, once the slots are read
     size_t i = 0;
     while (i < len) {
         char line[96];
@@ -128,8 +129,10 @@ bool decodeMidiPreset(const char* text, size_t len, MidiPreset& p) {
             if (eqi(val, "off")) p.lfo.target = MidiLfo::kTargetOff, any = true;
             else if (eqi(val, "PB")) p.lfo.target = MidiLfo::kTargetPitchBend, any = true;
             else if (eqi(val, "AT")) p.lfo.target = MidiLfo::kTargetPressure, any = true;
+            else if (prefixi(val, "slot ") && std::strlen(val) == 6 && (val[5] | 32) >= 'a' && (val[5] | 32) <= 'f')
+                p.lfo.target = uint8_t((val[5] | 32) - 'a' + 1), any = true;
             else if ((val[0] | 32) == 'c' && (val[1] | 32) == 'c' && number(trim(val + 2), 0, 127, v))
-                p.lfo.target = uint8_t(v + 1), any = true;
+                lfoCc = v, any = true;
         } else if (eqi(key, "lfo shape")) {
             if (number(val, 0, MidiLfo::kShapeCount - 1, v)) p.lfo.shape = uint8_t(v), any = true;
         } else if (eqi(key, "lfo rate")) {
@@ -141,6 +144,11 @@ bool decodeMidiPreset(const char* text, size_t len, MidiPreset& p) {
         } else if (eqi(key, "lfo retrigger")) {
             if (number(val, 0, MidiLfo::kRetrigCount - 1, v)) p.lfo.retrig = uint8_t(v), any = true;
         }
+    }
+    if (lfoCc >= 0) {
+        p.lfo.target = MidiLfo::kTargetOff;   // a CC on no slot: off
+        for (int i = 5; i >= 0; --i)
+            if (p.cc[i] == lfoCc) p.lfo.target = uint8_t(i + 1);
     }
     for (auto& l : p.name)
         for (char* c = l; *c; ++c)

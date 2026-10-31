@@ -127,13 +127,19 @@ struct MidiInstrument {
 
 // [I] MIDI LFO, one per MIDI instrument (not in stock or the Tracker Mini):
 // a tempo-locked LFO sent as CC, pitch bend or channel pressure on the
-// instrument's channel while the sequencer plays. Stored in the project
-// folder's midi_lfo.bin (formats/midi_lfo.h), not in project.mt.
+// instrument's channel while the sequencer plays. It targets a CC slot A..F
+// and follows the slot's CC (#13: the CCs are picked, with their names, on
+// the slots). Stored in the project folder's midi_lfo.bin
+// (formats/midi_lfo.h), not in project.mt.
 struct MidiLfo {
-    static constexpr uint8_t kTargetOff = 0;          // 1..128 = CC 0..127
-    static constexpr uint8_t kTargetPitchBend = 129;
-    static constexpr uint8_t kTargetPressure = 130;   // channel pressure (aftertouch)
-    static constexpr int kTargetCount = 131;
+    static constexpr uint8_t kTargetOff = 0;          // 1..6 = CC slot A..F
+    static constexpr uint8_t kTargetPitchBend = 7;
+    static constexpr uint8_t kTargetPressure = 8;     // channel pressure (aftertouch)
+    static constexpr int kTargetCount = 9;
+    // What the LFO sends (wire()): 1..128 = CC 0..127.
+    static constexpr uint8_t kWireNone = 0;
+    static constexpr uint8_t kWirePitchBend = 129;
+    static constexpr uint8_t kWirePressure = 130;
     static constexpr int kShapeCount = 5;             // Rev saw, Saw, Triangle, Square, Random (as sample LFOs)
     static constexpr int kRateCount = 23;             // audio RATE table 128 steps .. 1/8 step
     static constexpr int kRetrigCount = 2;            // 0 Free (song position), 1 Note
@@ -146,6 +152,15 @@ struct MidiLfo {
     uint8_t retrig = 0;
 
     bool active() const { return target != kTargetOff && target < kTargetCount; }
+    // The message the target sends on instrument `m`: a slot's CC, or Chan AT
+    // for a slot set to it; none for Off and a slot on PC / Poly AT.
+    uint8_t wire(const MidiInstrument& m) const {
+        if (target == kTargetPitchBend) return kWirePitchBend;
+        if (target == kTargetPressure) return kWirePressure;
+        if (target < 1 || target > 6) return kWireNone;
+        const uint8_t cc = m.cc[target - 1];
+        return cc <= 127 ? uint8_t(cc + 1) : cc == 129 ? kWirePressure : kWireNone;
+    }
     bool isDefault() const {
         const MidiLfo d;
         return target == d.target && shape == d.shape && rate == d.rate && depth == d.depth &&

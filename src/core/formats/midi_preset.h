@@ -10,7 +10,7 @@
 //   ...
 //   cc 74 = Cutoff            (the synth's CC chart: a name per CC)
 //   ...
-//   lfo target = CC 74        (off, CC n, PB or AT)
+//   lfo target = slot A       (off, slot A..F, PB or AT; CC n = the slot with CC n)
 //   lfo shape = 2             (0..4: Rev saw, Saw, Triangle, Square, Random)
 //   lfo rate = 8              (0..22: 128 steps .. 1/8 step)
 //   lfo depth = 50            (0..100)

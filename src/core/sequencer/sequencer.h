@@ -368,12 +368,12 @@ private:
     // Evaluated every µstep while playing; sends only changed values, within
     // an output budget so the LFOs never take more than half of a DIN port.
     void midiLfoUpdate(float elapsedUs);
-    int midiLfoValue(int i, const MidiLfo& l) const;   // CC/pressure 0..127, pitch bend 0..16383
+    int midiLfoValue(int i, const MidiLfo& l, uint8_t wire) const;   // CC/pressure 0..127, pitch bend 0..16383
     void sendMidiLfo(int i, uint8_t target, int value);
     void midiLfoReset(bool sendCenter);
     void midiLfoRestore(int i);   // the last target back to its center
     // A CC / pitch bend / pressure FX on the LFO's target moves its center.
-    void midiLfoFxCenter(uint8_t instr, uint8_t target, int value);
+    void midiLfoFxCenter(uint8_t instr, uint8_t wire, int value);   // wire: MidiLfo::wire()
 
     bool liveTargetStep(int t, int& target) const;
     static bool cellFree(const Step& s);

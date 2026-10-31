@@ -1350,7 +1350,7 @@ void Sequencer::sendCcFx(int t, uint8_t letter, uint8_t value, const NoteRec& re
     const uint8_t ch = uint8_t(rec.instr - 48);  // status nibble = channel - 1
     const uint8_t v = value > 127 ? 127 : value;
     if (cc <= 127) midiLfoFxCenter(rec.instr, uint8_t(cc + 1), v);
-    else if (cc == 0x81) midiLfoFxCenter(rec.instr, MidiLfo::kTargetPressure, v);
+    else if (cc == 0x81) midiLfoFxCenter(rec.instr, MidiLfo::kWirePressure, v);
     if (cc <= 127) {
         sendMidi(uint8_t(0xB0 | ch), cc, v, 3);
     } else if (cc == 0x80) {
@@ -1370,7 +1370,7 @@ void Sequencer::sendPitchBendFx(uint8_t instr, uint8_t value) {
     if (!isMidiInstr(instr)) return;  // 64..66: no output channel defined (spec 03 §7 item 5)
     const int bend = -4000 + (v * 8000) / 198;
     const int raw = clampi(bend + 8192, 0, 16383);
-    midiLfoFxCenter(instr, MidiLfo::kTargetPitchBend, raw);
+    midiLfoFxCenter(instr, MidiLfo::kWirePitchBend, raw);
     sendMidi(uint8_t(0xE0 | (instr - 48)), uint8_t(raw & 0x7F), uint8_t(raw >> 7), 3);
 }
 
@@ -1545,20 +1545,20 @@ void Sequencer::midiLfoRestore(int i) {
     if (!project_ || lfo_->sent[i] < 0) return;
     const uint8_t t = lfo_->target[i];
     const int c = lfo_->center[i] >= 0 ? lfo_->center[i]
-                                       : (t == MidiLfo::kTargetPitchBend ? project_->midiLfo[i].center * 128
+                                       : (t == MidiLfo::kWirePitchBend ? project_->midiLfo[i].center * 128
                                                                          : project_->midiLfo[i].center);
     sendMidiLfo(i, t, c);
     lfo_->sent[i] = -1;
     lfo_->center[i] = -1;   // an FX center belongs to the old target
 }
 
-void Sequencer::midiLfoFxCenter(uint8_t instr, uint8_t target, int value) {
+void Sequencer::midiLfoFxCenter(uint8_t instr, uint8_t wire, int value) {
     if (!project_ || !isMidiInstr(instr)) return;
     const MidiLfo& l = project_->midiLfo[instr - 48];
-    if (l.active() && l.target == target) lfo_->center[instr - 48] = int16_t(value);
+    if (l.active() && l.wire(project_->midiInstrument(instr - 48)) == wire) lfo_->center[instr - 48] = int16_t(value);
 }
 
-int Sequencer::midiLfoValue(int i, const MidiLfo& l) const {
+int Sequencer::midiLfoValue(int i, const MidiLfo& l, uint8_t wire) const {
     // Phase in sequencer ticks (576 per step), so the LFO follows the tempo
     // and an external clock like the sample LFOs (spec 07 Q5).
     const uint32_t period = uint32_t(audio::lfoRateSteps(l.rate) * float(kTicksPerStep) + 0.5f);
@@ -1581,7 +1581,7 @@ int Sequencer::midiLfoValue(int i, const MidiLfo& l) const {
         }
     }
     const float b = (2.0f * u - 1.0f) * float(l.depth) / 100.0f;   // -1..1 scaled by depth
-    if (l.target == MidiLfo::kTargetPitchBend) {
+    if (wire == MidiLfo::kWirePitchBend) {
         const int c = lfo_->center[i] >= 0 ? lfo_->center[i] : l.center * 128;
         return clampi(c + int(b * 8192.0f + (b >= 0 ? 0.5f : -0.5f)), 0, 16383);
     }
@@ -1591,9 +1591,9 @@ int Sequencer::midiLfoValue(int i, const MidiLfo& l) const {
 
 void Sequencer::sendMidiLfo(int i, uint8_t target, int value) {
     const uint8_t ch = uint8_t(i);   // instrument 48 + i plays on channel i + 1
-    if (target == MidiLfo::kTargetPitchBend)
+    if (target == MidiLfo::kWirePitchBend)
         sendMidi(uint8_t(0xE0 | ch), uint8_t(value & 0x7F), uint8_t((value >> 7) & 0x7F), 3);
-    else if (target == MidiLfo::kTargetPressure)
+    else if (target == MidiLfo::kWirePressure)
         sendMidi(uint8_t(0xD0 | ch), uint8_t(value), 0, 2);
     else
         sendMidi(uint8_t(0xB0 | ch), uint8_t(target - 1), uint8_t(value), 3);
@@ -1609,19 +1609,21 @@ void Sequencer::midiLfoUpdate(float elapsedUs) {
     for (int k = 0; k < kMidiInstrumentCount; ++k) {
         const int i = (start + k) % kMidiInstrumentCount;
         const MidiLfo& l = project_->midiLfo[i];
-        if (lfo_->sent[i] >= 0 && (!l.active() || l.target != lfo_->target[i])) {
+        // A slot target follows the slot's CC (a new CC there restores the old one).
+        const uint8_t w = l.active() ? l.wire(project_->midiInstrument(i)) : MidiLfo::kWireNone;
+        if (lfo_->sent[i] >= 0 && w != lfo_->target[i]) {
             lfo_->budgetUs -= kLfoMsgUs;   // may run short; the budget refills from 0
             midiLfoRestore(i);
         }
-        if (!l.active()) continue;
-        const int v = midiLfoValue(i, l);
+        if (w == MidiLfo::kWireNone) continue;
+        const int v = midiLfoValue(i, l, w);
         if (v == lfo_->sent[i]) continue;
         if (lfo_->budgetUs < kLfoMsgUs) {
             lfo_->next = uint8_t(i);
             return;
         }
         lfo_->budgetUs -= kLfoMsgUs;
-        sendMidiLfo(i, l.target, v);
+        sendMidiLfo(i, w, v);
     }
     lfo_->next = uint8_t((start + 1) % kMidiInstrumentCount);
 }

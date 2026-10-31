@@ -65,13 +65,15 @@ cc 74 = Cutoff
 cc 75 = Decay
 cc 91 = Reverb
 cc 92 = Delay
-lfo target = off
+lfo target = slot A
+lfo depth = 30
 ```
 
 - `slot A` … `slot F`: a CC number (0–127), `PC` (program change), `AT` (channel
   pressure) or `PAT` (poly aftertouch).
 - `cc n = name`: the name of CC n (0–127), up to 9 characters.
-- `lfo target`: `off`, `CC n`, `PB` (pitch bend) or `AT`.
+- `lfo target`: `off`, `slot A` … `slot F`, `PB` (pitch bend) or `AT`. `CC n` also
+  works: it picks the slot set to CC n.
 - `lfo shape`: 0 Rev saw, 1 Saw, 2 Triangle, 3 Square, 4 Random.
 - `lfo rate`: 0 (128 steps per cycle) to 22 (1/8 step), as listed on the LFO page.
 - `lfo depth` 0–100, `lfo center` 0–127, `lfo retrigger` 0 Free or 1 Note.

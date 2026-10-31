@@ -1483,6 +1483,13 @@ MidiLfo lfo(int target, int shape, int rate, int depth = 100, int center = 64, i
     l.retrig = uint8_t(retrig);
     return l;
 }
+// MIDI instrument `i`'s slot A on CC `cc` (the LFO targets slot A).
+void slotA(Project& p, int i, int cc) {
+    MidiInstrument m = p.midiInstrument(i);
+    m.cc[0] = uint8_t(cc);
+    p.setMidiInstrument(i, m);
+}
+constexpr int kSlotA = 1;
 std::vector<int> ccValues(const FakeSink& s, int status, int cc) {
     std::vector<int> v;
     for (const auto& e : s.ev)
@@ -1494,7 +1501,8 @@ constexpr int kRate8Steps = 8, kRate1Step = 14, kRate8thStep = 22;
 
 TEST(midi_lfo_cc_saw_follows_tempo) {
     Rig r(120.0f);
-    r.project.midiLfo[1] = lfo(74 + 1, 1, kRate8Steps);   // MIDI 2 -> ch 2, CC 74, saw over 8 steps
+    slotA(r.project, 1, 74);
+    r.project.midiLfo[1] = lfo(kSlotA, 1, kRate8Steps);   // MIDI 2 -> ch 2, CC 74, saw over 8 steps
     r.seq.play(0);
     r.runUntil([&] { return r.seq.step(0) == 3 && r.seq.microStep(0) == 48; });   // just before the half cycle
     const auto v = ccValues(r.sink, 0xB1, 74);
@@ -1519,7 +1527,8 @@ TEST(midi_lfo_cc_saw_follows_tempo) {
 TEST(midi_lfo_retrigger_note_vs_free) {
     for (int retrig = 0; retrig < 2; ++retrig) {
         Rig r(120.0f);
-        r.project.midiLfo[1] = lfo(74 + 1, 1, kRate8Steps, 100, 64, retrig);
+        slotA(r.project, 1, 74);
+        r.project.midiLfo[1] = lfo(kSlotA, 1, kRate8Steps, 100, 64, retrig);
         r.setNote(8, 0, 60, 49);
         r.setNote(8, 2, 62, 49);
         r.seq.play(0);
@@ -1542,7 +1551,7 @@ TEST(midi_lfo_retrigger_note_vs_free) {
 
 TEST(midi_lfo_cc_fx_moves_center) {
     Rig r(120.0f);
-    r.project.midiLfo[1] = lfo(1 + 1, 3, kRate1Step, 50);   // CC 1 (CC A's default), square +-32
+    r.project.midiLfo[1] = lfo(kSlotA, 3, kRate1Step, 50);   // CC 1 (CC A's default), square +-32
     r.setNote(8, 0, 60, 49);
     r.fxA(8, 0, 8, 100);                                     // CC A = 100 on step 0
     r.seq.play(0);
@@ -1585,10 +1594,11 @@ TEST(midi_lfo_pitch_bend_and_pressure) {
 
 TEST(midi_lfo_new_target_restores_the_old_one) {
     Rig r(120.0f);
-    r.project.midiLfo[1] = lfo(74 + 1, 1, kRate8Steps, 100, 40);   // CC 74, saw around 40
+    slotA(r.project, 1, 74);
+    r.project.midiLfo[1] = lfo(kSlotA, 1, kRate8Steps, 100, 40);   // CC 74, saw around 40
     r.seq.play(0);
     r.runUntil([&] { return r.seq.step(0) == 2; });
-    r.project.midiLfo[1].target = 71 + 1;   // the page commits CC 71
+    slotA(r.project, 1, 71);   // slot A moves to CC 71: the LFO follows
     r.runUntil([&] { return r.seq.step(0) == 3; });
     const auto old = ccValues(r.sink, 0xB1, 74);
     CHECK(!old.empty() && old.back() == 40);   // CC 74 left at the center
@@ -1605,7 +1615,10 @@ TEST(midi_lfo_new_target_restores_the_old_one) {
 
 TEST(midi_lfo_output_budget_round_robin) {
     Rig r(240.0f);
-    for (int i = 0; i < kMidiInstrumentCount; ++i) r.project.midiLfo[i] = lfo(74 + 1, 4, kRate8thStep);   // random
+    for (int i = 0; i < kMidiInstrumentCount; ++i) {
+        slotA(r.project, i, 74);
+        r.project.midiLfo[i] = lfo(kSlotA, 4, kRate8thStep);   // random
+    }
     r.seq.play(0);
     const int nBlocks = int(2.0 / kBlockS);   // 2 s
     r.blocks(nBlocks);
