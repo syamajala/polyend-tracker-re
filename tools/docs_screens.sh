@@ -111,6 +111,38 @@ enc 18
 wait 300
 EOF
 
+# A MIDI CC column (#28): the example preset on MIDI 1, then column 3's type
+# list on MIDI CC (the last type), MIDI 1, slot A.
+shot perf-midi-cc empty <<'EOF'
+wait 300
+press INSTR
+wait 400
+enc -70
+enc 51               # MIDI 1
+release INSTR
+wait 100
+tap INSTRPARAMS
+wait 200
+tap INSTRPARAMS
+wait 200
+tap INSTRPARAMS      # Preset page
+wait 200
+tap F1
+wait 200
+tap F8               # load the example preset
+wait 3500
+tap PERFORMANCE
+wait 300
+tap REC
+tap RIGHT
+tap RIGHT
+tap DOWN
+enc 30               # MIDI CC
+tap RIGHT
+tap RIGHT            # the slot list
+wait 300
+EOF
+
 # The scene bank page: scenes 3 and 4 edited, on A and B.
 shot scene-bank empty <<'EOF'
 wait 300

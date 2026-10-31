@@ -179,6 +179,8 @@ struct Project {
     // [I] OpenTracker-only Performance FX types of the project presets
     // (perf::Source::ext; perf_scenes.bin v2). 0 = the slot's stock type.
     uint8_t perfExtType[kPerfSceneSlots] = {};
+    // [I] #28 a MIDI CC column's target (perf::ccTarget; perf_scenes.bin v5).
+    uint8_t perfExtArg[kPerfSceneSlots] = {};
     // [I] Per-track Performance FX toggles (#54): bit t set = track t+1's FX
     // off (its F-key unlit). Remembered across visits of the Performance
     // screen and saved with the project (perf_scenes.bin v4); 0 = all on.

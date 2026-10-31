@@ -51,6 +51,7 @@ const FxDesc kFx[kFxCount] = {
     {"Overdrive", -100, 100, nullptr, 0, 0, false},
     {"DJ filter", -100, 100, nullptr, 0, 0, true},   // [I] master bus: < 0 low-pass, > 0 high-pass
     {"Tape stop", 0, 6, kTapeStop, 0, 0, true},      // [I] master bus, momentary
+    {"MIDI CC", 0, 128, nullptr, 0, 0, true},        // [I] #28: CC value + 1 (0 = off)
 };
 }  // namespace
 
@@ -58,7 +59,9 @@ const FxDesc& fx(uint8_t id) { return kFx[id < kFxCount ? id : 0]; }
 
 void valueText(uint8_t id, int v, char* out, int cap) {
     const FxDesc& d = fx(id);
-    if (id == kPlayMode && v >= 0 && v < seq::kPlayModeCount) {
+    if (id == kMidiCc && ccValue(v) >= 0) {
+        std::snprintf(out, size_t(cap), "%d", ccValue(v));
+    } else if (id == kPlayMode && v >= 0 && v < seq::kPlayModeCount) {
         std::snprintf(out, size_t(cap), "%s", seq::playModeLabel(uint8_t(v)));
     } else if (d.labels && v >= d.min && v <= d.max) {
         std::snprintf(out, size_t(cap), "%s", d.labels[v - d.min]);
@@ -72,6 +75,7 @@ void valueText(uint8_t id, int v, char* out, int cap) {
 int ccToValue(uint8_t id, uint8_t v) {
     const FxDesc& d = fx(id);
     const int x = v > 127 ? 127 : v;
+    if (id == kMidiCc) return x + 1;   // [I] #28: the CC value itself
     return d.min + ((d.max - d.min) * x) / 127;
 }
 
@@ -95,6 +99,7 @@ void Source::validate() const {
         if (types[s] >= kStockFxCount) types[s] = uint8_t(s + 1 < kStockFxCount ? s + 1 : 0);
         if (ext && ext[s] && (ext[s] < kStockFxCount || ext[s] >= kFxCount)) ext[s] = 0;
         if (rows[s] > 3) rows[s] = 0;
+        if (arg && (arg[s] > 127 || targetSlot(arg[s]) >= kCcSlots)) arg[s] = 0;
         setValue(s, 0, 0);
         for (int r = 1; r < kRows; ++r)
             if (value(s, r) < -255 || value(s, r) > 255) setValue(s, r, 0);
@@ -107,6 +112,7 @@ Source globalSource(Config& cfg) {
     s.values = cfg.perfValues();
     s.rows = cfg.perfRows();
     s.ext = cfg.perfExt;
+    s.arg = cfg.perfArg;
     return s;
 }
 
@@ -116,6 +122,7 @@ Source projectSource(Project& p) {
     s.values = &p.values[pf::kPerfValues - mt::kValuesOff];
     s.rows = &p.values[pf::kPerfRows - mt::kValuesOff];
     s.ext = p.perfExtType;
+    s.arg = p.perfExtArg;
     return s;
 }
 

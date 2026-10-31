@@ -91,6 +91,7 @@ void PerformanceScreen::start(int opt) {
 }
 
 void PerformanceScreen::engage() {
+    for (auto& v : ccSent_) v = -1;   // [I] #28: a MIDI CC column sends on its first value
     App& a = app_;
     // Rows of the previously selected source are cleared before the source
     // pointers switch (spec 12 §A.5 quirk: a newly selected source keeps its
@@ -308,6 +309,18 @@ void PerformanceScreen::applyAll(bool revertEverything) {
     if (a.exportingStems()) djFilter = tapeStop = 0;   // [I] #51: master FX only on a full-mix export
     a.engine.setMasterDjFilter(djFilter);
     a.setTapeStop(tapeStop);
+    // [I] #28 MIDI CC columns: each sends its value when it changes (pads,
+    // scenes, CC in, edits); off or leaving sends nothing, so the synth
+    // keeps the last one.
+    for (int s = 0; s < perf::kSlots; ++s) {
+        const bool on = !revertEverything && src.valid() && src.type(s) == perf::kMidiCc;
+        const int v = on ? perf::ccValue(cur[s]) : -1;
+        if (v >= 0 && v != ccSent_[s]) {
+            const uint8_t t = src.target(s);
+            q.sendPerfCc(perf::targetMidi(t), perf::targetSlot(t), uint8_t(v));
+        }
+        ccSent_[s] = int16_t(v);
+    }
     for (int t = 0; t < kTrackCount; ++t) {
         audio::PerfOffsets p;
         int8_t repeat = -1, velOff = 0, transpose = 0;
@@ -322,7 +335,7 @@ void PerformanceScreen::applyAll(bool revertEverything) {
                 globalLen = perf::lengthOverride(v);
                 continue;
             }
-            if (ty == perf::kDjFilter || ty == perf::kTapeStop) continue;   // [I] applied above, on the master bus
+            if (ty == perf::kDjFilter || ty == perf::kTapeStop || ty == perf::kMidiCc) continue;   // [I] applied above
             if (!on) continue;
             switch (ty) {
                 case perf::kVolume: p.volume = int16_t(v); velOff = int8_t(v); break;
@@ -374,6 +387,7 @@ void PerformanceScreen::resetOthers(int c) {
         if (s == c) continue;
         const uint8_t o = src.type(s);
         if (o != ty && (o == 0 || (o != d.exclA && o != d.exclB))) continue;
+        if (ty == perf::kMidiCc && src.target(s) != src.target(c)) continue;   // [I] #28: another parameter
         src.setRow(s, 0);
         cur[s] = 0;
         liveValid[s] = false;
@@ -404,6 +418,7 @@ void PerformanceScreen::onPad(uint8_t pad, uint8_t state) {
         held_[c] = true;
         resetOthers(c);
         cur[c] = row ? src.value(c, row) : 0;
+        ccSent_[c] = -1;   // [I] #28: a press always sends (the synth may have moved since)
         applyAll(false);
     } else if (state == kRelease) {
         // Re-apply the stored value: an encoder tweak outside edit mode is
@@ -504,7 +519,7 @@ bool PerformanceScreen::anyTrackKey() const {
 
 void PerformanceScreen::onEncoder(int d) {
     if (typeList) {   // [I] #89: the highlight (Shift: faster, Ui fastDelta)
-        typeCursor = clampi(typeCursor + d, 0, perf::kFxCount - 1);
+        moveTypeList(d);
         ui_.dirty();
         return;
     }
@@ -571,9 +586,17 @@ void PerformanceScreen::editSelected(int d) {
     ui_.dirty();
 }
 
-void PerformanceScreen::setColumnType(uint8_t ty) {
+void PerformanceScreen::setColumnType(uint8_t ty, uint8_t target) {
     const int c = column;
     const uint8_t old = src.type(c);
+    if (ty == perf::kMidiCc && src.target(c) != target) {   // [I] #28: values stay, the new target gets them
+        src.setTarget(c, target);
+        ccSent_[c] = -1;
+        if (ty == old) {
+            edited();
+            applyAll(false);
+        }
+    }
     if (ty == old) return;
     const perf::FxDesc &a = perf::fx(old), &b = perf::fx(ty);
     // [I] #89: the values stay when they mean the same under the new type.
@@ -595,19 +618,32 @@ void PerformanceScreen::openTypeList() {
     typeList = true;
     typeCursor = src.type(column);
     typeTop = wg::listFollow(typeCursor, perf::kFxCount, wg::listVisibleRows(wg::kPanelH), 0);
+    typeFocus_ = 0;
+    const uint8_t t = src.target(column);
+    midiCursor_ = typeCursor == perf::kMidiCc ? perf::targetMidi(t) : 0;
+    slotCursor_ = typeCursor == perf::kMidiCc ? perf::targetSlot(t) : 0;
+    midiTop_ = wg::listFollow(midiCursor_, kMidiInstrumentCount, wg::listVisibleRows(wg::kPanelH), 0);
 }
 
 void PerformanceScreen::closeTypeList(bool apply) {
     typeList = false;
-    if (apply) setColumnType(uint8_t(typeCursor));
+    if (apply) setColumnType(uint8_t(typeCursor), perf::ccTarget(midiCursor_, slotCursor_));
+}
+
+void PerformanceScreen::moveTypeList(int d) {
+    if (typeFocus_ == 1) midiCursor_ = clampi(midiCursor_ + d, 0, kMidiInstrumentCount - 1);
+    else if (typeFocus_ == 2) slotCursor_ = clampi(slotCursor_ + d, 0, perf::kCcSlots - 1);
+    else typeCursor = clampi(typeCursor + d, 0, perf::kFxCount - 1);
 }
 
 void PerformanceScreen::swapColumn(int nc) {
     // Shift + Left/Right in edit mode: type + 4 values (spec 06 §3.4).
     const int c = column;
-    const uint8_t t = src.type(nc);
+    const uint8_t t = src.type(nc), tg = src.target(nc);
     src.setType(nc, src.type(c));
     src.setType(c, t);
+    src.setTarget(nc, src.target(c));   // [I] #28
+    src.setTarget(c, tg);
     for (int r = 0; r < perf::kRows; ++r) {
         const int16_t v = src.value(nc, r);
         src.setValue(nc, r, src.value(c, r));
@@ -633,13 +669,15 @@ void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
             if (state == kPress) {
                 switch (id) {
                     case btn::Up:
-                    case btn::Down:
-                        typeCursor = clampi(typeCursor + (id == btn::Down ? 1 : -1), 0, perf::kFxCount - 1);
-                        break;
+                    case btn::Down: moveTypeList(id == btn::Down ? 1 : -1); break;
                     case btn::F8: closeTypeList(true); break;
-                    case btn::F7:
                     case btn::Left:
                     case btn::Right:
+                        // [I] #28: MIDI CC moves between its three lists.
+                        if (typeCursor == perf::kMidiCc) typeFocus_ = clampi(typeFocus_ + (id == btn::Right ? 1 : -1), 0, 2);
+                        else closeTypeList(false);
+                        break;
+                    case btn::F7:
                     case btn::Rec: closeTypeList(false); break;
                     default: break;
                 }
@@ -747,6 +785,7 @@ void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
             if (!ui_.shift()) copySrc_ = column;
             else if (copySrc_ >= 0 && copySrc_ != column) {
                 src.setType(column, src.type(copySrc_));
+                src.setTarget(column, src.target(copySrc_));   // [I] #28
                 for (int r = 0; r < perf::kRows; ++r) src.setValue(column, r, src.value(copySrc_, r));
                 src.setRow(column, 0);
                 cur[column] = 0;
@@ -914,7 +953,7 @@ void PerformanceScreen::storeScene(int scene) {
         fxKey_ = -1;
     }
     a.markProjectDirty();
-    char msg[64];
+    char msg[96];
     const int num = a.project.perfSceneOn[scene ? 1 : 0] + 1;   // [I] the bank scene on A / B
     const char ab = scene ? 'B' : 'A';
     if (!any) {
@@ -923,7 +962,9 @@ void PerformanceScreen::storeScene(int scene) {
         const uint8_t ty = src.type(last), r = a.project.sceneOn(scene)[last];
         char v[24] = "off";
         if (r) perf::valueText(ty, src.value(last, r), v, sizeof(v));
-        std::snprintf(msg, sizeof(msg), "Scene %d (%c): %s %s", num, ab, ty ? perf::fx(ty).name : "---", v);
+        char nm[32] = "---";
+        if (ty) columnName(last, nm, sizeof(nm));
+        std::snprintf(msg, sizeof(msg), "Scene %d (%c): %s %s", num, ab, nm, v);
     } else {
         std::snprintf(msg, sizeof(msg), "Scene %d (%c): %d columns stored", num, ab, count);
     }
@@ -935,6 +976,10 @@ int PerformanceScreen::sceneShare(int scene, int c) const {
     const int x = fader, toB = x >= kFaderMax / 2;
     const uint8_t ty = src.type(c);
     if (isStepped(ty)) return (scene == 1) == bool(toB) ? 100 : 0;   // switches at the middle
+    if (ty == perf::kMidiCc) {   // [I] #28: a scene without the column leaves it to the other
+        const uint8_t r = app_.project.sceneOn(scene ? 0 : 1)[c];
+        if (r < 1 || r > 3 || !src.value(c, r)) return kFaderMax;
+    }
     if (isFilter(ty)) {
         // As applyScenes: the scenes' filters (the highest slot of each)
         // of different types cross over, A out by the middle, B in after it.
@@ -1189,7 +1234,7 @@ void PerformanceScreen::applyScenes() {
         picked[k.slot] = true;
     };
     for (int ty = 1; ty < perf::kFxCount; ++ty) {
-        if (isFilter(uint8_t(ty))) continue;
+        if (isFilter(uint8_t(ty)) || ty == perf::kMidiCc) continue;   // [I] #28 MIDI CC: below
         const Pick &A = pa[ty], &B = pb[ty];
         if (A.slot < 0 && B.slot < 0) continue;
         involved[ty] = true;
@@ -1213,6 +1258,27 @@ void PerformanceScreen::applyScenes() {
             place(at, lerp100(fa.slot >= 0 ? fa.v : 0, fb.slot >= 0 ? fb.v : 0, x));
         }
     }
+    // [I] #28 MIDI CC columns blend one by one (each drives its own synth
+    // parameter). A scene without the column holds the other's value: a CC
+    // has no "no effect" value. Two columns on one target: the higher wins.
+    for (int s = 0; s < perf::kSlots; ++s) {
+        if (src.type(s) != perf::kMidiCc) continue;
+        int v[2] = {0, 0};
+        for (int sc = 0; sc < 2; ++sc) {
+            const uint8_t r = p.sceneOn(sc)[s];
+            if (r >= 1 && r <= 3) v[sc] = src.value(s, r);
+        }
+        if (!v[0] && !v[1]) continue;
+        for (int o = 0; o < s; ++o)
+            if (picked[o] && src.type(o) == perf::kMidiCc && src.target(o) == src.target(s)) next[o] = 0;
+        next[s] = int16_t(lerp100(v[0] ? v[0] : v[1], v[1] ? v[1] : v[0], x));
+        picked[s] = true;
+    }
+    for (int s = 0; s < perf::kSlots; ++s)
+        if (src.type(s) == perf::kMidiCc && picked[s]) {
+            cur[s] = next[s];
+            liveValid[s] = false;
+        }
     // [I] #54: the FX toggles of the scene the fader is on (A below the
     // middle, B from it), when that scene carries toggles; a scene with "-"
     // leaves them. Applied once per change of that scene, so a track key
@@ -1386,9 +1452,12 @@ void PerformanceScreen::draw(Gfx& g) {
         char v[12] = "";
         if (ty != 0) cellText(ty, liveValid[c] ? live[c] : cur[c], v, sizeof(v));
         put(cx, kTitleValueY, false, v[0] ? v : "");
-        if (ty != 0)
-            g.textRotated(cx + kLabelDx, kLabelBottom - textWidth(kFont2, perf::fx(ty).name), kFont2,
-                          th.slot(slot::kPerfVertical), perf::fx(ty).name, 1, IDisplay::kOptCenterX);
+        if (ty != 0) {
+            char nm[32];
+            columnName(c, nm, sizeof(nm));
+            g.textRotated(cx + kLabelDx, kLabelBottom - textWidth(kFont2, nm), kFont2, th.slot(slot::kPerfVertical), nm,
+                          1, IDisplay::kOptCenterX);
+        }
         for (int r = 0; r < perf::kRows; ++r) {
             v[0] = 0;
             if (ty != 0) cellText(ty, src.value(c, r), v, sizeof(v));
@@ -1482,31 +1551,85 @@ void PerformanceScreen::draw(Gfx& g) {
     }
 }
 
-// [I] #89 FX type list: one list column over the edit column (kept on
-// screen), the column panels hidden. The edit column's current type is
-// marked; the bar shows Cancel / OK.
+void PerformanceScreen::columnName(int c, char* out, int cap) const {
+    const uint8_t ty = src.type(c);
+    if (ty != perf::kMidiCc) {
+        std::snprintf(out, size_t(cap), "%s", perf::fx(ty).name);
+        return;
+    }
+    char n[24];
+    const uint8_t t = src.target(c);
+    midiSlotName(app_, perf::targetMidi(t), perf::targetSlot(t), n, sizeof(n));
+    std::snprintf(out, size_t(cap), "MIDI %d %s", perf::targetMidi(t) + 1, n);
+}
+
+// [I] #89 FX type list: one list column on the left (the title names the
+// column), the column panels hidden. The edit column's current type is
+// marked; the bar shows Cancel / OK. [I] #28: with MIDI CC highlighted, the
+// MIDI instruments (by preset name) and the highlighted one's CC slots
+// (by CC name) follow; the focused list has the active selection.
 namespace {
 void typeItem(void*, int i, char* out, int cap) {
     std::snprintf(out, size_t(cap), "%s", i == 0 ? "Empty" : perf::fx(uint8_t(i)).name);
 }
 bool typeMarked(void* ctx, int i) { return i == *static_cast<const int*>(ctx); }
+void midiItem(void* ctx, int i, char* out, int cap) {
+    const char* pre = static_cast<const App*>(ctx)->midiNames.preset[i];
+    if (pre[0]) std::snprintf(out, size_t(cap), "%d %s", i + 1, pre);
+    else std::snprintf(out, size_t(cap), "MIDI %d", i + 1);
+}
+struct SlotCtx {
+    const App* a;
+    int midi;
+};
+void slotItem(void* ctx, int i, char* out, int cap) {
+    const auto* c = static_cast<const SlotCtx*>(ctx);
+    char n[24];
+    midiSlotName(*c->a, c->midi, i, n, sizeof(n));
+    std::snprintf(out, size_t(cap), "%c %s", 'A' + i, n);
+}
 }  // namespace
 
 void PerformanceScreen::drawTypeList(Gfx& g) {
     const Theme& th = ui_.th();
+    const bool cc = typeCursor == perf::kMidiCc;
     wg::ListView v;
     v.w = 197;
-    v.x = clampi(11 + 65 * column + 31 - v.w / 2, 1, 800 - v.w - 2);
+    v.x = 1;   // fixed on the left (the title names the column), not under the column
     v.count = perf::kFxCount;
     typeTop = wg::listFollow(typeCursor, v.count, wg::listVisibleRows(v.h), typeTop);
     v.top = typeTop;
     v.sel = typeCursor;
-    v.active = true;
+    v.active = typeFocus_ == 0;
+    v.fade = !cc;   // three lists: no fades, to keep the display list small
     v.item = typeItem;
     v.marked = typeMarked;
     int curType = src.type(column);
     v.ctx = &curType;
     wg::list(g, th, v);
+    if (cc) {
+        wg::ListView m = v;
+        m.x = v.x + v.w + 2;
+        m.count = kMidiInstrumentCount;
+        midiTop_ = wg::listFollow(midiCursor_, m.count, wg::listVisibleRows(m.h), midiTop_);
+        m.top = midiTop_;
+        m.sel = midiCursor_;
+        m.active = typeFocus_ == 1;
+        m.item = midiItem;
+        m.marked = nullptr;
+        m.ctx = &app_;
+        wg::list(g, th, m);
+        SlotCtx sx{&app_, midiCursor_};
+        wg::ListView sl = m;
+        sl.x = m.x + m.w + 2;
+        sl.count = perf::kCcSlots;
+        sl.top = 0;
+        sl.sel = slotCursor_;
+        sl.active = typeFocus_ == 2;
+        sl.item = slotItem;
+        sl.ctx = &sx;
+        wg::list(g, th, sl);
+    }
     for (int t = 0; t < 8; ++t) {
         const BarLabel& l = ui_.bar.label[t];
         if (!l.top[0]) continue;

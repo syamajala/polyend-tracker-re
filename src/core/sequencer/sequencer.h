@@ -152,6 +152,11 @@ public:
     void setPerformanceMode(bool on);
     bool performanceMode() const { return perfMode_; }
     void setPerfGlobalLength(int lastIndex) { perfGlobalLen_ = int16_t(lastIndex); }   // -1 = per track
+    // [I] #28 Performance MIDI CC column: sends value v (0..127) to CC slot
+    // `slot` (0..5) of MIDI instrument `midi` (0..15) on its channel, as a
+    // CC A..F step FX does (also the MIDI LFO's Center on that slot). A slot
+    // on Poly AT sends nothing (no note).
+    void sendPerfCc(int midi, int slot, uint8_t v);
     void setPerfTrackLength(int t, int lastIndex) { if (validTrack(t)) perfLen_[t] = int16_t(lastIndex); }
     // Play mode 0..22 (spec 12 §D); used on every track in performance mode
     // (2.x: tracks 8..15 too, docs/M1_PLAN.md §3).

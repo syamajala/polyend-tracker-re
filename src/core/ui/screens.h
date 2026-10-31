@@ -32,6 +32,9 @@ constexpr size_t kBrowserListBytes =
 extern unsigned char g_browserLists[kBrowserListBytes];   // screens.cpp (.sdram_bss on the device)
 inline void* browserListMem() { return g_browserLists; }
 
+// [I] #13 / #28 CC slot `slot` (0..5) of MIDI instrument `midi` (0..15): its
+// CC's name in the instrument's chart ("Cutoff"), else the CC ("74").
+void midiSlotName(const App& a, int midi, int slot, char* out, int cap);
 void* createScreens(Ui& ui, App& app, Screen** out);   // returns the owner
 void destroyScreens(void* owner, Screen** screens);
 
@@ -769,6 +772,11 @@ public:
     int16_t cur[12] = {};           // current value per slot (what is applied)
     int16_t live[12] = {};          // MIDI-CC live value (row 4)
     bool liveValid[12] = {};
+    // [I] #28 MIDI CC columns: the CC value last sent, -1 none (sent again
+    // when the column comes back on).
+    int16_t ccSent_[12] = {};
+    // The name on a column: the FX type's, or a MIDI CC column's "MIDI 3 Cutoff".
+    void columnName(int c, char* out, int cap) const;
     uint8_t shownPattern(int t) const;   // "Patt" label value of track t
     // [I] Scenes (Octatrack-style): Shift+Left / Shift+Right store the
     // current pad rows as scene A / B (Project::perfScene), Delete+Left /
@@ -808,14 +816,22 @@ public:
     // highlight, F8 (OK) sets the type, F7 / Left / Right / Rec close it
     // unchanged. Nothing is applied until OK. The column panels are hidden
     // while it is open (the page's display list has ~600 B to spare).
+    // [I] #28: with MIDI CC highlighted, two more lists follow, the MIDI
+    // instrument and its CC slot; Left / Right move between the three.
     bool typeList = false;
     int typeCursor = 0;
     int typeTop = 0;
+    int typeFocus_ = 0;     // 0 type, 1 instrument, 2 slot
+    int midiCursor_ = 0;    // MIDI instrument 0..15
+    int midiTop_ = 0;
+    int slotCursor_ = 0;    // CC slot 0..5
     void openTypeList();
     void closeTypeList(bool apply);
-    // Sets the edit column's type; its values stay when the new type has
-    // the same range and labels, else they are cleared.
-    void setColumnType(uint8_t ty);
+    void moveTypeList(int d);   // the focused list's highlight
+    // Sets the edit column's type (and a MIDI CC column's target); its
+    // values stay when the new type has the same range and labels, else
+    // they are cleared.
+    void setColumnType(uint8_t ty, uint8_t target = 0);
 
     // [I] Scene bank (#10): 16 scenes (Project::perfScene); the crossfader's
     // ends A / B each play one (Project::perfSceneOn). The Performance key

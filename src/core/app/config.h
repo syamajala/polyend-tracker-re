@@ -110,6 +110,8 @@ struct Config {
     // [I] OpenTracker-only Performance FX types of the global presets
     // (perf::Source::ext, perf::kDjFilter ...): extension record bytes 29..40.
     uint8_t perfExt[12] = {};
+    // [I] #28 the MIDI CC column targets (perf::Source::arg): bytes 42..53.
+    uint8_t perfArg[12] = {};
 
     // --- 2.x extension record (M1 plan, spec gap 7) -------------------------
     // Stored right after the stock image (store offset kImageSize, file: after
@@ -117,10 +119,10 @@ struct Config {
     // ignores it: "OTX" magic, version, payload length, payload, 8-bit sum of
     // the payload. A missing or bad record leaves the defaults.
     static constexpr uint32_t kExtOffset = kImageSize;
-    static constexpr uint8_t kExtVersion = 5;
+    static constexpr uint8_t kExtVersion = 6;
     // cpuMeter, synthVoices, streamMode, streamThreshold, extKeep[1], exportRate, themeFile[21],
-    // [I] noteNames, perfExt[12], padLayout
-    static constexpr uint32_t kExtPayload = 6 + 21 + 1 + 12 + 1;
+    // [I] noteNames, perfExt[12], padLayout, perfArg[12]
+    static constexpr uint32_t kExtPayload = 6 + 21 + 1 + 12 + 1 + 12;
     static constexpr uint32_t kExtSize = 5 + kExtPayload + 1;
     void toExt(uint8_t* out) const;                          // kExtSize bytes
     bool fromExt(const uint8_t* in, uint32_t len);           // false: none / bad (fields unchanged)

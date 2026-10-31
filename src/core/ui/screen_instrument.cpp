@@ -17,6 +17,13 @@ namespace ot {
 // Bar glyphs (wave.cpp).
 void barSelector(Gfx& g, const Theme& th, int i, const char* title, int d);
 
+void midiSlotName(const App& a, int midi, int slot, char* out, int cap) {
+    const uint8_t cc = a.project.midiInstrument(midi).cc[slot < 6 ? slot : 0];
+    const char* n = a.midiNames.name(midi, cc);
+    if (n[0]) std::snprintf(out, size_t(cap), "%s", n);
+    else midicc::ccValueName(cc, out, cap);
+}
+
 namespace {
 int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
@@ -39,11 +46,9 @@ const char* kRetrigNames[MidiLfo::kRetrigCount] = {"Free", "Note"};   // [I] MID
 // its CC: "A 74"), Pitch bnd, Chan AT.
 void lfoTargetName(const App& a, int midi, uint8_t t, char* out, int cap) {
     if (t >= 1 && t <= 6) {
-        const uint8_t cc = a.project.midiInstrument(midi).cc[t - 1];
-        const char* n = a.midiNames.name(midi, cc);
         char v[24];
-        if (!n[0]) midicc::ccValueName(cc, v, sizeof(v));
-        std::snprintf(out, size_t(cap), "%c %s", 'A' + t - 1, n[0] ? n : v);
+        midiSlotName(a, midi, t - 1, v, sizeof(v));
+        std::snprintf(out, size_t(cap), "%c %s", 'A' + t - 1, v);
     } else if (t == MidiLfo::kTargetPitchBend) std::snprintf(out, size_t(cap), "Pitch bnd");
     else if (t == MidiLfo::kTargetPressure) std::snprintf(out, size_t(cap), "Chan AT");
     else std::snprintf(out, size_t(cap), "Off");
