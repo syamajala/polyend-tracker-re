@@ -560,6 +560,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#midi-cc-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MIDI CC columns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#saved-with-the-project" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1080,6 +1091,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#midi-cc-columns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MIDI CC columns
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#saved-with-the-project" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1113,7 +1135,8 @@
 <h1 id="performance-mode">Performance mode<a class="headerlink" href="#performance-mode" title="Permanent link">&para;</a></h1>
 <p>The Performance screen plays effects live from the pads: 12 columns, each an effect type,
 with 3 stored values per column on the pad rows. The fork adds <strong>scenes with a
-crossfader</strong>, a <strong>bank of 16 scenes</strong>, and <strong>master FX</strong> (DJ filter, tape stop).</p>
+crossfader</strong>, a <strong>bank of 16 scenes</strong>, <strong>master FX</strong> (DJ filter, tape stop) and <strong>MIDI CC
+columns</strong> that play an external synth's parameters.</p>
 <p><img alt="Performance with the DJ filter held" src="../../images/performance.png" /></p>
 <h2 id="basics-as-in-stock">Basics (as in stock)<a class="headerlink" href="#basics-as-in-stock" title="Permanent link">&para;</a></h2>
 <ul>
@@ -1122,9 +1145,10 @@ crossfader</strong>, a <strong>bank of 16 scenes</strong>, and <strong>master FX
 <li><strong>Rec</strong> (edit mode): the encoder changes the value of the selected row. In the fork, a
   tapped row can be edited with the encoder without holding the pad.</li>
 <li><strong>Choosing a column's effect type</strong> (fork): in edit mode, <strong>Up / Down</strong> open a list of
-  every type on the column's current one. Move with the encoder (<strong>Shift</strong> + a quick turn for
-  bigger jumps) or Up / Down, then press <strong>OK (F8)</strong>. <strong>Cancel (F7)</strong>, <strong>Left / Right</strong> or
-  <strong>Rec</strong> close it without changing anything. Nothing is applied until OK, and the F keys
+  every type on the column's current one, on the left of the screen (the title names the
+  column). Move with the encoder (<strong>Shift</strong> + a quick turn for bigger jumps) or Up / Down,
+  then press <strong>OK (F8)</strong>. <strong>Cancel (F7)</strong>, <strong>Left / Right</strong> or <strong>Rec</strong> close it without
+  changing anything (for <strong>MIDI CC</strong>, Left / Right move between its lists instead). Nothing is applied until OK, and the F keys
   don't switch track effects while the list is open. The row values stay when the new
   type has the same range (e.g. Volume to Panning); otherwise they're cleared as in stock.
   Stock stepped the type with Up / Down, applying each one on the way.</li>
@@ -1137,7 +1161,7 @@ crossfader</strong>, a <strong>bank of 16 scenes</strong>, and <strong>master FX
 <ul>
 <li>Effect types include Volume, Panning, Tune, Low-pass / High-pass / Band-pass, Delay and
   Reverb send, Start / End pos, Direction, the LFOs, Repeater, Play mode, Length, Bit depth
-  and Overdrive, plus the fork's <strong>DJ filter</strong> and <strong>Tape stop</strong>.</li>
+  and Overdrive, plus the fork's <strong>DJ filter</strong>, <strong>Tape stop</strong> and <strong>MIDI CC</strong>.</li>
 </ul>
 <h2 id="scenes-and-the-crossfader">Scenes and the crossfader<a class="headerlink" href="#scenes-and-the-crossfader" title="Permanent link">&para;</a></h2>
 <p>A <strong>scene</strong> stores a row for every column. The crossfader's two ends, <strong>A</strong> and <strong>B</strong>,
@@ -1149,6 +1173,8 @@ each play a scene; the encoder (outside edit mode) or <strong>MIDI CC 63</strong
 <li>The title bar shows the pair (<code>A 1 |------| B 2</code>) and where the fader is. Rows of the
   scene on A are marked red, on B blue; the pad LEDs and the green (active) row follow
   the fader.</li>
+<li>A pad pressed on a column the scenes drive takes it over: its row plays and turns
+  green. The next fader move hands the column back to the scenes.</li>
 </ul>
 <h3 id="store-and-clear-while-playing">Store and clear while playing<a class="headerlink" href="#store-and-clear-while-playing" title="Permanent link">&para;</a></h3>
 <table>
@@ -1236,8 +1262,31 @@ limiter), instead of on each track:</p>
 </ul>
 <p>Set them like any column: in edit mode, <strong>Up / Down</strong> open the type list; <strong>DJ filter</strong>
 and <strong>Tape stop</strong> are at the end.</p>
+<h2 id="midi-cc-columns">MIDI CC columns<a class="headerlink" href="#midi-cc-columns" title="Permanent link">&para;</a></h2>
+<p>A <strong>MIDI CC</strong> column plays a parameter of an external synth: one of a MIDI instrument's
+CC slots A–F, on that instrument's channel. Set it up in the type list: highlight
+<strong>MIDI CC</strong>, press <strong>Right</strong> to pick the MIDI instrument (shown with its
+<a href="../midi-presets/">preset</a> name), <strong>Right</strong> again to pick the slot (shown with its CC name),
+then <strong>OK (F8)</strong>.</p>
+<p><img alt="The type list with MIDI CC" src="../../images/perf-midi-cc.png" /></p>
+<ul>
+<li>The column is labelled with the instrument and the CC's name, e.g. <strong>MIDI 3 Cutoff</strong>.
+  Which CC a slot sends is set on the MIDI instrument's parameters page, so change it
+  there and the column follows.</li>
+<li>Rows hold a value 0–127 (an empty row, <code>---</code>, is off). A pad press sends its value;
+  the fader, scenes and incoming CC send only when the value changes. Off, or leaving
+  the screen, sends nothing, so the synth keeps its last value.</li>
+<li>Several MIDI CC columns play at once, one per parameter. Two columns on the same slot
+  are like two columns of one type: pressing one turns the other off.</li>
+<li><strong>Scenes</strong> fade each MIDI CC column on its own, so the fader (or a song's slot ramp)
+  sweeps a synth's filter as it does a sample filter. A scene that doesn't drive the
+  column leaves it at the other scene's value: a CC has no "off" value to fade to.</li>
+<li>If the instrument's <a href="../midi-lfo/">MIDI LFO</a> is on the same slot, the column sets the
+  LFO's <strong>Center</strong>, as a CC step FX does, and the LFO keeps swinging around it.</li>
+</ul>
 <h2 id="saved-with-the-project">Saved with the project<a class="headerlink" href="#saved-with-the-project" title="Permanent link">&para;</a></h2>
-<p>The scene bank, the F keys (live and per scene) and the master FX types are stored in
+<p>The scene bank, the F keys (live and per scene), the master FX and MIDI CC types and the
+MIDI CC columns' instruments and slots are stored in
 <code>perf_scenes.bin</code> next to <code>project.mt</code>. Stock firmware and the Tracker Mini see those columns as empty and ignore
 the scenes.</p>
 

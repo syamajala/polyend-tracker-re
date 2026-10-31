@@ -1096,11 +1096,12 @@ resets the selected value.</p>
 <ul>
 <li><strong>Scene</strong> puts a scene from the <a href="../performance/#the-scene-bank">scene bank</a> on the
   crossfader's <strong>A</strong> end as the slot starts, with the fader at A. The encoder picks the
-  scene; <code>-</code> keeps whatever plays.</li>
+  scene, or <code>-</code> for none.</li>
 <li><strong>Shift + encoder</strong> adds a second scene for <strong>B</strong> (shown as <code>3&gt;4</code>).</li>
-<li>A slot's scene plays on <strong>any screen</strong>, not only on the Performance screen. It stops at
-  Stop, or when the song reaches a <code>-</code> slot (on the Performance screen, a <code>-</code> slot keeps
-  what plays).</li>
+<li>A slot's scene plays on <strong>any screen</strong>, not only on the Performance screen, until Stop
+  or the next slot.</li>
+<li>A <code>-</code> slot (no scene): on the Performance screen what plays stays; on other screens the
+  song's scene ends (FX off). To hold a scene across slots, set it on each slot.</li>
 </ul>
 <h2 id="ramps">Ramps<a class="headerlink" href="#ramps" title="Permanent link">&para;</a></h2>
 <p>A slot with a scene on B sweeps the fader from A to B. <strong>Ramp</strong> sets when:</p>
