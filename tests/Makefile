@@ -69,8 +69,13 @@ build: $(TEST_BINS)
 # Private vendor fixtures (never committed): the repo-root fixtures symlink.
 OT_VENDOR_FIXTURES ?= $(abspath $(CURDIR)/../../fixtures/vendor)
 
-run: $(TEST_BINS)
-	@set -e; for t in $(TEST_BINS); do OT_FIXTURES=$(CURDIR)/fixtures OT_VENDOR_FIXTURES=$(OT_VENDOR_FIXTURES) $$t; done
+# One run target per test so `make -j` runs them in parallel; -Otarget (set
+# by the top-level host-test) keeps each test's output together.
+TEST_RUNS := $(TEST_BINS:%=%.run)
+.PHONY: run $(TEST_RUNS)
+run: $(TEST_RUNS)
+$(TEST_RUNS): %.run: %
+	@OT_FIXTURES=$(CURDIR)/fixtures OT_VENDOR_FIXTURES=$(OT_VENDOR_FIXTURES) $<
 
 # Audio render benchmark (tests/audio_bench.cpp): -O2, no sanitizers.
 BENCH_OUT := ../build/bench
