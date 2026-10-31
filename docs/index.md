@@ -24,7 +24,7 @@ upstream OpenTracker and the Tracker Mini still open them.
 | [Performance mode](guide/performance.md) | A bank of 16 scenes with a crossfader, and master FX (DJ filter, tape stop) played from the pads. |
 | [Song mode](guide/song-mode.md) | Repeat counts, a Performance scene per song slot, and fader ramps between scenes. |
 | [MIDI instrument LFO](guide/midi-lfo.md) | A tempo-locked LFO per MIDI instrument: CC, pitch bend or pressure. |
-| [More](guide/more.md) | Note names (sharps / flats / auto), plus a summary of the 2.x features from upstream. |
+| [More](guide/more.md) | Note names (sharps / flats / auto), piano pads, plus a summary of the 2.x features from upstream. |
 | [Remote control](guide/remote-control.md) | Drive a Tracker from a computer: scripts, screen text, a live mirror. |
 
 ## Where to start

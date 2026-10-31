@@ -143,6 +143,7 @@ void Config::sanitize() {
     clampField<uint8_t>(cpuMeter, 2, 0);
     if (synthVoices < 1 || synthVoices > kMaxSynthVoices) synthVoices = kDefaultSynthVoices;
     clampField<uint8_t>(noteNames, 2, 0);
+    clampField<uint8_t>(padLayout, 1, 0);
     themeFile[sizeof(themeFile) - 1] = 0;
     if (themeFile[0] && !themeNameValid(themeFile)) std::memset(themeFile, 0, sizeof(themeFile));
     validateImage(image);
@@ -176,8 +177,9 @@ void Config::toExt(uint8_t* out) const {
     out[9] = extKeep[0];
     out[10] = exportRate;
     std::memcpy(out + 11, themeFile, sizeof(themeFile));
-    out[32] = noteNames;   // [I] bytes 28..40, after upstream's
+    out[32] = noteNames;   // [I] bytes 28..41, after upstream's
     std::memcpy(out + 33, perfExt, sizeof(perfExt));
+    out[45] = padLayout;
     uint8_t sum = 0;
     for (uint32_t i = 0; i < kExtPayload; ++i) sum = uint8_t(sum + out[5 + i]);
     out[5 + kExtPayload] = sum;
@@ -206,6 +208,7 @@ bool Config::fromExt(const uint8_t* in, uint32_t len) {
     noteNames = (n >= 28 && in[32] <= 2) ? in[32] : 0;
     if (n >= 40) std::memcpy(perfExt, in + 33, sizeof(perfExt));   // checked by perf::Source::validate
     else std::memset(perfExt, 0, sizeof(perfExt));
+    padLayout = (n >= 41 && in[45] <= 1) ? in[45] : 0;
     return true;
 }
 
@@ -228,6 +231,7 @@ bool Config::fromImage(const uint8_t* img) {
     std::memcpy(c.themeFile, themeFile, sizeof(themeFile));
     std::memcpy(c.extKeep, extKeep, sizeof(extKeep));
     c.noteNames = noteNames;
+    c.padLayout = padLayout;
     std::memcpy(c.perfExt, perfExt, sizeof(perfExt));
     c.sanitize();
     *this = c;
@@ -249,6 +253,7 @@ bool Config::load(INvStore& nv) {
     themeFile[0] = 0;
     std::memcpy(extKeep, d.extKeep, sizeof(extKeep));
     noteNames = d.noteNames;
+    padLayout = d.padLayout;
     std::memset(perfExt, 0, sizeof(perfExt));
     // The longest record that fits the store (older records are shorter;
     // fromExt reads the payload length from the record).
@@ -270,7 +275,8 @@ bool Config::save(INvStore& nv) {
     const Config d;
     bool extDefault = cpuMeter == d.cpuMeter && synthVoices == d.synthVoices && streamMode == d.streamMode &&
                       streamThreshold == d.streamThreshold && exportRate == d.exportRate && themeFile[0] == 0 &&
-                      std::memcmp(extKeep, d.extKeep, sizeof(extKeep)) == 0 && noteNames == d.noteNames;
+                      std::memcmp(extKeep, d.extKeep, sizeof(extKeep)) == 0 && noteNames == d.noteNames &&
+                      padLayout == d.padLayout;
     for (uint8_t t : perfExt) extDefault = extDefault && t == 0;
     if (extDefault) {
         Config probe;
@@ -303,6 +309,7 @@ bool Config::load(IStorage& fs) {
         themeFile[0] = 0;
         std::memcpy(extKeep, d.extKeep, sizeof(extKeep));
         noteNames = d.noteNames;
+        padLayout = d.padLayout;
         std::memset(perfExt, 0, sizeof(perfExt));
         fromExt(buf + 8 + kImageSize, avail - kImageSize);
         return true;

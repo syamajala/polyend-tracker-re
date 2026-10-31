@@ -137,6 +137,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
         {"Stream from card", 3, 0, 3, 0, 0},                                 // 2.x [I] SD streaming, Off
         {"Stream threshold", 3, 0, 4, 0, 1},                                 // 2.x [I], 10 s
         {"Note names", 3, 0, 3, 0, 0},                                       // [I] Sharps
+        {"Pad layout", 3, 0, 2, 0, 0},                                       // [I] #42 Stock
     };
     const Want midi[] = {
         {"Clock in", 3, 0, 3, 0, 0},          {"Clock out", 3, 0, 4, 0, 0},
@@ -169,7 +170,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
         int n;
     };
     const CatWant cats[] = {
-        {"Project Settings", project, 10}, {"General", general, 18}, {"MIDI", midi, 11},
+        {"Project Settings", project, 10}, {"General", general, 19}, {"MIDI", midi, 11},
         {"USB", usb, 2},                   // [I] 2.x (Tracker Mini order)
         {"Metronome", metro, 5},           {"Firmware", firmware, 4}, {"Info", info, 4},
     };
@@ -190,7 +191,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
             if (w.def >= 0) CHECK_EQ(c.optionIndex(k, i), w.def);
         }
     }
-    CHECK_EQ(total, 54);   // stock 42 + 2.x Export theme, CPU meter, Synth voices, Export sample rate, two stream rows, Note names, three Info lines, USB Storage, Remote control
+    CHECK_EQ(total, 55);   // stock 42 + 2.x Export theme, CPU meter, Synth voices, Export sample rate, two stream rows, Note names, Pad layout, three Info lines, USB Storage, Remote control
     char t[48];
     c.optionText(3, 0, t, sizeof t);   // USB Storage: Off
     CHECK_STR(t, "Off");
@@ -211,8 +212,8 @@ TEST(config_menu_lists_all_options_with_defaults) {
             CHECK_EQ(o.help != nullptr, want);
             helps += o.help != nullptr;
         }
-    CHECK_EQ(helps, 34);   // stock 25 + 2.x Export theme, CPU meter, Synth voices, Export sample rate, two stream rows, Note names, USB Storage and Remote control
-    CHECK_EQ(configHelpCount(), 34);
+    CHECK_EQ(helps, 35);   // stock 25 + 2.x Export theme, CPU meter, Synth voices, Export sample rate, two stream rows, Note names, Pad layout, USB Storage and Remote control
+    CHECK_EQ(configHelpCount(), 35);
     c.optionText(5, 1, t, sizeof t);
     CHECK(std::strlen(t) > 0);
 }
