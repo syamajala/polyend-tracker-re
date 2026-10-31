@@ -1312,6 +1312,9 @@ void PerformanceScreen::applyScenes() {
 // Layout (spec 06 §3.3)
 
 void PerformanceScreen::refreshBar() {
+    // [I] The bar is shared: a song slot's scene (#10) applies here while
+    // another screen shows, and must not put these labels on that screen.
+    if (ui_.active() != kModPerformance) return;
     BottomBar& b = ui_.bar;
     App& a = app_;
     b.clear();
