@@ -1,0 +1,42 @@
+# OpenTracker MIDI preset
+# Elektron Model:Cycles, one track per channel (load it on each track's
+# MIDI instrument; they share the names). CC chart from the user manual.
+velocity = 127
+offset = 0
+slot A = 16
+slot B = 17
+slot C = 18
+slot D = 19
+slot E = 80
+slot F = 12
+cc 3 = Note
+cc 7 = Vol+Dist
+cc 10 = Pan
+cc 12 = Delay Snd
+cc 13 = Rev Send
+cc 14 = Chance
+cc 15 = Swing
+cc 16 = Color
+cc 17 = Shape
+cc 18 = Sweep
+cc 19 = Contour
+cc 65 = Pitch
+cc 66 = Punch
+cc 67 = Gate
+cc 70 = Machine
+cc 80 = Decay
+cc 85 = Dly Time
+cc 86 = Dly Fdbk
+cc 87 = Rev Size
+cc 88 = Rev Tone
+cc 94 = Mute
+cc 95 = Trk Level
+cc 102 = LFO Speed
+cc 103 = LFO Mult
+cc 104 = LFO Fade
+cc 105 = LFO Dest
+cc 106 = LFO Wave
+cc 107 = LFO Phase
+cc 108 = LFO Reset
+cc 109 = LFO Depth
+lfo target = off

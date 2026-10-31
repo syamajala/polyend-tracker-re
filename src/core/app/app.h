@@ -17,6 +17,7 @@
 #include "audio/engine.h"
 #include "hal_api.h"
 #include "model/instrument.h"
+#include "model/midi_cc_names.h"
 #include "model/pattern.h"
 #include "model/pattern_store.h"
 #include "model/project.h"
@@ -207,6 +208,9 @@ public:
     // ---- model -----------------------------------------------------------
     Project project;
     OT_APP_SDRAM_MEMBER(PatternNames, names);   // main loop only (UI, project files)
+    // [I] #13 MIDI presets' names and CC charts (model/midi_cc_names.h), the
+    // one copy: not in Project, whose live copy is in SRAM.
+    OT_APP_SDRAM_MEMBER(MidiCcNames, midiNames);
     Instrument instruments[kSampleInstrumentCount];
     bool instrPresent[kSampleInstrumentCount] = {};
     audio::AudioEngine engine;
@@ -480,6 +484,13 @@ public:
     // Slot s's patch -> Patches/<MODEL>/<name>.patch (atomic; folders made),
     // record name = name.
     bool saveSynthLibraryPatch(int s, const char* name);
+    // [I] #13 MIDI presets (app/midi_presets.cpp): MidiPresets/<name>.txt,
+    // loaded into / saved from MIDI instrument `midi` (0..15). Load sets
+    // velocity, offset, CC A..F, the CC names and the MIDI LFO, and names the
+    // instrument after the preset; the channel stays the instrument's own.
+    // Instruments with the same preset share its CC names (one chart).
+    bool loadMidiPreset(int midi, const char* name);
+    bool saveMidiPreset(int midi, const char* name);
     // Load Patch popup preview (Tracker+ 1.0; docs/SYNTH_UX_MINI_VS_OT.md
     // row 24): Patches/<MODEL>/<name>.patch plays in slot s (its patch and
     // the audio-side record with the patch's macro defaults) while the

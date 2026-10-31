@@ -6,6 +6,7 @@
 
 #include "formats/bytes.h"
 #include "formats/midi_lfo.h"
+#include "formats/midi_names.h"
 #include "formats/perf_scenes.h"
 #include "formats/song_side.h"
 #include "formats/patterns_metadata.h"
@@ -20,7 +21,8 @@ namespace {
 // SDRAM on the device (OP-5; SD transfers go direct or bounce, sdhc.cpp).
 OT_SDRAM_BSS uint8_t g_io[pamd::kFileSize];
 static_assert(sizeof(g_io) >= mtp::kFileSize && sizeof(g_io) >= mt::kFileSize &&
-                  sizeof(g_io) >= recents::kFileSize && sizeof(g_io) >= song::kFileSize,
+                  sizeof(g_io) >= recents::kFileSize && sizeof(g_io) >= song::kFileSize &&
+                  sizeof(g_io) >= mnames::kFileSize,
               "staging buffer too small");
 
 bool fmt(char*, size_t cap, int n) { return n >= 0 && size_t(n) < cap; }
@@ -110,7 +112,7 @@ static FmtStatus saveSideFile(IStorage& fs, const char* projectPath, const char*
     return writeWholeFile(fs, sp, g_io, size);
 }
 
-FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoadInfo* info) {
+FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoadInfo* info, MidiCcNames* names) {
     uint32_t got = 0;
     FmtStatus st = readWholeFile(fs, path, g_io, mt::kFileSize, &got);
     if (st != FmtStatus::Ok) return st;
@@ -127,6 +129,12 @@ FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoa
     if (sideFilePath(sp, sizeof(sp), path, mlfo::kFileName) && fs.exists(sp) &&
         readWholeFile(fs, sp, g_io, mlfo::kFileSize, &got) == FmtStatus::Ok)
         decodeMidiLfos(g_io, got, p);
+    if (names) {
+        names->clear();
+        if (sideFilePath(sp, sizeof(sp), path, mnames::kFileName) && fs.exists(sp) &&
+            readWholeFile(fs, sp, g_io, mnames::kFileSize, &got) == FmtStatus::Ok)
+            decodeMidiNames(g_io, got, *names);
+    }
     if (sideFilePath(sp, sizeof(sp), path, pscn::kFileName) && fs.exists(sp) &&
         readWholeFile(fs, sp, g_io, pscn::kFileSize, &got) == FmtStatus::Ok)
         decodePerfScenes(g_io, got, p);
@@ -136,19 +144,34 @@ FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoa
     return FmtStatus::Ok;
 }
 
-FmtStatus saveProjectFile(IStorage& fs, const char* path, const Project& p) {
+FmtStatus saveProjectFile(IStorage& fs, const char* path, const Project& p, const MidiCcNames* names) {
     encodeProject(p, g_io);
     const FmtStatus st = writeWholeFile(fs, path, g_io, mt::kFileSize);
     if (st != FmtStatus::Ok) return st;
-    // [I] OpenTracker side files (midi_lfo.bin, perf_scenes.bin, song.bin), each only
+    // [I] OpenTracker side files (midi_lfo.bin, midi_names.bin, perf_scenes.bin, song.bin), each only
     // while it holds something, so other projects keep exactly the stock file set.
     const FmtStatus side = saveSideFile(fs, path, mlfo::kFileName, midiLfosUsed(p),
                                   [&](uint8_t* out) { encodeMidiLfos(p, out); }, mlfo::kFileSize);
+    const FmtStatus nms = !names ? FmtStatus::Ok
+                                 : saveSideFile(fs, path, mnames::kFileName, names->used(),
+                                                [&](uint8_t* out) { encodeMidiNames(*names, out); },
+                                                midiNamesSize(*names));
     const FmtStatus scn = saveSideFile(fs, path, pscn::kFileName, perfScenesUsed(p),
                                        [&](uint8_t* out) { encodePerfScenes(p, out); }, pscn::kFileSize);
     const FmtStatus sng = saveSideFile(fs, path, song::kFileName, songSideUsed(p),
                                        [&](uint8_t* out) { encodeSongSide(p, out); }, song::kFileSize);
-    return side != FmtStatus::Ok ? side : scn != FmtStatus::Ok ? scn : sng;
+    return side != FmtStatus::Ok ? side : nms != FmtStatus::Ok ? nms : scn != FmtStatus::Ok ? scn : sng;
+}
+
+FmtStatus copyMidiNamesFile(IStorage& fs, const char* srcProjectPath, const char* dstProjectPath) {
+    char sp[352], dp[352];
+    if (!sideFilePath(sp, sizeof(sp), srcProjectPath, mnames::kFileName) ||
+        !sideFilePath(dp, sizeof(dp), dstProjectPath, mnames::kFileName))
+        return FmtStatus::Ok;
+    if (!fs.exists(sp)) return fs.exists(dp) && !fs.remove(dp) ? FmtStatus::IoError : FmtStatus::Ok;
+    uint32_t got = 0;
+    const FmtStatus st = readWholeFile(fs, sp, g_io, mnames::kFileSize, &got);
+    return st != FmtStatus::Ok ? st : writeWholeFile(fs, dp, g_io, got);
 }
 
 // 2.x: pattern files are the Tracker Mini 16-track layout (spec 21 §4):

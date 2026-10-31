@@ -22,6 +22,9 @@ card() {   # card KIND DIR
     rm -rf "$2" "$2.eeprom"   # the sim keeps Config in DIR.eeprom: start clean
     mkdir -p "$2/Patches/DX7"
     python3 "$root/sim/fixtures/make_dx7_bank.py" "$2/Patches/DX7/Example bank.syx"
+    mkdir -p "$2/MidiPresets"   # an example MIDI preset (#13)
+    printf '# OpenTracker MIDI preset\nslot A = 74\nslot B = 71\nslot C = 73\nslot D = 72\nslot E = 1\nslot F = PC\ncc 1 = Mod\ncc 3 = LFO Rate\ncc 71 = Resonance\ncc 72 = Release\ncc 73 = Attack\ncc 74 = Cutoff\ncc 75 = Decay\ncc 76 = Fine Tune\nlfo target = slot A\nlfo depth = 30\n' \
+        > "$2/MidiPresets/Example synth.txt"
     if [ "$1" = project ]; then
         cp -R "$songs/." "$2/"
         mkdir -p "$2/Workspace"
@@ -247,6 +250,27 @@ enc 20               # M1 Bright up a little
 wait 300
 EOF
 
+# MIDI 1's Preset page (#13) with the example preset loaded.
+shot midi-presets empty <<'EOF'
+wait 300
+press INSTR
+wait 400
+enc -70
+enc 51               # MIDI 1
+release INSTR
+wait 100
+tap INSTRPARAMS
+wait 200
+tap INSTRPARAMS
+wait 200
+tap INSTRPARAMS      # Preset page
+wait 200
+tap F1               # Load list
+wait 200
+tap F8               # Load
+wait 3500            # the notice fades
+EOF
+
 # MIDI 1's LFO page, target CC 1.
 shot midi-lfo empty <<'EOF'
 wait 300
@@ -260,8 +284,8 @@ tap INSTRPARAMS
 wait 200
 tap INSTRPARAMS      # LFO page
 wait 200
-enc 2                # Target: CC 1 (Mod)
-wait 300
+enc 1                # Target: slot A (CC 1 Mod)
+wait 600            # the pick reaches the LFO
 EOF
 
 shot config-note-names empty <<'EOF'

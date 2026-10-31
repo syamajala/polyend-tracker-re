@@ -538,6 +538,7 @@ bool App::newProject() {
     f.mkdir("Workspace/patterns");
     f.mkdir("Workspace/samples");
     project.setDefault();
+    midiNames.clear();   // [I] #13
     project.setName("New Project");
     project.setFolder("");
     project.setCurrentPattern(1);
@@ -561,7 +562,7 @@ bool App::newProject() {
     patternFilePath(path, sizeof(path), kWorkspace, 1);
     bool ok = savePatternFile(f, path, stored(1)) == FmtStatus::Ok;
     projectFilePath(path, sizeof(path), kWorkspace);
-    ok = saveProjectFile(f, path, project) == FmtStatus::Ok && ok;
+    ok = saveProjectFile(f, path, project, &midiNames) == FmtStatus::Ok && ok;
     // Synth slots: the default records' patches (library "Init", else the
     // built-in Init), written to Workspace/N.patch like the Mini.
     g_patchKept = 0;
@@ -1763,7 +1764,7 @@ bool App::jobUnit(uint32_t& cost) {
             p.setDefault();
             ProjectLoadInfo pinfo;
             // spec 10 §1: structure 1..16 upgraded in RAM; type != 0 / version 0 fail.
-            if (loadProjectFile(f, src, p, &pinfo) != FmtStatus::Ok) {
+            if (loadProjectFile(f, src, p, &pinfo, &midiNames) != FmtStatus::Ok) {
                 jobFail();
                 return false;
             }
@@ -2000,6 +2001,9 @@ bool App::jobUnit(uint32_t& cost) {
                 jobFail();
                 return false;
             }
+            // [I] #13 the project's CC names, read with the Workspace load.
+            projectFilePath(src, sizeof(src), pj_.dir);
+            if (copyMidiNamesFile(f, src, dst) != FmtStatus::Ok) ++pj_.loadErrors;
             cost += kJobSmallCost;
             // Steps 3-6 run inside the load (instruments, names, patterns).
             jobBeginLoad();
@@ -2092,7 +2096,7 @@ bool App::jobUnit(uint32_t& cost) {
                 project.setCurrentPattern(patternNumber());
                 projectFilePath(dst, sizeof(dst), kWorkspace);
                 projectDirty_ = false;
-                if (saveProjectFile(f, dst, project) != FmtStatus::Ok) {
+                if (saveProjectFile(f, dst, project, &midiNames) != FmtStatus::Ok) {
                     projectDirty_ = true;
                     ++pj_.loadErrors;
                 }
@@ -2154,7 +2158,7 @@ bool App::jobUnit(uint32_t& cost) {
             std::snprintf(dst, sizeof(dst), "%s/instruments", pj_.dir);
             f.mkdir(dst);
             projectFilePath(dst, sizeof(dst), pj_.dir);
-            if (saveProjectFile(f, dst, project) != FmtStatus::Ok) ++pj_.loadErrors;
+            if (saveProjectFile(f, dst, project, &midiNames) != FmtStatus::Ok) ++pj_.loadErrors;
             cost += 4 * kJobSmallCost;
             pj_.stage = kSPatterns;
             pj_.idx = 1;

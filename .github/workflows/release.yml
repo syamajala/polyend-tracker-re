@@ -1,6 +1,6 @@
 # Release: on a version tag (v2.1.0, v2.1.0-ot1, ...), run the host tests,
 # build the firmware with the flash / stack-headroom / libm checks, and
-# publish a GitHub release with the .ptf image.
+# publish a GitHub release with the .ptf image and MidiPresets.zip.
 # The image name must be exactly 24 characters (update bootloader limit), so
 # the build uses the tag's numeric version only: v2.1.0-ot1 -> VERSION 2.1.0
 # -> PolyendTrackerOTv210.ptf; the suffix only names the release.
@@ -51,9 +51,15 @@ jobs:
         run: make -j"$(nproc)" VERSION=${{ steps.ver.outputs.version }}
       - name: Flash, stack headroom and libm checks
         run: python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size build/opentracker.elf
+      # [I] #13 the example MIDI presets, as the card folder MidiPresets/.
+      - name: MIDI presets zip
+        run: |
+          mkdir -p build/presets/MidiPresets
+          cp midi_presets/*.txt build/presets/MidiPresets/
+          (cd build/presets && zip -r ../MidiPresets.zip MidiPresets)
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" build/*.ptf \
+          gh release create "${GITHUB_REF_NAME}" build/*.ptf build/MidiPresets.zip \
             --title "OpenTracker ${GITHUB_REF_NAME}" --generate-notes

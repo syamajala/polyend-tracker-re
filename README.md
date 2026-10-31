@@ -146,6 +146,14 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 - In the pattern editor's edit mode, pads held together enter a chord: one note per
   track on the same step, from the cursor track rightwards. One Undo removes it.
 
+### MIDI presets
+- **Instrument Params** on a MIDI instrument now steps through Parameters, LFO and a new
+  **Preset** page: name the synth's CCs ("74 Cutoff"), and the names show for CC A–F
+  ("Cutoff" instead of "CC A"), in the CC lists and as the LFO target. **Save** the setup
+  (velocity, offset, CC A–F, the CC names, LFO) to `MidiPresets/<name>.txt` and **Load** it
+  into any MIDI instrument. Presets hold no channel and no program change. Releases include
+  `MidiPresets.zip` with presets for the Model:Cycles, Syntakt, volca fm2, SP-404MKII and S-1.
+
 ### Remote control and on-device testing
 - **Config > USB > Remote control** (Off after every power-on):
   - **Panel mode:** a Tracker connected over USB becomes the simulator's front panel.

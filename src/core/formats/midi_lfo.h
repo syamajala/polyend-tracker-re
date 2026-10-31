@@ -3,7 +3,8 @@
 // Tracker Mini never read it, so project.mt stays byte-compatible.
 //
 // Layout: "OTML", version, record count, record size, 0, the records
-// (target, shape, rate, depth, center, retrig), then the 8-bit sum of the
+// (target, shape, rate, depth, center, retrig; target as MidiLfo: Off, slot
+// A..F, pitch bend, pressure), then the 8-bit sum of the
 // record bytes. Newer versions may append fields to a record (larger record
 // size) or records; a reader takes the fields it knows.
 #pragma once
@@ -17,7 +18,7 @@
 namespace ot {
 
 namespace mlfo {
-constexpr uint8_t kVersion = 1;
+constexpr uint8_t kVersion = 2;   // 2: target = slot A..F, depth 0..64 (1: CC number, %; not read)
 constexpr uint32_t kHeaderSize = 8;
 constexpr uint32_t kRecordSize = 6;
 constexpr uint32_t kFileSize = kHeaderSize + kMidiInstrumentCount * kRecordSize + 1;

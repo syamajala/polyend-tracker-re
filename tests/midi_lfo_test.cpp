@@ -14,10 +14,10 @@ using namespace ot;
 namespace {
 MidiLfo sample() {
     MidiLfo l;
-    l.target = 75;   // CC 74
+    l.target = 2;   // slot B
     l.shape = 4;
     l.rate = 12;
-    l.depth = 80;
+    l.depth = 50;
     l.center = 40;
     l.retrig = 1;
     return l;
@@ -37,7 +37,7 @@ TEST(midi_lfo_codec_round_trip) {
     uint8_t buf[mlfo::kFileSize];
     encodeMidiLfos(p, buf);
     CHECK(std::memcmp(buf, "OTML", 4) == 0);
-    CHECK_EQ(buf[4], 1);
+    CHECK_EQ(buf[4], 2);
     CHECK_EQ(buf[5], 16);
     CHECK_EQ(buf[6], 6);
     Project q;
@@ -58,9 +58,13 @@ TEST(midi_lfo_codec_round_trip) {
     CHECK(decodeMidiLfos(buf, sizeof(buf), q) == FmtStatus::Ok);
     CHECK_EQ(q.midiLfo[3].shape, MidiLfo().shape);
     CHECK_EQ(q.midiLfo[3].depth, MidiLfo().depth);
-    CHECK_EQ(q.midiLfo[3].target, 75);
+    CHECK_EQ(q.midiLfo[3].target, 2);
+    // Version 1 (target = a CC number): not read.
+    encodeMidiLfos(p, buf);
+    buf[4] = 1;
+    CHECK(decodeMidiLfos(buf, sizeof(buf), q) == FmtStatus::BadMagic);
     // A newer file with longer records keeps the known fields.
-    uint8_t big[8 + 16 * 8 + 1] = {'O', 'T', 'M', 'L', 2, 16, 8, 0};
+    uint8_t big[8 + 16 * 8 + 1] = {'O', 'T', 'M', 'L', 3, 16, 8, 0};
     uint8_t s2 = 0;
     for (int i = 0; i < 16; ++i) {
         uint8_t* x = big + 8 + i * 8;
@@ -135,17 +139,27 @@ TEST(midi_lfo_instrument_page) {
     CHECK(h.disp.lastHasText("Retrigger"));
     CHECK(h.disp.lastHasText("Off"));
     MidiLfo& l = a.project.midiLfo[1];
-    // Target: encoder steps through CC 0.. (at most 10 per event, as the CC
-    // columns), Up/Down too.
-    h.enc(75);
-    CHECK_EQ(l.target, 10);
-    for (int i = 0; i < 6; ++i) h.enc(10);
-    h.enc(5);
-    CHECK_EQ(l.target, 75);
-    h.run(40);
-    CHECK(h.disp.lastHasText("74"));
+    // Target, a list: Off, slots A..F by their CC (default 1 5 7 11 64 PC),
+    // pitch bend, pressure. A pick reaches the LFO once the encoder rests.
+    CHECK(h.disp.lastHasText("A 1 ModWh"));
+    CHECK(h.disp.lastHasText("Chan AT"));   // the whole list is on screen
+    h.enc(2);
+    CHECK_EQ(l.target, MidiLfo::kTargetOff);
+    h.run(500);
+    CHECK_EQ(l.target, 2);   // slot B
+    h.enc(20);
+    h.run(500);
+    CHECK_EQ(l.target, MidiLfo::kTargetPressure);   // clamped at the end
+    h.tap(btn::Down);   // lists: Down moves down, Up up
     h.tap(btn::Up);
-    CHECK_EQ(l.target, 76);
+    h.tap(btn::Up);
+    h.run(500);
+    CHECK_EQ(l.target, MidiLfo::kTargetPitchBend - 1);   // slot F
+    h.tap(btn::F1);   // a tap on the selected list steps on and wraps
+    h.tap(btn::F1);
+    h.tap(btn::F1);
+    h.run(500);
+    CHECK_EQ(l.target, MidiLfo::kTargetOff);
     // Shape (list, F2): a tap on the selected list column wraps.
     h.tap(btn::F2);
     CHECK_EQ(l.shape, 2);
@@ -156,14 +170,20 @@ TEST(midi_lfo_instrument_page) {
     // Depth (F4) and reset with Delete.
     h.tap(btn::F4);
     h.enc(-20);
-    CHECK_EQ(l.depth, 30);
+    CHECK_EQ(l.depth, 12);
     h.tap(btn::Delete);
-    CHECK_EQ(l.depth, 50);
+    CHECK_EQ(l.depth, 32);
+    h.enc(100);
+    CHECK_EQ(l.depth, MidiLfo::kDepthMax);
     // Retrigger (F6).
     h.tap(btn::F6);
     h.tap(btn::F6);
     CHECK_EQ(l.retrig, 1);
-    // Back to the parameters page; another MIDI instrument keeps the LFO page.
+    // On to the preset page (#13), back to the parameters page; another MIDI
+    // instrument keeps the LFO page.
+    h.tap(btn::InstrParams);
+    h.run(40);
+    CHECK(h.disp.lastHasText("MIDI Instrument Preset"));
     h.tap(btn::InstrParams);
     h.run(40);
     CHECK(h.disp.lastHasText("MIDI Instrument Parameters"));

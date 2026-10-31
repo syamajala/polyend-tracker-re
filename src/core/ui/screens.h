@@ -8,6 +8,7 @@
 #include "app/pattern_ops.h"
 #include "app/perf_presets.h"
 #include "app/project_browser.h"
+#include "model/midi_cc_names.h"
 #include "model/synth_patch.h"
 #include "ui/loader_list.h"
 #include "ui/ui.h"
@@ -267,6 +268,8 @@ public:
     using Screen::Screen;
     const char* name() const override { return "Instrument"; }
     void start(int opt) override;
+    void stop() override;
+    void update(uint32_t now) override;
     void draw(Gfx& g) override;
     void onButton(uint8_t id, uint8_t state) override;
     void onEncoder(int d) override;
@@ -278,8 +281,16 @@ public:
     void onPad(uint8_t pad, uint8_t state) override;
     void padLeds(uint8_t* levels) override;
 
-    // 0 params, 1 automation, 2 MIDI Mapping, 3 MIDI instrument, 4 MIDI LFO ([I]); effects = mode 0 + effects flag
+    // 0 params, 1 automation, 2 MIDI Mapping, 3 MIDI instrument, 4 MIDI LFO ([I]),
+    // 5 MIDI preset ([I] #13); effects = mode 0 + effects flag
     int mode = 0;
+    // [I] #13 MIDI Instrument Preset page: the selected CC (0..127) of the
+    // chart and the Load list (MidiPresets/*.txt names in browserListMem()).
+    int presetCc = 0;
+    bool presetList = false;
+    int presetCursor = 0;
+    int presetCount = 0;
+    static constexpr int kPresetMax = 200;
     bool effects = false;
     int column = 0;        // mode 2: 0 = CC list pane, 1 = Instruments pane
     int dest = 0;          // automation destination 0..5
@@ -292,6 +303,27 @@ private:
     void onMappingButton(uint8_t id);
     void mappingMove(int d);
     void drawMapping(Gfx& g);
+    // [I] #13 MIDI Instrument Preset page (mode 5).
+    void onPresetButton(uint8_t id);
+    void presetMove(int d);
+    void listPresets();
+    void loadPreset();
+    void savePreset();
+    void savePresetAs();
+    void savePresetNow();
+    void editName();
+    void drawPreset(Gfx& g);
+    int presetTop_ = 0;
+    int presetCcTop_ = 0;
+    char presetName_[MidiCcNames::kPresetNameMax + 1] = {};
+    // [I] MIDI LFO Target: a pick waits here until the encoder has rested
+    // kLfoSettleMs, so scrolling past CCs does not send the LFO to them.
+    static constexpr uint32_t kLfoSettleMs = 400;
+    int lfoPending_ = -1;
+    uint8_t lfoPendingInstr_ = 0;
+    uint32_t lfoPendingAt_ = 0;
+    uint8_t lfoTarget() const;
+    void commitLfoTarget();
     void edit(int col, int d, bool tap);
     void reset(int col);
     void refreshBar();

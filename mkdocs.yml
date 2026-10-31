@@ -55,6 +55,7 @@ nav:
       - Performance mode: guide/performance.md
       - Song mode: guide/song-mode.md
       - MIDI instrument LFO: guide/midi-lfo.md
+      - MIDI presets: guide/midi-presets.md
       - More features: guide/more.md
       - Remote control: guide/remote-control.md
       - Troubleshooting: guide/troubleshooting.md

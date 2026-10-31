@@ -11,6 +11,7 @@
 #include "formats/project_mt.h"
 #include "hal_api.h"
 #include "model/pattern.h"
+#include "model/midi_cc_names.h"
 #include "model/project.h"
 
 namespace ot {
@@ -33,8 +34,13 @@ bool workspaceInstrumentPath(char* out, size_t cap, const char* base, int instru
 bool savedInstrumentPath(char* out, size_t cap, const char* base, int instrumentNumber, const char* name);
 
 // Storage-level wrappers around the codecs.
-FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoadInfo* info = nullptr);
-FmtStatus saveProjectFile(IStorage& fs, const char* path, const Project& p);
+// [I] #13 `names`: the MIDI CC names (midi_names.bin next to project.mt) are
+// read into / written from it; nullptr leaves them (and the file) alone.
+FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoadInfo* info = nullptr,
+                          MidiCcNames* names = nullptr);
+FmtStatus saveProjectFile(IStorage& fs, const char* path, const Project& p, const MidiCcNames* names = nullptr);
+// [I] #13 copies (or removes) midi_names.bin from one project folder to another.
+FmtStatus copyMidiNamesFile(IStorage& fs, const char* srcProjectPath, const char* dstProjectPath);
 // Pattern files (2.x): saved as the Tracker Mini 16-track layout (0x3030,
 // spec 21 §4.1); any size loads through decodePattern16 (§4.2 upgrades).
 // The PatternStock overloads drop / default tracks 12..15.

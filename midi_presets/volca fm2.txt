@@ -1,0 +1,25 @@
+# OpenTracker MIDI preset
+# Korg volca fm2 (MIDI implementation chart v1.0). CCs are received only when
+# the global parameter MIDI RX ShortMessage is ON.
+velocity = 127
+offset = 0
+slot A = 43
+slot B = 45
+slot C = 48
+slot D = 46
+slot E = 47
+slot F = 91
+cc 40 = Transpose
+cc 41 = Velocity
+cc 42 = Mod Atk
+cc 43 = Mod Decay
+cc 44 = Car Atk
+cc 45 = Car Decay
+cc 46 = LFO Rate
+cc 47 = LFO Pitch
+cc 48 = Algorithm
+cc 49 = Arp Type
+cc 50 = Arp Div
+cc 91 = Reverb
+cc 93 = Chorus
+lfo target = off
