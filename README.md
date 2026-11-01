@@ -21,6 +21,11 @@ engines, stereo samples, Mini-compatible project files and USB Storage mode. The
 the whole 2.x line (2.0 to 2.2.3); the full list is in the release notes of the
 [2.2.3 download](https://github.com/sandlbn/polyend-tracker-re/releases).
 
+## New since 2.2.3
+
+- **Note names** (Config > General > Note names): black keys as Sharps (C#5, the default),
+  Flats (Db5) or Auto, which follows the project's root note and scale (Bb in C Mixolydian).
+
 ## New in 2.2.2 to 2.2.3
 
 - **Stream long samples from the card** (optional, Off by default): Config > General >
