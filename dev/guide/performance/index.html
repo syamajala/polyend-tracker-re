@@ -549,6 +549,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#fader-ranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fader ranges
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#scene-bank-files" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1164,6 +1175,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#fader-ranges" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fader ranges
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#scene-bank-files" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1281,7 +1303,8 @@ each play a scene; the encoder (outside edit mode) or <strong>MIDI CC 63</strong
 <ul>
 <li>Continuous values (volume, filters, sends …) fade smoothly. Filters cross over at the
   middle (a low-pass on A and a high-pass on B don't fight). Stepped effects (Repeater,
-  Direction, Tape stop …) switch at the middle.</li>
+  Direction, Tape stop …) switch at the middle. With <a href="#fader-ranges">fader ranges</a>, each
+  column can move over its own part of the fader instead.</li>
 <li>The title bar shows the pair (<code>A 1 |------| B 2</code>) and where the fader is. Rows of the
   scene on A are marked red, on B blue; the pad LEDs and the green (active) row follow
   the fader.</li>
@@ -1362,12 +1385,93 @@ your live F keys come back.</p>
 <td>Load a bank file into this project.</td>
 </tr>
 <tr>
+<td><strong>F7 Ranges</strong></td>
+<td>Set where on the fader each column moves (see below).</td>
+</tr>
+<tr>
 <td><strong>F8 Back</strong> or <strong>Performance</strong></td>
 <td>Back to playing.</td>
 </tr>
 </tbody>
 </table>
 <p>Scenes can also be put on the fader by a song: see <a href="../song-mode/#scenes-per-slot">Song mode</a>.</p>
+<h2 id="fader-ranges">Fader ranges<a class="headerlink" href="#fader-ranges" title="Permanent link">&para;</a></h2>
+<p>By default every column moves across the whole fader: as you push from A to B, all of
+them change together. A <strong>fader range</strong> gives a column its own part of the fader, so
+one push can play a sequence of changes. For example, to build up:</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Scene A</th>
+<th>Scene B</th>
+<th>Range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LP cutoff</td>
+<td>-60 (closed)</td>
+<td>0 (open)</td>
+<td>0–33: opens first</td>
+</tr>
+<tr>
+<td>Delay send</td>
+<td>—</td>
+<td>+60</td>
+<td>33–66: then the delay comes in</td>
+</tr>
+<tr>
+<td>Step Repeater</td>
+<td>—</td>
+<td>1/16</td>
+<td>at 66: then the rolls start</td>
+</tr>
+</tbody>
+</table>
+<p>Scenes A and B stay the same; the range only sets <em>when</em> during the push each column
+goes from its A value to its B value. Before its range a column holds A's value, after
+it B's. Pulling the fader back undoes the changes in reverse. A song slot's
+<a href="../song-mode/#scenes-per-slot">ramp</a> moves the same fader, so it plays the sequence too.</p>
+<p>Open the <strong>Fader Ranges</strong> page with <strong>F7</strong> on the bank page:</p>
+<p><img alt="The Fader Ranges page" src="../../images/fader-ranges.png" /></p>
+<p>Each column has a row: its bar shows its range between <strong>A</strong> (left) and <strong>B</strong> (right),
+and the red line is where the fader is now. Left of the bar is the value the column plays
+at A (red), right of it the value at B (blue); <code>---</code> means that scene doesn't set the
+column, so it has no effect there. Columns that neither scene on A / B drives are grey. A stepped column (Repeater, Direction, Tape stop …) can't move gradually, so
+it has one <strong>switch point</strong> instead (<code>at 50</code> by default).</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Up / Down or a pad</td>
+<td>Select a column.</td>
+</tr>
+<tr>
+<td><strong>F1 Start / F2 End</strong></td>
+<td>Toggle that edge on or off, like Rec. While one is on, its key is framed and the edge is in brackets (<code>[0]-100</code>). A stepped column's switch point moves with either.</td>
+</tr>
+<tr>
+<td>Encoder</td>
+<td>With Start or End on: move that edge. With neither: move the fader, to hear the result without leaving the page.</td>
+</tr>
+<tr>
+<td><strong>F3 Reset</strong></td>
+<td>The selected column back to the whole fader (0–100).</td>
+</tr>
+<tr>
+<td><strong>F8 Back</strong></td>
+<td>Back to the bank page. <strong>Performance</strong> goes back to playing.</td>
+</tr>
+</tbody>
+</table>
+<p>Ranges belong to the columns of the project and are saved with it and in exported bank
+files.</p>
 <h2 id="scene-bank-files">Scene bank files<a class="headerlink" href="#scene-bank-files" title="Permanent link">&para;</a></h2>
 <p>A <strong>scene bank</strong> is a whole kit in one file, so it can move from song to song: the 12
 columns (each one's effect type, its three row values and a MIDI CC column's target), the
@@ -1407,6 +1511,8 @@ b = 2
 <li><code>scene N fx off = ...</code> lists the tracks whose F key the scene turns off (<code>none</code> turns them
   all on). Leave the line out and the scene doesn't change the F keys.</li>
 <li><code>a</code> and <code>b</code> give the scenes on A and B.</li>
+<li><code>range N = start end</code> gives column N's <a href="#fader-ranges">fader range</a> (0–100). Leave it
+  out for the whole fader; a stepped column's switch point is written as <code>range N = 66 66</code>.</li>
 <li><code>#</code> starts a comment. Unknown lines are ignored.</li>
 </ul>
 <h2 id="master-fx">Master FX<a class="headerlink" href="#master-fx" title="Permanent link">&para;</a></h2>
@@ -1446,8 +1552,8 @@ then <strong>OK (F8)</strong>.</p>
   LFO's <strong>Center</strong>, as a CC step FX does, and the LFO keeps swinging around it.</li>
 </ul>
 <h2 id="saved-with-the-project">Saved with the project<a class="headerlink" href="#saved-with-the-project" title="Permanent link">&para;</a></h2>
-<p>The scene bank, the F keys (live and per scene), the master FX and MIDI CC types and the
-MIDI CC columns' instruments and slots are stored in
+<p>The scene bank, the F keys (live and per scene), the master FX and MIDI CC types, the
+MIDI CC columns' instruments and slots and the fader ranges are stored in
 <code>perf_scenes.bin</code> next to <code>project.mt</code>. Stock firmware and the Tracker Mini see those columns as empty and ignore
 the scenes.</p>
 
