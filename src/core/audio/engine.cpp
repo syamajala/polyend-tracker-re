@@ -617,24 +617,19 @@ void AudioEngine::controlBlock(float blockUs) {
 // --- block render (spec 04 §1.3 graph) ----------------------------------------
 
 // Step 6 of renderBlock for one saturation mode (spec 04 §5.4).
-// inL / inR: the line input (l0 / li its level ramp), or [I] line + USB in
-// already at their levels (l0 1, li 0).
 template <int kMode>
-inline __attribute__((always_inline)) void AudioEngine::masterSum(const float* inL, const float* inR, float l0,
-                                                                  float li) {
+inline __attribute__((always_inline)) void AudioEngine::masterSum(float l0, float li) {
     for (uint32_t i = 0; i < kBlock; ++i) {
         l0 += li;
         const float dl = saturate(mL_[i], kMode), dr = saturate(mR_[i], kMode);
-        mL_[i] = saturate(dl + dL_[i] + rL_[i] + inL[i] * l0, kMode);
-        mR_[i] = saturate(dr + dR_[i] + rR_[i] + inR[i] * l0, kMode);
+        mL_[i] = saturate(dl + dL_[i] + rL_[i] + lineL_[i] * l0, kMode);
+        mR_[i] = saturate(dr + dR_[i] + rR_[i] + lineR_[i] * l0, kMode);
     }
 }
 
 // Saturation mode 0 (the default) runs from SRAM_L (fastrun.h); the other
 // modes stay inlined in renderBlock (flash).
-OT_FASTRUN_FN void AudioEngine::masterSumClean(const float* inL, const float* inR, float l0, float li) {
-    masterSum<0>(inL, inR, l0, li);
-}
+OT_FASTRUN_FN void AudioEngine::masterSumClean(float l0, float li) { masterSum<0>(l0, li); }
 
 void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
     const float blockSeconds = offline ? kRenderBlockSeconds : kLiveBlockSeconds;
@@ -744,8 +739,9 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
         zeroWords(lineL_, sizeof(lineL_));
         zeroWords(lineR_, sizeof(lineR_));
     }
-    // [I] 4b. USB in (#97): always stereo, straight to MSUM at its level (no
-    //    sends, no side-chain). Digital silence is no input, as for the line.
+    // [I] 4b. USB in (#97): always stereo, added after the limiter at its
+    //    level (step 8: no sends, no side-chain, not in the USB send).
+    //    Digital silence is no input, as for the line.
     bool usb = false;
     if (usbIn_) {
         int32_t nz = 0;
@@ -807,12 +803,28 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
     // 6. DRY (shaped) + returns (MSUM gains 1/2 fixed at 1.0, spec 07 Q3)
     //    + line-in -> MSUM (shaped) (§5.4). All inputs zero -> zero (every
     //    shaper maps 0 to 0), mL_/mR_ already are.
+    // [I] USB in level (#97), applied in step 8; muted: nothing to add.
+    float u0;
+    const float ui = usbLvl_.begin(u0);
+    if (usb && u0 == 0.0f && ui == 0.0f) usb = false;
     {
-        float l0, u0;
-        float li = lineLvl_.begin(l0);
-        const float ui = usbLvl_.begin(u0);
-        if (usb && u0 == 0.0f && ui == 0.0f) usb = false;   // muted: nothing to add
-        if (anyVoice || dly || rev || line || usb) {
+        float l0;
+        const float li = lineLvl_.begin(l0);
+        if (usb) {
+            // [I] The Global Mixer USB meter: USB in x level (see below).
+            const float ug = u0 + ui * float(kBlock);   // the level at the block's end
+            for (int sd = 0; sd < 2; ++sd) {
+                const float* a = sd ? usbR_ : usbL_;
+                float p = 0.0f;
+                for (uint32_t i = 0; i < kBlock; i += 8) {
+                    const float v = a[i] < 0.0f ? -a[i] : a[i];
+                    p = v > p ? v : p;
+                }
+                p *= ug < 0.0f ? -ug : ug;
+                if (p > busPeak_[4][sd]) busPeak_[4][sd] = p;
+            }
+        }
+        if (anyVoice || dly || rev || line) {
             // Global Mixer meters: the four MSUM inputs before the sum (every
             // 8th frame, a UI reading like the synth slot meters; delay / reverb returns, the dry bus, line in x level).
             auto peak = [](const float* a, float g) {
@@ -829,33 +841,12 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
                     const float p = peak(bus[ch][sd], ch == 3 ? (l0 < 0.0f ? -l0 : l0) : 1.0f);
                     if (p > busPeak_[ch][sd]) busPeak_[ch][sd] = p;
                 }
-            const float *inL = lineL_, *inR = lineR_;
-            if (usb) {
-                // [I] USB in: its meter, then line + USB at their levels into
-                // usbL_ / usbR_, summed at unity below.
-                const float ug = u0 + ui * float(kBlock);   // the level at the block's end
-                for (int sd = 0; sd < 2; ++sd) {
-                    const float p = peak(sd ? usbR_ : usbL_, ug);
-                    if (p > busPeak_[4][sd]) busPeak_[4][sd] = p;
-                }
-                float lg = l0, ugr = u0;
-                for (uint32_t i = 0; i < kBlock; ++i) {
-                    lg += li;
-                    ugr += ui;
-                    usbL_[i] = usbL_[i] * ugr + lineL_[i] * lg;
-                    usbR_[i] = usbR_[i] * ugr + lineR_[i] * lg;
-                }
-                inL = usbL_;
-                inR = usbR_;
-                l0 = 1.0f;
-                li = 0.0f;
-            }
             switch (m.saturationMode) {
-                case 1: masterSum<1>(inL, inR, l0, li); break;
-                case 2: masterSum<2>(inL, inR, l0, li); break;
-                case 3: masterSum<3>(inL, inR, l0, li); break;
-                case 4: masterSum<4>(inL, inR, l0, li); break;
-                default: masterSumClean(inL, inR, l0, li); break;   // the default mode, from SRAM_L (.fastrun)
+                case 1: masterSum<1>(l0, li); break;
+                case 2: masterSum<2>(l0, li); break;
+                case 3: masterSum<3>(l0, li); break;
+                case 4: masterSum<4>(l0, li); break;
+                default: masterSumClean(l0, li); break;   // the default mode, from SRAM_L (.fastrun)
             }
         }
     }
@@ -881,9 +872,22 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
         }
         tap->tapBlock(tl, tr, kBlock);
     }
+    // [I] USB send (#97 step 2): the limiter output, what Resample From
+    // Master records. Live only; the limiter wrote its output (zeros when
+    // silent) either way.
+    if (!offline && usbSend_.buffer) {
+        if (int16_t* u = usbSend_.buffer(usbSend_.ctx)) {
+            for (uint32_t i = 0; i < kBlock; ++i) {
+                u[2 * i] = toS16(limOutL[i]);
+                u[2 * i + 1] = toS16(limOutR[i]);
+            }
+            usbSend_.commit(usbSend_.ctx);
+        }
+    }
     // 8. OUT mixers (§5.4, mode 0): limiter * master volume + file preview
     //    (input 1) + metronome (input 5, SEND[metronomeVolume], after the
-    //    limiter and master volume, centred; spec 07 Q10).
+    //    limiter and master volume, centred; spec 07 Q10). [I] USB in (#97)
+    //    joins the limiter output at its level, under master volume.
     bool click = false;
     if (!offline && voices_[kMetronomeVoice].active()) {
         float noSendD[kBlock], noSendR[kBlock];
@@ -947,7 +951,7 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
     }
     float g0, c0;
     const float gi = master_.begin(g0), ci = click_.begin(c0);
-    if (!limL && !limR && !raw && !click) {
+    if (!limL && !limR && !raw && !click && !usb) {
         if (!(reinterpret_cast<uintptr_t>(master) & 3u)) zeroWords(master, kBlock * 2 * sizeof(int16_t));   // silence
         else std::memset(master, 0, kBlock * 2 * sizeof(int16_t));
     } else {
@@ -955,7 +959,14 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
         for (uint32_t i = 0; i < kBlock; ++i) {
             g0 += gi;
             c0 += ci;
-            float l = limOutL[i] * g0, r = limOutR[i] * g0;
+            float l = limOutL[i], r = limOutR[i];
+            if (usb) {
+                u0 += ui;
+                l += usbL_[i] * u0;
+                r += usbR_[i] * u0;
+            }
+            l *= g0;
+            r *= g0;
             if (raw) {
                 l += rawL[i];
                 r += rawR[i];

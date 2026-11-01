@@ -1,6 +1,6 @@
-// [I] USB audio in (#97) through the app: off in a new project like Line in,
+// [I] USB audio (#97) through the app: off in a new project like Line in,
 // the Global Mixer USB column, the Sample Recorder's USB source and monitor,
-// Resample From USB, and usb_audio.bin.
+// Resample From USB, usb_audio.bin, and the send to the computer (step 2).
 #include <cmath>
 #include <cstdlib>
 #include <string>
@@ -59,6 +59,15 @@ int settle(Harness& h) {
     h.run(20);
     h.audio.pump(10);
     return h.audio.pump(30);
+}
+
+// The send's peak over the settled blocks (as settle()).
+int settleSend(Harness& h) {
+    h.run(20);
+    h.audio.pump(10);
+    h.usbSendPeak = 0;
+    h.audio.pump(30);
+    return h.usbSendPeak;
 }
 
 }  // namespace
@@ -218,4 +227,47 @@ TEST(project_with_usb_source_reopens_on_usb) {
     a.project.recUsb = 0;
     a.syncRecorderSettings();
     CHECK_EQ(a.cfg.recSource, 0);
+}
+
+// [I] #97 step 2: the computer gets the limiter output, what Resample From
+// Master records: the line in at its Global Mixer level, never the USB in
+// (no echo of the computer's own playback), before master volume.
+TEST(send_is_the_master_bus_without_usb_in) {
+    Harness h;
+    App& a = *h.app;
+    CHECK_EQ(settleSend(h), 0);
+    CHECK_EQ(h.usbSendBlocks, 0L);   // not recording: nothing written
+    h.usbRecording = true;
+    CHECK_EQ(settleSend(h), 0);
+    CHECK(h.usbSendBlocks >= 30L);
+    a.project.setU8(pf::kLineInMute, 0);
+    a.project.usbMute = 0;
+    a.markProjectDirty();
+    h.lineGen = lineDc;
+    const int line = settleSend(h);
+    CHECK(line > 1000);
+    h.usbGen = usbSine;
+    const int out = settle(h);
+    CHECK_NEAR(double(settleSend(h)), double(line), 2.0);   // USB in is heard, not sent
+    CHECK(out > 1000);
+    // Master volume changes what's heard, not what's sent.
+    a.cfg.masterVolume = 40;
+    a.markConfigDirty();
+    CHECK(settle(h) < out);
+    CHECK_NEAR(double(settleSend(h)), double(line), 2.0);
+}
+
+// Offline renders (export) never reach the computer.
+TEST(send_live_only) {
+    Harness h;
+    App& a = *h.app;
+    h.usbRecording = true;
+    settleSend(h);
+    const long before = h.usbSendBlocks;
+    StemBlock stems;
+    int16_t master[256];
+    a.engine.beginOffline();
+    for (int i = 0; i < 8; ++i) a.engine.renderOfflineBlock(master, &stems);
+    a.engine.endOffline();
+    CHECK_EQ(h.usbSendBlocks, before);
 }

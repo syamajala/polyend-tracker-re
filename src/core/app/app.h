@@ -50,6 +50,10 @@ struct HalRefs {
     // feedback). Null when the build has no USB audio (simulator, OT_USB_AUDIO=0).
     const int16_t* (*usbIn)(void* ctx) = nullptr;
     void* usbInCtx = nullptr;
+    // [I] USB audio out (#97 step 2): where the engine sends the limiter
+    // output every live block (AudioEngine::setUsbSend). buffer null: no USB
+    // audio out (simulator without --usb-out, OT_USB_AUDIO=0).
+    audio::AudioEngine::UsbSend usbSend{};
     // Recorder input routing (spec 05 appendix C §2.4/§2.5): source 0 line
     // in, 1 radio, 2 mic low gain, 3 mic high gain; gain 0..100. Returns
     // false when the source is not available. Null: only line in (no

@@ -219,7 +219,19 @@ public:
     // Line input for the next block: 128 interleaved int16 frames, or nullptr (silence).
     void setLineInput(const int16_t* interleaved) { lineIn_ = interleaved; }
     // [I] USB audio in for the next block (#97), the same format; nullptr = silence.
+    // Added after the limiter, at its Global Mixer level, under master volume.
     void setUsbInput(const int16_t* interleaved) { usbIn_ = interleaved; }
+    // [I] USB audio out (#97 step 2): every live block the limiter output
+    // (before master volume, metronome, file preview and USB in, as the
+    // Master resample tap) goes to buffer() as 128 interleaved int16 frames,
+    // then commit(). buffer() returning nullptr skips the block (the computer
+    // isn't recording). Called in the audio block.
+    struct UsbSend {
+        int16_t* (*buffer)(void* ctx);
+        void (*commit)(void* ctx);
+        void* ctx;
+    };
+    void setUsbSend(const UsbSend& s) { usbSend_ = s; }
     // [I] Live resampling: source 0 = master (limiter output, before master
     // volume, metronome and file preview), 1..8 = sample track t-1 (post
     // pan, as its stem). kTapLineIn (the line input) is tapped by the app
@@ -370,8 +382,8 @@ private:
     void updateParams();
     void controlBlock(float blockUs);
     template <int kMode>
-    void masterSum(const float* inL, const float* inR, float l0, float li);
-    void masterSumClean(const float* inL, const float* inR, float l0, float li);   // masterSum<0>
+    void masterSum(float l0, float li);
+    void masterSumClean(float l0, float li);   // masterSum<0>
 
     SampleBank bank_;
     StreamRing* rings_ = nullptr;
@@ -405,7 +417,7 @@ private:
     float dsend_[kBlock], rsend_[kBlock];
     float dL_[kBlock], dR_[kBlock], rL_[kBlock], rR_[kBlock];
     float lineL_[kBlock], lineR_[kBlock];
-    float usbL_[kBlock], usbR_[kBlock];   // [I] USB in (#97), then line + USB at their levels
+    float usbL_[kBlock], usbR_[kBlock];   // [I] USB in (#97)
     float mL_[kBlock], mR_[kBlock];
 
     struct RawPreview {
@@ -432,6 +444,7 @@ private:
     IMidiPort* midi_ = nullptr;
     const int16_t* lineIn_ = nullptr;
     const int16_t* usbIn_ = nullptr;
+    UsbSend usbSend_{};
     IResampleTap* volatile tap_ = nullptr;
     volatile uint8_t tapSource_ = 0;
     int8_t tapLast_ = -1;   // track tapped in the last block (audio context)

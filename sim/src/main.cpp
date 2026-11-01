@@ -51,6 +51,7 @@ struct Options {
     float lineInTone = 0.0f;   // headless: synthetic line input (Hz), 0 = none
     std::string usbIn;         // [I] #97 capture device as USB audio in ("default", "list")
     float usbInTone = 0.0f;    // [I] headless: synthetic USB audio in (Hz), 0 = none
+    std::string usbOut;        // [I] #97 step 2 output device for the USB send ("default")
     long quitAfterMs = -1;
 };
 
@@ -73,6 +74,8 @@ void usage() {
         "  --wav OUT.wav     record the rendered audio\n"
         "  --line-in-tone HZ synthetic line input: tone bursts (recorder tests)\n"
         "  --usb-in-tone HZ  synthetic USB audio in: the same tone bursts\n"
+        "  --usb-out NAME    play the USB audio send on output device NAME (\"default\"): what\n"
+        "                    the computer records\n"
         "  --rom-fonts       never bind the custom fonts (FT81x ROM font fallback)\n"
         "  --rom-text        ROM fallback text as CMD_TEXT (per glyph at the grid pitch), not VERTEX2II\n"
         "  --instant-display show every frame at once, frameReady() always true (default: the FT81x\n"
@@ -92,6 +95,7 @@ bool parseArgs(int argc, char** argv, Options& o) {
         if (a == "--scale" && next(v)) { o.scale = std::atoi(v.c_str()) >= 2 ? 2 : 1; continue; }
         if (a == "--line-in") { o.lineIn = true; continue; }
         if (a == "--usb-in" && next(o.usbIn)) continue;
+        if (a == "--usb-out" && next(o.usbOut)) continue;
         if (a == "--no-audio") { o.noAudio = true; continue; }
         if (a == "--no-midi") { o.noMidi = true; continue; }
         if (a == "--demo") { o.demo = true; continue; }
@@ -154,6 +158,15 @@ struct Machine {
             return buf;
         }
     } tone, usbTone;   // usbTone: [I] --usb-in-tone (#97)
+    // [I] USB audio out (#97 step 2): the engine's send while "the computer
+    // records" (--usb-out, or the script's usb-out on); its peak for
+    // expect-usb-out.
+    struct UsbOut {
+        bool recording = false;
+        SdlAudio* sdl = nullptr;   // --usb-out: also played there
+        int16_t buf[128 * 2] = {};
+        int peak = 0;
+    } usbOut;
     ot::IAudioOut* audio = nullptr;
     bool demo = false;
 
@@ -189,6 +202,7 @@ struct Machine {
         } else if (!o.noAudio) {
             sdlAudio.enableLineIn(o.lineIn);
             sdlAudio.enableUsbIn(o.usbIn);
+            sdlAudio.enableUsbOut(o.usbOut);
             audio = &sdlAudio;
         }
         if (demo) return true;
@@ -241,6 +255,19 @@ struct Machine {
             h.usbIn = [](void* c) { return static_cast<ToneIn*>(c)->block(); };
             h.usbInCtx = &usbTone;
         }
+        // [I] USB audio out (#97 step 2).
+        usbOut.recording = !o.usbOut.empty();
+        if (audio == &sdlAudio && !o.usbOut.empty()) usbOut.sdl = &sdlAudio;
+        h.usbSend.buffer = [](void* c) -> int16_t* {
+            UsbOut* u = static_cast<UsbOut*>(c);
+            return u->recording ? u->buf : nullptr;
+        };
+        h.usbSend.commit = [](void* c) {
+            UsbOut* u = static_cast<UsbOut*>(c);
+            for (int16_t v : u->buf) u->peak = std::max(u->peak, std::abs(int(v)));
+            if (u->sdl) u->sdl->usbOut(u->buf);
+        };
+        h.usbSend.ctx = &usbOut;
         // The capture device stands in for line in and both mic gains; there
         // is no FM tuner (HalRefs::radio stays null -> "not available").
         h.selectInput = [](void*, uint8_t source, uint8_t) { return source != 1; };
@@ -743,6 +770,24 @@ struct Headless {
                 m.manualAudio.peak = 0;
                 if (got < n1) {
                     std::fprintf(stderr, "script:%d: output peak %d < %ld\n", line, got, n1);
+                    return false;
+                }
+            } else if (cmd == "usb-out") {
+                // [I] usb-out on|off: the computer records the USB send, or not.
+                if (a1 != "on" && a1 != "off") {
+                    std::fprintf(stderr, "script:%d: usb-out on|off\n", line);
+                    return false;
+                }
+                m.usbOut.recording = a1 == "on";
+                m.usbOut.peak = 0;
+            } else if (cmd == "expect-usb-out" || cmd == "expect-usb-out-quiet") {
+                // [I] Peak of the USB send since the last check / usb-out:
+                // >= N (expect-usb-out) or < N (-quiet).
+                const int got = m.usbOut.peak;
+                m.usbOut.peak = 0;
+                const bool quiet = cmd == "expect-usb-out-quiet";
+                if (quiet ? got >= n1 : got < n1) {
+                    std::fprintf(stderr, "script:%d: USB send peak %d %s %ld\n", line, got, quiet ? ">=" : "<", n1);
                     return false;
                 }
             } else if (cmd == "sound-reset") {

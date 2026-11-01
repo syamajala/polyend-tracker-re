@@ -587,6 +587,12 @@ struct Harness {
     std::function<void(int16_t* block, uint64_t blockIndex)> usbGen;
     int16_t usbBlock[256] = {};
     uint64_t usbBlocks = 0;
+    // [I] USB audio out (#97 step 2): usbRecording = the computer records;
+    // the engine's send lands in usbSendBuf, its peak in usbSendPeak.
+    bool usbRecording = false;
+    int16_t usbSendBuf[256] = {};
+    int usbSendPeak = 0;
+    long usbSendBlocks = 0;
     int routedInput = -1;   // the last App::selectInput source (-1: none)
 
     explicit Harness(bool bootNow = true, uint32_t bankSamples = 4 * 1024 * 1024) {
@@ -633,6 +639,19 @@ struct Harness {
             return self->usbBlock;
         };
         h.usbInCtx = this;
+        h.usbSend.buffer = [](void* c) -> int16_t* {
+            Harness* self = static_cast<Harness*>(c);
+            return self->usbRecording ? self->usbSendBuf : nullptr;
+        };
+        h.usbSend.commit = [](void* c) {
+            Harness* self = static_cast<Harness*>(c);
+            for (int16_t v : self->usbSendBuf) {
+                const int a = v < 0 ? -int(v) : int(v);
+                self->usbSendPeak = a > self->usbSendPeak ? a : self->usbSendPeak;
+            }
+            ++self->usbSendBlocks;
+        };
+        h.usbSend.ctx = this;
         h.selectInput = [](void* c, uint8_t source, uint8_t) {
             static_cast<Harness*>(c)->routedInput = source;
             return true;

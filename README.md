@@ -23,15 +23,20 @@ the whole 2.x line (2.0 to 2.2.3); the full list is in the release notes of the
 
 ## New since 2.2.3
 
-- **USB audio in** (Linux and Windows; contributed by syamajala): the Tracker shows up on
-  the computer as a USB sound card, **OpenTracker**, next to its USB MIDI and storage. Pick
-  it as the computer's output and whatever the computer plays (a browser, a DAW, a soft
-  synth) can be heard and sampled on the Tracker, without a driver.
+- **USB audio, both ways** (Linux and Windows; contributed by syamajala): the Tracker
+  shows up on the computer as a USB sound card, **OpenTracker**, next to its USB MIDI and
+  storage, without a driver. Pick it as the computer's output and whatever the computer
+  plays (a browser, a DAW, a soft synth) can be heard and sampled on the Tracker; pick it
+  as the input to record the Tracker.
   - **Hear it:** Global Mixer (Master, three presses), unmute **USB** (F8), the last column.
     It works like the other columns (hold F8 + encoder for the level). It goes straight to
     the master mix, not to the delay and reverb sends.
   - **Sample it:** Sample Recorder Source **USB** (after Mic HG, always stereo), or
     Resample From **USB**.
+  - **Record the Tracker:** the computer gets the master bus after the limiter and before
+    master volume (as Resample From Master), with Line in when it's unmuted; not the
+    metronome, file preview or the computer's own USB audio, so a DAW doesn't record its
+    playback again.
   - USB starts muted at its default level; the level, mute and the Recorder's USB source
     aren't saved (project.mt keeps its stock layout).
   - Latency is about 5 ms plus the computer's buffer: fine for sampling and listening

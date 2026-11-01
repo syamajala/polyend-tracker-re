@@ -419,6 +419,8 @@ void otAppMain(ot::hal::HalSet& hal) {
     // [I] USB audio in (#97); null in an image without the USB audio function.
     refs.usbIn = hal::usbAudioAvailable() ? &hal::usbAudioIn : nullptr;
     refs.usbInCtx = nullptr;
+    // [I] USB audio out (#97 step 2): the engine's send.
+    if (hal::usbAudioAvailable()) refs.usbSend = {&hal::usbAudioOutBuffer, &hal::usbAudioOutCommit, nullptr};
     refs.selectInput = &selectInputThunk;  // codec input mux + tuner (spec 01 §5.4-§5.6)
     refs.inputCtx = nullptr;
     refs.radio = &hal::radio();

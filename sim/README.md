@@ -31,6 +31,7 @@ Options:
 | `--line-in-tone HZ` | synthetic line input (tone bursts), e.g. to test the Sample Recorder headless |
 | `--usb-in NAME` | capture device NAME as USB audio in (`default`; `list` prints the names) |
 | `--usb-in-tone HZ` | synthetic USB audio in (the same tone bursts), for headless scripts |
+| `--usb-out NAME` | play the USB audio send on output device NAME (`default`): what the computer records |
 | `--no-audio` / `--no-midi` | skip the audio device / ALSA ports |
 | `--demo` | renderer and input demo instead of the app |
 | `--quit-after MS` | exit after MS milliseconds |
@@ -238,4 +239,12 @@ uncompressed deflate, so files are ~1 MB).
   then pick TrackerUSB as the output of the browser or DAW. The sim prefers
   SDL's PulseAudio backend with `--usb-in` (PipeWire serves it too): only that
   backend lists monitor sources.
+- USB audio out (`--usb-out NAME`, #97 step 2) plays the send the computer
+  would record (the master bus before master volume, without metronome, file
+  preview or USB in) on a second output device, e.g. a null sink whose
+  monitor a recorder captures. The sim's two devices drift apart; it drops
+  the queue rather than resample, so expect an occasional click there.
+  Script commands: `usb-out on|off` (the computer records the send, or not),
+  `expect-usb-out N` / `expect-usb-out-quiet N` (the send's peak since the
+  last check is at least / below N).
 - Panel layout and key labels are approximations of the real hardware.

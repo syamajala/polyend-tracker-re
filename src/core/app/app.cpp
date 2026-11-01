@@ -65,6 +65,7 @@ bool App::init(const HalRefs& hal, const AppMemory& mem) {
     for (auto& v : stream_.streamOf) v = -1;   // SD streaming: every slot in RAM
     engine.setMidiOut(hal_.midi);
     engine.setPreBlockHook(&App::preBlockThunk, this);
+    engine.setUsbSend(hal_.usbSend);   // [I] #97 step 2
     // Tempo-locked LFO phase (spec 07 Q5).
     engine.setTransportSource(
         [](void* ctx, uint32_t* tick, int16_t* step0) {
