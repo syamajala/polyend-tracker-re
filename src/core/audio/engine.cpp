@@ -386,10 +386,12 @@ void AudioEngine::voiceNoteOn(uint8_t track, const VoiceNoteOn& n) {
         // A partial (streamed-head) slot never plays as a whole sample: no
         // source bound yet, streaming turned off, or a bank move in progress.
         if (bank_.partial(n.instrument)) return;
+        // [I] #3 a Multi instrument: its zones (Slice instruments only read them).
+        const MultiMap& mm = multiMap(n.instrument);
         voices_[track].noteOn(&ins, bank_.left(n.instrument), bank_.frames(n.instrument), n.note, n.volume,
                               n.fxA.type, n.fxA.value, n.fxB.type, n.fxB.value,
                               bank_.stereo(n.instrument) ? bank_.right(n.instrument) : nullptr, nullptr,
-                              rings_ ? &rings_[track] : nullptr);
+                              rings_ ? &rings_[track] : nullptr, multiActive(mm, ins) ? &mm : nullptr);
     }
     pendingOff_[track] = 0;
     startedInBlock_[track] = true;

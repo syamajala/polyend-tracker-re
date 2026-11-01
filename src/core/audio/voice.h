@@ -20,6 +20,7 @@
 #include "audio/dsp.h"
 #include "audio/stream_source.h"
 #include "model/instrument.h"
+#include "model/multisample.h"
 
 namespace ot {
 namespace audio {
@@ -107,7 +108,8 @@ public:
     // block of a planar stereo instrument (nullptr = mono).
     void noteOn(const Instrument* ins, const int16_t* data, uint32_t frames, uint8_t note, int8_t volume,
                 uint8_t fxAType, uint8_t fxAValue, uint8_t fxBType, uint8_t fxBValue,
-                const int16_t* dataR = nullptr, const StreamSource* stream = nullptr, StreamRing* ring = nullptr);
+                const int16_t* dataR = nullptr, const StreamSource* stream = nullptr, StreamRing* ring = nullptr,
+                const MultiMap* multi = nullptr);
     void noteOff(int8_t mode);   // NoteOffMode values: -2 fade, -3 cut, -4 off
     void applyFx(uint8_t slot, uint8_t type, uint8_t value);
     void resetFx();
@@ -162,6 +164,7 @@ private:
         const int16_t* dataR = nullptr;   // right block (stereo), else nullptr
         const StreamSource* stream = nullptr;   // streamed instrument (data = its head), else nullptr
         StreamRing* ring = nullptr;             // the track's read-ahead ring
+        const MultiMap* multi = nullptr;        // [I] #3 a Multi instrument's zones, else nullptr
     };
     struct Mod {          // automation slots 1..5 (spec 04 §4.8)
         uint8_t mode = 0; // 0 off, 1 envelope, 2 LFO
@@ -212,6 +215,7 @@ private:
     uint32_t streamGen_ = 0;
     uint8_t note_ = 60;
     uint8_t sliceNote_ = 60;   // the note before the Beat Slice unity override
+    int8_t zone_ = -1;         // [I] #3 Multi: the zone (slice) the note plays, else -1
     Pending pending_;
 
     // player state (spec 04 §2.1); positions are absolute frame indices

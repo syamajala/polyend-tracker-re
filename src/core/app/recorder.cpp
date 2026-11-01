@@ -267,6 +267,8 @@ void App::finishResample() {
     }
     instruments[slot] = ins;
     instrPresent[slot] = true;
+    if (multiMap(slot).count) markProjectDirty();   // [I] #3 a new sample: no zones
+    multiClear(slot);
     markInstrumentDirty(slot, true);
     setCurrentInstrument(slot);
     resampler.reset();

@@ -121,7 +121,7 @@ M4_CC := $(CROSS)gcc
 M4_FLAGS := -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -O2 -ffunction-sections -fdata-sections
 M4_SRCS := audio_bench.cpp $(wildcard $(SRC)/core/audio/*.cpp) $(wildcard $(SRC)/core/audio/engines/*.cpp) \
            $(SRC)/core/formats/wav.cpp $(SRC)/core/formats/patch_pb.cpp \
-           $(SRC)/core/formats/format_common.cpp $(SRC)/core/model/project.cpp $(SRC)/core/model/fx.cpp \
+           $(SRC)/core/formats/format_common.cpp $(SRC)/core/model/project.cpp $(SRC)/core/model/fx.cpp $(SRC)/core/model/multisample.cpp \
            $(wildcard $(SRC)/core/sequencer/*.cpp)
 # The device's memcpy / memmove / memset (src/hal/fast_mem.c) replace newlib-nano's here too.
 $(BENCH_OUT)/audio_bench_m4.elf: $(M4_SRCS) $(M4_HDRS) peak_trace.h bench_m4/startup.c bench_m4/mps2.ld $(SRC)/hal/fast_mem.c

@@ -9,6 +9,7 @@
 #include "app/perf_presets.h"
 #include "app/project_browser.h"
 #include "model/midi_cc_names.h"
+#include "model/multisample.h"
 #include "model/synth_patch.h"
 #include "ui/loader_list.h"
 #include "ui/ui.h"
@@ -384,6 +385,13 @@ public:
     int trimSel = 0;
     uint32_t trimLen_ = 0;
     uint32_t trimBytes_ = 0;            // the whole file in the bank (2.x: stereo stays stereo)
+    // [I] #3 Multi panel (Add on an .sfz): which of its notes to load.
+    bool multi = false;
+    int multiSel = 0;                   // 0 Low, 1 High, 2 Every, 3 Max length
+    ms::Options multiOpt;
+    void openMulti();
+    void multiPlan(ms::Plan& p) const;
+    bool multiFits() const;
 
     void list();
     void enter();
@@ -436,6 +444,10 @@ private:
     bool f7Hold_ = false;               // F7 produced a hold tick (§5.3)
     bool trimPlaying_ = false;
     uint32_t trimPlayAt_ = 0, trimElapsed_ = 0;
+    void loadMulti();
+    int multiCount_ = 0;
+    ms::Candidate multiCand_[ms::kMaxCandidates] = {};
+    char multiPath_[kPathMax + 1] = {};
 };
 
 // ---------------------------------------------------------------------------

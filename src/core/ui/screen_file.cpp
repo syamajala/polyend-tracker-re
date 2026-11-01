@@ -145,8 +145,10 @@ void importDone(void* ctx, bool ok) {
     App& a = *g_app;
     if (g_importKind == ModuleKind::Mod) modImport().abort();
     else itImport().abort();
-    for (int i = 0; i < kSampleInstrumentCount; ++i)
+    for (int i = 0; i < kSampleInstrumentCount; ++i) {
+        multiClear(i);   // [I] #3 the module's instruments
         if (a.instrPresent[i]) a.markInstrumentDirty(i, true);
+    }
     a.project.setCurrentPattern(1);
     a.markPatternDirty(1);
     a.markProjectDirty();
