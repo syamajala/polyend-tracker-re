@@ -305,7 +305,7 @@ void Voice::resetFx() {
 
 void Voice::noteOn(const Instrument* ins, const int16_t* data, uint32_t frames, uint8_t note, int8_t volume,
                    uint8_t aT, uint8_t aV, uint8_t bT, uint8_t bV, const int16_t* dataR,
-                   const StreamSource* stream, StreamRing* ring) {
+                   const StreamSource* stream, StreamRing* ring, const MultiMap* multi) {
     if (!ins || !data || frames == 0) return;
     noteVolume_ = volume;
     bendSemis_ = 0.0f;
@@ -319,6 +319,7 @@ void Voice::noteOn(const Instrument* ins, const int16_t* data, uint32_t frames, 
     pending_.dataR = dataR;
     pending_.stream = stream;
     pending_.ring = ring;
+    pending_.multi = multi;
     pending_.frames = frames;
     pending_.note = note;
     pending_.valid = true;
@@ -361,6 +362,13 @@ void Voice::startNote() {
     stBlock_ = stereo_;
     note_ = mode_ == uint8_t(PlayMode::BeatSlice) ? uint8_t(kUnityNote) : pending_.note;   // §2.3
     sliceNote_ = pending_.note;   // Beat Slice: the note picks the slice (computePoints)
+    // [I] #3 Multi: the note picks the zone with the nearest root and plays
+    // it repitched by note - root.
+    zone_ = -1;
+    if (pending_.multi && mode_ == uint8_t(PlayMode::Slice)) {
+        zone_ = int8_t(multiZone(*pending_.multi, pending_.note));
+        note_ = uint8_t(clampi(int32_t(pending_.note) - pending_.multi->root[zone_] + kUnityNote, 0, 127));
+    }
     reverse_ = reverseFx_ != perf_.reverse;
     slideSemis_ = 0.0f;
     frac_ = 0;
@@ -431,7 +439,8 @@ void Voice::computePoints() {
         const int count = ins_->sliceCount > kSliceCount ? kSliceCount : ins_->sliceCount;
         if (count > 0) {
             int idx;
-            if (sliceSel_ != 0xFF) idx = sliceSel_ % count;   // Slice FX wins and wraps (spec 16 §A.11)
+            if (zone_ >= 0) idx = zone_ < count ? zone_ : count - 1;   // [I] #3 Multi: the note's zone (no Slice FX)
+            else if (sliceSel_ != 0xFF) idx = sliceSel_ % count;   // Slice FX wins and wraps (spec 16 §A.11)
             else if (mode_ == uint8_t(PlayMode::BeatSlice))      // note n plays slice n - 24 (spec 05 §4.1, 06 §1.6)
                 idx = clampi(int32_t(sliceNote_) - 24, 0, count - 1);
             else idx = ins_->selectedSlice % count;            // Slice: the selected slice, pitched by the note

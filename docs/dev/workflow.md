@@ -39,6 +39,7 @@ Projects must keep opening in stock firmware, upstream OpenTracker and the Track
 | `song.bin` | per-slot Count, Scene, Scene B and Ramp |
 | `midi_lfo.bin` | one LFO per MIDI instrument |
 | `usb_audio.bin` | the Global Mixer USB level and mute, and whether the Sample Recorder records USB |
+| `multisample.bin` | the root notes of each multisample instrument's zones and whether it plays in Multi mode (the `.pti` is a plain Slice instrument) |
 | `.patch` field 100 | a DX7 voice (155 bytes), past every Mini field |
 
 - Side files are versioned and written only when they hold something. The fork has no

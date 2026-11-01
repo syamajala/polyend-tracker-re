@@ -6,6 +6,8 @@
 
 #include "app/app.h"
 #include "audio/zero_snap.h"
+#include "model/multisample.h"
+#include "ui/notes.h"
 #include "ui/screens.h"
 
 namespace ot {
@@ -13,7 +15,9 @@ namespace ot {
 namespace {
 int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 // Play-mode names (appendix B §1.3 table 0xa9578, spec 16 §B.5).
-const char* kModes[8] = {"1-Shot", "Forward Loop", "Backward Loop", "Pingpong Loop", "Slice", "Beat Slice", "Wavetable", "Granular"};
+// [I] #3 "Multi" after the stock eight: listed only for an instrument with zones.
+const char* kModes[9] = {"1-Shot", "Forward Loop", "Backward Loop", "Pingpong Loop", "Slice", "Beat Slice", "Wavetable", "Granular", "Multi"};
+constexpr int kModeMulti = 8;
 const char* kShapes[3] = {"Square", "Triangle", "Gauss"};
 const char* kLoops[3] = {"Forward", "Backward", "PingPong"};
 
@@ -50,7 +54,15 @@ int maxWindowExp(uint32_t len) {
     return n;
 }
 
-void modeItem(void*, int i, char* out, int cap) { std::snprintf(out, size_t(cap), "%s", kModes[i & 7]); }
+void modeItem(void*, int i, char* out, int cap) { std::snprintf(out, size_t(cap), "%s", kModes[i > kModeMulti ? 0 : i]); }
+// [I] #3 the shown mode: Multi for a multisample in its Multi mode.
+int shownMode(int ci, const Instrument& in) {
+    return multiActive(multiMap(ci), in) ? kModeMulti : in.playMode & 7;
+}
+bool hasZones(int ci, const Instrument& in) {
+    const MultiMap& m = multiMap(ci);
+    return m.count > 0 && m.count == in.sliceCount;
+}
 }  // namespace
 
 // Waveform chrome and bar glyphs (wave.cpp).
@@ -242,7 +254,19 @@ void PlaybackScreen::refreshBar() {
         return v;
     };
     const int mode = in.playMode & 7;
-    if (mode <= 3) {
+    const bool multi = shownMode(ci, in) == kModeMulti;
+    if (multi) {
+        // [I] #3 Multi: the zones are the slices, picked by the note; only
+        // browsing them (their edges stay where the loader put them).
+        const MultiMap& m = multiMap(ci);
+        std::snprintf(v, sizeof(v), "%d of %d", in.selectedSlice + 1, in.sliceCount);
+        b.set(0, "Zone", v);
+        char nn[4];
+        noteName(int8_t(m.root[in.selectedSlice % kMultiMaxZones]), nn);
+        b.set(1, "Root", nn);
+        std::snprintf(v, sizeof(v), "%.2f", double(view.zoom()));
+        b.set(4, "Zoom", v);
+    } else if (mode <= 3) {
         // Appendix B §1.4 a).
         b.set(0, "Preview", "-");
         b.set(1, "Start", t(in.startPoint, "%.3fs"));
@@ -296,10 +320,10 @@ void PlaybackScreen::refreshBar() {
     // "▲ Play Mode ▼" selector [S snap 008, 025]: draw() renders it; the
     // label keeps the mode name but is not drawn. The focused list's red
     // frame marks the selection, not the label.
-    b.setWide(6, "Play Mode", kModes[mode]);
+    b.setWide(6, "Play Mode", kModes[multi ? kModeMulti : mode]);
     b.label[6].hidden = true;
     b.separators = uint8_t(b.separators & ~(1u << 7));
-    for (int i = 0; i < 6; ++i) b.highlight(i, i == sel || (i >= 1 && i <= 4 && (heldPoints >> (i - 1)) & 1) || (i == 5 && more && isSlice(mode)));
+    for (int i = 0; i < 6; ++i) b.highlight(i, i == sel || (i >= 1 && i <= 4 && (heldPoints >> (i - 1)) & 1) || (i == 5 && more && isSlice(mode) && !multi));
     b.stripBg = wg::mix(0x000000, ui_.th().slot(slot::kStrip + 1), 128);   // 050505 strip [Part 2 C5]
 }
 
@@ -307,7 +331,16 @@ void PlaybackScreen::setMode(int m) {
     App& a = app_;
     const uint8_t ci = a.currentInstrument();
     Instrument& in = a.instruments[ci];
-    in.playMode = uint8_t(clampi(m, 0, 7));
+    // [I] #3 Multi (8) only for an instrument with zones: Slice + the map's on.
+    MultiMap& mm = multiMap(ci);
+    const bool zones = hasZones(ci, in);
+    m = clampi(m, 0, zones ? kModeMulti : 7);
+    if (zones && (mm.on != 0) != (m == kModeMulti)) {
+        mm.on = m == kModeMulti ? 1 : 0;
+        a.markProjectDirty();   // multisample.bin
+    }
+    in.playMode = uint8_t(m == kModeMulti ? int(PlayMode::Slice) : m);
+    if (m == kModeMulti) more = false;
     const uint32_t len = a.bank.fullFrames(ci);
     // Appendix B §1.3 side effects.
     if (in.playMode == uint8_t(PlayMode::Wavetable)) {
@@ -391,7 +424,19 @@ void PlaybackScreen::change(int d) {
     const int stepU = view.pixelUnits();   // one detent = one pixel (§1.8)
     const int mode = in.playMode;
     if (sel == 6) {
-        setMode(in.playMode + clampi(d, -4, 4));   // §1.3
+        setMode(shownMode(ci, in) + clampi(d, -4, 4));   // §1.3
+    } else if (shownMode(ci, in) == kModeMulti) {
+        // [I] #3 Multi: browse the zones, zoom; the zone edges stay.
+        if (sel == 0 && in.sliceCount) {
+            in.selectedSlice = uint8_t(clampi(in.selectedSlice + d, 0, in.sliceCount - 1));
+            keepVisible(in.slices[in.selectedSlice], false);
+        } else if (sel == 4) {
+            if (in.sliceCount) view.centre = in.slices[in.selectedSlice];
+            view.step(d);
+            return;
+        } else {
+            return;
+        }
     } else if (mode <= 3) {
         if (heldPoints) {
             // §1.5 multi-select: negative deltas from start towards end,
@@ -633,6 +678,11 @@ void PlaybackScreen::onButton(uint8_t id, uint8_t state) {
     Instrument& in = a.instruments[ci];
     const int mode = in.playMode;
     const bool slice = isSlice(mode);
+    // [I] #3 Multi: F1 Zone, F5 Zoom, F7 / F8 Play Mode; no slice editing.
+    if (shownMode(ci, in) == kModeMulti && state == kPress &&
+        (id == btn::F2 || id == btn::F3 || id == btn::F4 || id == btn::F6 || id == btn::Insert || id == btn::Delete)) {
+        return;
+    }
     // b0 Preview (type 3): note 60 velocity 127, release = note off (§1.6).
     if (id == btn::F1 && !slice) {
         if (state == kPress) {
@@ -711,7 +761,7 @@ void PlaybackScreen::onButton(uint8_t id, uint8_t state) {
         case btn::F8:
             // §1.3: the first press selects Play Mode, further presses step it.
             if (sel == 6) {
-                setMode(mode + (id == btn::F8 ? 1 : -1));
+                setMode(shownMode(ci, in) + (id == btn::F8 ? 1 : -1));
                 a.markInstrumentDirty(ci);
             }
             sel = 6;
@@ -875,7 +925,7 @@ void PlaybackScreen::draw(Gfx& g) {
         g.fill(mx - 4, by - 3, 8, 7, sel == 1 ? th.accent : th.slot(slot::kWave));
         wtShown_ = w;
         headX_ = -1;
-        drawModeList(g, th, mode);
+        drawModeList(g, th, shownMode(ci, in));
         return;
     }
     auto clampX = [](int x) { return x < kWaveX ? kWaveX : (x > kWaveX + kWaveW - 1 ? kWaveX + kWaveW - 1 : x); };
@@ -950,7 +1000,7 @@ void PlaybackScreen::draw(Gfx& g) {
     }
     headX_ = playheadX();
     if (headX_ >= 0) g.vline(headX_, kWaveY, kWaveH, mode == 7 ? th.alert : th.good);
-    drawModeList(g, th, mode);
+    drawModeList(g, th, shownMode(ci, in));
 }
 
 void PlaybackScreen::drawModeList(Gfx& g, const Theme& th, int mode) const {
@@ -960,7 +1010,9 @@ void PlaybackScreen::drawModeList(Gfx& g, const Theme& th, int mode) const {
     wg::ListView v;
     v.x = kListX;
     v.w = kListW;
-    v.count = 8;
+    // [I] #3 a ninth item, Multi, for an instrument with zones.
+    const uint8_t ci = app_.currentInstrument();
+    v.count = ci < kSampleInstrumentCount && hasZones(ci, app_.instruments[ci]) ? 9 : 8;
     v.sel = mode;
     v.selStyle = wg::ListSel::kWhite;
     v.item = modeItem;

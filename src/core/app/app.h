@@ -18,6 +18,7 @@
 #include "hal_api.h"
 #include "model/instrument.h"
 #include "model/midi_cc_names.h"
+#include "model/multisample.h"
 #include "model/pattern.h"
 #include "model/pattern_store.h"
 #include "model/project.h"
@@ -27,6 +28,10 @@
 #include "ui/ui.h"
 
 namespace ot {
+
+namespace sfz {
+struct File;
+}
 namespace remote {
 class DeviceBridge;
 }
@@ -590,6 +595,14 @@ public:
     bool copyInstrument(int src, int dst);
     void renameInstrument(int slot, const char* name);
     uint32_t sampleBytesNeeded(const char* path);  // projected memory of a file (bytes)
+    // [I] #3 multisample instruments (multisample_load.cpp; model/multisample.h).
+    // Probe: the .sfz's regions whose sample reads, one per root, sorted;
+    // -1 when the file has none. Load: the zones `opt` picks from them into
+    // `slot` (the SFZ is read again), as a mono Slice instrument + zone map.
+    int multisampleProbe(const char* sfzPath, ms::Candidate* out, int cap);
+    bool loadMultisample(const char* sfzPath, int slot, const ms::Candidate* cand, int n, const ms::Options& opt);
+    // Free sample memory for a load into `slot` (its current sample counts as free), frames.
+    uint32_t multisampleFreeFrames(int slot) const;
 
     // ---- MIDI CC input (midi_cc.h; spec 12 §B, spec 05 appendix C §8) ----
     // One accepted Control Change (after the Config "CC in" port/channel
@@ -745,6 +758,12 @@ public:
     int exportSamples();
 
 private:
+    // [I] #3 an .sfz read into the scratch buffer (multisample_load.cpp).
+    struct SfzParse {
+        const sfz::File* file = nullptr;
+        const char* text = nullptr;
+    };
+    SfzParse readSfz(const char* sfzPath);
     int tapeVal_ = 0;          // [I] setTapeStop
     bool tapeHolds_ = false;   // [I] the bank reservation is the tape stop's
     void serviceMidi();

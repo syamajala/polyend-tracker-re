@@ -10,6 +10,7 @@
 #include "app/project_io.h"
 #include "app/stream_policy.h"
 #include "audio/synth_params.h"
+#include "formats/multisample_side.h"
 #include "formats/bytes.h"
 #include "formats/crc32.h"
 #include "formats/file_io.h"
@@ -563,6 +564,8 @@ bool App::newProject() {
     bool ok = savePatternFile(f, path, stored(1)) == FmtStatus::Ok;
     projectFilePath(path, sizeof(path), kWorkspace);
     ok = saveProjectFile(f, path, project, &midiNames) == FmtStatus::Ok && ok;
+    for (int i = 0; i < kSampleInstrumentCount; ++i) multiClear(i);   // [I] #3
+    ok = saveMultiMapsFile(f, path) == FmtStatus::Ok && ok;
     // Synth slots: the default records' patches (library "Init", else the
     // built-in Init), written to Workspace/N.patch like the Mini.
     g_patchKept = 0;
@@ -1768,6 +1771,7 @@ bool App::jobUnit(uint32_t& cost) {
                 jobFail();
                 return false;
             }
+            if (loadMultiMapsFile(f, src) != FmtStatus::Ok) ++pj_.loadErrors;   // [I] #3
             project = p;
             pj_.sizeMismatch = pinfo.sizeMismatch;
             pj_.slotReset = uint8_t(pj_.slotReset | pinfo.synthSlotsReset);   // Open: also the source file's check
@@ -2004,6 +2008,7 @@ bool App::jobUnit(uint32_t& cost) {
             // [I] #13 the project's CC names, read with the Workspace load.
             projectFilePath(src, sizeof(src), pj_.dir);
             if (copyMidiNamesFile(f, src, dst) != FmtStatus::Ok) ++pj_.loadErrors;
+            if (copyMultiMapsFile(f, src, dst) != FmtStatus::Ok) ++pj_.loadErrors;   // [I] #3
             cost += kJobSmallCost;
             // Steps 3-6 run inside the load (instruments, names, patterns).
             jobBeginLoad();
@@ -2100,6 +2105,7 @@ bool App::jobUnit(uint32_t& cost) {
                     projectDirty_ = true;
                     ++pj_.loadErrors;
                 }
+                if (saveMultiMapsFile(f, dst) != FmtStatus::Ok) ++pj_.loadErrors;   // [I] #3
                 cost += kJobSmallCost;
             }
             pj_.stage = kAPatch;
@@ -2159,6 +2165,7 @@ bool App::jobUnit(uint32_t& cost) {
             f.mkdir(dst);
             projectFilePath(dst, sizeof(dst), pj_.dir);
             if (saveProjectFile(f, dst, project, &midiNames) != FmtStatus::Ok) ++pj_.loadErrors;
+            if (saveMultiMapsFile(f, dst) != FmtStatus::Ok) ++pj_.loadErrors;   // [I] #3
             cost += 4 * kJobSmallCost;
             pj_.stage = kSPatterns;
             pj_.idx = 1;
@@ -2694,6 +2701,8 @@ bool App::importSample(const char* path, int slot, uint16_t startMarker, uint16_
     // report / Polyend forum); only the audio and its name change.
     const bool keep = instrPresent[slot];
     const Instrument prev = instruments[slot];
+    if (multiMap(slot).count) markProjectDirty();   // [I] #3 multisample.bin
+    multiClear(slot);   // [I] #3 a new sample: no zones
     streamUnbind(slot);
     bank.remove(slot);
     refreshStreamSources();
@@ -2768,6 +2777,8 @@ bool App::deleteInstrument(int slot) {
     refreshStreamSources();
     instruments[slot].setDefault();
     instrPresent[slot] = false;
+    if (multiMap(slot).count) markProjectDirty();   // [I] #3 multisample.bin
+    multiClear(slot);
     markInstrumentDirty(slot, true);
     return true;
 }
@@ -2798,6 +2809,8 @@ bool App::copyInstrument(int src, int dst) {
         copy.stereo = bank.stereo(dst);
         instruments[dst] = copy;
         instrPresent[dst] = true;
+        multiMap(dst) = multiMap(src);   // [I] #3
+        markProjectDirty();
         markInstrumentDirty(dst, true);
         return true;
     }
@@ -2805,6 +2818,9 @@ bool App::copyInstrument(int src, int dst) {
     refreshStreamSources();
     instruments[dst] = instruments[src];
     instrPresent[dst] = true;
+    // [I] #3 a multisample copies with its zones.
+    if (multiMap(src).count || multiMap(dst).count) markProjectDirty();
+    multiMap(dst) = multiMap(src);
     markInstrumentDirty(dst, true);
     return true;
 }

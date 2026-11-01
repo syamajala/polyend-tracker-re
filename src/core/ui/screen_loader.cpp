@@ -7,6 +7,7 @@
 #include "formats/instrument_pti.h"
 #include "formats/wav.h"
 #include "sdram_bss.h"
+#include "ui/notes.h"
 #include "ui/screens.h"
 
 namespace ot {
@@ -204,7 +205,8 @@ struct ListCtx {
 // [I] The files that count towards a part are those the loader lists by
 // extension (.wav / .pti, without the WAV header check, so counting stays
 // one directory read). Open: whether stock counts other files.
-bool countable(const char* n) { return hasExt(n, ".wav") || hasExt(n, ".pti"); }
+// [I] #3 also .sfz (a multisample, loaded through the Multi panel).
+bool countable(const char* n) { return hasExt(n, ".wav") || hasExt(n, ".pti") || hasExt(n, ".sfz"); }
 bool addName(ListCtx& c, const char* name, bool dir) {
     const size_t n = std::strlen(name) + 1;
     if (c.used + n > LoaderList::kPoolBytes) return false;   // pool full [I]
@@ -447,6 +449,18 @@ void LoaderScreen::listRange(bool sd, int* first, int* last) const {
 }
 
 void LoaderScreen::memoryProjection() {
+    if (multi) {   // [I] #3 the planned multisample in the slot
+        const App& a = app_;
+        ms::Plan p;
+        multiPlan(p);
+        uint64_t used = uint64_t(a.bank.usedBytes()) + uint64_t(p.totalFrames) * 2;
+        if (a.bank.loaded(insCursor)) used -= uint64_t(a.bank.samples(insCursor)) * 2;
+        projected_ = uint32_t(used);
+        over_ = !multiFits();
+        shown_ = projected_;
+        shownOver_ = over_;
+        return;
+    }
     projectSelection();
     // What the bar and the Memory label show (issue #93). Right after an
     // import (Add, trim Import) the actual use, until a cursor or the
@@ -530,6 +544,28 @@ void LoaderScreen::refreshBar() {
     App& a = app_;
     b.clear();
     char v[24];
+    if (multi) {
+        // [I] #3 the Multi panel: range, spacing, length, the size.
+        char nn[4];
+        noteName(int8_t(multiOpt.lo), nn);
+        b.set(0, "Low", nn);
+        noteName(int8_t(multiOpt.hi), nn);
+        b.set(1, "High", nn);
+        static const char* const kEveryText[ms::kEveryCount] = {"note", "2nd", "3rd", "4th", "6th", "12th"};
+        b.set(2, "Every", kEveryText[multiOpt.every % ms::kEveryCount]);
+        const uint16_t ml = ms::kLengthMs[multiOpt.length % ms::kLengthCount];
+        if (ml) std::snprintf(v, sizeof(v), "%.1f s", double(ml) / 1000.0);
+        else std::snprintf(v, sizeof(v), "Full");
+        b.set(3, "Max length", v);
+        ms::Plan p;
+        multiPlan(p);
+        std::snprintf(v, sizeof(v), "%.1f MB", double(p.totalFrames) * 2.0 / 1048576.0);
+        b.set(4, "Size", v);
+        b.set(5, "Cancel");
+        b.set(7, "Load", nullptr, multiFits());
+        b.highlight(multiSel, true);
+        return;
+    }
     if (trim) {
         if (trimPlaying_) std::snprintf(v, sizeof(v), "%.3fs", double(trimElapsed_) / 1000.0);
         else std::snprintf(v, sizeof(v), "-");
@@ -661,7 +697,7 @@ void LoaderScreen::doAdd(bool next) {
     int f, l;
     listRange(true, &f, &l);
     addFiles_ = addStreamed_ = 0;
-    for (int i = f; i <= l; ++i) addFiles_ += isDir[i] ? 0 : 1;
+    for (int i = f; i <= l; ++i) addFiles_ += isDir[i] || hasExt(entries[i], ".sfz") ? 0 : 1;
     addLastFailed_ = false;
     addFrom(f, 0);
 }
@@ -672,7 +708,7 @@ void LoaderScreen::addFrom(int i, int n) {
     listRange(true, &f, &l);
     char path[kPathMax + 1];
     for (; i <= l; ++i) {
-        if (isDir[i]) continue;
+        if (isDir[i] || hasExt(entries[i], ".sfz")) continue;   // [I] #3 an .sfz loads alone (Multi panel)
         entryPath(i, path, sizeof(path));
         const int slot = insCursor + n;
         if (slot >= kSampleInstrumentCount) break;
@@ -729,8 +765,12 @@ void LoaderScreen::add(bool next) {
     if (focus > 1 || count == 0) return;
     int f, l;
     listRange(true, &f, &l);
+    if (f == l && !isDir[f] && hasExt(entries[f], ".sfz")) {   // [I] #3
+        openMulti();
+        return;
+    }
     int files = 0;
-    for (int i = f; i <= l; ++i) files += isDir[i] ? 0 : 1;
+    for (int i = f; i <= l; ++i) files += isDir[i] || hasExt(entries[i], ".sfz") ? 0 : 1;
     if (files == 0) return;
     if (insCursor + files - 1 > 47) {
         ui_.notify("Too many samples selected");
@@ -841,6 +881,36 @@ void LoaderScreen::moveCursor(int d) {
 
 void LoaderScreen::onButton(uint8_t id, uint8_t state) {
     App& a = app_;
+    if (multi) {   // [I] #3 the Multi panel
+        if (state != kPress) return;
+        switch (id) {
+            case btn::F1: multiSel = 0; break;
+            case btn::F2: multiSel = 1; break;
+            case btn::F3: multiSel = 2; break;
+            case btn::F4: multiSel = 3; break;
+            case btn::F6:
+                multi = false;
+                memoryProjection();
+                break;
+            case btn::F8:
+                if (!multiFits()) break;
+                if (a.instrPresent[insCursor]) {
+                    ui_.ask("Replace sample?", "The sample will be replaced", nullptr, "Cancel", "Yes",
+                            [](void* ctx, int key) {
+                                auto* self = static_cast<LoaderScreen*>(ctx);
+                                if (key == btn::F8) self->loadMulti();
+                                self->refreshBar();
+                            },
+                            this);
+                    return;
+                }
+                loadMulti();
+                break;
+            default: break;
+        }
+        refreshBar();
+        return;
+    }
     if (trim) {
         if (id == btn::F1 || id == btn::EncPush) {
             if (state == kPress && !trimPlaying_) {
@@ -1064,11 +1134,23 @@ void LoaderScreen::onPad(uint8_t pad, uint8_t state) {
 
 #if !(defined(OT_TARGET_DEVICE) && OT_TARGET_DEVICE)
 bool LoaderScreen::encoderOnList() const {
-    return !trim;   // SD and instrument lists (trim markers are values)
+    return !trim && !multi;   // SD and instrument lists (trim markers and the Multi panel are values)
 }
 #endif
 
 void LoaderScreen::onEncoder(int d) {
+    if (multi) {   // [I] #3
+        ms::Options& o = multiOpt;
+        switch (multiSel) {
+            case 0: o.lo = uint8_t(clampi(o.lo + d, 0, o.hi)); break;
+            case 1: o.hi = uint8_t(clampi(o.hi + d, o.lo, 127)); break;
+            case 2: o.every = uint8_t(clampi(o.every + d, 0, ms::kEveryCount - 1)); break;
+            default: o.length = uint8_t(clampi(o.length - d, 0, ms::kLengthCount - 1)); break;   // right = longer
+        }
+        memoryProjection();
+        refreshBar();
+        return;
+    }
     if (trim) {
         // 109 units per detent; Start <= End - 2 (spec 06 §5.5).
         if (trimSel == 0) trimStart = uint16_t(clampi(int(trimStart) + d * 109, 0, int(trimEnd) - 2));
@@ -1201,7 +1283,38 @@ void LoaderScreen::draw(Gfx& g) {
         }
         wg::list(g, th, v);
     }
-    if (focus <= 1) wg::panelFocus(g, th, focus ? 301 : 1, 297);
+    if (focus <= 1 && !multi) wg::panelFocus(g, th, focus ? 301 : 1, 297);
+    if (multi) {
+        // [I] #3 the Multi panel over the lists: what Load will do.
+        wg::panel(g, th, 1, 61, 597, 362, th.slot(slot::kListRed + 3));
+        wg::panelFocus(g, th, 1, 597);
+        ms::Plan p;
+        multiPlan(p);
+        char line[96], a0[4], a1[4];
+        const char* nm = std::strrchr(multiPath_, '/');
+        nm = nm ? nm + 1 : multiPath_;
+        std::snprintf(line, sizeof(line), "Multisample: %.60s", nm);
+        g.text(20, 90, kFont4, th.text, line);
+        noteName(int8_t(multiCand_[0].root), a0);
+        noteName(int8_t(multiCand_[multiCount_ - 1].root), a1);
+        std::snprintf(line, sizeof(line), "The SFZ has %d notes, %s to %s", multiCount_, a0, a1);
+        g.text(20, 130, kFontText, th.text, line);
+        if (p.count) {
+            noteName(int8_t(p.root[0]), a0);
+            noteName(int8_t(p.root[p.count - 1]), a1);
+            std::snprintf(line, sizeof(line), "Loads %d of them, %s to %s, into instrument %d", p.count, a0, a1,
+                          insCursor + 1);
+        } else {
+            std::snprintf(line, sizeof(line), "No notes in this range");
+        }
+        g.text(20, 160, kFontText, th.text, line);
+        const double mb = double(p.totalFrames) * 2.0 / 1048576.0;
+        const double fr = double(a.multisampleFreeFrames(insCursor)) * 2.0 / 1048576.0;
+        std::snprintf(line, sizeof(line), "%.1f MB of %.1f MB free", mb, fr);
+        g.text(20, 190, kFontText, multiFits() ? th.text : th.alert, line);
+        if (p.tooMany) g.text(20, 220, kFontText, th.alert, "More than 48 notes: pick a smaller range or space them out");
+        g.text(20, 390, kFontText, th.dim, "Each key plays the nearest note, repitched. Mono, one-shot.");
+    }
     // Preview volume and memory bars (white fills; the memory bar shows the
     // projected use above the current one in the "above reference" colour,
     // red when it does not fit [I]).
@@ -1226,6 +1339,50 @@ void LoaderScreen::draw(Gfx& g) {
         const int top = row(hi), bot = row(lo);
         if (bot > top) g.fill(701 + 11, top + 1, 97 - 22, bot - top, proj > cur ? th.alert : th.good);
     }
+}
+
+// ---- [I] #3 the Multi panel ------------------------------------------------
+
+void LoaderScreen::openMulti() {
+    App& a = app_;
+    if (!entryPath(sdCursor, multiPath_, sizeof(multiPath_))) return;
+    a.previewAllOff();
+    ui_.progress("Reading SFZ", 0);
+    multiCount_ = a.multisampleProbe(multiPath_, multiCand_, ms::kMaxCandidates);
+    ui_.progressDone();
+    if (multiCount_ <= 0) {
+        ui_.notify("No samples found in the SFZ", 3000);
+        return;
+    }
+    // Defaults: at most half the free memory, so another instrument still
+    // fits; else all of it.
+    const uint32_t free = a.multisampleFreeFrames(insCursor);
+    multiOpt = ms::Options{};
+    if (!ms::defaults(multiCand_, multiCount_, free / 2, multiOpt)) ms::defaults(multiCand_, multiCount_, free, multiOpt);
+    multiSel = 0;
+    multi = true;
+    memoryProjection();
+    refreshBar();
+}
+
+void LoaderScreen::multiPlan(ms::Plan& p) const { ms::plan(multiCand_, multiCount_, multiOpt, p); }
+
+bool LoaderScreen::multiFits() const {
+    ms::Plan p;
+    multiPlan(p);
+    return p.count > 0 && !p.tooMany && uint64_t(p.totalFrames) + 64 <= app_.multisampleFreeFrames(insCursor);
+}
+
+void LoaderScreen::loadMulti() {
+    App& a = app_;
+    multi = false;
+    a.previewAllOff();
+    if (!a.loadMultisample(multiPath_, insCursor, multiCand_, multiCount_, multiOpt)) {
+        memoryProjection();
+        return;
+    }
+    a.setCurrentInstrument(insCursor);
+    importDone();
 }
 
 }  // namespace ot

@@ -222,6 +222,8 @@ bool EditorScreen::apply() {
         if (endM <= startM) endM = uint16_t(startM + 1);
     }
     view.reset(newLen);
+    if (multiMap(slot_).count) a.markProjectDirty();   // [I] #3 an edited multisample: zones dropped
+    multiClear(slot_);
     a.markInstrumentDirty(slot_, true);
     ui_.progressDone();
     previewState = 0;
@@ -244,6 +246,8 @@ bool EditorScreen::undo() {
     startM = 0;
     endM = 65535;
     view.reset(undoFrames_);
+    if (multiMap(slot_).count) a.markProjectDirty();   // [I] #3
+    multiClear(slot_);
     a.markInstrumentDirty(slot_, true);
     refreshBar();
     return true;

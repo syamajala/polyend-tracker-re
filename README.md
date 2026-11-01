@@ -152,6 +152,14 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   back at once and you flip it from there. **Steps** (F4) is the sample's length in steps,
   guessed from the song tempo.
 
+### Multisample instruments
+- **Add** on an `.sfz` in the Sample Loader opens a panel: pick the note range, the spacing
+  (every note ... every 12th) and a **Max length**, with the size against free memory, then
+  **Load** puts up to 48 notes into one instrument. Its new **Multi** play mode plays the
+  nearest note repitched, so a sampled synth or piano sounds right across the keys. Stock
+  and the Mini play it as a Slice instrument. `tools/make_sfz.py` writes the SFZ for a
+  folder of note samples ([#3](https://github.com/syamajala/polyend-tracker-re/issues/3)).
+
 ### USB audio
 - The Tracker is a USB sound card (Linux, Windows): pick **OpenTracker** as the computer's
   output and its audio plays through the Tracker, with a **USB** column in the Global Mixer
