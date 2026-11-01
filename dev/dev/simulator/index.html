@@ -538,6 +538,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guide/usb-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    USB audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guide/more/" class="md-nav__link">
         
   
@@ -1049,6 +1077,10 @@ build/sim/opentracker-sim<span class="w"> </span><span class="o">[</span>--sd<sp
   Down = encoder. <strong>Tab</strong> switches between command mode (letters = module keys, e.g. <code>2</code>
   Performance, <code>0</code> Song) and pad mode (letter rows = pads). The mouse works on every
   control; right-click latches a button (e.g. Shift).</li>
+<li><code>--usb-in NAME</code> stands in for USB audio from the computer (<a href="../../guide/usb-audio/">USB audio</a>):
+  a capture device, e.g. the monitor of a null sink the browser plays into
+  (<code>--usb-in list</code> prints the names; see <code>sim/README.md</code>). <code>--usb-in-tone HZ</code> is the
+  headless version.</li>
 </ul>
 <h2 id="scripts">Scripts<a class="headerlink" href="#scripts" title="Permanent link">&para;</a></h2>
 <p>Without a window (<code>--script FILE</code> and/or <code>--screenshot OUT.png</code>), time is virtual: every
