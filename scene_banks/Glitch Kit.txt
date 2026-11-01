@@ -1,0 +1,51 @@
+# OpenTracker scene bank
+# Breaking a beat: rolls, short loops, reversed and re-ordered steps,
+# crushed and pitched samples. A = 1 (clean), B = 4 (Chaos). Stepped effects
+# (rolls, loop length, play mode, reverse) switch at the middle of the fader.
+# Tape stop (column 12) is short here: 1 or 2 steps, 1 beat.
+
+# Columns: type: row 1, row 2, row 3
+# 1 rolls of 1 step, 1/4, 1/8
+# 2 loops 8, 4 or 2 steps
+# 3 backwards, random, C2 (mirrored with rolls)
+# 4 later start in the sample
+# 5 shorter: gated hits
+# 6 every row plays the samples backwards
+# 11 the whole mix
+# 12 1 step, 2 steps, 1 beat
+column 1 = Step Repeater: 8 11 13
+column 2 = Pattern Length: 4 3 2
+column 3 = Pattern Play Mode: 1 2 4
+column 4 = Sample position: 25 50 75
+column 5 = Sample end: -25 -50 -80
+column 6 = Sample playback: 1 1 1
+column 7 = Bit Depth: -4 -7 -10
+column 8 = Tune: -12 7 12
+column 9 = Overdrive: 30 60 100
+column 10 = Volume/Velocity: -40 -70 -100
+column 11 = DJ filter: -60 30 70
+column 12 = Tape stop: 1 2 3
+
+# Scenes: a row 0..3 per column (0 = the scene leaves it alone)
+# 1 Clean: the beat as it is (A)
+# 2 Stutter: a 4-step loop, rolled in quarters
+scene 2 = 2 2 0 0 0 0 0 0 0 0 0 0
+# 3 Reverse: backwards samples, played backwards
+scene 3 = 0 0 1 0 0 1 0 0 0 0 0 0
+# 4 Chaos: random steps from the middle of each sample (B)
+scene 4 = 1 0 2 2 0 0 1 0 0 0 0 0
+# 5 Crushed: crushed bits, driven and dark
+scene 5 = 0 0 0 0 0 0 3 0 2 0 1 0
+# 6 Chipmunk: an octave up, short and gritty
+scene 6 = 0 0 0 0 2 0 2 3 0 0 0 0
+# 7 Broken tape: the tails of the samples, an octave down
+scene 7 = 0 0 0 3 1 0 0 1 0 0 0 0
+# 8 Freeze: two steps on repeat, rolled in eighths
+scene 8 = 3 3 0 0 0 0 0 0 0 0 0 0
+# 9 Mirror: C2: steps mirrored, with rolls
+scene 9 = 0 0 3 0 0 0 0 0 1 0 0 0
+# 10 Gated: tight hits, thin mix
+scene 10 = 0 0 0 0 3 0 0 0 0 1 2 0
+
+a = 1
+b = 4

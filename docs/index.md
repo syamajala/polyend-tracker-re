@@ -5,7 +5,7 @@ written from behavioural specifications. It contains no Polyend code, fonts, ico
 graphics, and is not affiliated with or endorsed by Polyend.
 
 This fork follows [upstream OpenTracker](https://github.com/sandlbn/polyend-tracker-re)'s
-2.x line (currently **2.2.1**) and adds features on top. Projects stay compatible: the
+2.x line (currently **2.2.3**) and adds features on top. Projects stay compatible: the
 fork's additions are stored in extra files next to `project.mt`, so stock firmware,
 upstream OpenTracker and the Tracker Mini still open them.
 
@@ -21,11 +21,13 @@ upstream OpenTracker and the Tracker Mini still open them.
 |---|---|
 | [DX7 synth](guide/dx7.md) | A 6-operator FM engine that plays Yamaha DX7 voices from `.syx` banks. |
 | [Live resampling](guide/resampling.md) | Record the master, one track or Line in while the pattern keeps playing; slice the take and place it on a track. |
-| [Performance mode](guide/performance.md) | A bank of 16 scenes with a crossfader, and master FX (DJ filter, tape stop) played from the pads. |
+| [Performance mode](guide/performance.md) | 16 scenes with a crossfader, scene banks you can export and import (example banks included), master FX (DJ filter, tape stop) and MIDI CC columns that play an external synth. |
 | [Song mode](guide/song-mode.md) | Repeat counts, a Performance scene per song slot, and fader ramps between scenes. |
+| [Multisample instruments](guide/multisample.md) | Load an `.sfz` as one instrument that plays the nearest sampled note across the keys. |
+| [USB audio](guide/usb-audio.md) | The Tracker as a USB sound card: play and sample the computer's audio, record the Tracker on the computer. |
 | [MIDI instrument LFO](guide/midi-lfo.md) | A tempo-locked LFO per MIDI instrument: CC, pitch bend or pressure. |
-| [MIDI presets](guide/midi-presets.md) | Save a synth's MIDI setup (CC slots with names, LFO) and load it into any MIDI instrument. |
-| [More](guide/more.md) | Note names (sharps / flats / auto), piano pads, plus a summary of the 2.x features from upstream. |
+| [MIDI presets](guide/midi-presets.md) | Save a synth's MIDI setup (CC slots with names, LFO) and load it into any MIDI instrument; presets for several synths included. |
+| [More](guide/more.md) | Slices to pattern, chord entry, piano pads, note names (sharps / flats / auto), plus a summary of the 2.x features from upstream. |
 | [Remote control](guide/remote-control.md) | Drive a Tracker from a computer: scripts, screen text, a live mirror. |
 
 ## Where to start
@@ -38,12 +40,12 @@ upstream OpenTracker and the Tracker Mini still open them.
 
 - The synth engines are our own design: their settings follow the Tracker Mini, and the
   sound is close but not identical.
-- WTFM has no engine yet (its patches load and save, but stay silent). Wavetable and
-  granular samples play the left channel only.
+- Wavetable and granular samples play the left channel only.
 - Synth notes ignore the per-track Performance columns
   ([#30](https://github.com/syamajala/polyend-tracker-re/issues/30)); the master FX do
   include them.
 - The synth voice pool defaults to 4 voices because of the processor's speed.
+- USB audio works with Linux and Windows computers, not macOS.
 - USB Storage mode: back up the card before first use.
 - The USB ID is the pid.codes test ID 1209:0001.
 

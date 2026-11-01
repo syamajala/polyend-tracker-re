@@ -12,6 +12,7 @@
 
 #include "app/app.h"
 #include "app/perf_presets.h"
+#include "formats/perf_bank.h"
 #include "formats/perf_scenes.h"
 #include "ui/screens.h"
 
@@ -127,6 +128,7 @@ void PerformanceScreen::stop() {
     App& a = app_;
     for (auto& h : held_) h = false;
     typeList = false;   // [I] #89: closed unchanged
+    bankFiles = false;  // [I] #70
     if (view == View::EditScene) editSceneEnd();   // [I] leaving saves the scene being edited
     view = View::Play;
     // spec 16 §A.15: switching to Instrument Params or Master keeps the FX
@@ -403,7 +405,7 @@ void PerformanceScreen::onPad(uint8_t pad, uint8_t state) {
     if (view == View::Bank) {
         // [I] A pad selects its scene; the selected scene's pad opens it.
         const int sc = padScene(pad);
-        if (state != kPress || sc < 0) return;
+        if (state != kPress || sc < 0 || bankFiles) return;
         if (sc == bankCursor) editSceneStart(sc);
         else bankCursor = sc;
         refreshBar();
@@ -523,6 +525,11 @@ bool PerformanceScreen::anyTrackKey() const {
 void PerformanceScreen::onEncoder(int d) {
     if (typeList) {   // [I] #89: the highlight (Shift: faster, Ui fastDelta)
         moveTypeList(d);
+        ui_.dirty();
+        return;
+    }
+    if (view == View::Bank && bankFiles) {   // [I] #70 the Import list
+        fileCursor = clampi(fileCursor + d, 0, fileCount > 0 ? fileCount - 1 : 0);
         ui_.dirty();
         return;
     }
@@ -696,6 +703,7 @@ void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
         // being edited, back to the bank (saving it). Stock 2.x toggled the
         // track bank here (2x-01 §5): Left / Right do that now.
         if (state != kPress) return;
+        bankFiles = false;
         if (view == View::Play) openBank();
         else if (view == View::Bank) view = View::Play;
         else editSceneEnd();
@@ -1070,6 +1078,7 @@ void PerformanceScreen::clearScene(int scene) {
 
 void PerformanceScreen::openBank() {
     view = View::Bank;
+    bankFiles = false;
     bankCursor = app_.project.perfSceneOn[0];
     for (auto& h : held_) h = false;
 }
@@ -1161,6 +1170,25 @@ void PerformanceScreen::clearBankScene(int scene) {
 
 void PerformanceScreen::bankButton(uint8_t id, uint8_t state) {
     if (state != kPress) return;
+    if (bankFiles) {   // [I] #70 the Import list
+        switch (id) {
+            case btn::Up: fileCursor = clampi(fileCursor - 1, 0, fileCount > 0 ? fileCount - 1 : 0); break;
+            case btn::Down: fileCursor = clampi(fileCursor + 1, 0, fileCount > 0 ? fileCount - 1 : 0); break;
+            case btn::F8:
+                ui_.ask("Import scene bank", "Replace columns and scenes?", nullptr, "Cancel", "Import",
+                        [](void* c, int key) {
+                            if (key == btn::F8) static_cast<PerformanceScreen*>(c)->importBankFile();
+                        },
+                        this);
+                break;
+            case btn::F7:
+            case btn::Left: bankFiles = false; break;
+            default: return;
+        }
+        refreshBar();
+        ui_.dirty();
+        return;
+    }
     switch (id) {
         case btn::Left: bankCursor = clampi(bankCursor - 1, 0, Project::kPerfScenes - 1); break;
         case btn::Right: bankCursor = clampi(bankCursor + 1, 0, Project::kPerfScenes - 1); break;
@@ -1170,9 +1198,133 @@ void PerformanceScreen::bankButton(uint8_t id, uint8_t state) {
         case btn::F2: setSceneOn(1, bankCursor); break;
         case btn::F3: editSceneStart(bankCursor); break;
         case btn::F4: clearBankScene(bankCursor); break;
+        case btn::F5: exportBankFile(); break;
+        case btn::F6: openBankFiles(); break;
         case btn::F8: view = View::Play; break;
         default: return;
     }
+    refreshBar();
+    ui_.dirty();
+}
+
+// [I] #70 scene bank files (formats/perf_bank.h).
+
+namespace {
+struct BankNames {
+    char n[PerformanceScreen::kBankFileMax][pbank::kNameMax + 1];
+};
+static_assert(sizeof(BankNames) <= kBrowserListBytes, "the bank names fit the shared list buffer");
+BankNames& bankNames() { return *static_cast<BankNames*>(browserListMem()); }
+void bankFileItem(void*, int i, char* out, int cap) { std::snprintf(out, size_t(cap), "%s", bankNames().n[i]); }
+bool lessNoCase(const char* a, const char* b) {
+    for (; *a && *b; ++a, ++b) {
+        const int x = (*a >= 'A' && *a <= 'Z') ? *a + 32 : *a, y = (*b >= 'A' && *b <= 'Z') ? *b + 32 : *b;
+        if (x != y) return x < y;
+    }
+    return *a == 0 && *b != 0;
+}
+}  // namespace
+
+void PerformanceScreen::openBankFiles() {
+    fileCount = 0;
+    app_.fs().listDir(pbank::kDir, [](const IStorage::DirEntry& e, void* c) {
+        auto* s = static_cast<PerformanceScreen*>(c);
+        if (e.isDir || e.name[0] == '.' || s->fileCount >= kBankFileMax) return true;
+        const size_t n = std::strlen(e.name), x = std::strlen(pbank::kExt);
+        if (n <= x || n - x > size_t(pbank::kNameMax)) return true;
+        for (size_t i = 0; i < x; ++i)
+            if ((e.name[n - x + i] | 32) != pbank::kExt[i]) return true;
+        char* d = bankNames().n[s->fileCount++];
+        std::memcpy(d, e.name, n - x);
+        d[n - x] = 0;
+        return true;
+    }, this);
+    if (fileCount == 0) {
+        ui_.notify("No banks in Performance/Scenes");
+        return;
+    }
+    BankNames& b = bankNames();
+    for (int i = 1; i < fileCount; ++i)
+        for (int j = i; j > 0 && lessNoCase(b.n[j], b.n[j - 1]); --j) {
+            char t[pbank::kNameMax + 1];
+            std::memcpy(t, b.n[j], sizeof(t));
+            std::memcpy(b.n[j], b.n[j - 1], sizeof(t));
+            std::memcpy(b.n[j - 1], t, sizeof(t));
+        }
+    fileCursor = fileTop = 0;
+    for (int i = 0; i < fileCount; ++i)
+        if (std::strcmp(b.n[i], bankName_) == 0) fileCursor = i;
+    bankFiles = true;
+}
+
+void PerformanceScreen::importBankFile() {
+    if (!bankFiles || fileCursor < 0 || fileCursor >= fileCount || !src.valid()) return;
+    App& a = app_;
+    char name[pbank::kNameMax + 1];
+    std::snprintf(name, sizeof(name), "%s", bankNames().n[fileCursor]);
+    // The slots the old scenes drove go back to their pad rows before the
+    // columns change under them.
+    releaseDriven();
+    if (!a.loadPerfBank(name, src)) {
+        ui_.notify("Bank could not be loaded");
+        return;
+    }
+    edited();   // the columns: Config or the project
+    for (int c = 0; c < perf::kSlots; ++c) {
+        cur[c] = 0;
+        liveValid[c] = false;
+        padOver_[c] = false;
+        held_[c] = false;
+        ccSent_[c] = -1;
+    }
+    std::snprintf(bankName_, sizeof(bankName_), "%s", name);
+    bankFiles = false;
+    bankCursor = a.project.perfSceneOn[0];
+    fxKey_ = -1;   // the scenes on A / B apply their toggles
+    if (perfFaderUsed(a.project)) applyScenes();
+    else applyAll(false);
+    ui_.notify("Scene bank loaded", 1200);
+    refreshBar();
+    ui_.dirty();
+}
+
+void PerformanceScreen::exportBankFile() {
+    char init[pbank::kNameMax + 1];
+    if (bankName_[0]) std::snprintf(init, sizeof(init), "%s", bankName_);
+    else if (app_.project.name[0]) std::snprintf(init, sizeof(init), "%.*s", pbank::kNameMax, app_.project.name);
+    else Keyboard::autoName(init, sizeof(init), ui_.now());
+    ui_.kb.open("Export Scene Bank", init, pbank::kNameMax, "Save",
+                [](void* c, bool ok, const char* text) {
+                    auto* s = static_cast<PerformanceScreen*>(c);
+                    if (!ok) return;
+                    // A file name: no trailing spaces, no slashes.
+                    char* n = s->bankName_;
+                    std::snprintf(n, sizeof(s->bankName_), "%s", text ? text : "");
+                    for (size_t k = std::strlen(n); k > 0 && n[k - 1] == ' '; --k) n[k - 1] = 0;
+                    for (char* q = n; *q; ++q)
+                        if (*q == '/' || *q == '\\') *q = '_';
+                    if (!n[0]) {
+                        s->ui_.notify("Bank name is empty");
+                        return;
+                    }
+                    char path[64];
+                    std::snprintf(path, sizeof(path), "%s/%s%s", pbank::kDir, n, pbank::kExt);
+                    if (s->app_.fs().exists(path)) {
+                        s->ui_.ask("Bank exists", "Overwrite?", nullptr, "Cancel", "Overwrite",
+                                   [](void* c2, int key) {
+                                       if (key == btn::F8) static_cast<PerformanceScreen*>(c2)->exportBankNow();
+                                   },
+                                   s);
+                        return;
+                    }
+                    s->exportBankNow();
+                },
+                this);
+}
+
+void PerformanceScreen::exportBankNow() {
+    const bool ok = app_.savePerfBank(bankName_, src);
+    ui_.notify(ok ? "Scene bank saved" : "Bank could not be saved");
     refreshBar();
     ui_.dirty();
 }
@@ -1321,9 +1473,10 @@ void PerformanceScreen::refreshBar() {
     if (view == View::Bank) {
         // [I] Drawn by draw() like the track labels.
         // One line each: the red box already shows the selected scene.
-        static const char* const kTop[8] = {"Set A", "Set B", "Edit", "Clear", "", "", "", "Back"};
+        static const char* const kTop[8] = {"Set A", "Set B", "Edit", "Clear", "Export", "Import", "", "Back"};
+        static const char* const kFiles[8] = {"", "", "", "", "", "", "Cancel", "Import"};   // [I] #70
         for (int i = 0; i < 8; ++i) {
-            b.set(i, kTop[i], "");
+            b.set(i, bankFiles ? kFiles[i] : kTop[i], "");
             b.highlight(i, true);
             b.label[i].hidden = true;
         }
@@ -1654,6 +1807,31 @@ void PerformanceScreen::drawTypeList(Gfx& g) {
 // row the scene stores there (a dim dot: not driven).
 void PerformanceScreen::drawBank(Gfx& g) {
     const Theme& th = ui_.th();
+    if (bankFiles) {   // [I] #70 the Import list
+        ui_.drawTitle(g, "Import Scene Bank", nullptr);
+        wg::ListView v;
+        v.w = 296;
+        v.count = fileCount;
+        fileTop = wg::listFollow(fileCursor, v.count, wg::listVisibleRows(v.h), fileTop);
+        v.top = fileTop;
+        v.sel = fileCursor;
+        v.active = true;
+        v.item = bankFileItem;
+        wg::list(g, th, v);
+    } else {
+        drawBankGrid(g);
+    }
+    // The labels; an open question (Import, Overwrite) or the keyboard has its own.
+    if (ui_.askOpen() || ui_.kb.isOpen()) return;
+    for (int t = 0; t < 8; ++t) {
+        const BarLabel& l = ui_.bar.label[t];
+        if (!l.top[0]) continue;
+        g.text(wg::labelCentre(t), wg::kLabelY, kFont3, th.slot(slot::kBottomLabel), l.top, IDisplay::kOptCenter);
+    }
+}
+
+void PerformanceScreen::drawBankGrid(Gfx& g) {
+    const Theme& th = ui_.th();
     const Project& p = app_.project;
     char right[24];
     std::snprintf(right, sizeof(right), "A %d   B %d", p.perfSceneOn[0] + 1, p.perfSceneOn[1] + 1);
@@ -1687,11 +1865,6 @@ void PerformanceScreen::drawBank(Gfx& g) {
         if (onB) g.text(onA ? x + kW / 2 + 10 : x + kW / 2, y + 80, kFontText, kSceneBBlue, "B", IDisplay::kOptCenter);
     }
     wg::focusFrame(g, th, cellX(bankCursor) - 1, cellY(bankCursor) - 1, cellX(bankCursor) + kW, cellY(bankCursor) + kH);
-    for (int t = 0; t < 8; ++t) {
-        const BarLabel& l = ui_.bar.label[t];
-        if (!l.top[0]) continue;
-        g.text(wg::labelCentre(t), wg::kLabelY, kFont3, th.slot(slot::kBottomLabel), l.top, IDisplay::kOptCenter);
-    }
 }
 
 }  // namespace ot

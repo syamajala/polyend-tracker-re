@@ -98,8 +98,8 @@ The 2.x line brings the newer Tracker features to the original hardware. In shor
 - **Three synth slots**, played from any track as instruments S1–S3.
 - Engines: **ACD** (acid bass and lead, 24 dB and ladder-style filters, glide), **VAP**
   (virtual-analog poly, morphing oscillators, hard sync, 15 filter types, a 6-slot
-  modulation matrix), **PERC** (a drum kit), **FAT** (unison supersaw), and in this fork
-  **[DX7](dx7.md)**. **WTFM** patches load and save but stay silent ("not available").
+  modulation matrix), **PERC** (a drum kit), **FAT** (unison supersaw), **WTFM**
+  (two-operator wavetable FM), and in this fork **[DX7](dx7.md)**.
 - **Macros:** FX columns A–F drive macros 1–6, and Volume drives macro 7.
 - **Voices:** a shared pool of 4 by default, adjustable in **Config > General > Synth
   voices** (1–8). If the audio gets close to its limit, only synth voices are cut; sample

@@ -1,0 +1,8 @@
+# OpenTracker scene bank (tools/remote_scripts/scene_bank_files.txt)
+column 1 = Sample LP cutoff: -25 -50 -80
+column 2 = Step Repeater: 8 11 13
+column 3 = DJ filter: -50 40 80
+scene 2 = 3 0 0
+scene 5 = 0 2 1
+a = 2
+b = 5
