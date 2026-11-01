@@ -239,3 +239,25 @@ TEST(fader_ranges_page_shows_scene_values) {
     CHECK(r.h.disp.lastHasText(">>>"));   // Direction: A plays forward
     CHECK(r.h.disp.lastHasText("<<<"));   // Direction on B
 }
+
+// Play starts and stops on the bank page and the Ranges page (it used to do
+// nothing there), and the page stays open.
+TEST(fader_ranges_play_on_bank_and_ranges_pages) {
+    Rig r;
+    PerformanceScreen& s = r.p();
+    r.h.tap(btn::Performance);   // the bank page
+    CHECK(s.view == View::Bank);
+    CHECK(!r.a().seq.isPlaying());
+    r.h.tap(btn::Play);
+    CHECK(r.a().seq.isPlaying());
+    CHECK(s.view == View::Bank);
+    r.h.tap(btn::Play);
+    CHECK(!r.a().seq.isPlaying());
+    r.h.tap(btn::F7);   // the Ranges page
+    r.h.tap(btn::Play);
+    CHECK(r.a().seq.isPlaying());
+    CHECK(s.ranges);
+    r.h.tap(btn::Play);
+    CHECK(!r.a().seq.isPlaying());
+    CHECK(s.ranges);
+}

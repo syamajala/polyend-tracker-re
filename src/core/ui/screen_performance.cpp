@@ -730,6 +730,12 @@ void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
         return;
     }
     if (view == View::Bank) {
+        // [I] Play works on the bank, Import and Ranges pages as when playing.
+        if (id == btn::Play) {
+            if (state == kPress) play();
+            refreshBar();
+            return;
+        }
         bankButton(id, state);
         return;
     }
