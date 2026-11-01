@@ -107,6 +107,8 @@ size_t encodePerfBank(const PerfBank& b, char* out, size_t cap) {
         }
         put("%s", "\n");
     }
+    for (int c = 0; c < PerfBank::kSlots; ++c)
+        if (b.range[c][0] || b.range[c][1]) put("range %d = %d %d\n", c + 1, b.range[c][0], 100 - b.range[c][1]);
     for (int i = 0; i < PerfBank::kScenes; ++i) {
         bool any = false;
         for (uint8_t r : b.scene[i]) any = any || r;
@@ -199,6 +201,15 @@ bool decodePerfBank(const char* text, size_t len, PerfBank& b) {
                     if (number(t, 1, 16, v)) off = uint16_t(off | (1u << (v - 1)));
                 b.fxOff[sc] = off;
                 b.fxSet = uint16_t(b.fxSet | (1u << sc));
+                any = true;
+            }
+        } else if (numbered(key, "range", PerfBank::kSlots, n, rest) && !*rest) {
+            int lo, hi;
+            const char* t0 = token(val);
+            const char* t1 = token(val);
+            if (number(t0, 0, 100, lo) && number(t1, lo, 100, hi)) {
+                b.range[n - 1][0] = uint8_t(lo);
+                b.range[n - 1][1] = uint8_t(100 - hi);
                 any = true;
             }
         } else if (eqi(key, "a") || eqi(key, "b")) {

@@ -12,6 +12,8 @@ bool perfScenesUsed(const Project& p) {
         if (t) return true;
     for (uint8_t t : p.perfExtArg)
         if (t) return true;
+    for (const auto& r : p.perfRange)
+        if (r[0] || r[1]) return true;
     if (p.perfFxOff || p.perfSceneFxSet) return true;
     return p.perfSceneOn[0] != 0 || p.perfSceneOn[1] != 1;
 }
@@ -61,12 +63,16 @@ void encodePerfScenes(const Project& p, uint8_t out[pscn::kFileSize]) {
     uint8_t* tg = out + pscn::kFxEnd;
     std::memcpy(tg, p.perfExtArg, Project::kPerfSceneSlots);
     tg[Project::kPerfSceneSlots] = sum8(tg, Project::kPerfSceneSlots);
+    uint8_t* rg = out + pscn::kTargetsEnd;
+    std::memcpy(rg, p.perfRange, pscn::kRangeBytes);
+    rg[pscn::kRangeBytes] = sum8(rg, pscn::kRangeBytes);
 }
 
 FmtStatus decodePerfScenes(const uint8_t* file, size_t len, Project& p) {
     std::memset(p.perfScene, 0, sizeof(p.perfScene));
     std::memset(p.perfExtType, 0, sizeof(p.perfExtType));
     std::memset(p.perfExtArg, 0, sizeof(p.perfExtArg));
+    std::memset(p.perfRange, 0, sizeof(p.perfRange));
     p.perfSceneOn[0] = 0;
     p.perfSceneOn[1] = 1;
     p.perfFxOff = 0;
@@ -105,6 +111,13 @@ FmtStatus decodePerfScenes(const uint8_t* file, size_t len, Project& p) {
     // The MIDI CC column targets (version 5; checked by perf::Source::validate).
     const size_t tg = fx + pscn::kFxBytes + 1, ns = size_t(Project::kPerfSceneSlots);
     if (file[4] >= 5 && len >= tg + ns + 1 && sum8(file + tg, ns) == file[tg + ns]) std::memcpy(p.perfExtArg, file + tg, ns);
+    // The fader intervals (version 6); a bad pair (start after end) reads as the whole fader.
+    const size_t rg = tg + ns + 1;
+    if (file[4] >= 6 && len >= rg + pscn::kRangeBytes + 1 && sum8(file + rg, pscn::kRangeBytes) == file[rg + pscn::kRangeBytes])
+        for (int s = 0; s < Project::kPerfSceneSlots; ++s) {
+            const int lo = file[rg + 2 * s], hi = 100 - file[rg + 2 * s + 1];
+            if (lo <= 100 && hi >= lo) p.setRange(s, lo, hi);
+        }
     return FmtStatus::Ok;
 }
 

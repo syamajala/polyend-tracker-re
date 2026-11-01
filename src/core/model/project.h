@@ -181,6 +181,17 @@ struct Project {
     uint8_t perfExtType[kPerfSceneSlots] = {};
     // [I] #28 a MIDI CC column's target (perf::ccTarget; perf_scenes.bin v5).
     uint8_t perfExtArg[kPerfSceneSlots] = {};
+    // [I] #12 each column's interval on the crossfader (perf_scenes.bin v6):
+    // [0] its start, [1] 100 - its end, so {0, 0} (the default) is the whole
+    // fader, as stock-like scenes blend. A column moves from scene A's value
+    // to B's only between its start and end; start == end: a jump there.
+    uint8_t perfRange[kPerfSceneSlots][2] = {};
+    int rangeStart(int s) const { return perfRange[s % kPerfSceneSlots][0]; }
+    int rangeEnd(int s) const { return 100 - perfRange[s % kPerfSceneSlots][1]; }
+    void setRange(int s, int start, int end) {
+        perfRange[s % kPerfSceneSlots][0] = uint8_t(start);
+        perfRange[s % kPerfSceneSlots][1] = uint8_t(100 - end);
+    }
     // [I] Per-track Performance FX toggles (#54): bit t set = track t+1's FX
     // off (its F-key unlit). Remembered across visits of the Performance
     // screen and saved with the project (perf_scenes.bin v4); 0 = all on.

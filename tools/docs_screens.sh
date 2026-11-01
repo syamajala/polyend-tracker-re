@@ -179,6 +179,39 @@ tap F6               # Import
 wait 300
 EOF
 
+# The Fader Ranges page (#12): the example kit imported, scene 2 on B;
+# LP cutoff over 0-40, reverb send over 40-100, the fader near the middle.
+shot fader-ranges empty <<'EOF'
+wait 300
+tap PERFORMANCE
+wait 300
+tap PERFORMANCE      # bank page
+wait 200
+tap F6               # Import
+wait 300
+tap F8
+wait 200
+tap F8               # confirm
+wait 300
+tap F7               # Ranges
+wait 200
+tap F2
+enc -60              # column 1 ends at 40
+tap DOWN
+tap DOWN
+tap F1
+enc 40               # column 3 starts at 40
+press SHIFT
+enc 2
+enc 2
+enc 2
+enc 2
+enc 2
+enc 2
+release SHIFT
+wait 2500            # let the notices go
+EOF
+
 # Resample: Sample Recorder while playing -> Resample (F6).
 shot resample project <<'EOF'
 wait 300

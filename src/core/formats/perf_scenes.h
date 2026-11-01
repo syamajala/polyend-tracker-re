@@ -4,17 +4,19 @@
 // firmware and the Tracker Mini never read it, so project.mt stays
 // byte-compatible.
 //
-// Layout (version 5): "OTPS", version, scene count, slots per scene, 0,
-// then five blocks, each followed by the 8-bit sum of its bytes:
+// Layout (version 6): "OTPS", version, scene count, slots per scene, 0,
+// then six blocks, each followed by the 8-bit sum of its bytes:
 //   the rows (scene-major, 0..3 each);
 //   a slot count and the OpenTracker-only FX types;
 //   the scenes on A and B (bank indices);
 //   the per-track FX toggles (#54), little-endian 16-bit: the live ones
 //   (Project::perfFxOff), which scenes carry toggles (perfSceneFxSet), then
 //   one mask per scene (perfSceneFxOff);
-//   the MIDI CC column targets (#28, perfExtArg), one per slot.
+//   the MIDI CC column targets (#28, perfExtArg), one per slot;
+//   the fader intervals (#12, perfRange), two bytes per slot.
 // A version 3 file (no toggles block) loads with every track on, a version
-// 4 file (no targets) with every target on instrument 1, slot A. Older
+// 4 file (no targets) with every target on instrument 1, slot A, a version
+// 5 file (no intervals) with every column on the whole fader. Older
 // versions (scenes A / B only) are not read: no such projects exist.
 #pragma once
 
@@ -27,20 +29,22 @@
 namespace ot {
 
 namespace pscn {
-constexpr uint8_t kVersion = 5;
+constexpr uint8_t kVersion = 6;
 constexpr uint32_t kHeaderSize = 8;
 constexpr uint32_t kScenesEnd = kHeaderSize + Project::kPerfScenes * Project::kPerfSceneSlots + 1;
 constexpr uint32_t kExtEnd = kScenesEnd + 1 + Project::kPerfSceneSlots + 1;
 constexpr uint32_t kAbEnd = kExtEnd + 2 + 1;
 constexpr uint32_t kFxBytes = 2 + 2 + 2 * Project::kPerfScenes;
 constexpr uint32_t kFxEnd = kAbEnd + kFxBytes + 1;
-constexpr uint32_t kFileSize = kFxEnd + Project::kPerfSceneSlots + 1;
+constexpr uint32_t kTargetsEnd = kFxEnd + Project::kPerfSceneSlots + 1;
+constexpr uint32_t kRangeBytes = 2 * Project::kPerfSceneSlots;
+constexpr uint32_t kFileSize = kTargetsEnd + kRangeBytes + 1;
 constexpr const char* kFileName = "perf_scenes.bin";
 }  // namespace pscn
 
 // True when a scene holds any row, a slot an OpenTracker-only FX type,
-// A / B point elsewhere than scenes 1 / 2, or FX toggles are off / stored
-// in a scene (only then is a file written).
+// A / B point elsewhere than scenes 1 / 2, FX toggles are off / stored in
+// a scene, or a column has a fader interval (only then is a file written).
 bool perfScenesUsed(const Project& p);
 // True when the scene on A or B holds a row (the crossfader has something to do).
 bool perfFaderUsed(const Project& p);

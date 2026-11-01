@@ -12,6 +12,8 @@
 //   scene 1 = 1 0 2 0 0 0 0 0 0 0 0 0      (a row 0..3 per column, 0 = not driven)
 //   scene 2 fx off = 3 4 12                (the F keys the scene stores: tracks
 //                                           with their FX off; "none" = all on)
+//   range 1 = 0 33                         (#12 a column's fader interval, start
+//                                           end 0..100; absent = 0 100)
 //   a = 1
 //   b = 2
 //
@@ -34,6 +36,7 @@ struct PerfBank {
     uint8_t type[kSlots] = {};          // perf::Fx, 0 = empty
     int16_t value[kSlots][3] = {};      // rows 1..3, as perf::Source::value
     uint8_t target[kSlots] = {};        // perf::ccTarget, MIDI CC columns
+    uint8_t range[kSlots][2] = {};      // as Project::perfRange
     uint8_t scene[kScenes][kSlots] = {};
     uint16_t fxOff[kScenes] = {};       // as Project::perfSceneFxOff
     uint16_t fxSet = 0;                 // as Project::perfSceneFxSet
@@ -44,7 +47,7 @@ namespace pbank {
 constexpr const char* kDir = "Performance/Scenes";
 constexpr const char* kExt = ".txt";
 constexpr int kNameMax = 24;
-constexpr size_t kTextMax = 3072;   // every line at its longest: ~2.4 KB
+constexpr size_t kTextMax = 3072;   // every line at its longest: ~2.7 KB
 }  // namespace pbank
 
 // Writes the bank as text (NUL-terminated); returns its length, 0 if `cap` is too small.

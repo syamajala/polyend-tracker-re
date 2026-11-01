@@ -126,6 +126,7 @@ FmtStatus loadProjectFile(IStorage& fs, const char* path, Project& p, ProjectLoa
     p.perfSceneOn[1] = 1;
     std::memset(p.perfExtType, 0, sizeof(p.perfExtType));
     std::memset(p.perfExtArg, 0, sizeof(p.perfExtArg));
+    std::memset(p.perfRange, 0, sizeof(p.perfRange));
     std::memset(p.playlistCount, 0, sizeof(p.playlistCount));
     p.resetUsbAudio();
     char sp[352];

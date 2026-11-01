@@ -46,6 +46,7 @@ bool App::loadPerfBank(const char* name, const perf::Source& src) {
     project.perfSceneFxSet = b.fxSet;
     project.perfSceneOn[0] = b.on[0];
     project.perfSceneOn[1] = b.on[1];
+    std::memcpy(project.perfRange, b.range, sizeof(project.perfRange));   // [I] #12
     markProjectDirty();
     return true;
 }
@@ -66,6 +67,7 @@ bool App::savePerfBank(const char* name, const perf::Source& src) {
     b.fxSet = project.perfSceneFxSet;
     b.on[0] = project.perfSceneOn[0];
     b.on[1] = project.perfSceneOn[1];
+    std::memcpy(b.range, project.perfRange, sizeof(b.range));   // [I] #12
     char* text = textScratch();
     const size_t n = encodePerfBank(b, text, pbank::kTextMax);
     if (!n) return false;
