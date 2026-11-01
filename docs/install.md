@@ -2,8 +2,8 @@
 
 ## Get an image
 
-The firmware image is a single file named like `PolyendTrackerOTv212.ptf` (for version
-2.2.1). Three ways to get one:
+The firmware image is a single file named like `PolyendTrackerOTv223.ptf` (for version
+2.2.3). Three ways to get one:
 
 - **Releases:** tagged versions are published on the fork's
   [Releases](https://github.com/syamajala/polyend-tracker-re/releases) page. *(No release

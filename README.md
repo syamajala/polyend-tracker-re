@@ -306,7 +306,7 @@ the whole 2.x line (2.0 to 2.2.1); the full list is in the release notes of the
 
 1. Download the latest image from this fork's
    [Releases](https://github.com/syamajala/polyend-tracker-re/releases) and copy
-   `PolyendTrackerOTv221.ptf` to `/Firmware` on the SD card. Keep the name; the bootloader
+   `PolyendTrackerOTv223.ptf` to `/Firmware` on the SD card. Keep the name; the bootloader
    only accepts 24-character names.
 2. Go to **Config > Firmware update**, select it and confirm. If the screen stays dark
    after the update, press the power button once.
@@ -326,7 +326,7 @@ rules; not yet confirmed on a stock unit).
 
 ## Building
 
-- Firmware: `make VERSION=2.1.2` (Arm GNU toolchain) writes `build/PolyendTrackerOTv212.ptf`.
+- Firmware: `make` (Arm GNU toolchain) writes `build/PolyendTrackerOTv223.ptf`.
 - Host tests: `make host-test`. Performance and memory gate: `make perf-gate`.
 - Simulator: `make sim`, then `build/sim/opentracker-sim` (see `sim/README.md`).
 
