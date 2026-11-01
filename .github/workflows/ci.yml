@@ -28,7 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install GCC 14
-        run: sudo apt-get update && sudo apt-get install -y g++-14
+        # On the ubuntu-24.04 image already; apt only if a new image drops it.
+        run: command -v g++-14 || { sudo apt-get update && sudo apt-get install -y g++-14; }
       # ASan aborts at start-up under the runners' 32-bit mmap randomisation.
       - name: Limit mmap randomisation for AddressSanitizer
         run: sudo sysctl -w vm.mmap_rnd_bits=28
@@ -54,7 +55,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install GCC 14 and SDL2
-        run: sudo apt-get update && sudo apt-get install -y g++-14 libsdl2-dev pkg-config
+        timeout-minutes: 12
+        run: .github/scripts/apt-install.sh g++-14 libsdl2-dev pkg-config
       - name: Simulator checks
         run: |
           set -o pipefail
@@ -92,18 +94,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install GCC 14, SDL2, Wine and MinGW
-        # Wine's ~200 packages sometimes stall on a mirror (one run hung 20 min, the next took 1):
-        # time out stalled downloads and try the install up to three times.
+        # Only what the replay needs: 64-bit Wine running a console program and
+        # the x86-64 MinGW compiler (the script skips recommends: fonts,
+        # GStreamer, GL; most of Wine's ~200 packages and ~8 min).
         timeout-minutes: 12
-        run: |
-          apt_opts="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
-          for attempt in 1 2 3; do
-            sudo timeout 240 apt-get $apt_opts update &&
-              sudo DEBIAN_FRONTEND=noninteractive timeout 240 apt-get $apt_opts install -y \
-                g++-14 libsdl2-dev pkg-config wine wine64 mingw-w64 && exit 0
-            echo "::warning::apt attempt $attempt failed, retrying"
-          done
-          exit 1
+        run: .github/scripts/apt-install.sh g++-14 libsdl2-dev pkg-config wine wine64 g++-mingw-w64-x86-64
       - name: Cache the emulator download
         uses: actions/cache@v4
         with:
