@@ -18,7 +18,7 @@ against it.
   doesn't belong.
 - Stock projects still load and play; fork data degrades gracefully on stock.
 
-**Intuitive and immediate: usable within a minute, without the manual.**
+**Intuitive and immediate: the core is usable within a minute, without the manual.**
 - Defaults mean stock behaviour: a plain song or pattern looks and works as on stock;
   depth shows up only when used.
 - One key away, and it sounds right: no menu diving (e.g. Performance pad rows are
@@ -26,6 +26,8 @@ against it.
 - Key combos are shortcuts only: every action is also reachable without one; check the
   screen's key map before adding another.
 - Keep each screen readable: new columns and cells have to earn their space.
+- Depth features (setup pages such as Fader Ranges) may need the manual, but one read of
+  the guide should make them click: lead with a plain example of what it does.
 
 **Fun: it makes you want to pick it up and play.**
 - Sound and play first (synths, FX, performance, flipping samples): ideas that make
