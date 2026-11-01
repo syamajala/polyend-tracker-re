@@ -504,6 +504,14 @@ void otAppMain(ot::hal::HalSet& hal) {
             const hal::UsbAudioStats s = hal::usbAudioStats();
             *o = {s.packets, s.underruns, s.dropped, s.fill, s.feedback, s.playing};
         };
+    // [I] USB audio out (#97 step 2): the engine's send.
+    if (hal::usbAudioAvailable()) {
+        refs.usbSend = {&hal::usbAudioOutBuffer, &hal::usbAudioOutCommit, nullptr};
+        refs.usbOutStats = [](ot::HalRefs::UsbOutStats* o) {
+            const hal::UsbAudioOutStats s = hal::usbAudioOutStats();
+            *o = {s.packets, s.underruns, s.overflows, s.fill, s.step, s.playing};
+        };
+    }
     refs.selectInput = &selectInputThunk;  // codec input mux + tuner (spec 01 §5.4-§5.6)
     refs.inputCtx = nullptr;
     refs.radio = &hal::radio();

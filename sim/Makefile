@@ -114,9 +114,9 @@ check: $(BIN) $(JPEG_CHECK) visual-diff keyflow-check
 	rm -rf $(OUT)/check-resample $(OUT)/check-resample.eeprom
 	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/check-resample --line-in-tone 440 \
 	    --script scripts/resample_e2e.txt
-	# [I] USB audio in (#97): Global Mixer USB column, Recorder USB source, Resample From USB.
+	# [I] USB audio (#97): Global Mixer USB column, Recorder USB source, Resample From USB, the send.
 	rm -rf $(OUT)/check-usbaudio $(OUT)/check-usbaudio.eeprom
-	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/check-usbaudio --usb-in-tone 440 \
+	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/check-usbaudio --usb-in-tone 440 --line-in-tone 330 \
 	    --script scripts/usb_audio.txt
 	# 2.x USB Storage mode: script commands and the Config row drive the mode page.
 	rm -rf $(OUT)/check-usb $(OUT)/check-usb.eeprom

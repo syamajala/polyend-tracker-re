@@ -63,6 +63,17 @@ struct HalRefs {
         bool playing;
     };
     void (*usbInStats)(UsbInStats* out) = nullptr;
+    // [I] USB audio out (#97 step 2): where the engine sends the limiter
+    // output every live block (AudioEngine::setUsbSend). buffer null: no USB
+    // audio out (simulator without --usb-out, OT_USB_AUDIO=0).
+    audio::AudioEngine::UsbSend usbSend{};
+    // Its diagnostics: packets sent, under-runs, blocks dropped (ring full),
+    // ring fill, packet step (10.14 frames per ms), sending audio.
+    struct UsbOutStats {
+        uint32_t packets, underruns, overflows, fill, step;
+        bool playing;
+    };
+    void (*usbOutStats)(UsbOutStats* out) = nullptr;
     // Recorder input routing (spec 05 appendix C §2.4/§2.5): source 0 line
     // in, 1 radio, 2 mic low gain, 3 mic high gain; gain 0..100. Returns
     // false when the source is not available. Null: only line in (no

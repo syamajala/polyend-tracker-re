@@ -43,17 +43,35 @@ bool SdlAudio::start() {
     }
     if (line_.wanted) line_.open(want, "line in");
     if (usb_.wanted) usb_.open(want, "USB in");
+    if (usbOutWanted_) {
+        SDL_AudioSpec ow = want, oh{};
+        ow.callback = nullptr;   // SDL_QueueAudio
+        usbOutDev_ = SDL_OpenAudioDevice(usbOutName_.empty() ? nullptr : usbOutName_.c_str(), 0, &ow, &oh, 0);
+        if (usbOutDev_) SDL_PauseAudioDevice(usbOutDev_, 0);
+        else std::fprintf(stderr, "sim audio: no output device for USB out (%s): %s\n",
+                          usbOutName_.empty() ? "default" : usbOutName_.c_str(), SDL_GetError());
+    }
     SDL_PauseAudioDevice(dev_, 0);
     return true;
 }
 
 void SdlAudio::stop() {
+    if (usbOutDev_) SDL_CloseAudioDevice(usbOutDev_);
+    usbOutDev_ = 0;
     for (Capture* c : {&line_, &usb_}) {
         if (c->dev) SDL_CloseAudioDevice(c->dev);
         c->dev = 0;
     }
     if (dev_) SDL_CloseAudioDevice(dev_);
     dev_ = 0;
+}
+
+void SdlAudio::usbOut(const int16_t* block) {
+    if (!usbOutDev_) return;
+    // The two devices' clocks drift apart: keep at most ~23 ms queued.
+    constexpr Uint32 kBytes = kBlockFrames * kChannels * sizeof(int16_t);
+    if (SDL_GetQueuedAudioSize(usbOutDev_) > 8 * kBytes) SDL_ClearQueuedAudio(usbOutDev_);
+    SDL_QueueAudio(usbOutDev_, block, kBytes);
 }
 
 void SdlAudio::listCaptureDevices() {

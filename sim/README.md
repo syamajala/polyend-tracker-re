@@ -31,6 +31,7 @@ Options:
 | `--line-in-tone HZ` | synthetic line input (tone bursts), e.g. to test the Sample Recorder headless |
 | `--usb-in NAME` | capture device NAME as USB audio in (`default`; `list` prints the names) |
 | `--usb-in-tone HZ` | synthetic USB audio in (the same tone bursts), for headless scripts |
+| `--usb-out NAME` | play the USB audio send on output device NAME (`default`): what the computer records |
 | `--no-audio` / `--no-midi` | skip the audio device / ALSA ports |
 | `--demo` | renderer and input demo instead of the app |
 | `--quit-after MS` | exit after MS milliseconds |
@@ -276,6 +277,9 @@ Resampling end to end (`make check` runs `scripts/resample_e2e.txt` with
 ```
 line-in on|off              the --line-in-tone input plays or is silent
 usb-in on|off               the --usb-in-tone input plays or is silent
+usb-out on|off              the computer records the USB send (on with --usb-out), or not
+expect-usb-out N            fail unless the USB send's peak since the last check / usb-out >= N
+expect-usb-out-quiet N      fail unless that peak < N
 expect-resample SLOT [PEAK] fail unless the last take finished into instrument SLOT
                             (1-based) with a recorded peak of at least PEAK
 expect-instrument SLOT MINFRAMES [NAME]
@@ -343,4 +347,9 @@ uncompressed deflate, so files are ~1 MB).
   SDL's PulseAudio backend with `--usb-in` (PipeWire serves it too): only that
   backend lists monitor sources. `make check` runs `scripts/usb_audio.txt`
   with `--usb-in-tone`.
+- USB audio out (`--usb-out NAME`, #97 step 2) plays the send the computer
+  would record (the master bus before master volume, without metronome, file
+  preview or USB in) on a second output device, e.g. a null sink whose
+  monitor a recorder captures. The sim's two devices drift apart; it drops
+  the queue rather than resample, so expect an occasional click there.
 - Panel layout and key labels are approximations of the real hardware.

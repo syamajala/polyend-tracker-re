@@ -8,7 +8,9 @@
 // hands to the audio engine (HalRefs::lineIn). [I] Optional USB audio in
 // (--usb-in, #97) captures a second device the same way (usbIn(),
 // HalRefs::usbIn): e.g. a PipeWire / PulseAudio "Monitor of ..." source,
-// so the computer's own audio plays into the Tracker as over USB.
+// so the computer's own audio plays into the Tracker as over USB. [I] USB
+// audio out (--usb-out, #97 step 2) plays the engine's USB send on another
+// output device (usbOut()), what the computer would record.
 #pragma once
 
 #include <SDL.h>
@@ -57,6 +59,14 @@ public:
         usb_.wanted = !name.empty();
         usb_.name = name == "default" ? "" : name;
     }
+    // [I] #97 step 2: play the USB send on output device `name` ("default":
+    // the default output; empty: off).
+    void enableUsbOut(const std::string& name) {
+        usbOutWanted_ = !name.empty();
+        usbOutName_ = name == "default" ? "" : name;
+    }
+    // Queue one sent block (128 interleaved frames) on that device; audio thread.
+    void usbOut(const int16_t* block);
     // Latest captured block (128 interleaved frames) or nullptr; audio thread only.
     const int16_t* lineIn() const { return line_.valid ? line_.block : nullptr; }
     const int16_t* usbIn() const { return usb_.valid ? usb_.block : nullptr; }
@@ -87,6 +97,9 @@ private:
     int16_t block_[kBlockFrames * kChannels] = {};
     uint32_t blockPos_ = kBlockFrames;
     Capture line_, usb_;
+    bool usbOutWanted_ = false;
+    std::string usbOutName_;
+    SDL_AudioDeviceID usbOutDev_ = 0;   // queue mode (no callback)
 };
 
 // Headless: the script runner calls pull() for every 128 frames of virtual

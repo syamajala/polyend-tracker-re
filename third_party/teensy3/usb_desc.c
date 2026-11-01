@@ -1745,7 +1745,7 @@ static uint8_t config_descriptor[CONFIG_DESC_SIZE] = {
 	9, 					// bLength
 	5, 					// bDescriptorType, 5 = ENDPOINT_DESCRIPTOR
 	AUDIO_TX_ENDPOINT | 0x80,		// bEndpointAddress
-	0x09, 					// bmAttributes = isochronous, adaptive
+	0x05, 					// bmAttributes = isochronous, asynchronous (OPENTRACKER PATCH: the codec sets the pace)
 	LSB(AUDIO_TX_SIZE), MSB(AUDIO_TX_SIZE),	// wMaxPacketSize
 	1,			 		// bInterval, 1 = every frame
 	0,					// bRefresh

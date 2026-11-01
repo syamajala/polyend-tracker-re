@@ -195,7 +195,7 @@ TEST(audio_after_msc_layout) {
         }
     CHECK_EQ(alt1[5], 1);
     CHECK_EQ(alt1[6], 1);
-    // Endpoints: 8 iso IN (data to the computer), 9 iso OUT asynchronous with
+    // Endpoints: 8 iso IN asynchronous (data to the computer), 9 iso OUT asynchronous with
     // feedback endpoint 10 (3 bytes, 10.14); table entries match.
     unsigned ne = 0;
     const uint8_t* cfg = ot_usb_ep_config(&ne);
@@ -211,7 +211,7 @@ TEST(audio_after_msc_layout) {
     for (const Ep& e : eps) {
         CHECK(addrs.insert(e.addr).second);
         if (e.addr == 0x88) {
-            CHECK_EQ(int(e.attr & 0x03), 1);
+            CHECK_EQ(int(e.attr), 0x05);   // isochronous, asynchronous (the Tracker sets the pace)
             CHECK_EQ(int(e.size), 180);
             ++seen;
         } else if (e.addr == 0x09) {
