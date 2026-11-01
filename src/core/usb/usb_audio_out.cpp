@@ -26,7 +26,7 @@ int16_t* UsbAudioOut::buffer() {
     if (!active_) return nullptr;
     const uint32_t w = w_;
     if (kOutRingFrames - (w - r_) < kOutBlockFrames) {
-        ++overflows_;
+        if (idle_ == 0) ++overflows_;   // (no packet this block: the computer is stopping)
         return nullptr;
     }
     pending_ = true;

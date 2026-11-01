@@ -163,6 +163,7 @@ TEST(stop_and_restart) {
     s.run(0.05);
     CHECK(!g_out.streaming());
     CHECK(g_out.buffer() == nullptr);
+    CHECK_EQ(g_out.overflows(), 0u);   // the blocks after the stop don't count
     s.recording = true;
     const long silent = s.silent;
     s.run(2.0, 0.5);
