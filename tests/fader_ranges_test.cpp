@@ -177,9 +177,13 @@ TEST(fader_ranges_page_keys) {
     CHECK(s.ranges);
     r.h.run(40);
     CHECK(r.h.disp.lastHasText("Fader Ranges"));
-    CHECK(r.h.disp.lastHasText("[0]-100"));   // column 1, the start edge
+    CHECK(!r.h.disp.lastHasText("[0]-100"));   // no edge toggled on
+    CHECK(r.h.disp.lastHasText("0-100"));
     CHECK(r.h.disp.lastHasText("at 50"));     // Direction (stepped)
-    // The encoder moves the start, F2 then the end.
+    // F1 toggles the start on: the encoder moves it; F2 then the end.
+    r.h.tap(btn::F1);
+    r.h.run(40);
+    CHECK(r.h.disp.lastHasText("[0]-100"));
     r.h.enc(10);
     CHECK_EQ(r.pj().rangeStart(0), 10);
     r.h.tap(btn::F2);
@@ -202,11 +206,12 @@ TEST(fader_ranges_page_keys) {
     r.h.enc(16);
     CHECK_EQ(r.pj().rangeStart(10), 66);
     CHECK_EQ(r.pj().rangeEnd(10), 66);
-    // Shift+encoder moves the fader, heard live.
-    r.h.down(btn::Shift);
+    // F2 again toggles the end off: the encoder moves the fader, heard live.
+    r.h.tap(btn::F2);
+    CHECK_EQ(s.rangeEdge, -1);
     for (int i = 0; i < 34; ++i) r.h.enc(1);
-    r.h.up(btn::Shift);
     CHECK_EQ(s.fader, 68);
+    CHECK_EQ(r.pj().rangeStart(10), 66);   // the switch point stayed
     CHECK_EQ(s.cur[10], 1);
     CHECK_EQ(s.cur[0], 18);
     CHECK(r.a().unsavedChanges());

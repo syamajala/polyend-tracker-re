@@ -892,13 +892,14 @@ public:
     void importBankFile();   // the highlighted file, after the confirm
     void exportBankFile();   // the keyboard, then the save
     // [I] #12 Fader Ranges page (bank page F7): a row per column with its
-    // interval on the crossfader. Up / Down or a pad pick the column, F1 /
-    // F2 pick the start / end edge (a stepped column has one switch point,
-    // either key moves it), the encoder moves it, Shift+encoder moves the
-    // fader (heard live), F3 resets the column to the whole fader, F8 back.
+    // interval on the crossfader. Up / Down or a pad pick the column; F1 /
+    // F2 toggle the start / end edge (a stepped column has one switch point,
+    // either key moves it): toggled on, the encoder moves it, off, the
+    // encoder moves the fader (heard live). F3 resets the column to the
+    // whole fader, F8 back.
     bool ranges = false;
     int rangeCursor = 0;
-    int rangeEdge = 0;   // 0 start, 1 end
+    int rangeEdge = -1;   // the edge the encoder moves: 0 start, 1 end, -1 none (the fader)
     void rangeButton(uint8_t id);
     void moveRange(int d);
     void drawRanges(Gfx& g);

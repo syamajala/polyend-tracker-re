@@ -17,8 +17,11 @@ expect-text Ranges
 tap F7
 wait 200
 expect-text Fader Ranges
+expect-text 0-100
+# F1 toggles the start on: the encoder moves it; F2 then the end.
+tap F1
+wait 100
 expect-text [0]-100
-# The encoder moves the start, F2 then the end.
 enc 10
 wait 100
 expect-text [10]-100

@@ -201,14 +201,13 @@ tap DOWN
 tap DOWN
 tap F1
 enc 40               # column 3 starts at 40
-press SHIFT
+tap F1               # start off: the encoder moves the fader
 enc 2
 enc 2
 enc 2
 enc 2
 enc 2
 enc 2
-release SHIFT
 wait 2500            # let the notices go
 EOF
 

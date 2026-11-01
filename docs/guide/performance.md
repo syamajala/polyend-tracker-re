@@ -121,9 +121,8 @@ it has one **switch point** instead (`at 50` by default).
 | Key | Does |
 |---|---|
 | Up / Down or a pad | Select a column. |
-| **F1 Start / F2 End** | Choose which edge the encoder moves: its key is framed, and the edge is in brackets (`[0]-100`). A stepped column's switch point moves with either. |
-| Encoder | Move the edge. |
-| **Shift + encoder** | Move the fader, to hear the result without leaving the page. |
+| **F1 Start / F2 End** | Toggle that edge on or off, like Rec. While one is on, its key is framed and the edge is in brackets (`[0]-100`). A stepped column's switch point moves with either. |
+| Encoder | With Start or End on: move that edge. With neither: move the fader, to hear the result without leaving the page. |
 | **F3 Reset** | The selected column back to the whole fader (0–100). |
 | **F8 Back** | Back to the bank page. **Performance** goes back to playing. |
 

@@ -454,7 +454,7 @@ void PerformanceScreen::padLeds(uint8_t* lv) {
     App& a = app_;
     const int dim = a.cfg.padDim(), full = a.cfg.padFull();
     // [I] #12 the Fader Ranges page lights the pads as the play view does
-    // (the fader moves there with Shift+encoder).
+    // (the encoder moves the fader there while no edge is toggled on).
     const bool play = view == View::Play || (view == View::Bank && ranges);
     if (view == View::Bank && !ranges) {
         // [I] The scenes: stored ones lit, the scenes on A / B full.
@@ -543,8 +543,8 @@ void PerformanceScreen::onEncoder(int d) {
         ui_.dirty();
         return;
     }
-    if (view == View::Bank && ranges) {   // [I] #12 the edge; Shift: the fader
-        if (ui_.shift()) setFader(fader + d * kFaderStep);
+    if (view == View::Bank && ranges) {   // [I] #12 the toggled edge, else the fader
+        if (rangeEdge < 0) setFader(fader + d * kFaderStep);
         else moveRange(d);
         refreshBar();
         ui_.dirty();
@@ -1247,7 +1247,7 @@ void PerformanceScreen::bankButton(uint8_t id, uint8_t state) {
         case btn::F4: clearBankScene(bankCursor); break;
         case btn::F5: exportBankFile(); break;
         case btn::F6: openBankFiles(); break;
-        case btn::F7: ranges = true; rangeEdge = 0; break;   // [I] #12
+        case btn::F7: ranges = true; rangeEdge = -1; break;   // [I] #12
         case btn::F8: view = View::Play; break;
         default: return;
     }
@@ -1878,8 +1878,9 @@ void PerformanceScreen::drawBank(Gfx& g) {
         wg::list(g, th, v);
     } else if (ranges) {
         drawRanges(g);
-        // The edge the encoder moves: its key (F1 Start / F2 End) framed.
-        if (!ui_.askOpen() && !ui_.kb.isOpen()) wg::focusFrame(g, ui_.th(), 100 * rangeEdge + 4, 428, 100 * rangeEdge + 96, 476);
+        // The edge the encoder moves: its key (F1 Start / F2 End) framed while toggled on.
+        if (rangeEdge >= 0 && !ui_.askOpen() && !ui_.kb.isOpen())
+            wg::focusFrame(g, ui_.th(), 100 * rangeEdge + 4, 428, 100 * rangeEdge + 96, 476);
     } else {
         drawBankGrid(g);
     }
@@ -1966,8 +1967,9 @@ void PerformanceScreen::rangeButton(uint8_t id) {
     switch (id) {
         case btn::Up: rangeCursor = clampi(rangeCursor - 1, 0, perf::kSlots - 1); break;
         case btn::Down: rangeCursor = clampi(rangeCursor + 1, 0, perf::kSlots - 1); break;
-        case btn::F1: rangeEdge = 0; break;
-        case btn::F2: rangeEdge = 1; break;
+        // Toggles, like Rec: on, the encoder moves that edge; off, the fader.
+        case btn::F1: rangeEdge = rangeEdge == 0 ? -1 : 0; break;
+        case btn::F2: rangeEdge = rangeEdge == 1 ? -1 : 1; break;
         case btn::F3: {
             p.setRange(rangeCursor, 0, kFaderMax);
             app_.markProjectDirty();
@@ -2050,7 +2052,7 @@ void PerformanceScreen::drawRanges(Gfx& g) {
             const int lo = p.rangeStart(c), hi = p.rangeEnd(c);
             // The selected column marks the edge the encoder moves.
             if (sel && rangeEdge == 0) std::snprintf(v, sizeof(v), "[%d]-%d", lo, hi);
-            else if (sel) std::snprintf(v, sizeof(v), "%d-[%d]", lo, hi);
+            else if (sel && rangeEdge == 1) std::snprintf(v, sizeof(v), "%d-[%d]", lo, hi);
             else std::snprintf(v, sizeof(v), "%d-%d", lo, hi);
         }
         g.text(kValX, y, kFontText, col, v, IDisplay::kOptRightX | IDisplay::kOptCenterY);
