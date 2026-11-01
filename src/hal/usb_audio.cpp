@@ -20,25 +20,27 @@ int16_t g_block[2 * ot::usbaudio::kBlockFrames];
 
 // The hooks usb_dev.c calls (declared in third_party/teensy3/usb_dev.h; the
 // Teensy implementation, usb_audio.cpp, is not built). Buffers the USB DMA
-// reads or writes live in `.dma` (SRAM_U, uncached, zeroed at boot).
+// reads or writes live in `.dma` (SRAM_U, uncached, zeroed at boot); the two
+// audio buffers hold a packet per BDT (even, odd), both kept armed.
 extern "C" {
-OT_DMA_MEM uint16_t usb_audio_receive_buffer[AUDIO_RX_SIZE / 2];
-OT_DMA_MEM uint16_t usb_audio_transmit_buffer[AUDIO_TX_SIZE / 2];
+OT_DMA_MEM uint16_t usb_audio_receive_buffer[2 * AUDIO_RX_SIZE / 2];
+OT_DMA_MEM uint16_t usb_audio_transmit_buffer[2 * AUDIO_TX_SIZE / 2];
 OT_DMA_MEM uint32_t usb_audio_sync_feedback;   // 10.14 frames per ms, read by the USB DMA (3 bytes)
 uint8_t usb_audio_receive_setting;
 uint8_t usb_audio_transmit_setting;
 
-// USB interrupt: an isochronous OUT packet arrived (len bytes, 4 per frame).
-void usb_audio_receive_callback(unsigned int len) {
+// USB interrupt: an isochronous OUT packet arrived in `buf` (len bytes, 4 per
+// frame).
+void usb_audio_receive_callback(const uint16_t* buf, unsigned int len) {
     if (!usb_audio_receive_setting) return;
-    g_in.receive(reinterpret_cast<const int16_t*>(usb_audio_receive_buffer), len / 4);
+    g_in.receive(reinterpret_cast<const int16_t*>(buf), len / 4);
 }
 
-// USB interrupt: the next IN packet (#97 step 2), 43..45 frames at the
-// codec's pace (core/usb/usb_audio_out.h).
-unsigned int usb_audio_transmit_callback(void) {
+// USB interrupt: the IN packet after next into `buf` (#97 step 2), 43..45
+// frames at the codec's pace (core/usb/usb_audio_out.h).
+unsigned int usb_audio_transmit_callback(uint16_t* buf) {
     static_assert(AUDIO_TX_SIZE / 4 == ot::usbaudio::kOutMaxPacket, "IN packet size");
-    return g_out.packet(reinterpret_cast<int16_t*>(usb_audio_transmit_buffer)) * 4;
+    return g_out.packet(reinterpret_cast<int16_t*>(buf)) * 4;
 }
 
 // No Feature Unit in our descriptor (usb_desc.c): nothing to get or set.
