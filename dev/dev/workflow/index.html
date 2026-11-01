@@ -1160,6 +1160,11 @@ side, and only upstream's other changes need applying on top
   compatibility can't.</li>
 <li>A new Performance column type is <strong>not</strong> written into <code>project.mt</code>'s type bytes (stock
   reads them); it lives in <code>perf_scenes.bin</code>, and stock sees an empty column.</li>
+<li>Files on the card outside a project are text, so people can edit them on a computer:
+  <code>MidiPresets/&lt;name&gt;.txt</code> (<code>formats/midi_preset.h</code>) and <code>Performance/Scenes/&lt;name&gt;.txt</code>
+  scene banks (<code>formats/perf_bank.h</code>). Both use <code>key = value</code> lines, <code>#</code> comments and
+  ignore unknown keys, so later versions can add keys. The shipped MIDI presets are in
+  <code>midi_presets/</code>; host tests parse each one.</li>
 </ul>
 <h2 id="code-conventions">Code conventions<a class="headerlink" href="#code-conventions" title="Permanent link">&para;</a></h2>
 <ul>

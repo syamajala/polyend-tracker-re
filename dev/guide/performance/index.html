@@ -549,6 +549,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scene-bank-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scene bank files
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scene bank files">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-bank-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The bank file
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#master-fx" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1136,6 +1164,34 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#scene-bank-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scene bank files
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Scene bank files">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-bank-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The bank file
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#master-fx" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1298,12 +1354,61 @@ your live F keys come back.</p>
 <td>Clear the selected scene.</td>
 </tr>
 <tr>
+<td><strong>F5 Export</strong></td>
+<td>Save the columns and scenes as a bank file (see below).</td>
+</tr>
+<tr>
+<td><strong>F6 Import</strong></td>
+<td>Load a bank file into this project.</td>
+</tr>
+<tr>
 <td><strong>F8 Back</strong> or <strong>Performance</strong></td>
 <td>Back to playing.</td>
 </tr>
 </tbody>
 </table>
 <p>Scenes can also be put on the fader by a song: see <a href="../song-mode/#scenes-per-slot">Song mode</a>.</p>
+<h2 id="scene-bank-files">Scene bank files<a class="headerlink" href="#scene-bank-files" title="Permanent link">&para;</a></h2>
+<p>A <strong>scene bank</strong> is a whole kit in one file, so it can move from song to song: the 12
+columns (each one's effect type, its three row values and a MIDI CC column's target), the
+16 scenes with their F keys, and which scenes are on A and B. Bank files are
+<code>Performance/Scenes/&lt;name&gt;.txt</code> on the card.</p>
+<ul>
+<li><strong>F5 Export</strong> opens the keyboard with a name (the bank imported last, else the
+  project's name). <strong>Save (F8)</strong> writes the file, and asks before overwriting one.</li>
+<li><strong>F6 Import</strong> lists the bank files. Move with the encoder or Up / Down, then press
+  <strong>Import (F8)</strong>. Because importing <strong>replaces this project's columns and scenes</strong>, it
+  asks first. <strong>Cancel (F7)</strong> or Left closes the list. The live pad rows start empty, and
+  the fader blends the bank's scenes on A and B.</li>
+</ul>
+<p><img alt="The Import list" src="../../images/scene-bank-import.png" /></p>
+<p>With <strong>Performance presets</strong> set to <strong>Global</strong> in Config (the default), the columns are
+shared by every project, so importing a bank changes them everywhere, just as editing
+a column does. The scenes always belong to the project.</p>
+<h3 id="the-bank-file">The bank file<a class="headerlink" href="#the-bank-file" title="Permanent link">&para;</a></h3>
+<p>Bank files are text, so they can be written or changed on a computer:</p>
+<div class="highlight"><pre><span></span><code># OpenTracker scene bank
+column 1 = Sample LP cutoff: -60 0 60
+column 2 = Tape stop: 1 3 5
+column 3 = MIDI CC: - 64 127 @ midi 2 slot A
+column 4 = ---
+scene 1 = 1 0 2 0 0 0 0 0 0 0 0 0
+scene 2 fx off = 3 4 12
+a = 1
+b = 2
+</code></pre></div>
+<ul>
+<li><code>column N = type: row 1 row 2 row 3</code>. The type is written as it appears in the type list
+  (any case), and <code>---</code> means an empty column. Values must be in the type's range; a value
+  outside it reads as 0. A <strong>MIDI CC</strong> column holds CC values 0–127 (<code>-</code> = off) and its
+  target, <code>@ midi 1-16 slot A-F</code>.</li>
+<li><code>scene N = ...</code> lists twelve rows, one per column, from 0 to 3, where 0 means the scene
+  doesn't drive that column. Scenes that aren't listed are empty.</li>
+<li><code>scene N fx off = ...</code> lists the tracks whose F key the scene turns off (<code>none</code> turns them
+  all on). Leave the line out and the scene doesn't change the F keys.</li>
+<li><code>a</code> and <code>b</code> give the scenes on A and B.</li>
+<li><code>#</code> starts a comment. Unknown lines are ignored.</li>
+</ul>
 <h2 id="master-fx">Master FX<a class="headerlink" href="#master-fx" title="Permanent link">&para;</a></h2>
 <p>Two effect types act on the <strong>whole mix</strong> (after all tracks and synths, before the
 limiter), instead of on each track:</p>
