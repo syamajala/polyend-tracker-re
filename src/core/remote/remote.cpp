@@ -4,9 +4,12 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "display_row.h"
 #include "formats/crc32.h"
 #include "remote/display_tap.h"
 #include "ui/buttons.h"
+
+static_assert(ot::remote::kShotMaxW <= ot::kDisplayRowPixels, "a shot row fits the shared display row");
 
 namespace ot {
 namespace remote {
@@ -452,7 +455,8 @@ void DeviceBridge::serviceShot() {
             // its bus): wait for the next pass, and retry a failed read until
             // nothing has worked for kShotStallMs.
             const bool ready = display_ && display_->frameReady();
-            if (!ready || !display_->readPixels(0, uint16_t(shotRow_), uint16_t(shotW_), 1, shotPx_)) {
+            uint32_t* const px = displayRow();
+            if (!ready || !display_->readPixels(0, uint16_t(shotRow_), uint16_t(shotW_), 1, px)) {
                 if (now_ - shotLastOk_ > kShotStallMs) {
                     sendLine("@RC SHOT FAIL");
                     shotRow_ = -1;
@@ -462,9 +466,9 @@ void DeviceBridge::serviceShot() {
             shotLastOk_ = now_;
             uint8_t* o = shotBuf_ + shotLen_;
             for (int x = 0; x < shotW_;) {
-                const uint32_t c = shotPx_[x] & 0xFFFFFFu;
+                const uint32_t c = px[x] & 0xFFFFFFu;
                 int n = 1;
-                while (x + n < shotW_ && n < 256 && (shotPx_[x + n] & 0xFFFFFFu) == c) ++n;
+                while (x + n < shotW_ && n < 256 && (px[x + n] & 0xFFFFFFu) == c) ++n;
                 *o++ = uint8_t(n - 1);
                 *o++ = uint8_t(c >> 16);
                 *o++ = uint8_t(c >> 8);
