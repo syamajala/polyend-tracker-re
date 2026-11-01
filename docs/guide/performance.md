@@ -83,9 +83,58 @@ Press **Performance** again on the Performance screen to open the **scene bank p
 | **F1 Set A / F2 Set B** | Put the selected scene on the fader's A / B end. |
 | **F3 Edit** | Open the scene on the Performance screen ("Editing scene N"): the pads set its rows, and you hear them as you go. Going back saves it. |
 | **F4 Clear** | Clear the selected scene. |
+| **F5 Export** | Save the columns and scenes as a bank file (see below). |
+| **F6 Import** | Load a bank file into this project. |
 | **F8 Back** or **Performance** | Back to playing. |
 
 Scenes can also be put on the fader by a song: see [Song mode](song-mode.md#scenes-per-slot).
+
+## Scene bank files
+
+A **scene bank** is a whole kit in one file, so it can move from song to song: the 12
+columns (each one's effect type, its three row values and a MIDI CC column's target), the
+16 scenes with their F keys, and which scenes are on A and B. Bank files are
+`Performance/Scenes/<name>.txt` on the card.
+
+- **F5 Export** opens the keyboard with a name (the bank imported last, else the
+  project's name). **Save (F8)** writes the file, and asks before overwriting one.
+- **F6 Import** lists the bank files. Move with the encoder or Up / Down, then press
+  **Import (F8)**. Because importing **replaces this project's columns and scenes**, it
+  asks first. **Cancel (F7)** or Left closes the list. The live pad rows start empty, and
+  the fader blends the bank's scenes on A and B.
+
+![The Import list](../images/scene-bank-import.png)
+
+With **Performance presets** set to **Global** in Config (the default), the columns are
+shared by every project, so importing a bank changes them everywhere, just as editing
+a column does. The scenes always belong to the project.
+
+### The bank file
+
+Bank files are text, so they can be written or changed on a computer:
+
+```
+# OpenTracker scene bank
+column 1 = Sample LP cutoff: -60 0 60
+column 2 = Tape stop: 1 3 5
+column 3 = MIDI CC: - 64 127 @ midi 2 slot A
+column 4 = ---
+scene 1 = 1 0 2 0 0 0 0 0 0 0 0 0
+scene 2 fx off = 3 4 12
+a = 1
+b = 2
+```
+
+- `column N = type: row 1 row 2 row 3`. The type is written as it appears in the type list
+  (any case), and `---` means an empty column. Values must be in the type's range; a value
+  outside it reads as 0. A **MIDI CC** column holds CC values 0–127 (`-` = off) and its
+  target, `@ midi 1-16 slot A-F`.
+- `scene N = ...` lists twelve rows, one per column, from 0 to 3, where 0 means the scene
+  doesn't drive that column. Scenes that aren't listed are empty.
+- `scene N fx off = ...` lists the tracks whose F key the scene turns off (`none` turns them
+  all on). Leave the line out and the scene doesn't change the F keys.
+- `a` and `b` give the scenes on A and B.
+- `#` starts a comment. Unknown lines are ignored.
 
 ## Master FX
 

@@ -5,12 +5,12 @@
 #include "app/app.h"
 #include "formats/file_io.h"
 #include "formats/midi_preset.h"
+#include "app/text_scratch.h"
 #include "sdram_bss.h"
 
 namespace ot {
 
 namespace {
-OT_SDRAM_BSS char g_presetText[mpreset::kTextMax];
 OT_SDRAM_BSS MidiPreset g_preset;   // 1.3 KB of CC names: not on the stack
 
 bool presetPath(char* out, size_t cap, const char* name) {
@@ -25,11 +25,11 @@ bool App::loadMidiPreset(int midi, const char* name) {
     char path[64];
     if (!presetPath(path, sizeof(path), name)) return false;
     uint32_t got = 0;
-    if (readWholeFile(fs(), path, reinterpret_cast<uint8_t*>(g_presetText), mpreset::kTextMax - 1, &got) !=
+    if (readWholeFile(fs(), path, reinterpret_cast<uint8_t*>(textScratch()), mpreset::kTextMax - 1, &got) !=
         FmtStatus::Ok)
         return false;
     MidiPreset& p = g_preset;
-    if (!decodeMidiPreset(g_presetText, got, p)) return false;
+    if (!decodeMidiPreset(textScratch(), got, p)) return false;
     MidiInstrument m = project.midiInstrument(midi);
     m.velocity = p.velocity;
     m.extra[0] = p.offset;
@@ -62,12 +62,12 @@ bool App::saveMidiPreset(int midi, const char* name) {
     std::memcpy(p.cc, m.cc, sizeof(p.cc));
     p.lfo = project.midiLfo[midi];
     for (int c = 0; c < 128; ++c) std::snprintf(p.name[c], sizeof(p.name[c]), "%s", midiNames.name(midi, c));
-    const size_t n = encodeMidiPreset(p, g_presetText, mpreset::kTextMax);
+    const size_t n = encodeMidiPreset(p, textScratch(), mpreset::kTextMax);
     if (!n) return false;
     IStorage& f = fs();
     if (!f.mkdir(mpreset::kDir)) return false;
     std::snprintf(tmp, sizeof(tmp), "%s.tmp", path);
-    if (writeWholeFile(f, tmp, reinterpret_cast<const uint8_t*>(g_presetText), uint32_t(n)) != FmtStatus::Ok) {
+    if (writeWholeFile(f, tmp, reinterpret_cast<const uint8_t*>(textScratch()), uint32_t(n)) != FmtStatus::Ok) {
         f.remove(tmp);
         return false;
     }

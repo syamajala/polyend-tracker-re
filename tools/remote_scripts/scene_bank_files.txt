@@ -1,0 +1,53 @@
+# Performance scene bank files (#70): F6 Import and F5 Export on the bank
+# page. Runs on the simulator (opentracker-sim --serve) and on a Tracker,
+# from a fresh project with remote control on; the card needs
+# Performance/Scenes/Remote Kit.txt (scene_bank_files.sd/).
+#   tools/tracker_remote.py PORT tools/remote_scripts/scene_bank_files.txt
+tap PERFORMANCE
+wait 300
+expect-screen Performance
+tap PERFORMANCE
+wait 200
+expect-text Scenes
+expect-text Export
+expect-text Import
+# F6 Import: the list, F8 asks, F8 replaces.
+tap F6
+wait 200
+expect-text Import Scene Bank
+expect-text Remote Kit
+tap F8
+wait 200
+expect-text Replace columns and scenes?
+tap F8
+wait 200
+expect-notice Scene bank loaded
+expect-text Scenes
+expect-text A 2
+expect-text B 5
+# F5 Export: the keyboard on the imported bank's name; F8 saves, after
+# asking to overwrite it.
+tap F5
+wait 200
+expect-text Export Scene Bank
+expect-text Remote Kit
+tap F8
+wait 200
+expect-text Bank exists
+expect-no-text Back
+tap F8
+wait 300
+expect-notice Scene bank saved
+# The list again; F7 closes it unchanged.
+tap F6
+wait 200
+expect-text Remote Kit
+tap F7
+wait 200
+expect-text Scenes
+# Back to playing.
+tap F8
+wait 200
+expect-screen Performance
+expect-text A 2
+expect-text B 5

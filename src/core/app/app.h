@@ -29,6 +29,10 @@
 
 namespace ot {
 
+namespace perf {
+struct Source;
+}
+
 namespace sfz {
 struct File;
 }
@@ -521,6 +525,13 @@ public:
     // Instruments with the same preset share its CC names (one chart).
     bool loadMidiPreset(int midi, const char* name);
     bool saveMidiPreset(int midi, const char* name);
+    // [I] #70 Performance scene banks (app/perf_banks.cpp):
+    // Performance/Scenes/<name>.txt. Load replaces the columns of `src` (the
+    // active Performance presets) and the project's scenes, FX toggles and
+    // A / B with the file's; the live pad rows are cleared. False when the
+    // file is missing or no bank (nothing changed).
+    bool loadPerfBank(const char* name, const perf::Source& src);
+    bool savePerfBank(const char* name, const perf::Source& src);
     // Load Patch popup preview (Tracker+ 1.0; docs/SYNTH_UX_MINI_VS_OT.md
     // row 24): Patches/<MODEL>/<name>.patch plays in slot s (its patch and
     // the audio-side record with the patch's macro defaults) while the

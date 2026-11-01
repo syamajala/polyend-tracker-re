@@ -47,6 +47,11 @@ Projects must keep opening in stock firmware, upstream OpenTracker and the Track
   compatibility can't.
 - A new Performance column type is **not** written into `project.mt`'s type bytes (stock
   reads them); it lives in `perf_scenes.bin`, and stock sees an empty column.
+- Files on the card outside a project are text, so people can edit them on a computer:
+  `MidiPresets/<name>.txt` (`formats/midi_preset.h`) and `Performance/Scenes/<name>.txt`
+  scene banks (`formats/perf_bank.h`). Both use `key = value` lines, `#` comments and
+  ignore unknown keys, so later versions can add keys. The shipped MIDI presets are in
+  `midi_presets/`; host tests parse each one.
 
 ## Code conventions
 

@@ -872,6 +872,18 @@ public:
     // Pad -> scene on the bank page: the first 8 pads of rows 1 and 2, as
     // the page's two rows of 8; -1 for the others.
     static int padScene(int pad) { return (pad % 12) < 8 && pad / 12 < 2 ? (pad / 12) * 8 + pad % 12 : -1; }
+    // [I] #70 scene bank files (Performance/Scenes/<name>.txt): on the bank
+    // page F5 Export saves the columns and scenes under a name typed on the
+    // keyboard; F6 Import lists the files (Up / Down / encoder move, F8
+    // asks, then replaces the columns and scenes, F7 / Left cancel).
+    static constexpr int kBankFileMax = 200;
+    bool bankFiles = false;   // the Import list is open
+    int fileCount = 0;
+    int fileCursor = 0;
+    int fileTop = 0;
+    void openBankFiles();
+    void importBankFile();   // the highlighted file, after the confirm
+    void exportBankFile();   // the keyboard, then the save
 
 private:
     void engage();   // the engine's start-up without the screen (start, song scenes)
@@ -894,9 +906,12 @@ private:
     void releaseDriven();   // [I] the slots scenes A / B drive go back to their pad rows
     void bankButton(uint8_t id, uint8_t state);
     void drawBank(Gfx& g);
+    void drawBankGrid(Gfx& g);   // the 16 scenes
     void drawTypeList(Gfx& g);   // [I] #89
     uint8_t savedRows_[12] = {};   // [I] the pad rows before a scene was opened for editing
     uint16_t savedFxOff_ = 0;      // [I] #54: the live FX toggles while a scene is edited
+    char bankName_[25] = {};       // [I] #70 the file being exported
+    void exportBankNow();
     bool editFxTouched_ = false;   // [I] #54: an F key was tapped while editing the scene
     bool held_[12] = {};
     bool keyHeld_[8] = {};   // per F key
