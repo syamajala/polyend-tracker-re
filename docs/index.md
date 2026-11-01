@@ -21,7 +21,7 @@ upstream OpenTracker and the Tracker Mini still open them.
 |---|---|
 | [DX7 synth](guide/dx7.md) | A 6-operator FM engine that plays Yamaha DX7 voices from `.syx` banks. |
 | [Live resampling](guide/resampling.md) | Record the master, one track or Line in while the pattern keeps playing; slice the take and place it on a track. |
-| [Performance mode](guide/performance.md) | 16 scenes with a crossfader, scene banks you can export and import, master FX (DJ filter, tape stop) and MIDI CC columns that play an external synth. |
+| [Performance mode](guide/performance.md) | 16 scenes with a crossfader, fader ranges that stage a fade column by column, scene banks you can export and import, master FX (DJ filter, tape stop) and MIDI CC columns that play an external synth. |
 | [Song mode](guide/song-mode.md) | Repeat counts, a Performance scene per song slot, and fader ramps between scenes. |
 | [Multisample instruments](guide/multisample.md) | Load an `.sfz` as one instrument that plays the nearest sampled note across the keys. |
 | [USB audio](guide/usb-audio.md) | The Tracker as a USB sound card: play and sample the computer's audio, record the Tracker on the computer. |

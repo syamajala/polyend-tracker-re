@@ -6,6 +6,32 @@ on 2.1.1); upstream: sandlbn/polyend-tracker-re `v2` at 2.1.2 (177150b).
 Fork figures corrected the same day from clean builds: the first version
 listed the fork's room above `_ebss` as upstream's.*
 
+## Fork `main` on 2026-11-01
+
+*Re-measured from `main` bc714a8 (Games off), after USB audio, multisample,
+scene bank files, fader ranges and the SDRAM sharing of #109. The tables
+below are the 2026-10-23 audit and are kept for the comparison with upstream.*
+
+| | 2026-10-23 | 2026-11-01 |
+|---|---:|---:|
+| Flash (`.text` + `.data`) | — | 774,144 B (fail > 800,000 B: ~26 KB left) |
+| SRAM `.bss` | 98,284 B | 109,492 B |
+| Room above `_ebss` (heap + stack) | 92,448 B | 79,104 B |
+| **Margin over the 75 KiB stack rule** | **15,648 B** | **2,304 B** |
+| `.sdram_bss` used (148 KB region) | 90,960 B | 129,344 B |
+| **`.sdram_bss` free** | **60,592 B** | **22,208 B** |
+
+- **SRAM is tight again.** USB audio is about half of the drop (~7 KB: its rings
+  and buffers stay in SRAM because the USB interrupt and the audio block both
+  touch them); the rest is spread over other features. Nothing moves from
+  SDRAM back to SRAM unless the 75 KiB rule is lowered; the real stack peak is
+  still ~18 KB.
+- **`.sdram_bss` options left, each with a cost:** the Sample Loader's name pool
+  (25.8 KB; shrinking it to 16 KB saves ~10 KB but long-name folders lose
+  entries), folding Recents, the text scratch and the multisample staging buffer
+  into `g_io` (~10 KB, needs a lifetime audit), `FF_FS_TINY` for the 7.2 KB of
+  file handles (a streaming-speed risk). The remote bridge (7.3 KB) stays.
+
 ## Summary
 
 - **Upstream is at its limits on both RAMs.** It has 1,104 B free in
