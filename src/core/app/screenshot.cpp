@@ -6,7 +6,7 @@
 #include <cstring>
 
 #include "app/app.h"
-#include "sdram_bss.h"
+#include "display_row.h"
 
 namespace ot {
 
@@ -24,11 +24,7 @@ void put32(uint8_t* p, uint32_t v) {
     for (int i = 0; i < 4; ++i) p[i] = uint8_t(v >> (8 * i));
 }
 
-// One row of pixels (static: no large stack frame; SDRAM on the device, OP-5),
-// read as 0x00RRGGBB words and turned into BMP bytes in place: pixel x's
-// bytes are the 4 bytes of word x, so a byte write never reaches a word that
-// is still to be read.
-OT_SDRAM_BSS uint32_t gRow[kW];
+static_assert(kW <= uint32_t(kDisplayRowPixels), "a row fits the shared display row");
 }  // namespace
 
 // BITMAPFILEHEADER + BITMAPINFOHEADER, bottom-up rows, BI_RGB 32 bpp.
@@ -52,7 +48,12 @@ static void bmpHeader(uint8_t h[kHeader]) {
 bool App::screenshot(char* pathOut, int cap) {
     IDisplay* d = hal_.display;
     if (!d || !hal_.storage) return false;
-    if (!d->readPixels(0, 0, 1, 1, gRow)) return false;
+    // One row of pixels (display_row.h: no large stack frame), read as
+    // 0x00RRGGBB words and turned into BMP bytes in place: pixel x's bytes are
+    // the 4 bytes of word x, so a byte write never reaches a word that is
+    // still to be read.
+    uint32_t* const row = displayRow();
+    if (!d->readPixels(0, 0, 1, 1, row)) return false;
     IStorage& f = fs();
     f.mkdir("Snapshots");
     char path[48];
@@ -69,19 +70,19 @@ bool App::screenshot(char* pathOut, int cap) {
     bmpHeader(hdr);
     bool ok = f.write(h, hdr, kHeader) == int32_t(kHeader);
     for (int y = int(kH) - 1; y >= 0 && ok; --y) {
-        if (!d->readPixels(0, uint16_t(y), uint16_t(kW), 1, gRow)) {
+        if (!d->readPixels(0, uint16_t(y), uint16_t(kW), 1, row)) {
             ok = false;
             break;
         }
-        uint8_t* const bytes = reinterpret_cast<uint8_t*>(gRow);
+        uint8_t* const bytes = reinterpret_cast<uint8_t*>(row);
         for (uint32_t x = 0; x < kW; ++x) {
-            const uint32_t c = gRow[x];
+            const uint32_t c = row[x];
             bytes[4 * x + 0] = uint8_t(c);         // B
             bytes[4 * x + 1] = uint8_t(c >> 8);    // G
             bytes[4 * x + 2] = uint8_t(c >> 16);   // R
             bytes[4 * x + 3] = 0xFF;
         }
-        ok = f.write(h, bytes, sizeof(gRow)) == int32_t(sizeof(gRow));
+        ok = f.write(h, bytes, kW * 4) == int32_t(kW * 4);
     }
     f.close(h);
     if (!ok) {

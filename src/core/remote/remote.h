@@ -74,7 +74,7 @@ constexpr uint32_t kTimeoutMs = 2000;
 constexpr int kPads = 48;
 constexpr int kLineMax = 128;   // longest line: "@RC L " + 96 hex digits
 constexpr int kShotChunk = 72;  // screenshot bytes per "@RC D" line (96 base64 chars)
-constexpr int kShotMaxW = 800;
+constexpr int kShotMaxW = 800;   // the shared row (display_row.h) holds at least this many
 
 struct Msg {
     enum Kind : uint8_t {
@@ -248,7 +248,6 @@ private:
     uint32_t shotLastOk_ = 0;   // now_ of the last row read (or the start): retry until kShotStallMs
     int shotW_ = 0, shotH_ = 0;
     uint32_t shotCrc_ = 0, shotBytes_ = 0;
-    uint32_t shotPx_[kShotMaxW] = {};
     uint8_t shotBuf_[kShotMaxW * 4 + kShotChunk] = {};   // one row's runs + a partial line
     int shotLen_ = 0;
 
