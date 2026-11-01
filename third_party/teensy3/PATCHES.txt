@@ -54,5 +54,10 @@ UPSTREAM_COMMIT). Everything else in this directory is unmodified.
      terminal's source the input terminal). The upstream position is empty.
    - usb_dev.c, SET_CONFIGURATION: the audio endpoints' BDTs are skipped when
      freeing packets (they point at the driver's static buffers).
+   - usb_dev.c, usb_dev.h, usb_audio.h: one buffer per audio BDT (even /
+     odd; the buffers hold two packets), both kept armed and refilled in
+     place, and the callbacks take that buffer. Upstream armed one IN packet
+     at a time from one buffer (and both OUT BDTs on one buffer), so a USB
+     interrupt held off over 1 ms by the audio block lost a frame.
    - usb_audio.cpp (upstream, AudioStream based) is not built (Makefile);
      the hooks usb_dev.c calls are reimpl/src/hal/usb_audio.cpp (OpenTracker).

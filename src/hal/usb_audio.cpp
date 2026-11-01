@@ -19,25 +19,27 @@ uint32_t g_txFrame;   // IN packets sent: 44 frames each, every 10th 45 (44.1 pe
 
 // The hooks usb_dev.c calls (declared in third_party/teensy3/usb_dev.h; the
 // Teensy implementation, usb_audio.cpp, is not built). Buffers the USB DMA
-// reads or writes live in `.dma` (SRAM_U, uncached, zeroed at boot).
+// reads or writes live in `.dma` (SRAM_U, uncached, zeroed at boot); the two
+// audio buffers hold a packet per BDT (even, odd), both kept armed.
 extern "C" {
-OT_DMA_MEM uint16_t usb_audio_receive_buffer[AUDIO_RX_SIZE / 2];
-OT_DMA_MEM uint16_t usb_audio_transmit_buffer[AUDIO_TX_SIZE / 2];
+OT_DMA_MEM uint16_t usb_audio_receive_buffer[2 * AUDIO_RX_SIZE / 2];
+OT_DMA_MEM uint16_t usb_audio_transmit_buffer[2 * AUDIO_TX_SIZE / 2];
 OT_DMA_MEM uint32_t usb_audio_sync_feedback;   // 10.14 frames per ms, read by the USB DMA (3 bytes)
 uint8_t usb_audio_receive_setting;
 uint8_t usb_audio_transmit_setting;
 
-// USB interrupt: an isochronous OUT packet arrived (len bytes, 4 per frame).
-void usb_audio_receive_callback(unsigned int len) {
+// USB interrupt: an isochronous OUT packet arrived in `buf` (len bytes, 4 per
+// frame).
+void usb_audio_receive_callback(const uint16_t* buf, unsigned int len) {
     if (!usb_audio_receive_setting) return;
-    g_in.receive(reinterpret_cast<const int16_t*>(usb_audio_receive_buffer), len / 4);
+    g_in.receive(reinterpret_cast<const int16_t*>(buf), len / 4);
 }
 
-// USB interrupt: the next IN packet. Step 1 of #97 sends silence at the
-// descriptor's 44.1 frames per ms.
-unsigned int usb_audio_transmit_callback(void) {
+// USB interrupt: the IN packet after next into `buf`. Step 1 of #97 sends
+// silence at the descriptor's 44.1 frames per ms.
+unsigned int usb_audio_transmit_callback(uint16_t* buf) {
     const uint32_t frames = ++g_txFrame % 10 == 0 ? 45 : 44;
-    std::memset(usb_audio_transmit_buffer, 0, frames * 4);
+    std::memset(buf, 0, frames * 4);
     return frames * 4;
 }
 
