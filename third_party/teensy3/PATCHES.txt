@@ -51,7 +51,9 @@ UPSTREAM_COMMIT). Everything else in this directory is unmodified.
      the mass-storage interface (so interfaces 0..3 keep their numbers and
      Windows its per-interface drivers), without its Feature Unit (no device
      volume / mute; the AC header's wTotalLength 62 -> 52, the output
-     terminal's source the input terminal). The upstream position is empty.
+     terminal's source the input terminal), and the IN endpoint asynchronous
+     (bmAttributes 0x09 -> 0x05: the codec's clock sets the pace). The
+     upstream position is empty.
    - usb_dev.c, SET_CONFIGURATION: the audio endpoints' BDTs are skipped when
      freeing packets (they point at the driver's static buffers).
    - usb_audio.cpp (upstream, AudioStream based) is not built (Makefile);

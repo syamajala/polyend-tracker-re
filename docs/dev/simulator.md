@@ -24,6 +24,9 @@ build/sim/opentracker-sim [--sd DIR] [--scale 2] [--line-in]
   a capture device, e.g. the monitor of a null sink the browser plays into
   (`--usb-in list` prints the names; see `sim/README.md`). `--usb-in-tone HZ` is the
   headless version.
+- `--usb-out NAME` plays the USB send (what the computer would record) on another output
+  device. Headless scripts use `usb-out on|off` and `expect-usb-out` /
+  `expect-usb-out-quiet` instead.
 
 ## Scripts
 

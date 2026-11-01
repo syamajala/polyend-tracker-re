@@ -6,6 +6,7 @@
 #include "dma_mem.h"
 #include "usb_desc.h"
 #include "usb/usb_audio_in.h"
+#include "usb/usb_audio_out.h"
 
 #if defined(OT_USB_AUDIO_LAST)
 
@@ -13,8 +14,8 @@ namespace {
 // SRAM .bss, zero-initialised (no constructor): the USB interrupt and the
 // audio block both touch it (sdram_bss.h rules).
 ot::usbaudio::UsbAudioIn g_in;
+ot::usbaudio::UsbAudioOut g_out;
 int16_t g_block[2 * ot::usbaudio::kBlockFrames];
-uint32_t g_txFrame;   // IN packets sent: 44 frames each, every 10th 45 (44.1 per ms)
 }  // namespace
 
 // The hooks usb_dev.c calls (declared in third_party/teensy3/usb_dev.h; the
@@ -33,12 +34,11 @@ void usb_audio_receive_callback(unsigned int len) {
     g_in.receive(reinterpret_cast<const int16_t*>(usb_audio_receive_buffer), len / 4);
 }
 
-// USB interrupt: the next IN packet. Step 1 of #97 sends silence at the
-// descriptor's 44.1 frames per ms.
+// USB interrupt: the next IN packet (#97 step 2), 43..45 frames at the
+// codec's pace (core/usb/usb_audio_out.h).
 unsigned int usb_audio_transmit_callback(void) {
-    const uint32_t frames = ++g_txFrame % 10 == 0 ? 45 : 44;
-    std::memset(usb_audio_transmit_buffer, 0, frames * 4);
-    return frames * 4;
+    static_assert(AUDIO_TX_SIZE / 4 == ot::usbaudio::kOutMaxPacket, "IN packet size");
+    return g_out.packet(reinterpret_cast<int16_t*>(usb_audio_transmit_buffer)) * 4;
 }
 
 // No Feature Unit in our descriptor (usb_desc.c): nothing to get or set.
@@ -55,11 +55,19 @@ const int16_t* usbAudioIn(void*) {
     return b;
 }
 
+int16_t* usbAudioOutBuffer(void*) { return g_out.buffer(); }
+void usbAudioOutCommit(void*) { g_out.commit(); }
+
 bool usbAudioAvailable() { return true; }
 
 UsbAudioStats usbAudioStats() {
     return UsbAudioStats{g_in.packets(), g_in.underruns(), g_in.dropped(), g_in.fill(), g_in.feedback(),
                          g_in.playing(), usb_audio_receive_setting != 0};
+}
+
+UsbAudioOutStats usbAudioOutStats() {
+    return UsbAudioOutStats{g_out.packets(), g_out.underruns(), g_out.overflows(), g_out.fill(), g_out.step(),
+                            g_out.playing()};
 }
 
 }  // namespace hal
@@ -71,8 +79,11 @@ namespace ot {
 namespace hal {
 
 const int16_t* usbAudioIn(void*) { return nullptr; }
+int16_t* usbAudioOutBuffer(void*) { return nullptr; }
+void usbAudioOutCommit(void*) {}
 bool usbAudioAvailable() { return false; }
 UsbAudioStats usbAudioStats() { return UsbAudioStats{}; }
+UsbAudioOutStats usbAudioOutStats() { return UsbAudioOutStats{}; }
 
 }  // namespace hal
 }  // namespace ot
