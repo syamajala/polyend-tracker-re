@@ -1,8 +1,11 @@
-# [I] USB audio in (#97), run by `make check` with --usb-in-tone 440 (the
-# computer streaming tone bursts) on an empty card. A new project has USB
-# muted in the Global Mixer; unmuted it plays; the Sample Recorder's USB
-# source monitors it; Resample From USB takes it into an instrument.
+# [I] USB audio (#97), run by `make check` with --usb-in-tone 440 (the
+# computer streaming tone bursts) and --line-in-tone 330 on an empty card. A
+# new project has USB muted in the Global Mixer; unmuted it plays; the Sample
+# Recorder's USB source monitors it; Resample From USB takes it into an
+# instrument. The computer records the master bus (step 2): Line in when
+# unmuted, never the USB in it plays.
 wait 300
+usb-out on
 sound-reset
 wait 1500
 expect-quiet 50          # new project: Global Mixer USB muted
@@ -11,10 +14,18 @@ tap MASTER
 tap MASTER
 wait 200
 expect-screen Master          # Global Mixer 3/3
+expect-usb-out-quiet 50
 tap F8                   # USB: unmute
 sound-reset
 wait 1500
 expect-sound 3000
+expect-usb-out-quiet 50  # heard, not sent back
+tap F4                   # Line in: unmute
+wait 1500
+expect-usb-out 3000      # the computer records it
+tap F4                   # Line in: mute
+wait 100
+usb-out off
 tap F8                   # mute again
 wait 100
 sound-reset
