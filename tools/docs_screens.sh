@@ -25,8 +25,9 @@ card() {   # card KIND DIR
     mkdir -p "$2/MidiPresets"   # an example MIDI preset (#13)
     printf '# OpenTracker MIDI preset\nslot A = 74\nslot B = 71\nslot C = 73\nslot D = 72\nslot E = 1\nslot F = PC\ncc 1 = Mod\ncc 3 = LFO Rate\ncc 71 = Resonance\ncc 72 = Release\ncc 73 = Attack\ncc 74 = Cutoff\ncc 75 = Decay\ncc 76 = Fine Tune\nlfo target = slot A\nlfo depth = 30\n' \
         > "$2/MidiPresets/Example synth.txt"
-    mkdir -p "$2/Performance/Scenes"   # the shipped scene banks (#70)
-    cp "$root"/scene_banks/*.txt "$2/Performance/Scenes/"
+    mkdir -p "$2/Performance/Scenes"   # an example scene bank (#70)
+    printf '# OpenTracker scene bank\ncolumn 1 = Sample LP cutoff: -25 -50 -80\ncolumn 2 = Step Repeater: 8 11 13\ncolumn 3 = Sample reverb snd: 30 60 100\ncolumn 4 = DJ filter: -50 40 80\nscene 2 = 2 0 2 0\nscene 3 = 0 3 0 2\na = 1\nb = 2\n' \
+        > "$2/Performance/Scenes/Example kit.txt"
     if [ "$1" = project ]; then
         cp -R "$songs/." "$2/"
         mkdir -p "$2/Workspace"
@@ -167,7 +168,7 @@ tap F2               # scene 4 on B
 wait 2500            # let the notices go
 EOF
 
-# The scene bank Import list (F6), with the shipped banks.
+# The scene bank Import list (F6).
 shot scene-bank-import empty <<'EOF'
 wait 300
 tap PERFORMANCE
@@ -175,23 +176,7 @@ wait 300
 tap PERFORMANCE      # bank page
 wait 200
 tap F6               # Import
-tap DOWN
 wait 300
-EOF
-
-# A shipped bank imported: Build and Drop on the bank page.
-shot scene-bank-kit empty <<'EOF'
-wait 300
-tap PERFORMANCE
-wait 300
-tap PERFORMANCE      # bank page
-wait 200
-tap F6               # Import: Build and Drop (the first)
-wait 200
-tap F8
-wait 200
-tap F8               # Replace columns and scenes
-wait 2500            # let the notice go
 EOF
 
 # Resample: Sample Recorder while playing -> Resample (F6).

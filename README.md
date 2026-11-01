@@ -97,9 +97,7 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 - In edit mode, a tapped row's value can be changed with the encoder without holding the pad.
 - **Scene bank files:** on the bank page, **F5 Export** saves the columns and the 16 scenes
   to `Performance/Scenes/<name>.txt` (a text file), and **F6 Import** loads one into another
-  project. Releases include `SceneBanks.zip` with five banks to play with: Build and Drop,
-  Dub Echoes, Glitch Kit, Lo-fi Tape and Syntakt Sweeps
-  ([#70](https://github.com/syamajala/polyend-tracker-re/issues/70)).
+  project ([#70](https://github.com/syamajala/polyend-tracker-re/issues/70)).
 - The scene bank, the FX toggles and the master FX types are stored in `perf_scenes.bin` next to `project.mt`;
   stock firmware sees those slots as empty.
 

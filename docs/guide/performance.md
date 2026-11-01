@@ -109,25 +109,6 @@ With **Performance presets** set to **Global** in Config (the default), the colu
 shared by every project, so importing a bank changes them everywhere, just as editing
 a column does. The scenes always belong to the project.
 
-### Banks that come with OpenTracker
-
-These banks are in `scene_banks/` in the source and ship in each release as
-`SceneBanks.zip`. Unzip it to the root of the card. Each file starts with a few comment
-lines on how to play it.
-
-| Bank | For | A → B |
-|---|---|---|
-| **Build and Drop** | Transitions: filters, rolls, short loops, risers, fades | Dry → Riser (push it up through a build) |
-| **Dub Echoes** | Throwing tracks into the delay and reverb, filtering, reversing | Dry → Echo throw |
-| **Glitch Kit** | Rolls, loop lengths, play modes, sample start / end, crushing | Clean → Chaos |
-| **Lo-fi Tape** | Bit depth, drive, radio and record filters, slowed down | Clean → Cassette |
-| **Syntakt Sweeps** | MIDI CC columns for a Syntakt track (needs the Syntakt [MIDI preset](midi-presets.md) on MIDI instrument 1) plus sample-side FX | Home → Open |
-
-![Build and Drop imported](../images/scene-bank-kit.png)
-
-Some scenes in these banks keep track 1 out of the effects (its F key off), so a kick
-placed there stays dry.
-
 ### The bank file
 
 Bank files are text, so they can be written or changed on a computer:

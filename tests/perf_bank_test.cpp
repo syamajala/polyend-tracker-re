@@ -1,11 +1,7 @@
 // [I] #70 Performance scene banks: the Performance/Scenes/<name>.txt text
-// format, App load / save, the bank page's F5 Export / F6 Import, and the
-// shipped banks in scene_banks/.
+// format, App load / save and the bank page's F5 Export / F6 Import.
 #include <cstring>
-#include <filesystem>
-#include <fstream>
 #include <memory>
-#include <sstream>
 #include <string>
 
 #include "test.h"
@@ -277,60 +273,4 @@ TEST(perf_bank_page_export_and_import) {
     r.h.tap(btn::Performance);
     CHECK(p.view == View::Play);
     CHECK(!p.bankFiles);
-}
-
-TEST(perf_bank_shipped_files_parse) {
-    namespace fs = std::filesystem;
-    std::error_code ec;
-    int files = 0;
-    for (const auto& de : fs::directory_iterator("../scene_banks", ec)) {
-        if (de.path().extension() != ".txt") continue;
-        ++files;
-        std::ifstream f(de.path());
-        std::stringstream ss;
-        ss << f.rdbuf();
-        const std::string t = ss.str();
-        CHECK(t.size() < pbank::kTextMax);
-        CHECK(de.path().stem().string().size() <= size_t(pbank::kNameMax));
-        PerfBank b;
-        CHECK(decodePerfBank(t.data(), t.size(), b));
-        // Every column line names a known type, every value is in range
-        // (the decode would read it as 0), and each scene drives a column
-        // that has a type.
-        int columns = 0, typed = 0;
-        for (size_t k = 0; k < t.size(); k = t.find('\n', k) + 1) {
-            if (t.compare(k, 7, "column ") != 0) {
-                if (t.find('\n', k) == std::string::npos) break;
-                continue;
-            }
-            ++columns;
-            const size_t eq = t.find('=', k), colon = t.find(':', k), end = t.find('\n', k);
-            if (colon < end) {
-                ++typed;
-                const std::string vals = t.substr(colon + 1, std::min(end, t.find('@', k)) - colon - 1);
-                std::stringstream vs(vals);
-                std::string tok;
-                int c = std::stoi(t.substr(k + 7, eq - k - 7)) - 1, row = 0;
-                while (vs >> tok) {
-                    if (tok == "-") {
-                        ++row;
-                        continue;
-                    }
-                    const int v = std::stoi(tok);
-                    const int16_t want = int16_t(b.type[c] == perf::kMidiCc ? v + 1 : v);
-                    CHECK_EQ(b.value[c][row], want);
-                    ++row;
-                }
-            }
-            if (t.find('\n', k) == std::string::npos) break;
-        }
-        int types = 0;
-        for (uint8_t ty : b.type) types += ty != 0;
-        CHECK_EQ(types, typed);
-        CHECK_EQ(columns, PerfBank::kSlots);
-        for (const auto& sc : b.scene)
-            for (int c = 0; c < PerfBank::kSlots; ++c)
-                if (sc[c]) CHECK(b.type[c] != 0);
-    }
-    CHECK(files >= 4);
 }

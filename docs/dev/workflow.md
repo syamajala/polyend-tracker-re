@@ -50,8 +50,8 @@ Projects must keep opening in stock firmware, upstream OpenTracker and the Track
 - Files on the card outside a project are text, so people can edit them on a computer:
   `MidiPresets/<name>.txt` (`formats/midi_preset.h`) and `Performance/Scenes/<name>.txt`
   scene banks (`formats/perf_bank.h`). Both use `key = value` lines, `#` comments and
-  ignore unknown keys, so later versions can add keys. The shipped examples are in
-  `midi_presets/` and `scene_banks/`; host tests parse each one.
+  ignore unknown keys, so later versions can add keys. The shipped MIDI presets are in
+  `midi_presets/`; host tests parse each one.
 
 ## Code conventions
 
