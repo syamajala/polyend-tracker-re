@@ -35,7 +35,7 @@ Projects must keep opening in stock firmware, upstream OpenTracker and the Track
 
 | File | Holds |
 |---|---|
-| `perf_scenes.bin` | the Performance scene bank, A / B, and the fork's column types (DJ filter, tape stop, MIDI CC) and MIDI CC targets |
+| `perf_scenes.bin` | the Performance scene bank, A / B, and the fork's column types (DJ filter, tape stop, MIDI CC), MIDI CC targets and the fader ranges (#12) |
 | `song.bin` | per-slot Count, Scene, Scene B and Ramp |
 | `midi_lfo.bin` | one LFO per MIDI instrument |
 | `usb_audio.bin` | the Global Mixer USB level and mute, and whether the Sample Recorder records USB |

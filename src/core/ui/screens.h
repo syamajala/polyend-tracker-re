@@ -825,6 +825,13 @@ public:
     // for blending FX, all-or-nothing at the middle for stepped ones, the
     // filter cross-over for filters of different types (the scene marks).
     int sceneShare(int scene, int c) const;
+    // [I] #12 the fader as column c's interval (Project::perfRange) sees it:
+    // 0 before its start, kFaderMax after its end, linear between (a point:
+    // the jump there); the whole fader (the default) = fader.
+    int columnFader(int c) const;
+    // The column whose interval moves column c: the slot of scene A's pick of
+    // c's FX type (applyScenes blends a pair there; the filters share one), else c.
+    int rangeSlot(int c) const;
     // [I] The row the green label marks: in a column scene A or B drives
     // (play view), the row of the scene with the larger share at the fader
     // (as the pad lights); otherwise the selected row.
@@ -884,6 +891,20 @@ public:
     void openBankFiles();
     void importBankFile();   // the highlighted file, after the confirm
     void exportBankFile();   // the keyboard, then the save
+    // [I] #12 Fader Ranges page (bank page F7): a row per column with its
+    // interval on the crossfader. Up / Down or a pad pick the column; F1 /
+    // F2 toggle the start / end edge (a stepped column has one switch point,
+    // either key moves it): toggled on, the encoder moves it, off, the
+    // encoder moves the fader (heard live). F3 resets the column to the
+    // whole fader, F8 back.
+    bool ranges = false;
+    int rangeCursor = 0;
+    int rangeEdge = -1;   // the edge the encoder moves: 0 start, 1 end, -1 none (the fader)
+    void rangeButton(uint8_t id);
+    void moveRange(int d);
+    void drawRanges(Gfx& g);
+    // The crossfader as title text, "A 3 ----|----- B 7", after `prefix` (or none).
+    void faderText(char* out, int cap, const char* prefix) const;
 
 private:
     void engage();   // the engine's start-up without the screen (start, song scenes)

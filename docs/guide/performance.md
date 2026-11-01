@@ -39,7 +39,8 @@ each play a scene; the encoder (outside edit mode) or **MIDI CC 63** fades betwe
 
 - Continuous values (volume, filters, sends …) fade smoothly. Filters cross over at the
   middle (a low-pass on A and a high-pass on B don't fight). Stepped effects (Repeater,
-  Direction, Tape stop …) switch at the middle.
+  Direction, Tape stop …) switch at the middle. With [fader ranges](#fader-ranges), each
+  column can move over its own part of the fader instead.
 - The title bar shows the pair (`A 1 |------| B 2`) and where the fader is. Rows of the
   scene on A are marked red, on B blue; the pad LEDs and the green (active) row follow
   the fader.
@@ -85,9 +86,48 @@ Press **Performance** again on the Performance screen to open the **scene bank p
 | **F4 Clear** | Clear the selected scene. |
 | **F5 Export** | Save the columns and scenes as a bank file (see below). |
 | **F6 Import** | Load a bank file into this project. |
+| **F7 Ranges** | Set where on the fader each column moves (see below). |
 | **F8 Back** or **Performance** | Back to playing. |
 
 Scenes can also be put on the fader by a song: see [Song mode](song-mode.md#scenes-per-slot).
+
+## Fader ranges
+
+By default every column moves across the whole fader: as you push from A to B, all of
+them change together. A **fader range** gives a column its own part of the fader, so
+one push can play a sequence of changes. For example, to build up:
+
+| Column | Scene A | Scene B | Range |
+|---|---|---|---|
+| LP cutoff | -60 (closed) | 0 (open) | 0–33: opens first |
+| Delay send | — | +60 | 33–66: then the delay comes in |
+| Step Repeater | — | 1/16 | at 66: then the rolls start |
+
+Scenes A and B stay the same; the range only sets *when* during the push each column
+goes from its A value to its B value. Before its range a column holds A's value, after
+it B's. Pulling the fader back undoes the changes in reverse. A song slot's
+[ramp](song-mode.md#scenes-per-slot) moves the same fader, so it plays the sequence too.
+
+Open the **Fader Ranges** page with **F7** on the bank page:
+
+![The Fader Ranges page](../images/fader-ranges.png)
+
+Each column has a row: its bar shows its range between **A** (left) and **B** (right),
+and the red line is where the fader is now. Left of the bar is the value the column plays
+at A (red), right of it the value at B (blue); `---` means that scene doesn't set the
+column, so it has no effect there. Columns that neither scene on A / B drives are grey. A stepped column (Repeater, Direction, Tape stop …) can't move gradually, so
+it has one **switch point** instead (`at 50` by default).
+
+| Key | Does |
+|---|---|
+| Up / Down or a pad | Select a column. |
+| **F1 Start / F2 End** | Toggle that edge on or off, like Rec. While one is on, its key is framed and the edge is in brackets (`[0]-100`). A stepped column's switch point moves with either. |
+| Encoder | With Start or End on: move that edge. With neither: move the fader, to hear the result without leaving the page. |
+| **F3 Reset** | The selected column back to the whole fader (0–100). |
+| **F8 Back** | Back to the bank page. **Performance** goes back to playing. |
+
+Ranges belong to the columns of the project and are saved with it and in exported bank
+files.
 
 ## Scene bank files
 
@@ -134,6 +174,8 @@ b = 2
 - `scene N fx off = ...` lists the tracks whose F key the scene turns off (`none` turns them
   all on). Leave the line out and the scene doesn't change the F keys.
 - `a` and `b` give the scenes on A and B.
+- `range N = start end` gives column N's [fader range](#fader-ranges) (0–100). Leave it
+  out for the whole fader; a stepped column's switch point is written as `range N = 66 66`.
 - `#` starts a comment. Unknown lines are ignored.
 
 ## Master FX
@@ -178,7 +220,7 @@ then **OK (F8)**.
 
 ## Saved with the project
 
-The scene bank, the F keys (live and per scene), the master FX and MIDI CC types and the
-MIDI CC columns' instruments and slots are stored in
+The scene bank, the F keys (live and per scene), the master FX and MIDI CC types, the
+MIDI CC columns' instruments and slots and the fader ranges are stored in
 `perf_scenes.bin` next to `project.mt`. Stock firmware and the Tracker Mini see those columns as empty and ignore
 the scenes.

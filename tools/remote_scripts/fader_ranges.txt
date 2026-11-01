@@ -1,0 +1,43 @@
+# Fader Ranges page (#12): runs on the simulator (opentracker-sim --serve)
+# and on a Tracker, from a fresh project with remote control on.
+#   tools/tracker_remote.py PORT tools/remote_scripts/fader_ranges.txt
+tap PERFORMANCE
+wait 300
+expect-screen Performance
+# Column 1, row 1 stored into the scene on B.
+pad 12 tap
+press SHIFT
+tap RIGHT
+release SHIFT
+wait 100
+# The bank page, F7: the Ranges page.
+tap PERFORMANCE
+wait 200
+expect-text Ranges
+tap F7
+wait 200
+expect-text Fader Ranges
+expect-text 0-100
+# F1 toggles the start on: the encoder moves it; F2 then the end.
+tap F1
+wait 100
+expect-text [0]-100
+enc 10
+wait 100
+expect-text [10]-100
+tap F2
+enc -20
+wait 100
+expect-text 10-[80]
+# F3: the whole fader again.
+tap F3
+wait 100
+expect-notice Column 1: whole fader
+expect-text 0-[100]
+# F8: back to the scenes.
+tap F8
+wait 200
+expect-text Set A
+tap F8
+wait 200
+expect-screen Performance

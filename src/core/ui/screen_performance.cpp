@@ -129,6 +129,7 @@ void PerformanceScreen::stop() {
     for (auto& h : held_) h = false;
     typeList = false;   // [I] #89: closed unchanged
     bankFiles = false;  // [I] #70
+    ranges = false;     // [I] #12
     if (view == View::EditScene) editSceneEnd();   // [I] leaving saves the scene being edited
     view = View::Play;
     // spec 16 §A.15: switching to Instrument Params or Master keeps the FX
@@ -402,6 +403,12 @@ void PerformanceScreen::resetOthers(int c) {
 // Inputs (spec 06 §3.4)
 
 void PerformanceScreen::onPad(uint8_t pad, uint8_t state) {
+    if (view == View::Bank && ranges) {   // [I] #12 a pad picks its column
+        if (state == kPress && pad % 12 < perf::kSlots) rangeCursor = pad % 12;
+        refreshBar();
+        ui_.dirty();
+        return;
+    }
     if (view == View::Bank) {
         // [I] A pad selects its scene; the selected scene's pad opens it.
         const int sc = padScene(pad);
@@ -446,7 +453,10 @@ void PerformanceScreen::padLeds(uint8_t* lv) {
     if (!src.valid()) return;
     App& a = app_;
     const int dim = a.cfg.padDim(), full = a.cfg.padFull();
-    if (view == View::Bank) {
+    // [I] #12 the Fader Ranges page lights the pads as the play view does
+    // (the encoder moves the fader there while no edge is toggled on).
+    const bool play = view == View::Play || (view == View::Bank && ranges);
+    if (view == View::Bank && !ranges) {
         // [I] The scenes: stored ones lit, the scenes on A / B full.
         for (int p = 0; p < 48; ++p) {
             const int sc = padScene(p);
@@ -460,7 +470,7 @@ void PerformanceScreen::padLeds(uint8_t* lv) {
     }
     for (int c = 0; c < perf::kSlots; ++c) {
         const uint8_t rA = a.project.sceneOn(0)[c], rB = a.project.sceneOn(1)[c];
-        if (src.type(c) && (rA || rB) && !padOver_[c] && !edit && view == View::Play) {
+        if (src.type(c) && (rA || rB) && !padOver_[c] && !edit && play) {
             auto level = [&](int share) { return uint8_t(dim + (full - dim) * share / kFaderMax); };
             const int pa = (rA <= 3 ? rA : 0) * 12 + c, pb = (rB <= 3 ? rB : 0) * 12 + c;
             if (pa == pb) {
@@ -530,6 +540,13 @@ void PerformanceScreen::onEncoder(int d) {
     }
     if (view == View::Bank && bankFiles) {   // [I] #70 the Import list
         fileCursor = clampi(fileCursor + d, 0, fileCount > 0 ? fileCount - 1 : 0);
+        ui_.dirty();
+        return;
+    }
+    if (view == View::Bank && ranges) {   // [I] #12 the toggled edge, else the fader
+        if (rangeEdge < 0) setFader(fader + d * kFaderStep);
+        else moveRange(d);
+        refreshBar();
         ui_.dirty();
         return;
     }
@@ -704,6 +721,7 @@ void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
         // track bank here (2x-01 §5): Left / Right do that now.
         if (state != kPress) return;
         bankFiles = false;
+        ranges = false;
         if (view == View::Play) openBank();
         else if (view == View::Bank) view = View::Play;
         else editSceneEnd();
@@ -712,6 +730,12 @@ void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
         return;
     }
     if (view == View::Bank) {
+        // [I] Play works on the bank, Import and Ranges pages as when playing.
+        if (id == btn::Play) {
+            if (state == kPress) play();
+            refreshBar();
+            return;
+        }
         bankButton(id, state);
         return;
     }
@@ -983,8 +1007,30 @@ void PerformanceScreen::storeScene(int scene) {
     ui_.dirty();
 }
 
+int PerformanceScreen::columnFader(int c) const {
+    const Project& p = app_.project;
+    const int lo = p.rangeStart(c), hi = p.rangeEnd(c), x = fader;
+    if (hi <= lo) return x >= lo ? kFaderMax : 0;   // a point: the jump there
+    if (x <= lo) return 0;
+    if (x >= hi) return kFaderMax;
+    return ((x - lo) * kFaderMax + (hi - lo) / 2) / (hi - lo);
+}
+
+int PerformanceScreen::rangeSlot(int c) const {
+    // As applyScenes: a pair of one FX type (filters: one pair for all
+    // three) blends in scene A's slot, the highest one; MIDI CC per column.
+    const uint8_t ty = src.type(c);
+    if (ty == perf::kMidiCc) return c;
+    int at = -1;
+    for (int s = 0; s < perf::kSlots; ++s) {
+        const uint8_t r = app_.project.sceneOn(0)[s], t = src.type(s);
+        if (r >= 1 && r <= 3 && t && (t == ty || (isFilter(t) && isFilter(ty)))) at = s;
+    }
+    return at >= 0 ? at : c;
+}
+
 int PerformanceScreen::sceneShare(int scene, int c) const {
-    const int x = fader, toB = x >= kFaderMax / 2;
+    const int x = columnFader(rangeSlot(c)), toB = x >= kFaderMax / 2;   // [I] #12 the column's interval
     const uint8_t ty = src.type(c);
     if (isStepped(ty)) return (scene == 1) == bool(toB) ? 100 : 0;   // switches at the middle
     if (ty == perf::kMidiCc) {   // [I] #28: a scene without the column leaves it to the other
@@ -1079,6 +1125,7 @@ void PerformanceScreen::clearScene(int scene) {
 void PerformanceScreen::openBank() {
     view = View::Bank;
     bankFiles = false;
+    ranges = false;
     bankCursor = app_.project.perfSceneOn[0];
     for (auto& h : held_) h = false;
 }
@@ -1189,6 +1236,12 @@ void PerformanceScreen::bankButton(uint8_t id, uint8_t state) {
         ui_.dirty();
         return;
     }
+    if (ranges) {   // [I] #12
+        rangeButton(id);
+        refreshBar();
+        ui_.dirty();
+        return;
+    }
     switch (id) {
         case btn::Left: bankCursor = clampi(bankCursor - 1, 0, Project::kPerfScenes - 1); break;
         case btn::Right: bankCursor = clampi(bankCursor + 1, 0, Project::kPerfScenes - 1); break;
@@ -1200,6 +1253,7 @@ void PerformanceScreen::bankButton(uint8_t id, uint8_t state) {
         case btn::F4: clearBankScene(bankCursor); break;
         case btn::F5: exportBankFile(); break;
         case btn::F6: openBankFiles(); break;
+        case btn::F7: ranges = true; rangeEdge = -1; break;   // [I] #12
         case btn::F8: view = View::Play; break;
         default: return;
     }
@@ -1377,8 +1431,7 @@ void PerformanceScreen::applyScenes() {
             }
         }
     }
-    const int x = fader;
-    const bool toB = x >= kFaderMax / 2;
+    const bool toB = fader >= kFaderMax / 2;   // the scene the fader is on (FX toggles)
     int16_t next[perf::kSlots];
     for (int s = 0; s < perf::kSlots; ++s) next[s] = cur[s];
     bool involved[perf::kFxCount] = {};
@@ -1393,23 +1446,28 @@ void PerformanceScreen::applyScenes() {
         const Pick &A = pa[ty], &B = pb[ty];
         if (A.slot < 0 && B.slot < 0) continue;
         involved[ty] = true;
+        // [I] #12 the pair moves over the interval of A's slot (rangeSlot).
+        const int x = columnFader(A.slot >= 0 ? A.slot : B.slot);
+        const bool tb = x >= kFaderMax / 2;
         if (isStepped(uint8_t(ty))) {
-            place(toB ? B : A, toB ? B.v : A.v);   // a scene without it: off
+            place(tb ? B : A, tb ? B.v : A.v);   // a scene without it: off
             continue;
         }
         // Continuous: blend (a missing side is 0, no effect) in the slot of
         // the scene the fader is closer to.
-        const Pick& at = toB ? (B.slot >= 0 ? B : A) : (A.slot >= 0 ? A : B);
+        const Pick& at = tb ? (B.slot >= 0 ? B : A) : (A.slot >= 0 ? A : B);
         place(at, lerp100(A.v, B.v, x));
     }
     if (fa.slot >= 0 || fb.slot >= 0) {
         involved[perf::kLowPass] = involved[perf::kHighPass] = involved[perf::kBandPass] = true;
+        const int x = columnFader(fa.slot >= 0 ? fa.slot : fb.slot);
+        const bool tb = x >= kFaderMax / 2;
         if (fa.slot >= 0 && fb.slot >= 0 && fta != ftb) {
             // Different filter types: A fades out to the middle, B fades in after it.
-            if (!toB) place(fa, lerp100(fa.v, 0, x * 2));
+            if (!tb) place(fa, lerp100(fa.v, 0, x * 2));
             else place(fb, lerp100(0, fb.v, (x - kFaderMax / 2) * 2));
         } else {
-            const Pick& at = toB ? (fb.slot >= 0 ? fb : fa) : (fa.slot >= 0 ? fa : fb);
+            const Pick& at = tb ? (fb.slot >= 0 ? fb : fa) : (fa.slot >= 0 ? fa : fb);
             place(at, lerp100(fa.slot >= 0 ? fa.v : 0, fb.slot >= 0 ? fb.v : 0, x));
         }
     }
@@ -1426,7 +1484,7 @@ void PerformanceScreen::applyScenes() {
         if (!v[0] && !v[1]) continue;
         for (int o = 0; o < s; ++o)
             if (picked[o] && src.type(o) == perf::kMidiCc && src.target(o) == src.target(s)) next[o] = 0;
-        next[s] = int16_t(lerp100(v[0] ? v[0] : v[1], v[1] ? v[1] : v[0], x));
+        next[s] = int16_t(lerp100(v[0] ? v[0] : v[1], v[1] ? v[1] : v[0], columnFader(s)));
         picked[s] = true;
     }
     for (int s = 0; s < perf::kSlots; ++s)
@@ -1473,10 +1531,11 @@ void PerformanceScreen::refreshBar() {
     if (view == View::Bank) {
         // [I] Drawn by draw() like the track labels.
         // One line each: the red box already shows the selected scene.
-        static const char* const kTop[8] = {"Set A", "Set B", "Edit", "Clear", "Export", "Import", "", "Back"};
+        static const char* const kTop[8] = {"Set A", "Set B", "Edit", "Clear", "Export", "Import", "Ranges", "Back"};
         static const char* const kFiles[8] = {"", "", "", "", "", "", "Cancel", "Import"};   // [I] #70
+        static const char* const kRanges[8] = {"Start", "End", "Reset", "", "", "", "", "Back"};   // [I] #12
         for (int i = 0; i < 8; ++i) {
-            b.set(i, bankFiles ? kFiles[i] : kTop[i], "");
+            b.set(i, bankFiles ? kFiles[i] : ranges ? kRanges[i] : kTop[i], "");
             b.highlight(i, true);
             b.label[i].hidden = true;
         }
@@ -1509,6 +1568,21 @@ void PerformanceScreen::refreshBar() {
     }
 }
 
+void PerformanceScreen::faderText(char* out, int cap, const char* prefix) const {
+    // The bar shrinks until the whole text fits the title's right side
+    // (with "EDIT" / "Tracks 9-16" in front of it).
+    const Project& pj = app_.project;
+    for (int cells = 10; cells >= 2; --cells) {
+        char bar[12];
+        const int pos = fader * cells / kFaderMax;
+        for (int i = 0; i <= cells; ++i) bar[i] = i == pos ? '|' : '-';
+        bar[cells + 1] = 0;
+        std::snprintf(out, size_t(cap), "%s%sA %d %s B %d", prefix ? prefix : "", prefix ? "  " : "",
+                      pj.perfSceneOn[0] + 1, bar, pj.perfSceneOn[1] + 1);
+        if (textWidth(kFont4, out) <= wg::kRightTextX - wg::kRightTextMinX) break;
+    }
+}
+
 void PerformanceScreen::draw(Gfx& g) {
     const Theme& th = ui_.th();
     if (view == View::Bank) {
@@ -1525,17 +1599,7 @@ void PerformanceScreen::draw(Gfx& g) {
         std::snprintf(fade, sizeof(fade), "%s%sEditing", right ? right : "", right ? "  " : "");
         right = fade;
     } else if (perfFaderUsed(pj) && !edit) {   // edit mode: the encoder edits rows, no fader shown
-        // The bar shrinks until the whole text fits the title's right side
-        // (with "EDIT" / "Tracks 9-16" in front of it).
-        for (int cells = 10; cells >= 2; --cells) {
-            char bar[12];
-            const int pos = fader * cells / kFaderMax;
-            for (int i = 0; i <= cells; ++i) bar[i] = i == pos ? '|' : '-';
-            bar[cells + 1] = 0;
-            std::snprintf(fade, sizeof(fade), "%s%sA %d %s B %d", right ? right : "", right ? "  " : "",
-                          pj.perfSceneOn[0] + 1, bar, pj.perfSceneOn[1] + 1);
-            if (textWidth(kFont4, fade) <= wg::kRightTextX - wg::kRightTextMinX) break;
-        }
+        faderText(fade, sizeof(fade), right);
         right = fade;
     }
     if (typeList) std::snprintf(title, sizeof(title), "FX type: column %d", column + 1);   // [I] #89
@@ -1818,6 +1882,11 @@ void PerformanceScreen::drawBank(Gfx& g) {
         v.active = true;
         v.item = bankFileItem;
         wg::list(g, th, v);
+    } else if (ranges) {
+        drawRanges(g);
+        // The edge the encoder moves: its key (F1 Start / F2 End) framed while toggled on.
+        if (rangeEdge >= 0 && !ui_.askOpen() && !ui_.kb.isOpen())
+            wg::focusFrame(g, ui_.th(), 100 * rangeEdge + 4, 428, 100 * rangeEdge + 96, 476);
     } else {
         drawBankGrid(g);
     }
@@ -1865,6 +1934,137 @@ void PerformanceScreen::drawBankGrid(Gfx& g) {
         if (onB) g.text(onA ? x + kW / 2 + 10 : x + kW / 2, y + 80, kFontText, kSceneBBlue, "B", IDisplay::kOptCenter);
     }
     wg::focusFrame(g, th, cellX(bankCursor) - 1, cellY(bankCursor) - 1, cellX(bankCursor) + kW, cellY(bankCursor) + kH);
+}
+
+
+// ---------------------------------------------------------------------------
+// [I] #12 Fader Ranges page
+
+namespace {
+// A stepped column's switch point: the middle of its interval (50 on the whole fader).
+int switchPoint(const Project& p, int c) {
+    const int lo = p.rangeStart(c), hi = p.rangeEnd(c);
+    return hi <= lo ? lo : (lo + hi + 1) / 2;
+}
+}  // namespace
+
+void PerformanceScreen::moveRange(int d) {
+    Project& p = app_.project;
+    const int c = rangeCursor;
+    if (!src.valid() || !src.type(c)) return;
+    int lo = p.rangeStart(c), hi = p.rangeEnd(c);
+    if (isStepped(src.type(c))) {
+        lo = hi = clampi(switchPoint(p, c) + d, 0, kFaderMax);
+    } else {
+        if (hi <= lo) {   // a point (a stepped type before): open it up first
+            if (hi < kFaderMax) hi = lo + 1;
+            else lo = hi - 1;
+        }
+        if (rangeEdge == 0) lo = clampi(lo + d, 0, hi - 1);
+        else hi = clampi(hi + d, lo + 1, kFaderMax);
+    }
+    p.setRange(c, lo, hi);
+    app_.markProjectDirty();
+    if (perfFaderUsed(p)) applyScenes();
+}
+
+void PerformanceScreen::rangeButton(uint8_t id) {
+    Project& p = app_.project;
+    switch (id) {
+        case btn::Up: rangeCursor = clampi(rangeCursor - 1, 0, perf::kSlots - 1); break;
+        case btn::Down: rangeCursor = clampi(rangeCursor + 1, 0, perf::kSlots - 1); break;
+        // Toggles, like Rec: on, the encoder moves that edge; off, the fader.
+        case btn::F1: rangeEdge = rangeEdge == 0 ? -1 : 0; break;
+        case btn::F2: rangeEdge = rangeEdge == 1 ? -1 : 1; break;
+        case btn::F3: {
+            p.setRange(rangeCursor, 0, kFaderMax);
+            app_.markProjectDirty();
+            if (perfFaderUsed(p)) applyScenes();
+            char msg[40];
+            std::snprintf(msg, sizeof(msg), "Column %d: whole fader", rangeCursor + 1);
+            ui_.notify(msg, 1200);
+            break;
+        }
+        case btn::F8: ranges = false; break;
+        default: break;
+    }
+}
+
+void PerformanceScreen::drawRanges(Gfx& g) {
+    const Theme& th = ui_.th();
+    const Project& p = app_.project;
+    char right[64];
+    faderText(right, sizeof(right), nullptr);
+    ui_.drawTitle(g, "Fader Ranges", right);
+    if (!src.valid()) return;
+    // A row per column: its name, scene A's value, a track with its interval
+    // (a stepped column: its switch point), scene B's value, the numbers; the
+    // fader is a line across.
+    constexpr int kY0 = 44, kRowH = 30, kNameX = 16, kBarX = 292, kBarW = 336, kBarH = 10, kValX = 788;
+    constexpr int kSceneGap = 10;   // scene A's value ends, B's starts, this far from the track
+    auto barX = [](int v) { return kBarX + kBarW * v / kFaderMax; };
+    auto rowY = [](int c) { return kY0 + kRowH * c; };
+    bool used[perf::kSlots];
+    for (int c = 0; c < perf::kSlots; ++c)
+        used[c] = src.type(c) && (p.sceneOn(0)[c] || p.sceneOn(1)[c]);
+    g.rectsBegin(th.slot(slot::kPerfPanels + 1));
+    for (int c = 0; c < perf::kSlots; ++c) g.rectsAdd(kBarX, rowY(c) + (kRowH - kBarH) / 2, kBarW, kBarH);
+    g.rectsEnd();
+    for (int pass = 0; pass < 2; ++pass) {   // the columns a scene drives bright, the others dim
+        g.rectsBegin(pass ? th.text : th.dim);
+        for (int c = 0; c < perf::kSlots; ++c) {
+            if (!src.type(c) || used[c] != bool(pass)) continue;
+            const int y = rowY(c) + (kRowH - kBarH) / 2;
+            if (isStepped(src.type(c)) || p.rangeEnd(c) <= p.rangeStart(c)) {
+                g.rectsAdd(barX(switchPoint(p, c)) - 2, y - 4, 4, kBarH + 8);
+            } else {
+                const int x0 = barX(p.rangeStart(c)), x1 = barX(p.rangeEnd(c));
+                g.rectsAdd(x0, y, x1 - x0 > 2 ? x1 - x0 : 2, kBarH);
+            }
+        }
+        g.rectsEnd();
+    }
+    g.rectsBegin(th.accent);
+    g.rectsAdd(barX(fader) - 1, kY0 - 2, 2, kRowH * perf::kSlots);
+    g.rectsEnd();
+    // The scale's ends: scene A on the left, B on the right (the scene marks' colours).
+    const int ey = rowY(perf::kSlots) + 8;
+    g.text(kBarX, ey, kFontText, th.accent, "A", IDisplay::kOptCenter);
+    g.text(kBarX + kBarW, ey, kFontText, kSceneBBlue, "B", IDisplay::kOptCenter);
+    for (int c = 0; c < perf::kSlots; ++c) {
+        const int y = rowY(c) + kRowH / 2;
+        const uint32_t col = used[c] ? th.text : th.dim;
+        char nm[32] = "---", v[24] = "";
+        if (src.type(c)) columnName(c, nm, sizeof(nm));
+        g.textf(kNameX, y, kFontText, col, IDisplay::kOptCenterY, "%d %.18s", c + 1, nm);
+        if (!src.type(c)) continue;
+        if (used[c]) {
+            // What the column plays at each end, as applyScenes blends it: a
+            // scene without the column is 0 (no effect; a stepped FX off),
+            // except a MIDI CC column, which holds the other scene's value.
+            const uint8_t ty = src.type(c), ra = p.sceneOn(0)[c], rb = p.sceneOn(1)[c];
+            const int va = ra ? src.value(c, ra) : 0, vb = rb ? src.value(c, rb) : 0;
+            const bool cc = ty == perf::kMidiCc;
+            char ta[12], tb[12];
+            cellText(ty, ra || !cc ? va : vb, ta, sizeof(ta));
+            cellText(ty, rb || !cc ? vb : va, tb, sizeof(tb));
+            g.text(kBarX - kSceneGap, y, kFontText, th.accent, ta, IDisplay::kOptRightX | IDisplay::kOptCenterY);
+            g.text(kBarX + kBarW + kSceneGap, y, kFontText, kSceneBBlue, tb, IDisplay::kOptCenterY);
+        }
+        const bool sel = c == rangeCursor;
+        if (isStepped(src.type(c))) {
+            std::snprintf(v, sizeof(v), "at %d", switchPoint(p, c));
+        } else {
+            const int lo = p.rangeStart(c), hi = p.rangeEnd(c);
+            // The selected column marks the edge the encoder moves.
+            if (sel && rangeEdge == 0) std::snprintf(v, sizeof(v), "[%d]-%d", lo, hi);
+            else if (sel && rangeEdge == 1) std::snprintf(v, sizeof(v), "%d-[%d]", lo, hi);
+            else std::snprintf(v, sizeof(v), "%d-%d", lo, hi);
+        }
+        g.text(kValX, y, kFontText, col, v, IDisplay::kOptRightX | IDisplay::kOptCenterY);
+    }
+    const int y = rowY(rangeCursor);
+    wg::focusFrame(g, th, 6, y, 794, y + kRowH - 2);
 }
 
 }  // namespace ot

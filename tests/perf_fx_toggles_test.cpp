@@ -57,7 +57,7 @@ TEST(perf_fx_toggles_codec) {
     p.perfScene[2][4] = 1;
     uint8_t buf[pscn::kFileSize];
     encodePerfScenes(p, buf);
-    CHECK_EQ(buf[4], 5);
+    CHECK_EQ(buf[4], pscn::kVersion);
     Project q;
     CHECK(decodePerfScenes(buf, sizeof(buf), q) == FmtStatus::Ok);
     CHECK_EQ(q.perfFxOff, 0x0005);

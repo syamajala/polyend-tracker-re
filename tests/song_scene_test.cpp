@@ -333,6 +333,29 @@ TEST(song_scene_ramps_and_the_fader_takes_over) {
     CHECK_EQ(p.fader, 0);
 }
 
+// [I] #12 a song slot's ramp moves the same fader: a column with an
+// interval moves only inside it.
+TEST(song_scene_ramp_follows_fader_ranges) {
+    Rig r;
+    App& a = *r.h.app;
+    PerformanceScreen& p = r.p();
+    r.pj().setRange(0, 50, 100);   // Volume: the second half of the ramp
+    r.h.tap(btn::F2);              // Play Song
+    auto until = [&](int x) {
+        for (int i = 0; i < 400 && p.fader < x; ++i) {
+            r.h.audio.pump(50);
+            r.h.run(1);
+        }
+    };
+    until(40);
+    CHECK(p.fader >= 40 && p.fader < 50);
+    CHECK_EQ(p.cur[0], -50);       // the ramp is not in Volume's interval yet
+    until(75);
+    CHECK(p.fader >= 75 && p.fader < 85);
+    CHECK(p.cur[0] > -10 && p.cur[0] < 30);   // half way through its interval
+    CHECK(a.seq.songPosition() == 0);
+}
+
 // [I] A slot's scene with FX toggles applies while the Song screen shows;
 // the Performance labels must not land on the Song screen's bar (device
 // report: the bar flickered to "Track 1 Patt: 1" at each slot start).

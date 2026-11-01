@@ -35,6 +35,7 @@ PerfBank sample() {
     b.fxOff[1] = uint16_t(1u << 2 | 1u << 3 | 1u << 11);
     b.fxOff[4] = 0;   // stores "all on"
     b.on[0] = 15, b.on[1] = 1;
+    b.range[0][0] = 10, b.range[0][1] = 100 - 40;   // [I] #12 column 1: 10-40
     return b;
 }
 
@@ -42,7 +43,8 @@ bool same(const PerfBank& a, const PerfBank& b) {
     return std::memcmp(a.type, b.type, sizeof(a.type)) == 0 && std::memcmp(a.value, b.value, sizeof(a.value)) == 0 &&
            std::memcmp(a.target, b.target, sizeof(a.target)) == 0 &&
            std::memcmp(a.scene, b.scene, sizeof(a.scene)) == 0 && a.fxSet == b.fxSet &&
-           std::memcmp(a.fxOff, b.fxOff, sizeof(a.fxOff)) == 0 && a.on[0] == b.on[0] && a.on[1] == b.on[1];
+           std::memcmp(a.fxOff, b.fxOff, sizeof(a.fxOff)) == 0 && a.on[0] == b.on[0] && a.on[1] == b.on[1] &&
+           std::memcmp(a.range, b.range, sizeof(a.range)) == 0;
 }
 
 void writeText(FakeStorage& fs, const char* path, const std::string& t) {
@@ -117,6 +119,7 @@ TEST(perf_bank_longest_text_fits) {
     b.fxSet = 0xFFFF;
     for (auto& m : b.fxOff) m = 0xFFFF;
     b.on[0] = b.on[1] = 15;
+    for (auto& r : b.range) r[0] = 100, r[1] = 0;   // [I] #12 "range 12 = 100 100"
     static char buf[pbank::kTextMax];
     const size_t n = encodePerfBank(b, buf, sizeof(buf));
     CHECK(n > 0 && n < pbank::kTextMax);
@@ -136,6 +139,9 @@ TEST(perf_bank_text_is_forgiving) {
         "scene 3 = 1 2 3 4\n"                       // 4 is no row
         "scene 17 = 1 1 1\n"
         "scene 4 fx off = 1 99 16\n"
+        "range 2 = 20 60\n"
+        "range 3 = 70 30\n"                        // end before start: ignored
+        "range 4 = 50\n"                           // no end: ignored
         "tempo = 120\n"
         "A = 3\n"
         "b = 0\n";
@@ -161,6 +167,11 @@ TEST(perf_bank_text_is_forgiving) {
     CHECK_EQ(b.fxOff[3], uint16_t(1u | 1u << 15));
     CHECK_EQ(b.on[0], 2);
     CHECK_EQ(b.on[1], 1);   // b = 0 is no scene: the default
+    CHECK_EQ(b.range[1][0], 20);   // [I] #12
+    CHECK_EQ(100 - b.range[1][1], 60);
+    CHECK_EQ(b.range[2][0], 0);
+    CHECK_EQ(b.range[2][1], 0);
+    CHECK_EQ(b.range[3][0], 0);
     // Not a bank.
     const std::string junk = "hello\nvelocity = 3\n";
     CHECK(!decodePerfBank(junk.data(), junk.size(), b));
