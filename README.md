@@ -152,6 +152,13 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   back at once and you flip it from there. **Steps** (F4) is the sample's length in steps,
   guessed from the song tempo.
 
+### USB audio
+- The Tracker is a USB sound card (Linux, Windows): pick **OpenTracker** as the computer's
+  output and its audio plays through the Tracker, with a **USB** column in the Global Mixer
+  (muted in a new project, like Line in), a **USB** source in the Sample Recorder and
+  **From: USB** in Resample. Sample a browser, a DAW or a software synth straight in.
+  Tracker to computer comes later ([#97](https://github.com/syamajala/polyend-tracker-re/issues/97)).
+
 ### MIDI presets
 - **Instrument Params** on a MIDI instrument now steps through Parameters, LFO and a new
   **Preset** page: name the synth's CCs ("74 Cutoff"), and the names show for CC A–F
@@ -316,6 +323,8 @@ rules; not yet confirmed on a stock unit).
 - USB Storage mode: back up the card before first use; Linux systems without a desktop may need
   `partprobe` or a re-plug to see the card.
 - The USB ID is the pid.codes test ID 1209:0001.
+- USB audio: not supported on macOS (it can't follow the Tracker's 44,117 Hz clock and
+  clicks now and then); the Tracker doesn't send audio to the computer yet.
 - Live resampling from Line In starts 10–14 ms late (the round trip through external gear);
   compensation is planned.
 - Games (the NES player) is not in the release image since 2.2.1.

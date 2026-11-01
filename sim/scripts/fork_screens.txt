@@ -23,6 +23,7 @@ wait 300
 budget resample 1290
 fragcheck resample
 tap F1
+enc -20
 enc 9                # From: Line in
 wait 100
 tap F8               # Record (starts on the next bar)

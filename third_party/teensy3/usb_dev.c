@@ -208,6 +208,12 @@ static void usb_setup(void)
 			// OPENTRACKER PATCH: MSC BDTs point into caller buffers, not usb_malloc() packets.
 			if ((i >> 2) == MSC_TX_ENDPOINT || (i >> 2) == MSC_RX_ENDPOINT) continue;
 #endif
+#ifdef OT_USB_AUDIO_LAST
+			// OPENTRACKER PATCH: the audio BDTs point at the driver's static
+			// buffers (upstream would hand them to usb_free()).
+			if ((i >> 2) == AUDIO_TX_ENDPOINT || (i >> 2) == AUDIO_RX_ENDPOINT ||
+			    (i >> 2) == AUDIO_SYNC_ENDPOINT) continue;
+#endif
 			if (table[i].desc & BDT_OWN) {
 				usb_free((usb_packet_t *)((uint8_t *)(table[i].addr) - 8));
 			}

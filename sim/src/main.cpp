@@ -65,6 +65,8 @@ struct Options {
     std::string frame;                  // [I] draw a recorded frame (.otf) for --screenshot
     std::string frames;                 // headless: save the frame at each "budget" as DIR/NAME.otf (#71)
     float lineInTone = 0.0f;   // headless: synthetic line input (Hz), 0 = none
+    std::string usbIn;         // [I] #97 capture device as USB audio in ("default", "list")
+    float usbInTone = 0.0f;    // [I] headless: synthetic USB audio in (Hz), 0 = none
     long quitAfterMs = -1;
 };
 
@@ -74,6 +76,8 @@ void usage() {
         "  --sd DIR          SD card root (default ~/.opentracker-sd)\n"
         "  --scale N         window scale 1 or 2 (default 1)\n"
         "  --line-in         open the default capture device as line-in\n"
+        "  --usb-in NAME     capture device NAME as USB audio in (\"default\"; \"list\" prints the\n"
+        "                    names; a \"Monitor of ...\" source plays the computer's audio into it)\n"
         "  --no-audio        do not open an audio device\n"
         "  --no-midi         do not create ALSA MIDI ports\n"
         "  --demo            renderer/input demo instead of the app\n"
@@ -95,6 +99,7 @@ void usage() {
         "  --panel           screenshots include the whole front panel\n"
         "  --wav OUT.wav     record the rendered audio\n"
         "  --line-in-tone HZ synthetic line input: tone bursts (recorder tests)\n"
+        "  --usb-in-tone HZ  synthetic USB audio in: the same tone bursts\n"
         "  --rom-fonts       never bind the custom fonts (FT81x ROM font fallback)\n"
         "  --rom-text        ROM fallback text as CMD_TEXT (per glyph at the grid pitch), not VERTEX2II\n"
         "  --instant-display show every frame at once, frameReady() always true (default: the FT81x\n"
@@ -113,6 +118,7 @@ bool parseArgs(int argc, char** argv, Options& o) {
         if (a == "--sd" && next(o.sd)) continue;
         if (a == "--scale" && next(v)) { o.scale = std::atoi(v.c_str()) >= 2 ? 2 : 1; continue; }
         if (a == "--line-in") { o.lineIn = true; continue; }
+        if (a == "--usb-in" && next(o.usbIn)) continue;
         if (a == "--no-audio") { o.noAudio = true; continue; }
         if (a == "--no-midi") { o.noMidi = true; continue; }
         if (a == "--demo") { o.demo = true; continue; }
@@ -130,6 +136,7 @@ bool parseArgs(int argc, char** argv, Options& o) {
         if (a == "--screenshot" && next(o.screenshot)) continue;
         if (a == "--wav" && next(o.wav)) continue;
         if (a == "--line-in-tone" && next(v)) { o.lineInTone = float(std::atof(v.c_str())); continue; }
+        if (a == "--usb-in-tone" && next(v)) { o.usbInTone = float(std::atof(v.c_str())); continue; }
         if (a == "--quit-after" && next(v)) { o.quitAfterMs = std::atol(v.c_str()); continue; }
         if (a == "-h" || a == "--help") { usage(); std::exit(0); }
         std::fprintf(stderr, "unknown or incomplete option: %s\n", a.c_str());
@@ -181,7 +188,7 @@ struct Machine {
             }
             return buf;
         }
-    } tone;
+    } tone, usbTone;   // usbTone: [I] --usb-in-tone (#97)
     ot::IAudioOut* audio = nullptr;
     bool demo = false;
     bool mirror = false;   // --mirror: no app, the display shows the Tracker's frames
@@ -258,6 +265,7 @@ struct Machine {
                 std::fprintf(stderr, "cannot write %s\n", o.wav.c_str());
         } else if (!o.noAudio) {
             sdlAudio.enableLineIn(o.lineIn);
+            sdlAudio.enableUsbIn(o.usbIn);
             audio = &sdlAudio;
         }
         if (demo || mirror) return true;
@@ -308,6 +316,19 @@ struct Machine {
             tone.used = true;
             h.lineIn = [](void* c) { return static_cast<ToneIn*>(c)->block(); };
             h.lineInCtx = &tone;
+        }
+        // [I] USB audio in (#97): the capture device given by --usb-in, or
+        // the synthetic tone. Without either the sim has no USB audio
+        // (the Recorder says "USB audio not available").
+        if (audio == &sdlAudio && !o.usbIn.empty()) {
+            h.usbIn = [](void* c) { return static_cast<SdlAudio*>(c)->usbIn(); };
+            h.usbInCtx = &sdlAudio;
+        }
+        if (o.usbInTone > 0.0f) {
+            usbTone.hz = o.usbInTone;
+            usbTone.used = true;
+            h.usbIn = [](void* c) { return static_cast<ToneIn*>(c)->block(); };
+            h.usbInCtx = &usbTone;
         }
         // The capture device stands in for line in and both mic gains; there
         // is no FM tuner (HalRefs::radio stays null -> "not available").
@@ -907,6 +928,13 @@ struct Headless {
                     return false;
                 }
                 m.tone.off = a1 == "off";
+            } else if (cmd == "usb-in") {
+                // [I] usb-in on|off: the --usb-in-tone input plays or is silent.
+                if (!m.usbTone.used || (a1 != "on" && a1 != "off")) {
+                    std::fprintf(stderr, "script:%d: usb-in on|off needs --usb-in-tone\n", line);
+                    return false;
+                }
+                m.usbTone.off = a1 == "off";
             } else if (cmd == "expect-resample") {
                 // expect-resample SLOT [MINPEAK]: the last take finished into
                 // instrument SLOT (1-based) with a recorded peak >= MINPEAK.
@@ -1300,6 +1328,10 @@ int runInteractive(Machine& m, const Options& o) {
 int main(int argc, char** argv) {
     Options o;
     if (!parseArgs(argc, argv, o)) return 2;
+    if (o.usbIn == "list") {   // [I] #97: the capture device names for --usb-in
+        SdlAudio::listCaptureDevices();
+        return 0;
+    }
     const bool headless = !o.script.empty() || !o.screenshot.empty();
     Machine m;
     if (!o.frame.empty()) return drawFrameFile(m, o);
