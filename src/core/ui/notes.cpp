@@ -76,6 +76,7 @@ void PadNotes::build(uint8_t scale, uint8_t layout, uint8_t root, bool piano) {
             if (row & 1) n = (w == 0 || w == 3) ? -1 : n - 1;   // over C, F: no black key
             notes_[p] = n >= 0 && n <= 120 ? uint8_t(n) : kNoNote;
         }
+        buildLeds();
         return;
     }
     // spec 05 §4.1 algorithm (bottom-origin logical index).
@@ -96,20 +97,34 @@ uint8_t PadNotes::note(uint8_t physicalPad, bool raw) const {
     return notes_[lp];
 }
 
-bool PadNotes::pianoLeds(uint8_t* lv, uint8_t dim, uint8_t full) const {
-    if (!piano_) return false;
+void PadNotes::buildLeds() {
     static const bool kBlack[12] = {false, true, false, true, false, false, true, false, true, false, true, false};
+    const uint8_t dim = ledDim_, full = ledFull_;
     const uint8_t rootLv = uint8_t((dim + full) / 2);
     const uint8_t blackLv = uint8_t(dim * 6 / 10 > 0 ? dim * 6 / 10 : 1);
     const uint8_t outLv = uint8_t(dim / 4 > 0 ? dim / 4 : 1);
     for (int lp = 0; lp < 48; ++lp) {
         const uint8_t n = notes_[lp];
-        if (n == kNoNote) continue;
-        uint8_t v = kBlack[n % 12] ? blackLv : dim;
-        if (!isInScale(n, root_, scale_)) v = outLv;
-        else if (n % 12 == root_ % 12) v = rootLv;
-        lv[physicalPad(lp)] = v;
+        uint8_t v = kNoNote;
+        if (n != kNoNote) {
+            v = kBlack[n % 12] ? blackLv : dim;
+            if (!isInScale(n, root_, scale_)) v = outLv;
+            else if (n % 12 == root_ % 12) v = rootLv;
+        }
+        leds_[physicalPad(lp)] = v;
     }
+    ++ledBuilds_;
+}
+
+bool PadNotes::pianoLeds(uint8_t* lv, uint8_t dim, uint8_t full) {
+    if (!piano_) return false;
+    if (dim != ledDim_ || full != ledFull_) {
+        ledDim_ = dim;
+        ledFull_ = full;
+        buildLeds();
+    }
+    for (int p = 0; p < 48; ++p)
+        if (leds_[p] != kNoNote) lv[p] = leds_[p];
     return true;
 }
 

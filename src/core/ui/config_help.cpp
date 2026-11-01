@@ -54,7 +54,7 @@ const char* const kGeneralHelp[] = {
     "longer than the threshold (and long ones when the project would not fit); All streams every long "
     "sample. The project reloads when you change it.",
     "How long a sample must be before Auto streams it from the card.",
-    "Stock: the pads follow the project's scale and pad layout. Piano: two keyboards, an octave apart, from "
+    "Stock: the pads follow the project's scale and Notes layout. Piano: two keyboards, an octave apart, from "
     "the root note's octave: the white keys along a row, the black keys in the row above. The pads light up "
     "as a keyboard; notes outside the scale are dimmer.",
 };

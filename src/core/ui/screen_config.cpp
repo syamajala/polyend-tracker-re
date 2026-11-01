@@ -100,7 +100,7 @@ const Opt kGeneral[] = {
     {"Export sample rate", kEnum, kCfg, CF(exportRate), 0, 2, kExportRates, 0},   // [I] 2.x
     {"Stream from card", kEnum, kCfg, CF(streamMode), 0, 3, kStreamModes, 0},          // [I] 2.x
     {"Stream threshold", kEnum, kCfg, CF(streamThreshold), 0, 4, kStreamThresholds, 0},   // [I] 2.x
-    // Piano keyboard on the pads (PadNotes::buildPiano).
+    // [I] Piano keyboard on the pads (PadNotes::build, piano = true).
     {"Pad layout", kEnum, kCfg, CF(padLayout), 0, 2, kPadLayouts, 0},
 };
 const Opt kMidi[] = {

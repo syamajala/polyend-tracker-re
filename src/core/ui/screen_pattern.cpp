@@ -194,6 +194,49 @@ bool PatternScreen::midiChordEntry(int t, uint8_t note, uint8_t velocity) {
     return true;
 }
 
+bool PatternScreen::padChordEntry(uint8_t pad, uint8_t note) {
+    // [I] Chord step entry from the pads, as midiChordEntry: edit mode on,
+    // the sequencer stopped, no popup open and a target over more than one
+    // track. Pads held together fill the target's tracks left to right on
+    // its first step; the cursor stays. A single-cell cursor keeps plain
+    // note entry (a fast melody never becomes a chord). A note past the
+    // last target track, or on a track that would map the instrument
+    // differently from the chord's first track (a MIDI track for a sample
+    // instrument), only sounds. One Undo removes the whole chord.
+    App& a = app_;
+    if (!edit() || a.seq.isPlaying()) return false;
+    if (focus != -1 || fillOpen || pop_.isOpen() || ui_.kb.isOpen() || ui_.askOpen()) return false;
+    const SelRect r = target();
+    if (r.t1 <= r.t0) return false;
+    if (chordPads_ && chordPattern_ != a.patternNumber()) chordPads_ = 0;
+    const uint8_t ins = a.currentInstrument();
+    const uint16_t voice = pad;
+    const int t = chordPads_ ? chordTrack_ + 1 : r.t0;
+    if (chordPads_ && (t > r.t1 || pops::mapInstrument(t, ins) != chordIns_)) {
+        a.previewOn(voice, ins, note, 127);   // falls through: audition only
+        padVoice_[pad] = int8_t(pad);
+        return true;
+    }
+    if (!chordPads_) {
+        a.pushUndo();
+        chordIns_ = pops::mapInstrument(t, ins);
+        chordPattern_ = a.patternNumber();
+    }
+    a.previewOn(voice, ins, note, 127, t);   // each note on its own track
+    padVoice_[pad] = int8_t(pad);
+    SelRect c;
+    c.s0 = c.s1 = r.s0;
+    c.t0 = c.t1 = t;
+    pops::writeNote(a.pattern(), c, note, ins);
+    chordTrack_ = int8_t(t);
+    chordPads_ |= uint64_t(1) << pad;
+    a.project.setU8(pf::kLastNote, note);
+    a.markProjectDirty();
+    a.patternEdited();
+    refreshBar();
+    return true;
+}
+
 int PatternScreen::len() const { return pops::length(app_.pattern()); }
 bool PatternScreen::edit() const { return app_.editMode; }
 bool PatternScreen::recordCursor() const { return edit() || app_.seq.isRecording(); }
@@ -211,7 +254,6 @@ void PatternScreen::start(int opt) {
     pickerKey_ = 0;
     for (auto& v : padVoice_) v = -1;
     chordPads_ = 0;
-    chordStep_ = -1;
     if (step >= len()) step = len() - 1;
     statusStep_ = step;   // Ui resets the status cursor step before start()
     ui_.setStatusCursorStep(step);
@@ -1080,8 +1122,7 @@ void PatternScreen::onPad(uint8_t pad, uint8_t state) {
         if (fillField >= 4 && col == 0) {
             v = a.padNote(pad);
             if (v == PadNotes::kNoNote) return;   // [I] piano layout gap
-        }
-        else if (fillField >= 4 && col >= 2) v = pops::fxValueFromPad(fillFxType(), pad);
+        } else if (fillField >= 4 && col >= 2) v = pops::fxValueFromPad(fillFxType(), pad);
         switch (fillField) {
             case 0: f.where = int16_t(clampi(v, 0, 6)); break;
             case 1: if (f.where >= 4) f.param[f.where] = int16_t(clampi(v + 1, 1, 128)); break;
@@ -1108,8 +1149,7 @@ void PatternScreen::onPad(uint8_t pad, uint8_t state) {
     if (state == kRelease) {
         if (padVoice_[pad] >= 0) a.previewOff(uint16_t(padVoice_[pad]));
         padVoice_[pad] = -1;
-        chordPads_ &= ~(uint64_t(1) << pad);
-        if (!chordPads_) chordStep_ = -1;   // [I] the chord ends with its last pad
+        chordPads_ &= ~(uint64_t(1) << pad);   // [I] the chord ends with its last pad
         // Instr column: release only, no OFF step (manual p.95, MANUAL_AUDIT #4).
         if (a.seq.isRecording() && col <= 1) {
             const uint8_t n = col == 1 ? uint8_t(60) : a.padNote(pad);
@@ -1183,28 +1223,8 @@ void PatternScreen::onPad(uint8_t pad, uint8_t state) {
         padVoice_[pad] = int8_t(pad);
         return;
     }
+    if (col == 0 && padChordEntry(pad, note)) return;
     const SelRect r = target();
-    if (col == 0 && r.single() && chordPads_ && chordStep_ >= 0 && chordStep_ < len()) {
-        // [I] Chord step entry: a pad pressed while another note pad is held
-        // writes on the chord's step, one track to the right (a track that
-        // would change the instrument, e.g. a MIDI track for a sample
-        // instrument, ends the chord). No undo entry of its own: one Undo
-        // removes the whole chord. Each note sounds on its own track.
-        const uint8_t ins = a.currentInstrument();
-        const int t = chordTrack_ + 1;
-        if (t >= kTrackCount || pops::mapInstrument(t, ins) != ins) return;
-        a.previewOn(voice, ins, note, 127, t);
-        padVoice_[pad] = int8_t(pad);
-        SelRect c;
-        c.s0 = c.s1 = chordStep_;
-        c.t0 = c.t1 = t;
-        pops::writeNote(a.pattern(), c, note, ins);
-        chordTrack_ = int8_t(t);
-        chordPads_ |= uint64_t(1) << pad;
-        a.markProjectDirty();
-        a.patternEdited();
-        return;
-    }
     if (col == 0) {
         // Note entry in edit mode plays on the cursor track only, after
         // releasing its note (spec 07 Q7 exception).
@@ -1216,12 +1236,7 @@ void PatternScreen::onPad(uint8_t pad, uint8_t state) {
         a.project.setU8(pf::kLastNote, note);
         a.markProjectDirty();
         a.patternEdited();
-        if (r.single()) {
-            chordPads_ = uint64_t(1) << pad;   // [I] the first note of a possible chord
-            chordStep_ = int16_t(r.s0);
-            chordTrack_ = int8_t(r.t0);
-            advance();
-        }
+        if (r.single()) advance();
     } else if (col == 1) {
         int ins = pad;
         for (int t = r.t0; t <= r.t1; ++t)
@@ -1522,6 +1537,9 @@ void PatternScreen::fillApply() {
 
 void PatternScreen::update(uint32_t now) {
     App& a = app_;
+    // [I] Pad chord entry ends when the pattern changes, edit mode ends or
+    // play starts: a pad still held then does not continue it.
+    if (chordPads_ && (!edit() || a.seq.isPlaying() || chordPattern_ != a.patternNumber())) chordPads_ = 0;
     // Playhead follow (not in edit mode): every pass, so the frame drawn for
     // a step change (App::onStepChanged -> Ui::dirty) already scrolls to the
     // new step. Behind the 20 ms throttle below the same step cost two
