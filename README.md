@@ -87,6 +87,11 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
     and out of the FX.
   - **Left / Right** (outside edit mode) switch the F keys between tracks 1–8 and 9–16
     (stock 2.x used the Performance key).
+- **Fader ranges:** each column can move over part of the fader instead of all of it, so
+  one A→B fade stages its changes (the filter opens first, the delay comes in last). On the
+  bank page, **F7 Ranges**: the encoder plays the fader, **F1 / F2** toggle editing a
+  column's start / end; saved with the project and in scene bank files
+  ([#12](https://github.com/syamajala/polyend-tracker-re/issues/12)).
 - **The per-track FX toggles (F keys) are remembered** across visits and saved with the
   project (stock turns every track on again each time).
 - **Master insert FX**, played like any other Performance column:

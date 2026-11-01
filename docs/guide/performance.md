@@ -88,6 +88,7 @@ Press **Performance** again on the Performance screen to open the **scene bank p
 | **F6 Import** | Load a bank file into this project. |
 | **F7 Ranges** | Set where on the fader each column moves (see below). |
 | **F8 Back** or **Performance** | Back to playing. |
+| **Play** | Start / stop, as when playing (here and on the Import and Ranges pages). |
 
 Scenes can also be put on the fader by a song: see [Song mode](song-mode.md#scenes-per-slot).
 
