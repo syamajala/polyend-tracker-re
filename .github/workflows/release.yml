@@ -19,7 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Install GCC 14
-        run: sudo apt-get update && sudo apt-get install -y g++-14
+        # On the ubuntu-24.04 image already; apt only if a new image drops it.
+        run: command -v g++-14 || { sudo apt-get update && sudo apt-get install -y g++-14; }
       # ASan aborts at start-up under the runners' 32-bit mmap randomisation.
       - name: Limit mmap randomisation for AddressSanitizer
         run: sudo sysctl -w vm.mmap_rnd_bits=28
