@@ -1081,6 +1081,9 @@ build/sim/opentracker-sim<span class="w"> </span><span class="o">[</span>--sd<sp
   a capture device, e.g. the monitor of a null sink the browser plays into
   (<code>--usb-in list</code> prints the names; see <code>sim/README.md</code>). <code>--usb-in-tone HZ</code> is the
   headless version.</li>
+<li><code>--usb-out NAME</code> plays the USB send (what the computer would record) on another output
+  device. Headless scripts use <code>usb-out on|off</code> and <code>expect-usb-out</code> /
+  <code>expect-usb-out-quiet</code> instead.</li>
 </ul>
 <h2 id="scripts">Scripts<a class="headerlink" href="#scripts" title="Permanent link">&para;</a></h2>
 <p>Without a window (<code>--script FILE</code> and/or <code>--screenshot OUT.png</code>), time is virtual: every
