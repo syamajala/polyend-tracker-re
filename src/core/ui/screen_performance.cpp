@@ -1878,6 +1878,8 @@ void PerformanceScreen::drawBank(Gfx& g) {
         wg::list(g, th, v);
     } else if (ranges) {
         drawRanges(g);
+        // The edge the encoder moves: its key (F1 Start / F2 End) framed.
+        if (!ui_.askOpen() && !ui_.kb.isOpen()) wg::focusFrame(g, ui_.th(), 100 * rangeEdge + 4, 428, 100 * rangeEdge + 96, 476);
     } else {
         drawBankGrid(g);
     }
@@ -1987,9 +1989,11 @@ void PerformanceScreen::drawRanges(Gfx& g) {
     faderText(right, sizeof(right), nullptr);
     ui_.drawTitle(g, "Fader Ranges", right);
     if (!src.valid()) return;
-    // A row per column: its name, a track with its interval (a stepped
-    // column: its switch point), the numbers; the fader is a line across.
-    constexpr int kY0 = 44, kRowH = 30, kNameX = 16, kBarX = 300, kBarW = 400, kBarH = 10, kValX = 788;
+    // A row per column: its name, scene A's value, a track with its interval
+    // (a stepped column: its switch point), scene B's value, the numbers; the
+    // fader is a line across.
+    constexpr int kY0 = 44, kRowH = 30, kNameX = 16, kBarX = 292, kBarW = 336, kBarH = 10, kValX = 788;
+    constexpr int kSceneGap = 10;   // scene A's value ends, B's starts, this far from the track
     auto barX = [](int v) { return kBarX + kBarW * v / kFaderMax; };
     auto rowY = [](int c) { return kY0 + kRowH * c; };
     bool used[perf::kSlots];
@@ -2024,8 +2028,21 @@ void PerformanceScreen::drawRanges(Gfx& g) {
         const uint32_t col = used[c] ? th.text : th.dim;
         char nm[32] = "---", v[24] = "";
         if (src.type(c)) columnName(c, nm, sizeof(nm));
-        g.textf(kNameX, y, kFontText, col, IDisplay::kOptCenterY, "%d %s", c + 1, nm);
+        g.textf(kNameX, y, kFontText, col, IDisplay::kOptCenterY, "%d %.18s", c + 1, nm);
         if (!src.type(c)) continue;
+        if (used[c]) {
+            // What the column plays at each end, as applyScenes blends it: a
+            // scene without the column is 0 (no effect; a stepped FX off),
+            // except a MIDI CC column, which holds the other scene's value.
+            const uint8_t ty = src.type(c), ra = p.sceneOn(0)[c], rb = p.sceneOn(1)[c];
+            const int va = ra ? src.value(c, ra) : 0, vb = rb ? src.value(c, rb) : 0;
+            const bool cc = ty == perf::kMidiCc;
+            char ta[12], tb[12];
+            cellText(ty, ra || !cc ? va : vb, ta, sizeof(ta));
+            cellText(ty, rb || !cc ? vb : va, tb, sizeof(tb));
+            g.text(kBarX - kSceneGap, y, kFontText, th.accent, ta, IDisplay::kOptRightX | IDisplay::kOptCenterY);
+            g.text(kBarX + kBarW + kSceneGap, y, kFontText, kSceneBBlue, tb, IDisplay::kOptCenterY);
+        }
         const bool sel = c == rangeCursor;
         if (isStepped(src.type(c))) {
             std::snprintf(v, sizeof(v), "at %d", switchPoint(p, c));

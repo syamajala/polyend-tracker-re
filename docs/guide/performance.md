@@ -113,14 +113,15 @@ Open the **Fader Ranges** page with **F7** on the bank page:
 ![The Fader Ranges page](../images/fader-ranges.png)
 
 Each column has a row: its bar shows its range between **A** (left) and **B** (right),
-and the red line is where the fader is now. Columns that neither scene on A / B drives
-are grey. A stepped column (Repeater, Direction, Tape stop …) can't move gradually, so
+and the red line is where the fader is now. Left of the bar is the value the column plays
+at A (red), right of it the value at B (blue); `---` means that scene doesn't set the
+column, so it has no effect there. Columns that neither scene on A / B drives are grey. A stepped column (Repeater, Direction, Tape stop …) can't move gradually, so
 it has one **switch point** instead (`at 50` by default).
 
 | Key | Does |
 |---|---|
 | Up / Down or a pad | Select a column. |
-| **F1 Start / F2 End** | Choose which edge the encoder moves (shown in brackets, `[0]-100`). A stepped column's switch point moves with either. |
+| **F1 Start / F2 End** | Choose which edge the encoder moves: its key is framed, and the edge is in brackets (`[0]-100`). A stepped column's switch point moves with either. |
 | Encoder | Move the edge. |
 | **Shift + encoder** | Move the fader, to hear the result without leaving the page. |
 | **F3 Reset** | The selected column back to the whole fader (0–100). |

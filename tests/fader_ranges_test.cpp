@@ -219,3 +219,18 @@ TEST(fader_ranges_page_keys) {
     CHECK(s.view == View::Play);
     CHECK(!s.ranges);
 }
+
+// The page shows what each column plays at the ends: scene A's value left
+// of its track, B's right (a scene without the column: "---", no effect).
+TEST(fader_ranges_page_shows_scene_values) {
+    Rig r;
+    r.buildUp();
+    r.h.tap(btn::Performance);
+    r.h.tap(btn::F7);
+    r.h.run(40);
+    CHECK(r.h.disp.lastHasText("-50"));   // Volume on A
+    CHECK(r.h.disp.lastHasText("+50"));   // Volume on B
+    CHECK(r.h.disp.lastHasText("+60"));   // Delay send on B
+    CHECK(r.h.disp.lastHasText(">>>"));   // Direction: A plays forward
+    CHECK(r.h.disp.lastHasText("<<<"));   // Direction on B
+}
