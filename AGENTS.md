@@ -66,6 +66,11 @@ or less immediate? If it costs one of the three, it needs a very good reason.
   perf-gate shows it's needed. Check the CI size report on every PR. See `docs/dev/memory.md`.
 - **Audio path:** no allocation, no I/O, no locks.
 - `src/core` is platform-independent (firmware, sim, host tests); `src/hal` is the K66 layer.
+- **Clean room: never read Polyend Tracker CE source** (`polyend/tracker-ce`, PolyForm
+  Noncommercial). Its user docs, changelog and on-device behaviour are fine as a reference;
+  its code, headers and binaries are not. Don't clone it into the workspace or copy its
+  file formats from source (only from published docs). Spec references cite behaviour,
+  not CE code.
 - Mark fork-only behaviour with `[I]` comments, and reverse-engineered stock behaviour
   with spec references.
 
