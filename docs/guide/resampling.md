@@ -18,11 +18,11 @@ slice or re-record.
 
 | Column (key) | Choices |
 |---|---|
-| **From** (F1) | **Master** (after the limiter; what the computer records over [USB audio](usb-audio.md), without the USB input), **Track 1–8** (the track's sample voice plus the synth notes it plays, dry), **Line in** (with the recorder's channel mode), **USB** (what the computer plays into the Tracker, [USB audio](usb-audio.md)). |
+| **From** (F1) | **Master** (after the limiter; what the computer records over [USB audio](usb-audio.md), without the USB input), **Track 1–8**, listed by their names (the track's sample voice plus the synth notes it plays, dry), **Line in** (with the recorder's channel mode), **USB** (what the computer plays into the Tracker, [USB audio](usb-audio.md)). |
 | **Length** (F2) | **Manual** (until you stop it, snapped to a bar) or 1, 2, 4, 8, 16 bars. |
 | **Slices** (F3) | **Off**, **Per beat**, **Per step** (equal slices), **Beat hits**, **Step hits** (a slice only where a new hit starts, so empty steps stay empty). |
 | **Into** (F4) | **New** (the next free instrument) or **instrument 1–48** (re-record into it). |
-| **Place on** (F5) | **Off** or **Track 1–8**: write the take onto a track. |
+| **Place on** (F5) | **Off** or **Track 1–8** (by name): write the take onto a track. A **green** track is free in the current pattern; a **red** one already has notes, which stay and cut the take off where they play. |
 | **Gain**, **Monitor** (F6, F7) | Line in only: the recorder's input gain and monitoring. |
 | **Record** (F8) | Arm: the take starts on the next bar (or with Play). Press again to stop at the next bar. |
 
