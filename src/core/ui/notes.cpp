@@ -1,5 +1,7 @@
 #include "ui/notes.h"
 
+#include <cstdio>
+
 #include "sdram_bss.h"
 
 
@@ -122,6 +124,46 @@ bool isInScale(int note, int root, uint8_t scale) {
     // spec 05 §4.1 isInScale
     int i = ((note % 12) - (root % 12) + 24) % 12;
     return (scaleMask(scale) >> i) & 1;
+}
+
+bool scaleTriad(int note, int root, uint8_t scale, ScaleChord& out) {
+    const uint16_t m = scaleMask(scale);
+    const int rel = ((note % 12) - (root % 12) + 24) % 12;
+    if (!((m >> rel) & 1)) return false;
+    uint8_t degs[12];
+    int k = 0, idx = 0;
+    for (int i = 0; i < 12; ++i)
+        if ((m >> i) & 1) {
+            if (i == rel) idx = k;
+            degs[k++] = uint8_t(i);
+        }
+    if (k < 5 || k > 9) return false;   // Chromatic and sparse scales: no stacked thirds
+    for (int j = 0; j < 3; ++j) out.pc[j] = uint8_t((degs[(idx + 2 * j) % k] + root) % 12);
+    out.degree = uint8_t(idx);
+    out.degrees = uint8_t(k);
+    return true;
+}
+
+void scaleTriadName(const ScaleChord& c, char* out, int cap) {
+    const int i3 = (c.pc[1] - c.pc[0] + 12) % 12, i5 = (c.pc[2] - c.pc[0] + 12) % 12;
+    const char* q = nullptr;
+    bool lower = false;
+    if (i3 == 4 && i5 == 7) q = "";
+    else if (i3 == 3 && i5 == 7) q = "m", lower = true;
+    else if (i3 == 3 && i5 == 6) q = "dim", lower = true;
+    else if (i3 == 4 && i5 == 8) q = "aug";
+    if (!q) {
+        std::snprintf(out, size_t(cap), "%s %s %s", pitchClassName(c.pc[0]), pitchClassName(c.pc[1]),
+                      pitchClassName(c.pc[2]));
+        return;
+    }
+    static const char* const kUpper[7] = {"I", "II", "III", "IV", "V", "VI", "VII"};
+    static const char* const kLower[7] = {"i", "ii", "iii", "iv", "v", "vi", "vii"};
+    if (c.degrees == 7 && c.degree < 7)
+        std::snprintf(out, size_t(cap), "%s%s  %s", pitchClassName(c.pc[0]), q,
+                      (lower ? kLower : kUpper)[c.degree]);
+    else
+        std::snprintf(out, size_t(cap), "%s%s", pitchClassName(c.pc[0]), q);
 }
 
 void PadNotes::build(uint8_t scale, uint8_t layout, uint8_t root, bool piano) {

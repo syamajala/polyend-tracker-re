@@ -690,6 +690,41 @@ void Ui::switchTo(int module, int opt) {
     dirty();
 }
 
+// [I] Chord hints: while the first held pad of the piano layout plays a note
+// of the project's scale, its chord in that scale (stacked thirds).
+bool Ui::chordHint(ScaleChord& out) {
+    if (chordPad_ < 0 || !padDown(chordPad_)) return false;
+    Screen* s = current();
+    if (!s || !s->padsPlayNotes() || app.cfg.padLayout != 1) return false;
+    const uint8_t ci = app.currentInstrument();
+    if (ci < kSampleInstrumentCount && app.instruments[ci].playMode == uint8_t(PlayMode::BeatSlice)) return false;
+    const uint8_t n = app.padNote(uint8_t(chordPad_));
+    if (n == PadNotes::kNoNote) return false;
+    uint8_t sc = app.project.u8(pf::kScale), root = app.project.u8(pf::kRootNote);
+    if (sc >= kScaleCount) sc = 0;
+    return scaleTriad(n, root, sc, out);
+}
+
+// Shows the held chord's name while it's held; clears it when the pads are let go.
+void Ui::chordHintNotice(bool press) {
+    ScaleChord ch;
+    if (press && chordHint(ch)) {
+        if (pads_ == (1ull << chordPad_)) {
+            char t[24];
+            scaleTriadName(ch, t, sizeof(t));
+            notify(t, 600000);
+            chordNotice_ = true;
+        }
+    } else if (!pads_ && chordNotice_) {
+        chordNotice_ = false;
+        chordPad_ = -1;
+        noteUntil_ = 0;
+        note_[0] = 0;
+        dirty();
+    }
+    if (!pads_) chordPad_ = -1;
+}
+
 void Ui::notify(const char* text, uint32_t ms) {
     copyStr(note_, text, sizeof(note_));
     if (platform.notified) platform.notified(note_);
@@ -777,8 +812,10 @@ void Ui::handle(const InputEvent& ev, uint32_t now) {
         case InputEvent::kPadUp: {
             if (ev.id >= 48) return;
             const bool press = ev.type == InputEvent::kPadDown;
+            if (press && !pads_) chordPad_ = int8_t(ev.id);
             if (press) pads_ |= 1ull << ev.id;
             else pads_ &= ~(1ull << ev.id);
+            chordHintNotice(press);
             if (powerOpen_ || usb.active()) break;
             if (factory.active()) {
                 factory.onPad(ev.id, press ? kPress : kRelease);
@@ -1102,6 +1139,19 @@ void Ui::updateLeds() {
     else if (kb.isOpen()) kb.leds(lv, dim, full);
     else if (picker.isOpen()) picker.leds(lv, dim, full);
     else if (Screen* s = current()) s->padLeds(lv);
+    ScaleChord ch;
+    if (!factory.active() && !kb.isOpen() && !picker.isOpen() && chordHint(ch)) {
+        // [I] Chord hints: every pad of the held note's chord a step below a
+        // held pad, the other keys dimmed so the chord stands out.
+        const uint8_t hint = uint8_t((dim + 2 * full) / 3);
+        for (int p = 0; p < 48; ++p) {
+            const uint8_t n = app.padNote(uint8_t(p));
+            if (n == PadNotes::kNoNote) continue;
+            bool tone = false;
+            for (uint8_t pc : ch.pc) tone = tone || n % 12 == pc;
+            lv[p] = tone ? hint : uint8_t(lv[p] / 3 > 0 ? lv[p] / 3 : 1);
+        }
+    }
     for (int p = 0; p < 48; ++p)
         if (padDown(p)) lv[p] = full;   // spec 06 §1.6 rule 8
     bool changed = false;

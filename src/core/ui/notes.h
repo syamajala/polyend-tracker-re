@@ -38,6 +38,19 @@ const char* scaleName(uint8_t scale);   // stock names (spec 16 §B.2)
 bool isInScale(int note, int root, uint8_t scale);
 // Root note option 0..36 = C1..C4; the root pitch class is root % 12.
 
+// [I] Chord hints: the chord on `note` that fits the scale, built by stacking
+// every other scale note (root, 3rd, 5th; C major: D -> D F A). False when the
+// note is outside the scale or the scale has no thirds to stack (Chromatic).
+struct ScaleChord {
+    uint8_t pc[3];     // pitch classes: root, 3rd, 5th
+    uint8_t degree;    // 0-based scale degree of the root
+    uint8_t degrees;   // notes in the scale (Roman numerals only for 7)
+};
+bool scaleTriad(int note, int root, uint8_t scale, ScaleChord& out);
+// "Dm  ii", "Bdim  vii", "Caug": chord name and, in 7-note scales, the Roman
+// numeral; unusual stacks list their notes ("D F# B").
+void scaleTriadName(const ScaleChord& c, char* out, int cap);
+
 // Pad -> note table (spec 05 §4.1). Physical pad index = row*12 + col, row 0 = top.
 class PadNotes {
 public:
