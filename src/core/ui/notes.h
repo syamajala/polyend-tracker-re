@@ -50,6 +50,9 @@ bool scaleTriad(int note, int root, uint8_t scale, ScaleChord& out);
 // "Dm  ii", "Bdim  vii", "Caug": chord name and, in 7-note scales, the Roman
 // numeral; unusual stacks list their notes ("D F# B").
 void scaleTriadName(const ScaleChord& c, char* out, int cap);
+// [I] The borrowed chord on the same root: a major triad's 3rd lowered to minor,
+// a minor triad's raised to major (A minor: Em -> E). False for dim and aug.
+bool borrowedTriad(const ScaleChord& in, ScaleChord& out);
 
 // Pad -> note table (spec 05 §4.1). Physical pad index = row*12 + col, row 0 = top.
 class PadNotes {

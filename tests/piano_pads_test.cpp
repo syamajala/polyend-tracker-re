@@ -2,6 +2,8 @@
 // pair the white keys along the lower row and the black keys above them,
 // between their white keys; the upper pair an octave up. Gaps play nothing and
 // the pad lights draw the keyboard.
+#include <cstring>
+
 #include "test.h"
 #include "ui_fakes.h"
 #include "nvstore_fake.h"
@@ -232,4 +234,34 @@ TEST(piano_synth_page_pads_play_chords) {
         upp(kHighC);
         CHECK_EQ(gated(a), 0);
     }
+}
+
+// [I] Chord hints: the in-key chord on a held note, and the borrowed chord on
+// the same root (major <-> minor) that the lower keyboard lights.
+TEST(chord_hints_scale_and_borrowed) {
+    constexpr uint8_t kMinor = 1;
+    ScaleChord c, b;
+    char t[24];
+    // A minor (root option 9 = A1), E: Em (v) in the key, E major (V) borrowed.
+    CHECK(scaleTriad(40, 9, kMinor, c));
+    CHECK_EQ(c.pc[0], 4);
+    CHECK_EQ(c.pc[1], 7);
+    CHECK_EQ(c.pc[2], 11);
+    scaleTriadName(c, t, sizeof(t));
+    CHECK(std::strcmp(t, "Em  v") == 0);
+    CHECK(borrowedTriad(c, b));
+    CHECK_EQ(b.pc[1], 8);   // G#
+    scaleTriadName(b, t, sizeof(t));
+    CHECK(std::strcmp(t, "E  V") == 0);
+    // C major, F: F (IV) and Fm (iv).
+    CHECK(scaleTriad(41, 0, kMajor, c));
+    CHECK(borrowedTriad(c, b));
+    scaleTriadName(b, t, sizeof(t));
+    CHECK(std::strcmp(t, "Fm  iv") == 0);
+    // C major, B: Bdim has no borrowed chord.
+    CHECK(scaleTriad(47, 0, kMajor, c));
+    CHECK(!borrowedTriad(c, b));
+    // Outside the scale, or Chromatic: no chord.
+    CHECK(!scaleTriad(42, 0, kMajor, c));
+    CHECK(!scaleTriad(40, 0, kChromatic, c));
 }

@@ -166,6 +166,14 @@ void scaleTriadName(const ScaleChord& c, char* out, int cap) {
         std::snprintf(out, size_t(cap), "%s%s", pitchClassName(c.pc[0]), q);
 }
 
+bool borrowedTriad(const ScaleChord& in, ScaleChord& out) {
+    const int i3 = (in.pc[1] - in.pc[0] + 12) % 12, i5 = (in.pc[2] - in.pc[0] + 12) % 12;
+    if (i5 != 7 || (i3 != 3 && i3 != 4)) return false;
+    out = in;
+    out.pc[1] = uint8_t((in.pc[0] + (i3 == 4 ? 3 : 4)) % 12);
+    return true;
+}
+
 void PadNotes::build(uint8_t scale, uint8_t layout, uint8_t root, bool piano) {
     if (scale == scale_ && layout == layout_ && root == root_ && piano == piano_) return;
     scale_ = scale;

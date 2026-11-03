@@ -710,8 +710,15 @@ void Ui::chordHintNotice(bool press) {
     ScaleChord ch;
     if (press && chordHint(ch)) {
         if (pads_ == (1ull << chordPad_)) {
-            char t[24];
-            scaleTriadName(ch, t, sizeof(t));
+            char t[48], a[20], b[20];
+            ScaleChord bo;
+            scaleTriadName(ch, a, sizeof(a));
+            if (borrowedTriad(ch, bo)) {
+                scaleTriadName(bo, b, sizeof(b));
+                std::snprintf(t, sizeof(t), "%s  /  %s", a, b);
+            } else {
+                copyStr(t, a, sizeof(t));
+            }
             notify(t, 600000);
             chordNotice_ = true;
         }
@@ -1141,14 +1148,20 @@ void Ui::updateLeds() {
     else if (Screen* s = current()) s->padLeds(lv);
     ScaleChord ch;
     if (!factory.active() && !kb.isOpen() && !picker.isOpen() && chordHint(ch)) {
-        // [I] Chord hints: every pad of the held note's chord a step below a
-        // held pad, the other keys dimmed so the chord stands out.
+        // [I] Chord hints: the upper keyboard (top two rows) lights the
+        // held note's chord in the scale, the lower keyboard the borrowed
+        // chord on the same root (major <-> minor; none for dim), a step below
+        // a held pad. The other keys dim so the chords stand out.
+        ScaleChord bo;
+        const bool hasBo = borrowedTriad(ch, bo);
         const uint8_t hint = uint8_t((dim + 2 * full) / 3);
         for (int p = 0; p < 48; ++p) {
             const uint8_t n = app.padNote(uint8_t(p));
             if (n == PadNotes::kNoNote) continue;
+            const bool upper = p < 24;   // physical rows 0-1
             bool tone = false;
-            for (uint8_t pc : ch.pc) tone = tone || n % 12 == pc;
+            if (upper || hasBo)
+                for (uint8_t pc : (upper ? ch : bo).pc) tone = tone || n % 12 == pc;
             lv[p] = tone ? hint : uint8_t(lv[p] / 3 > 0 ? lv[p] / 3 : 1);
         }
     }
