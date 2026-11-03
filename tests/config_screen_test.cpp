@@ -136,8 +136,8 @@ TEST(config_menu_lists_all_options_with_defaults) {
         {"Export sample rate", 3, 0, 2, 0, 1},                               // 2.x [I], default 44.1 kHz
         {"Stream from card", 3, 0, 3, 0, 0},                                 // 2.x [I] SD streaming, Off
         {"Stream threshold", 3, 0, 4, 0, 1},                                 // 2.x [I], 10 s
+        {"Pad layout", 3, 0, 2, 0, 0},                                       // Stock
         {"Note names", 3, 0, 3, 0, 0},                                       // [I] Sharps
-        {"Pad layout", 3, 0, 2, 0, 0},                                       // [I] #42 Stock
     };
     const Want midi[] = {
         {"Clock in", 3, 0, 3, 0, 0},          {"Clock out", 3, 0, 4, 0, 0},
@@ -191,7 +191,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
             if (w.def >= 0) CHECK_EQ(c.optionIndex(k, i), w.def);
         }
     }
-    CHECK_EQ(total, 55);   // stock 42 + 2.x Export theme, CPU meter, Synth voices, Export sample rate, two stream rows, Note names, Pad layout, three Info lines, USB Storage, Remote control
+    CHECK_EQ(total, 55);   // stock 42 + 2.x Export theme, CPU meter, Synth voices, Export sample rate, two stream rows, Pad layout, Note names, three Info lines, USB Storage, Remote control
     char t[48];
     c.optionText(3, 0, t, sizeof t);   // USB Storage: Off
     CHECK_STR(t, "Off");
@@ -212,7 +212,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
             CHECK_EQ(o.help != nullptr, want);
             helps += o.help != nullptr;
         }
-    CHECK_EQ(helps, 35);   // stock 25 + 2.x Export theme, CPU meter, Synth voices, Export sample rate, two stream rows, Note names, Pad layout, USB Storage and Remote control
+    CHECK_EQ(helps, 35);   // stock 25 + 2.x Export theme, CPU meter, Synth voices, Export sample rate, two stream rows, Pad layout, Note names, USB Storage and Remote control
     CHECK_EQ(configHelpCount(), 35);
     c.optionText(5, 1, t, sizeof t);
     CHECK(std::strlen(t) > 0);

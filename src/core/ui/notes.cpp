@@ -1,5 +1,7 @@
 #include "ui/notes.h"
 
+#include "sdram_bss.h"
+
 
 namespace ot {
 
@@ -22,9 +24,10 @@ const char* const kScaleNames[kScaleCount] = {
 const char* const kSharpNames[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 const char* const kFlatNames[12] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
 bool gFlats = false;
-}  // namespace
+// setNoteSpelling's last inputs packed as a key (0: none yet); Auto is
+// re-derived only when one changes. Main-loop UI state, in SDRAM.
+OT_SDRAM_BSS uint32_t gLastSpellingKey;
 
-namespace {
 // Letter names the scale's notes repeat when spelled from `names` (C D E F G
 // A Bb: 0; C D E F G A A#: 1).
 int repeatedLetters(int root, uint16_t mask, const char* const* names) {
@@ -57,6 +60,9 @@ bool keyUsesFlats(int root, uint8_t scale) {
 }
 
 void setNoteSpelling(uint8_t spelling, int root, uint8_t scale) {
+    const uint32_t key = uint32_t(spelling + 1) | uint32_t(uint8_t(root)) << 8 | uint32_t(scale) << 16;
+    if (key == gLastSpellingKey) return;
+    gLastSpellingKey = key;
     gFlats = spelling == kSpellFlats || (spelling == kSpellAuto && keyUsesFlats(root, scale));
 }
 
@@ -105,7 +111,7 @@ void PadNotes::build(uint8_t scale, uint8_t layout, uint8_t root, bool piano) {
     root_ = root;
     piano_ = piano;
     if (piano) {
-        // [I] #42: logical rows 0 / 2 (bottom of each pair) the white keys in
+        // [I] logical rows 0 / 2 (bottom of each pair) the white keys in
         // a row, C D E F G A B C D E F G; rows 1 / 3 above them the black key
         // just below each white key (as grid controllers draw a piano: C#
         // over D), so the gaps sit over C and F.
@@ -121,6 +127,7 @@ void PadNotes::build(uint8_t scale, uint8_t layout, uint8_t root, bool piano) {
             if (row & 1) n = (w == 0 || w == 3) ? -1 : n - 1;   // over C, F: no black key
             notes_[p] = n >= 0 && n <= 120 ? uint8_t(n) : kNoNote;
         }
+        buildLeds();
         return;
     }
     // spec 05 §4.1 algorithm (bottom-origin logical index).
@@ -141,20 +148,34 @@ uint8_t PadNotes::note(uint8_t physicalPad, bool raw) const {
     return notes_[lp];
 }
 
-bool PadNotes::pianoLeds(uint8_t* lv, uint8_t dim, uint8_t full) const {
-    if (!piano_) return false;
+void PadNotes::buildLeds() {
     static const bool kBlack[12] = {false, true, false, true, false, false, true, false, true, false, true, false};
+    const uint8_t dim = ledDim_, full = ledFull_;
     const uint8_t rootLv = uint8_t((dim + full) / 2);
     const uint8_t blackLv = uint8_t(dim * 6 / 10 > 0 ? dim * 6 / 10 : 1);
     const uint8_t outLv = uint8_t(dim / 4 > 0 ? dim / 4 : 1);
     for (int lp = 0; lp < 48; ++lp) {
         const uint8_t n = notes_[lp];
-        if (n == kNoNote) continue;
-        uint8_t v = kBlack[n % 12] ? blackLv : dim;
-        if (!isInScale(n, root_, scale_)) v = outLv;
-        else if (n % 12 == root_ % 12) v = rootLv;
-        lv[physicalPad(lp)] = v;
+        uint8_t v = kNoNote;
+        if (n != kNoNote) {
+            v = kBlack[n % 12] ? blackLv : dim;
+            if (!isInScale(n, root_, scale_)) v = outLv;
+            else if (n % 12 == root_ % 12) v = rootLv;
+        }
+        leds_[physicalPad(lp)] = v;
     }
+    ++ledBuilds_;
+}
+
+bool PadNotes::pianoLeds(uint8_t* lv, uint8_t dim, uint8_t full) {
+    if (!piano_) return false;
+    if (dim != ledDim_ || full != ledFull_) {
+        ledDim_ = dim;
+        ledFull_ = full;
+        buildLeds();
+    }
+    for (int p = 0; p < 48; ++p)
+        if (leds_[p] != kNoNote) lv[p] = leds_[p];
     return true;
 }
 

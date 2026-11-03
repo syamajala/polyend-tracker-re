@@ -43,6 +43,7 @@ struct Rig {
         }
         a.patternEdited();
         // Performance slot 1 = Volume, row 1 = -20; scene 1 holds that row.
+        a.project.perfFxOn = 0xFFFF;   // every track takes the FX (they start off, as stock)
         h.tap(btn::Performance);
         perf().src.setValue(0, 1, -20);
         a.project.perfScene[0][0] = 1;

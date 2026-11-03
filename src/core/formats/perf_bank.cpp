@@ -118,10 +118,10 @@ size_t encodePerfBank(const PerfBank& b, char* out, size_t cap) {
             put("%s", "\n");
         }
         if ((b.fxSet >> i) & 1u) {
-            put("scene %d fx off =", i + 1);
-            if (!b.fxOff[i]) put("%s", " none");
+            put("scene %d fx on =", i + 1);
+            if (!b.fxOn[i]) put("%s", " none");
             for (int t = 0; t < 16; ++t)
-                if ((b.fxOff[i] >> t) & 1u) put(" %d", t + 1);
+                if ((b.fxOn[i] >> t) & 1u) put(" %d", t + 1);
             put("%s", "\n");
         }
     }
@@ -195,11 +195,11 @@ bool decodePerfBank(const char* text, size_t len, PerfBank& b) {
                     b.scene[sc][c] = uint8_t(number(t, 0, 3, v) ? v : 0);
                 }
                 any = true;
-            } else if (eqi(rest, "fx off")) {
-                uint16_t off = 0;
+            } else if (eqi(rest, "fx on")) {
+                uint16_t on = 0;
                 for (const char* t = token(val); *t; t = token(val))
-                    if (number(t, 1, 16, v)) off = uint16_t(off | (1u << (v - 1)));
-                b.fxOff[sc] = off;
+                    if (number(t, 1, 16, v)) on = uint16_t(on | (1u << (v - 1)));
+                b.fxOn[sc] = on;
                 b.fxSet = uint16_t(b.fxSet | (1u << sc));
                 any = true;
             }

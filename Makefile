@@ -16,7 +16,9 @@
 # make fonts      -> regenerate the committed UI font image (src/core/ui/fonts/font_data.*,
 #                    the firmware's packed font_data_z.inc / font_adv.inc,
 #                    sim/third_party/rom_fonts.inc); needs python3 + Pillow
-VERSION   ?= 2.2.3
+# make export-sinc-table -> regenerate the committed weight table of the 44.1 kHz export
+#                    (src/core/audio/export_sinc_table.inc); needs python3
+VERSION   ?= 2.2.4
 BUILD     := build
 # Image file names must be exactly 24 characters (like the stock
 # "PolyendTracker_1.9.2.ptf"): the device's update bootloader rejected a
@@ -271,6 +273,15 @@ fonts:
 	python3 -I tools/fonts/pack_fonts.py src/core/ui/fonts
 	$(MAKE) -C sim fonts
 .PHONY: fonts
+
+# Weight table of the 44.1 kHz export conversion (tools/gen_export_sinc.py,
+# audio/export_resampler.h): the generated file is committed, so ordinary
+# builds never run Python. The generated floats may differ in the last bit between
+# Python/libm builds, so tests/export_resampler_test.cpp checks the committed
+# table against the design with a tolerance.
+export-sinc-table:
+	python3 -I tools/gen_export_sinc.py src/core/audio/export_sinc_table.inc
+.PHONY: export-sinc-table
 
 # 2.x hardware-test projects (TESTSONGS.md): build/testsongs/Projects/<name>/.
 # SONGS="1 3" limits the set; songs whose milestone is not built are skipped.

@@ -111,12 +111,13 @@ void PerformanceScreen::engage() {
         held_[s] = false;
         ccPending_[s] = false;
     }
-    // Step 3: FX enabled on every track. 2.x tracks 9-16 take the FX too
-    // but have no pattern override (the Tracker Mini stores 1-8 only).
-    // [I] #54: the toggles are remembered (Project::perfFxOff, saved with
-    // the project) instead of every track starting on.
+    // Step 3: FX off on every track until its key turns it on (stock 1.9.2,
+    // issue #86 stock check A1). 2.x tracks 9-16 take the FX too but have no
+    // pattern override (the Tracker Mini stores 1-8 only).
+    // [I] #54: the toggles are remembered (Project::perfFxOn, saved with
+    // the project); a project that never set one starts all off, as stock.
     for (int t = 0; t < kTrackCount; ++t) {
-        fxOn[t] = !((a.project.perfFxOff >> t) & 1u);
+        fxOn[t] = (a.project.perfFxOn >> t) & 1u;
         pending_[t] = 0;
     }
     fxKey_ = -1;
@@ -293,10 +294,11 @@ void PerformanceScreen::edited() {
 // FX apply / revert (spec 12 §E)
 
 // Rebuild every track's performance state from the slots' current values and
-// push it to the engine and the sequencer. 2.x: all 16 tracks; the voice FX
-// (audio::PerfOffsets) exist on the sample tracks 1-8 only, tracks 9-16 take
-// the sequencer side (Volume as velocity offset, Tune as transpose, step
-// repeater, play mode; 2x-01 §5). A slot with cur = 0 is reverted;
+// push it to the engine and the sequencer. 2.x: all 16 tracks; the sample
+// voice FX (audio::PerfOffsets) exist on tracks 1-8; synth notes of every
+// track take the filter, pan and sends (issue #23, Engine::setSynthPerf);
+// every track takes the sequencer side (Volume as velocity offset, Tune as
+// transpose, step repeater, play mode; 2x-01 §5). A slot with cur = 0 is reverted;
 // disabled tracks are reverted; a global FX (Pattern length) is applied once
 // (spec 12 §E.1). FX types are exclusive, so at most one slot per type is
 // normally active; if two are, the higher slot wins.
@@ -373,6 +375,7 @@ void PerformanceScreen::applyAll(bool revertEverything) {
             }
         }
         if (t < kMidiTrackStart) a.engine.setPerf(t, p);
+        a.engine.setSynthPerf(t, p);
         q.setPerfRepeat(t, repeat);
         q.setPerfPlayMode(t, playMode);
         q.setPerfVelocityOffset(t, velOff);
@@ -753,7 +756,7 @@ void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
                 trackPatternQueued(t, pending_[t]);
                 pending_[t] = 0;
             } else if (!keyUsed_[k]) {
-                setFxOff(uint16_t(a.project.perfFxOff ^ (1u << t)));
+                setFxOn(uint16_t(a.project.perfFxOn ^ (1u << t)));
                 if (view == View::EditScene) editFxTouched_ = true;   // [I] #54: the edited scene's toggles
                 a.markProjectDirty();
                 applyAll(false);   // enable = apply the active slots, disable = revert
@@ -983,7 +986,7 @@ void PerformanceScreen::storeScene(int scene) {
     }
     if (!any) {   // [I] #54: a whole-scene store also keeps the FX toggles
         const int i = a.project.perfSceneOn[scene ? 1 : 0] % Project::kPerfScenes;
-        a.project.perfSceneFxOff[i] = a.project.perfFxOff;
+        a.project.perfSceneFxOn[i] = a.project.perfFxOn;
         a.project.perfSceneFxSet = uint16_t(a.project.perfSceneFxSet | (1u << i));
         fxKey_ = -1;
     }
@@ -1160,9 +1163,9 @@ void PerformanceScreen::editSceneStart(int scene) {
     }
     // [I] #54: the F keys show and edit the scene's FX toggles (the live
     // ones when it has none); the live toggles come back after.
-    savedFxOff_ = app_.project.perfFxOff;
+    savedFxOn_ = app_.project.perfFxOn;
     editFxTouched_ = false;
-    if (app_.project.sceneHasFx(scene)) setFxOff(app_.project.perfSceneFxOff[scene]);
+    if (app_.project.sceneHasFx(scene)) setFxOn(app_.project.perfSceneFxOn[scene]);
     applyAll(false);
     editScene = scene;
     view = View::EditScene;
@@ -1182,10 +1185,10 @@ void PerformanceScreen::editSceneEnd() {
         // [I] #54: F keys changed while editing are the scene's toggles; a
         // scene without toggles whose keys weren't touched stays "-".
         if (editFxTouched_ || a.project.sceneHasFx(editScene)) {
-            a.project.perfSceneFxOff[editScene] = a.project.perfFxOff;
+            a.project.perfSceneFxOn[editScene] = a.project.perfFxOn;
             a.project.perfSceneFxSet = uint16_t(a.project.perfSceneFxSet | (1u << editScene));
         }
-        setFxOff(savedFxOff_);
+        setFxOn(savedFxOn_);
         fxKey_ = -1;   // the scenes on A / B apply their (maybe edited) toggles again
         a.markProjectDirty();
         char msg[32];
@@ -1383,17 +1386,17 @@ void PerformanceScreen::exportBankNow() {
     ui_.dirty();
 }
 
-// [I] #54: the per-track FX toggles (bit t = track t+1 off), live and saved.
-void PerformanceScreen::setFxOff(uint16_t off) {
-    app_.project.perfFxOff = off;
-    for (int t = 0; t < kTrackCount; ++t) fxOn[t] = !((off >> t) & 1u);
+// [I] #54: the per-track FX toggles (bit t = track t+1 on), live and saved.
+void PerformanceScreen::setFxOn(uint16_t on) {
+    app_.project.perfFxOn = on;
+    for (int t = 0; t < kTrackCount; ++t) fxOn[t] = (on >> t) & 1u;
     refreshBar();
 }
 
 void PerformanceScreen::clearSceneFx(int scene) {
     Project& p = app_.project;
     p.perfSceneFxSet = uint16_t(p.perfSceneFxSet & ~(1u << (scene % Project::kPerfScenes)));
-    p.perfSceneFxOff[scene % Project::kPerfScenes] = 0;
+    p.perfSceneFxOn[scene % Project::kPerfScenes] = 0;
     fxKey_ = -1;
 }
 
@@ -1502,7 +1505,7 @@ void PerformanceScreen::applyScenes() {
         const int key = p.sceneHasFx(i) ? i * 2 + (toB ? 1 : 0) : -1;
         if (key != fxKey_) {
             fxKey_ = key;
-            if (key >= 0) setFxOff(p.perfSceneFxOff[i]);
+            if (key >= 0) setFxOn(p.perfSceneFxOn[i]);
         }
     }
     // Slots of an involved type that the blend did not pick are off; FX in
@@ -1562,8 +1565,7 @@ void PerformanceScreen::refreshBar() {
         b.set(i, nm, v, !m);
         b.highlight(i, fxOn[t]);
         // Drawn by draw(): the stock bar shows no focus frames here
-        // [S snap 021], so "FX on" is the plain stock look and "FX off"
-        // greys the title only [I].
+        // [S snap 021]; "FX on" is the red fill, "FX off" the plain look.
         b.label[i].hidden = true;
     }
 }
@@ -1746,34 +1748,37 @@ void PerformanceScreen::draw(Gfx& g) {
             wg::bottomFade(g, th, nx, 279, 62, 145, bg);   // opaque, no text there
         }
     }
-    // Labels of tracks with performance FX turned off are lit red (stock 1.9.2,
-    // owner photo 2026-10-23: all tracks start enabled and unlit, spec 06 §3.1
-    // step 3; a track key release turns a track off and its label red). One
+    // Labels of tracks with performance FX turned on are lit red (stock 1.9.2,
+    // issue #86 stock check A1-A5: all tracks start off and
+    // plain; a track key release turns a track on and its label red). One
     // batched RECTS list (per-label fills cost ~10 display-list words each).
     {
         bool any = false;
         for (int t = 0; t < 8; ++t) {
-            if (ui_.bar.label[t].highlight) continue;   // highlight = FX on
+            if (!ui_.bar.label[t].highlight) continue;   // highlight = FX on
             if (!any) g.rectsBegin(th.slot(slot::kFocusFrame));
             any = true;
             g.rectsAdd(100 * t + 3, 424, 95, 56);
         }
         if (any) g.rectsEnd();
     }
-    for (int t = 0; t < 8; ++t) {
-        const BarLabel& l = ui_.bar.label[t];
-        const int cx = wg::labelCentre(t);
-        uint32_t tc = th.slot(l.enabled && l.highlight ? slot::kBottomLabel : slot::kBottomLabelOff);
-        uint32_t vc = th.slot((l.enabled ? slot::kBottomLabel : slot::kBottomLabelOff) + 3);
-        if (!l.highlight) {
-            // On the red fill: white text while audible, black when muted
-            // (manual p.272 text colours).
-            tc = vc = l.enabled ? 0xFFFFFFu : 0x000000u;
+    // Name light grey, pattern number white, with or without the red fill; a
+    // muted track's text is black, so a muted track with its FX off looks
+    // blank (stock 1.9.2, issue #86 stock check A).
+    // All top lines first, then all values: one colour change per line kind,
+    // not per label (the display budget with all 8 labels lit).
+    for (int line = 0; line < 2; ++line)
+        for (int t = 0; t < 8; ++t) {
+            const BarLabel& l = ui_.bar.label[t];
+            const int cx = wg::labelCentre(t);
+            const uint32_t c = l.enabled ? th.slot(slot::kBottomLabel + (line ? 3 : 0)) : 0x000000u;
+            if (line == 0) {
+                g.text(cx, wg::kLabelY1, kFont3, c, l.top, IDisplay::kOptCenter);
+                continue;
+            }
+            const bool queued = pending_[t] || app_.seq.queuedTrackPattern(t) != 0;
+            if (!queued || blinkOn_ || ui_.shift()) g.text(cx, wg::kLabelY2, kFont2, c, l.bottom, IDisplay::kOptCenter);
         }
-        g.text(cx, wg::kLabelY1, kFont3, tc, l.top, IDisplay::kOptCenter);
-        const bool queued = pending_[t] || app_.seq.queuedTrackPattern(t) != 0;
-        if (!queued || blinkOn_ || ui_.shift()) g.text(cx, wg::kLabelY2, kFont2, vc, l.bottom, IDisplay::kOptCenter);
-    }
 }
 
 void PerformanceScreen::columnName(int c, char* out, int cap) const {

@@ -10,8 +10,8 @@
 //   column 3 = MIDI CC: - 64 127 @ midi 2 slot A
 //   column 4 = ---
 //   scene 1 = 1 0 2 0 0 0 0 0 0 0 0 0      (a row 0..3 per column, 0 = not driven)
-//   scene 2 fx off = 3 4 12                (the F keys the scene stores: tracks
-//                                           with their FX off; "none" = all on)
+//   scene 2 fx on = 3 4 12                 (the F keys the scene stores: tracks
+//                                           with their FX on; "none" = all off)
 //   range 1 = 0 33                         (#12 a column's fader interval, start
 //                                           end 0..100; absent = 0 100)
 //   a = 1
@@ -38,7 +38,7 @@ struct PerfBank {
     uint8_t target[kSlots] = {};        // perf::ccTarget, MIDI CC columns
     uint8_t range[kSlots][2] = {};      // as Project::perfRange
     uint8_t scene[kScenes][kSlots] = {};
-    uint16_t fxOff[kScenes] = {};       // as Project::perfSceneFxOff
+    uint16_t fxOn[kScenes] = {};       // as Project::perfSceneFxOn
     uint16_t fxSet = 0;                 // as Project::perfSceneFxSet
     uint8_t on[2] = {0, 1};             // the scenes on A / B
 };

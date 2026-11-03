@@ -9,9 +9,8 @@
 # Pattern grid is drawn in colour passes over all rows, so only the title
 # chrome, bar labels, header tabs and separators are fragments; RAM_DL
 # includes the driver's 36 font-setup words (docs/CHANGES_2X.md).
-# Fork: a gradient counts 24 words, what the FT81x builds (was 5;
-# fix/gradient-dl-cost). Re-measured 2026-10-22: instrument, master, recorder
-# and the synth pages moved by 19 words per gradient, nothing else changed.
+# A gradient counts 24 words, what the FT81x builds (was 5): instrument,
+# master, recorder and the synth pages moved by 19 words per gradient.
 wait 200
 tap REC
 pad 24 tap
@@ -168,7 +167,7 @@ tap F8               # Edit Patch
 wait 200
 budget-reset
 wait 1300             # (at 1500 the play time turns 8 s between fragcheck's renders)
-budget synth-edit-play 880     # 853 with CMD_TEXT at its RAM_DL cost (#71; was ~800)
+budget synth-edit-play 880     # 853 with CMD_TEXT at its RAM_DL cost (was ~800)
 fragcheck synth-edit-play
 tap F8
 tap PATTERN

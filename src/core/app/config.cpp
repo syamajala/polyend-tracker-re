@@ -177,9 +177,9 @@ void Config::toExt(uint8_t* out) const {
     out[9] = extKeep[0];
     out[10] = exportRate;
     std::memcpy(out + 11, themeFile, sizeof(themeFile));
-    out[32] = noteNames;   // [I] bytes 28..41, after upstream's
-    std::memcpy(out + 33, perfExt, sizeof(perfExt));
-    out[45] = padLayout;
+    out[32] = padLayout;
+    out[33] = noteNames;
+    std::memcpy(out + 34, perfExt, sizeof(perfExt));   // [I] bytes 34..57, after upstream's
     std::memcpy(out + 46, perfArg, sizeof(perfArg));
     uint8_t sum = 0;
     for (uint32_t i = 0; i < kExtPayload; ++i) sum = uint8_t(sum + out[5 + i]);
@@ -206,11 +206,11 @@ bool Config::fromExt(const uint8_t* in, uint32_t len) {
         std::memcpy(themeFile, in + 11, sizeof(themeFile));
         if (!themeNameValid(themeFile)) std::memset(themeFile, 0, sizeof(themeFile));
     }
-    noteNames = (n >= 28 && in[32] <= 2) ? in[32] : 0;
-    if (n >= 40) std::memcpy(perfExt, in + 33, sizeof(perfExt));   // checked by perf::Source::validate
+    padLayout = (n >= 28 && in[32] <= 1) ? in[32] : 0;
+    noteNames = (n >= 29 && in[33] <= 2) ? in[33] : 0;
+    if (n >= 41) std::memcpy(perfExt, in + 34, sizeof(perfExt));   // [I] checked by perf::Source::validate
     else std::memset(perfExt, 0, sizeof(perfExt));
-    padLayout = (n >= 41 && in[45] <= 1) ? in[45] : 0;
-    if (n >= 53) std::memcpy(perfArg, in + 46, sizeof(perfArg));   // checked by perf::Source::validate
+    if (n >= 53) std::memcpy(perfArg, in + 46, sizeof(perfArg));   // [I] checked by perf::Source::validate
     else std::memset(perfArg, 0, sizeof(perfArg));
     return true;
 }
@@ -317,7 +317,7 @@ bool Config::load(IStorage& fs) {
         noteNames = d.noteNames;
         padLayout = d.padLayout;
         std::memset(perfExt, 0, sizeof(perfExt));
-    std::memset(perfArg, 0, sizeof(perfArg));
+        std::memset(perfArg, 0, sizeof(perfArg));
         fromExt(buf + 8 + kImageSize, avail - kImageSize);
         return true;
     }

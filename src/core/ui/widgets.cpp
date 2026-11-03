@@ -605,8 +605,8 @@ uint32_t marqueeTicks(int x, int y, int sel, const char* text) {
 }
 
 // Draws the glyphs of `s` (pen origin x0) that overlap left .. right - 1
-// as one text run; glyphs outside cost no RAM_DL words. [I] A glyph run
-// (#71 part 4) like the rows that don't scroll: 1 RAM_DL word per glyph.
+// as one glyph run, like the rows that don't scroll: 1 RAM_DL word per
+// glyph; glyphs outside cost none.
 void textWindow(Gfx& g, uint8_t font, uint32_t c, char* s, int x0, int y, int left, int right) {
     int i = 0, pen = x0;
     while (s[i]) {

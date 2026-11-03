@@ -23,10 +23,11 @@ columns** that play an external synth's parameters.
   Stock stepped the type with Up / Down, applying each one on the way.
 
 ![The effect type list](../images/perf-type-list.png)
-- **The F keys** turn the effects on or off per track (lit = on). **Shift + F key** mutes
-  the track. **Left / Right** (outside edit mode) switch the F keys between tracks 1–8 and
-  9–16. In the fork the F keys are **remembered**: leaving the screen and coming back keeps
-  them, and they're saved with the project (stock turns every track on again).
+- **The F keys** turn the effects on or off per track (on = red label). Every track starts
+  off, as in stock, so tap the F keys of the tracks the pads should reach. **Shift + F key**
+  mutes the track. **Left / Right** (outside edit mode) switch the F keys between tracks 1–8
+  and 9–16. In the fork the F keys are **remembered**: leaving the screen and coming back
+  keeps them, and they're saved with the project (stock turns every track off again).
 
 - Effect types include Volume, Panning, Tune, Low-pass / High-pass / Band-pass, Delay and
   Reverb send, Start / End pos, Direction, the LFOs, Repeater, Play mode, Length, Bit depth
@@ -161,7 +162,7 @@ column 2 = Tape stop: 1 3 5
 column 3 = MIDI CC: - 64 127 @ midi 2 slot A
 column 4 = ---
 scene 1 = 1 0 2 0 0 0 0 0 0 0 0 0
-scene 2 fx off = 3 4 12
+scene 2 fx on = 1 2 9
 a = 1
 b = 2
 ```
@@ -172,8 +173,8 @@ b = 2
   target, `@ midi 1-16 slot A-F`.
 - `scene N = ...` lists twelve rows, one per column, from 0 to 3, where 0 means the scene
   doesn't drive that column. Scenes that aren't listed are empty.
-- `scene N fx off = ...` lists the tracks whose F key the scene turns off (`none` turns them
-  all on). Leave the line out and the scene doesn't change the F keys.
+- `scene N fx on = ...` lists the tracks whose F key the scene turns on (`none` turns them
+  all off). Leave the line out and the scene doesn't change the F keys.
 - `a` and `b` give the scenes on A and B.
 - `range N = start end` gives column N's [fader range](#fader-ranges) (0–100). Leave it
   out for the whole fader; a stepped column's switch point is written as `range N = 66 66`.

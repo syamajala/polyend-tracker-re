@@ -42,7 +42,7 @@ bool App::loadPerfBank(const char* name, const perf::Source& src) {
     for (int i = 0; i < Project::kPerfScenes; ++i)
         for (int c = 0; c < perf::kSlots; ++c)
             project.perfScene[i][c] = src.type(c) && b.scene[i][c] <= 3 ? b.scene[i][c] : 0;
-    std::memcpy(project.perfSceneFxOff, b.fxOff, sizeof(project.perfSceneFxOff));
+    std::memcpy(project.perfSceneFxOn, b.fxOn, sizeof(project.perfSceneFxOn));
     project.perfSceneFxSet = b.fxSet;
     project.perfSceneOn[0] = b.on[0];
     project.perfSceneOn[1] = b.on[1];
@@ -63,7 +63,7 @@ bool App::savePerfBank(const char* name, const perf::Source& src) {
         for (int r = 0; r < 3; ++r) b.value[c][r] = src.value(c, r + 1);
     }
     std::memcpy(b.scene, project.perfScene, sizeof(b.scene));
-    std::memcpy(b.fxOff, project.perfSceneFxOff, sizeof(b.fxOff));
+    std::memcpy(b.fxOn, project.perfSceneFxOn, sizeof(b.fxOn));
     b.fxSet = project.perfSceneFxSet;
     b.on[0] = project.perfSceneOn[0];
     b.on[1] = project.perfSceneOn[1];

@@ -1,4 +1,4 @@
-// [I] #42 Config > General > Pad layout "Piano" (not in stock): in each row
+// [I] Config > General > Pad layout "Piano" (not in stock): in each row
 // pair the white keys along the lower row and the black keys above them,
 // between their white keys; the upper pair an octave up. Gaps play nothing and
 // the pad lights draw the keyboard.
@@ -7,6 +7,8 @@
 #include "nvstore_fake.h"
 
 #include "app/project_fields.h"
+#include "audio/synth_bank.h"
+#include "audio/synth_engine.h"
 #include "ui/notes.h"
 #include "ui/screens.h"
 
@@ -85,27 +87,27 @@ TEST(piano_config_record) {
     CHECK_EQ(c.padLayout, 0);
     c.padLayout = 1;   // alone writes the record
     CHECK(c.save(nv));
-    CHECK_EQ(nv.mem[0xF4 + 4], 53);       // payload length
-    CHECK_EQ(nv.mem[0xF4 + 5 + 40], 1);   // payload byte 41
+    CHECK_EQ(nv.mem[0xF4 + 4], 53);   // payload length ([I] + perfExt, perfArg)
+    CHECK_EQ(nv.mem[0xF4 + 5 + 27], 1);   // payload byte 28
     Config r;
     CHECK(r.load(nv));
     CHECK_EQ(r.padLayout, 1);
     c.padLayout = 2;
     c.sanitize();
     CHECK_EQ(c.padLayout, 0);
-    // A record from before the byte (payload 40) keeps Stock.
+    // A record from before the byte (payload 27) keeps Stock.
     Config o;
-    o.noteNames = 1;
+    o.synthVoices = 6;
     uint8_t ext[Config::kExtSize];
     o.toExt(ext);
-    ext[4] = 40;
+    ext[4] = 27;
     uint8_t sum = 0;
-    for (int i = 0; i < 40; ++i) sum = uint8_t(sum + ext[5 + i]);
-    ext[5 + 40] = sum;
+    for (int i = 0; i < 27; ++i) sum = uint8_t(sum + ext[5 + i]);
+    ext[5 + 27] = sum;
     Config k;
     k.padLayout = 1;
-    CHECK(k.fromExt(ext, 5 + 40 + 1));
-    CHECK_EQ(k.noteNames, 1);
+    CHECK(k.fromExt(ext, 5 + 27 + 1));
+    CHECK_EQ(k.synthVoices, 6);
     CHECK_EQ(k.padLayout, 0);
     // File fallback.
     FakeStorage fs;
@@ -141,4 +143,93 @@ TEST(piano_gap_records_nothing_and_lights_show) {
     a.cfg.padLayout = 0;
     h.run(40);
     CHECK_EQ(h.leds.level[kLowC], 0);
+}
+
+TEST(piano_key_lights_are_cached) {
+    // The 48 levels are built with the table (PadNotes::build), not on every
+    // main-loop pass: unchanged settings draw the cached levels.
+    PadNotes p;
+    uint8_t lv[48] = {};
+    p.build(kMajor, 0, 26, true);
+    const uint32_t b0 = p.ledBuilds();
+    p.pianoLeds(lv, 10, 31);
+    const uint32_t b1 = p.ledBuilds();
+    for (int i = 0; i < 5; ++i) {
+        uint8_t again[48] = {};
+        p.pianoLeds(again, 10, 31);
+        CHECK(std::memcmp(again, lv, sizeof(lv)) == 0);
+        p.build(kMajor, 0, 26, true);   // same table: nothing rebuilt
+    }
+    CHECK_EQ(p.ledBuilds(), b1);
+    CHECK(b1 - b0 <= 1);
+    // A new pad brightness or a new table rebuilds them once.
+    p.pianoLeds(lv, 3, 10);
+    CHECK_EQ(lv[kLowD], 6);
+    CHECK_EQ(p.ledBuilds(), b1 + 1);
+    p.pianoLeds(lv, 3, 10);
+    CHECK_EQ(p.ledBuilds(), b1 + 1);
+    p.build(kChromatic, 0, 24, true);
+    p.pianoLeds(lv, 3, 10);
+    CHECK_EQ(p.ledBuilds(), b1 + 2);
+    CHECK_EQ(lv[kLowC], 6);   // C3 root now: (3 + 10) / 2
+    // In the app: passes of the main loop with nothing changed rebuild nothing.
+    Harness h;
+    h.app->cfg.padLayout = 1;
+    h.run(40);
+    const uint32_t a0 = h.app->padNotes.ledBuilds();
+    h.app->ui.dirty();
+    h.run(200);
+    CHECK_EQ(h.app->padNotes.ledBuilds(), a0);
+    CHECK(h.leds.level[kLowCs] > 0);
+}
+
+namespace {
+int gated(App& a) {
+    int n = 0;
+    for (int t = 0; t < audio::kSynthAllTracks; ++t) {
+        const audio::SynthVoice* v = a.engine.synth().voiceOfTrack(t);
+        n += v && v->gate ? 1 : 0;
+    }
+    return n;
+}
+}  // namespace
+
+TEST(piano_synth_page_pads_play_chords) {
+    // The synth page after #129: held pads play a chord up to the slot's
+    // polyphony; on the piano layout a gap plays nothing and the page
+    // (outside Edit Patch) draws the keys.
+    for (int m = 0; m < kSynthModelCount; ++m) {
+        if (!audio::synthEngineFor(synthEngineId(SynthModel(m)))) continue;
+        if (synthEngineId(SynthModel(m)) != kSynthEngineFat) continue;
+        Harness h;
+        App& a = *h.app;
+        a.cfg.padLayout = 1;
+        a.project.setU8(pf::kRootNote, 24);
+        a.project.setU8(pf::kScale, kChromatic);
+        a.setSynthModel(0, m);
+        SynthSlotRecord r = a.synthSlot(0);
+        r.polyphony = 4;
+        a.setSynthSlotRecord(0, r);
+        a.setCurrentInstrument(kFirstSynthInstrument);
+        h.tap(btn::Pattern);
+        h.tap(btn::InstrParams);
+        CHECK_EQ(a.ui.active(), kModSynth);
+        h.audio.pump(2);
+        auto dn = [&](uint8_t p) { h.push(InputEvent::kPadDown, p); h.audio.pump(2); };
+        auto upp = [&](uint8_t p) { h.push(InputEvent::kPadUp, p); h.audio.pump(2); };
+        dn(kLowC);
+        dn(kLowGap);   // a gap: no note
+        dn(kLowCs);
+        dn(kHighC);
+        CHECK_EQ(gated(a), 3);
+        h.run(40);
+        CHECK(h.leds.level[kLowD] > 0);
+        CHECK(h.leds.level[kLowCs] > 0);
+        upp(kLowCs);
+        CHECK_EQ(gated(a), 2);
+        upp(kLowGap);
+        upp(kLowC);
+        upp(kHighC);
+        CHECK_EQ(gated(a), 0);
+    }
 }

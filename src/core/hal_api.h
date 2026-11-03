@@ -280,9 +280,10 @@ public:
     }
     virtual void bitmapSize(uint8_t handle, uint16_t w, uint16_t h) { (void)handle; (void)w; (void)h; }
 
-    // [I] The text of a glyph run the UI draws as VERTEX2II (Gfx::glyphRun),
-    // for the display command export (core/remote/display_tap.h); draws
-    // nothing. (x, y): the run's pen start. Default: ignored.
+    // [I] The text of a glyph run the UI draws as VERTEX2II (Gfx::glyphRun
+    // and textRotatedRun): draws nothing, so a test fake or a display command
+    // recorder can read the string back. (x, y): the run's pen start (a
+    // turned run: its box). Default: ignored.
     virtual void textHint(int16_t x, int16_t y, uint8_t font, const char* s) {
         (void)x; (void)y; (void)font; (void)s;
     }

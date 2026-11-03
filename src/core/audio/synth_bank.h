@@ -47,6 +47,10 @@
 // Mixing: voices -> slot bus (stereo) -> slot gain (dB) -> pan as balance
 // (linear law, spec 04 §4.3) -> main bus; post-gain sends (L+R)/2 * SEND law
 // * Global Mixer delay / reverb level. The bus feeds the Synth k stem.
+// Per note on top: the Track Mixer fader of the track that started it (also
+// in its release), its step-FX pan / sends and the track's Performance pan /
+// sends (setTrackPerf); the Performance filter offset goes to the engine as
+// SynthVoice::cutoffOct (issue #23).
 //
 // Real time: no allocation, no I/O. Main-loop setters only store values
 // (the audio context picks them up at the next block). Memory (SRAM .bss,
@@ -73,11 +77,11 @@ namespace ot {
 namespace audio {
 
 constexpr int kSynthTracks = 16;                  // sequencer tracks
-constexpr int kSynthAuditionTrack = kSynthTracks; // UI pads / preview (WP-G)
-// MIDI input notes on a synth instrument (spec 17 §1.4 for synths [OT]): one
-// track per held note, so external notes play polyphonically up to the
-// slot's polyphony and the voice cap.
-constexpr int kSynthLiveTracks = 4;
+constexpr int kSynthAuditionTrack = kSynthTracks; // UI previews (WP-G); pads: live tracks
+// MIDI input notes and held pads on a synth instrument (spec 17 §1.4 for
+// synths [OT]): one track per held note, so they play polyphonically up to
+// the slot's polyphony (max 8) and the voice cap.
+constexpr int kSynthLiveTracks = 8;
 constexpr int kSynthLiveTrack0 = kSynthAuditionTrack + 1;
 constexpr int kSynthAllTracks = kSynthLiveTrack0 + kSynthLiveTracks;
 
@@ -107,6 +111,16 @@ struct SynthMixInputs {
     SynthMixInputs() {
         for (float& g : trackGain) g = 1.0f;
     }
+};
+
+// Performance FX of one sequencer track as they reach its synth notes
+// (issue #23): read per block while a note sounds, also in its release.
+struct SynthPerf {
+    float cutoffOct = 0.0f;   // LP / HP / BP offset, octaves on the patch cutoff
+    int16_t pan = 0;          // added to the note's pan (0..100), clamped
+    int16_t dsend = 0;        // added to the note's delay / reverb send, clamped
+    int16_t rsend = 0;
+    bool active() const { return cutoffOct != 0.0f || pan != 0 || dsend != 0 || rsend != 0; }
 };
 
 class SynthBank : public IVoicePool {
@@ -145,10 +159,11 @@ public:
     const SynthSlotRecord& slotRecord(int s) const { return slots_[clampSlot(s)].rec; }
     SynthSlotView slotView(int s) const;
     bool slotAvailable(int s) const;
-    // Pads / preview (WP-G): play slot s on the audition track.
+    // Previews (WP-G: Enc push, Load Patch F5 / F6, Instrument / Loader):
+    // play slot s on the audition track, one note at a time.
     void auditionOn(int s, uint8_t note, int8_t volume = -1);
     void auditionOff();
-    // MIDI input note k (0..kSynthLiveTracks-1) on slot s; volume -1 = full
+    // Live note k (MIDI input or pad, 0..kSynthLiveTracks-1) on slot s; volume -1 = full
     // velocity, else 0..100. Main loop; the audio block starts it.
     void liveOn(int k, int s, uint8_t note, int8_t volume);
     void liveOff(int k);
@@ -159,6 +174,10 @@ public:
     // --- audio context (sequencer sink, AudioEngine) -------------------------
     void noteOn(int track, const SynthNoteOn& n);
     void noteOff(int track, NoteOffMode mode);
+    // Performance FX of track t (0..15; main loop, read at the next block;
+    // kept across reset()). The default value = none.
+    void setTrackPerf(int t, const SynthPerf& p);
+    const SynthPerf& trackPerf(int t) const { return perf_[t < 0 || t >= kSynthTracks ? 0 : t]; }
     void applyFx(int track, uint8_t type, uint8_t value);
     void macroFx(int slot, int macro, uint8_t value);
     void transportStop();     // macro overrides -> page values
@@ -319,6 +338,8 @@ private:
     // resample tap); -1 free. Not in Voice: one more byte pads each record.
     int8_t owner_[kSynthMaxVoices];
     float trackPitch_[kSynthAllTracks];       // last note pitch (Glide FX source)
+    SynthPerf perf_[kSynthTracks];            // Performance FX per track (setTrackPerf)
+    volatile uint8_t perfActive_ = 0;         // tracks with a non-default perf_
     uint32_t serial_ = 0;
     uint32_t steals_ = 0;
     int activeVoices_ = 0;                    // records not free

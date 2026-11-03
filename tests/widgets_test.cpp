@@ -77,7 +77,7 @@ bool hasText(const std::vector<std::string>& dl, const char* s) {
     return false;
 }
 
-// The CMD_TEXT or glyph-run (#71 part 4) line drawing `s`.
+// The CMD_TEXT or glyph-run line drawing `s`.
 std::string textLine(const std::vector<std::string>& dl, const char* s) {
     for (const std::string& l : dl)
         if ((l.rfind("TEXT", 0) == 0 || l.rfind("GLYPHS", 0) == 0) && l.find(std::string("\"") + s + "\"") != std::string::npos)
@@ -333,7 +333,7 @@ TEST(panels_lists_value_bars) {
     CHECK(hasRect(p, 0xFFFFFF, 255, 604, 33, 788, 33));      // scrollbar: inner w - 13
     CHECK(hasRect(p, 0xFFFFFF, 255, 604, 60, 788, 60));
     CHECK(hasRect(p, 0x000000, 255, 792, 37, 795, 416));    // scroll track
-    // Rows are glyph runs (#71) with their top at the row centre (46 + 27 n)
+    // Rows are glyph runs with their top at the row centre (46 + 27 n)
     // minus half the font height; before, a CMD_TEXT centred on it.
     char row0[32], row13[32];
     std::snprintf(row0, sizeof row0, "TEXT 614 %d ", 46 - fontHeight(lv.font) / 2);

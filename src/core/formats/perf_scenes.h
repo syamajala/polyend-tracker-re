@@ -10,8 +10,8 @@
 //   a slot count and the OpenTracker-only FX types;
 //   the scenes on A and B (bank indices);
 //   the per-track FX toggles (#54), little-endian 16-bit: the live ones
-//   (Project::perfFxOff), which scenes carry toggles (perfSceneFxSet), then
-//   one mask per scene (perfSceneFxOff);
+//   (Project::perfFxOn), which scenes carry toggles (perfSceneFxSet), then
+//   one mask per scene (perfSceneFxOn);
 //   the MIDI CC column targets (#28, perfExtArg), one per slot;
 //   the fader intervals (#12, perfRange), two bytes per slot.
 // A version 3 file (no toggles block) loads with every track on, a version

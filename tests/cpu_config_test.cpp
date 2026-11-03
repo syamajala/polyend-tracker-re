@@ -35,9 +35,9 @@ TEST(cpu_config_extension_record) {
     CHECK(c.save(nv));
     CHECK(std::equal(stock.begin(), stock.end(), nv.mem.begin()));
     // Payload: cpuMeter, synthVoices (2.x M3, OP-8), streamMode, streamThreshold,
-    // extKeep[1], exportRate, themeFile[21], [I] noteNames, the global presets'
+    // extKeep[1], exportRate, themeFile[21], padLayout, noteNames, the global presets'
     // OpenTracker-only FX types [12], then the 8-bit sum.
-    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 6, 53, 1, 4, 0, 1, 0, 1, 0);   // v6: + themeFile[21], [I] noteNames, perfExt[12], padLayout, perfArg[12]
+    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 6, 53, 1, 4, 0, 1, 0, 1, 0);   // v6: + themeFile[21], padLayout, noteNames, [I] perfExt[12], perfArg[12]
     for (int i = 6 + 6; i < 5 + 53; ++i) CHECK_EQ(nv.mem[0xF4 + i], 0);   // the empty name, the fork's defaults
     CHECK_EQ(nv.mem[0xF4 + 5 + 53], 7);   // sum
     Config r;
@@ -81,7 +81,7 @@ TEST(synth_voices_config) {
     CHECK_EQ(c.synthVoices, 4);
     c.synthVoices = 6;   // a non-default budget alone writes the record
     CHECK(c.save(nv));
-    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 6, 53, 0, 6, 0, 1, 0, 1, 0);   // v6: + themeFile[21], [I] noteNames, perfExt[12], padLayout, perfArg[12]
+    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 6, 53, 0, 6, 0, 1, 0, 1, 0);   // v6: + themeFile[21], padLayout, noteNames, [I] perfExt[12], perfArg[12]
     for (int i = 6 + 6; i < 5 + 53; ++i) CHECK_EQ(nv.mem[0xF4 + i], 0);   // the empty name, the fork's defaults
     CHECK_EQ(nv.mem[0xF4 + 5 + 53], 8);   // sum
     Config r;
@@ -192,7 +192,7 @@ TEST(export_rate_config_record) {
     CHECK_EQ(c.exportRate, 1);
     c.exportRate = 0;   // alone writes the record
     CHECK(c.save(nv));
-    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 6, 53, 0, 4, 0, 1, 0, 0, 0);   // v6: + themeFile[21], [I] noteNames, perfExt[12], padLayout, perfArg[12]
+    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 6, 53, 0, 4, 0, 1, 0, 0, 0);   // v6: + themeFile[21], padLayout, noteNames, [I] perfExt[12], perfArg[12]
     for (int i = 6 + 6; i < 5 + 53; ++i) CHECK_EQ(nv.mem[0xF4 + i], 0);   // the empty name, the fork's defaults
     CHECK_EQ(nv.mem[0xF4 + 5 + 53], 5);   // sum
     Config r;
@@ -208,8 +208,8 @@ TEST(export_rate_config_record) {
     CHECK_EQ(r.streamThreshold, 3);
     r.cpuMeter = 1;
     CHECK(r.save(nv));
-    // [I] Written back with the fork's bytes 28..40 appended (defaults).
-    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 6, 53, 1, 4, 2, 3, 1, 1, 0);   // v6: + themeFile[21], [I] noteNames, perfExt[12], padLayout, perfArg[12]
+    // [I] Written back with the fork's bytes 34..57 appended (defaults).
+    CHECK_BYTES(nv.mem.data() + 0xF4, 'O', 'T', 'X', 6, 53, 1, 4, 2, 3, 1, 1, 0);   // v6: + themeFile[21], padLayout, noteNames, [I] perfExt[12], perfArg[12]
     for (int i = 6 + 6; i < 5 + 53; ++i) CHECK_EQ(nv.mem[0xF4 + i], 0);   // the empty name, the fork's defaults
     CHECK_EQ(nv.mem[0xF4 + 5 + 53], 12);   // sum
     // An older record (payload 2) loads with the default 44.1 kHz.

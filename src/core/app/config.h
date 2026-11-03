@@ -88,15 +88,14 @@ struct Config {
     // Extension record byte 5: an option of later 2.x builds this one does
     // not know yet; read and written back unchanged (its default).
     uint8_t extKeep[1] = {0};
-    // [I] Config > General "Note names" (ui/notes.h NoteSpelling): 0 Sharps,
-    // 1 Flats, 2 Auto (from the project key). Extension record byte 28, after
-    // upstream's bytes (fork-only, so it moves when upstream appends one).
-    uint8_t noteNames = 0;
-    // [I] Config > General "Pad layout" (#42): 0 Stock (the project's Notes
-    // layout), 1 Piano (two keyboards an octave apart: white keys along a
-    // row, black keys in the row above; the pad lights draw the keys).
-    // Extension record byte 41.
+    // Config > General "Pad layout": 0 Stock (the project's Notes layout),
+    // 1 Piano (two keyboards an octave apart: white keys along a row, black
+    // keys in the row above; the pad lights draw the keys). Extension record
+    // byte 32.
     uint8_t padLayout = 0;
+    // [I] Config > General "Note names" (ui/notes.h NoteSpelling): 0 Sharps,
+    // 1 Flats, 2 Auto (from the project key). Extension record byte 33.
+    uint8_t noteNames = 0;
 
     // --- the stock config image --------------------------------------------
     static constexpr uint32_t kImageSize = 0xF4;   // spec 05 §5.4 version word 0xf4
@@ -110,9 +109,9 @@ struct Config {
     static constexpr uint32_t kOffPerfReserved = 0xC0;   // u8[8]
     uint8_t image[kImageSize];
     // [I] OpenTracker-only Performance FX types of the global presets
-    // (perf::Source::ext, perf::kDjFilter ...): extension record bytes 29..40.
+    // (perf::Source::ext, perf::kDjFilter ...): extension record bytes 34..45.
     uint8_t perfExt[12] = {};
-    // [I] #28 the MIDI CC column targets (perf::Source::arg): bytes 42..53.
+    // [I] #28 the MIDI CC column targets (perf::Source::arg): bytes 46..57.
     uint8_t perfArg[12] = {};
 
     // --- 2.x extension record (M1 plan, spec gap 7) -------------------------
@@ -123,8 +122,8 @@ struct Config {
     static constexpr uint32_t kExtOffset = kImageSize;
     static constexpr uint8_t kExtVersion = 6;
     // cpuMeter, synthVoices, streamMode, streamThreshold, extKeep[1], exportRate, themeFile[21],
-    // [I] noteNames, perfExt[12], padLayout, perfArg[12]
-    static constexpr uint32_t kExtPayload = 6 + 21 + 1 + 12 + 1 + 12;
+    // padLayout, noteNames, [I] perfExt[12], perfArg[12]
+    static constexpr uint32_t kExtPayload = 6 + 21 + 2 + 12 + 12;
     static constexpr uint32_t kExtSize = 5 + kExtPayload + 1;
     void toExt(uint8_t* out) const;                          // kExtSize bytes
     bool fromExt(const uint8_t* in, uint32_t len);           // false: none / bad (fields unchanged)

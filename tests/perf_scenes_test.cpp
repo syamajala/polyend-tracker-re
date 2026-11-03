@@ -28,6 +28,7 @@ struct Rig {
         h.app->seq.setPerfPatternMemory(mem.get());
         h.app->boot();
         h.app->ui.fragments.enabled = false;   // title text drawn inline every frame
+        h.app->project.perfFxOn = 0xFFFF;   // every track takes the FX (they start off, as stock)
         h.tap(btn::Performance);
     }
     App& a() { return *h.app; }
@@ -327,7 +328,10 @@ TEST(perf_scene_clear_restores_pad_rows) {
     // Clear A too: the slot goes back to its pad row (row 2, +50), the
     // fader to A and out of the title bar.
     r.clear(0);
+    const uint16_t keys = a.project.perfFxOn;   // the rig's F keys aside
+    a.project.perfFxOn = 0;
     CHECK(!perfScenesUsed(a.project));
+    a.project.perfFxOn = keys;
     CHECK_EQ(p.cur[0], 50);
     CHECK_EQ(r.voice(0).volume, 50);
     CHECK_EQ(p.cur[1], slot1);
