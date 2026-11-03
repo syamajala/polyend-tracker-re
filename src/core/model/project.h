@@ -193,12 +193,13 @@ struct Project {
         perfRange[s % kPerfSceneSlots][1] = uint8_t(100 - end);
     }
     // [I] Per-track Performance FX toggles (#54): bit t set = track t+1's FX
-    // off (its F-key unlit). Remembered across visits of the Performance
-    // screen and saved with the project (perf_scenes.bin v4); 0 = all on.
-    uint16_t perfFxOff = 0;
-    // Each scene's toggles: perfSceneFxOff[i] when bit i of perfSceneFxSet is
+    // on (its label red). Remembered across visits of the Performance screen
+    // and saved with the project (perf_scenes.bin v4); 0 = all off, as stock
+    // starts every visit.
+    uint16_t perfFxOn = 0;
+    // Each scene's toggles: perfSceneFxOn[i] when bit i of perfSceneFxSet is
     // set, else "-" (loading the scene leaves the toggles alone).
-    uint16_t perfSceneFxOff[kPerfScenes] = {};
+    uint16_t perfSceneFxOn[kPerfScenes] = {};
     uint16_t perfSceneFxSet = 0;
     bool sceneHasFx(int i) const { return (perfSceneFxSet >> (i % kPerfScenes)) & 1u; }
     // [I] USB audio in (#97; usb_audio.bin, not project.mt): its Global Mixer

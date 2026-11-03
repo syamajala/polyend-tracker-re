@@ -32,8 +32,8 @@ PerfBank sample() {
     b.scene[0][0] = 1, b.scene[0][2] = 2;
     b.scene[15][11] = 3;
     b.fxSet = uint16_t(1u << 1 | 1u << 4);
-    b.fxOff[1] = uint16_t(1u << 2 | 1u << 3 | 1u << 11);
-    b.fxOff[4] = 0;   // stores "all on"
+    b.fxOn[1] = uint16_t(1u << 2 | 1u << 3 | 1u << 11);
+    b.fxOn[4] = 0;   // stores "all on"
     b.on[0] = 15, b.on[1] = 1;
     b.range[0][0] = 10, b.range[0][1] = 100 - 40;   // [I] #12 column 1: 10-40
     return b;
@@ -43,7 +43,7 @@ bool same(const PerfBank& a, const PerfBank& b) {
     return std::memcmp(a.type, b.type, sizeof(a.type)) == 0 && std::memcmp(a.value, b.value, sizeof(a.value)) == 0 &&
            std::memcmp(a.target, b.target, sizeof(a.target)) == 0 &&
            std::memcmp(a.scene, b.scene, sizeof(a.scene)) == 0 && a.fxSet == b.fxSet &&
-           std::memcmp(a.fxOff, b.fxOff, sizeof(a.fxOff)) == 0 && a.on[0] == b.on[0] && a.on[1] == b.on[1] &&
+           std::memcmp(a.fxOn, b.fxOn, sizeof(a.fxOn)) == 0 && a.on[0] == b.on[0] && a.on[1] == b.on[1] &&
            std::memcmp(a.range, b.range, sizeof(a.range)) == 0;
 }
 
@@ -89,14 +89,14 @@ TEST(perf_bank_text_round_trip) {
     CHECK(n > 0);
     const std::string t(buf, n);
     CHECK(t.find("# OpenTracker scene bank\n") == 0);
-    CHECK(t.find("column 1 = Sample LP cutoff: -60 0 60\n") != std::string::npos);
+    CHECK(t.find("column 1 = LP cutoff: -60 0 60\n") != std::string::npos);
     CHECK(t.find("column 2 = Tape stop: 1 3 6\n") != std::string::npos);
     CHECK(t.find("column 3 = MIDI CC: - 64 127 @ midi 2 slot D\n") != std::string::npos);
     CHECK(t.find("column 4 = ---\n") != std::string::npos);
     CHECK(t.find("scene 1 = 1 0 2 0 0 0 0 0 0 0 0 0\n") != std::string::npos);
     CHECK(t.find("scene 2 =") == std::string::npos);   // empty scenes are left out
-    CHECK(t.find("scene 2 fx off = 3 4 12\n") != std::string::npos);
-    CHECK(t.find("scene 5 fx off = none\n") != std::string::npos);
+    CHECK(t.find("scene 2 fx on = 3 4 12\n") != std::string::npos);
+    CHECK(t.find("scene 5 fx on = none\n") != std::string::npos);
     CHECK(t.find("a = 16\nb = 2\n") != std::string::npos);
     PerfBank r;
     CHECK(decodePerfBank(buf, n, r));
@@ -117,7 +117,7 @@ TEST(perf_bank_longest_text_fits) {
     for (auto& s : b.scene)
         for (auto& r : s) r = 3;
     b.fxSet = 0xFFFF;
-    for (auto& m : b.fxOff) m = 0xFFFF;
+    for (auto& m : b.fxOn) m = 0xFFFF;
     b.on[0] = b.on[1] = 15;
     for (auto& r : b.range) r[0] = 100, r[1] = 0;   // [I] #12 "range 12 = 100 100"
     static char buf[pbank::kTextMax];
@@ -131,14 +131,14 @@ TEST(perf_bank_longest_text_fits) {
 TEST(perf_bank_text_is_forgiving) {
     const std::string t =
         "# a bank typed on a computer\r\n"
-        "COLUMN 1 = sample lp CUTOFF : -50 999 50   # 999 is out of range\r\n"
+        "COLUMN 1 = lp CUTOFF : -50 999 50   # 999 is out of range\r\n"
         "column 2 = Not an FX: 1 2 3\n"
         "column 3 = Volume/Velocity: 10\n"          // rows 2 / 3 missing
         "column 4 = MIDI CC: 0 x 127 @ midi 17 slot A\n"   // bad target: MIDI 1 slot A
         "column 13 = Volume/Velocity: 1 2 3\n"      // no column 13
         "scene 3 = 1 2 3 4\n"                       // 4 is no row
         "scene 17 = 1 1 1\n"
-        "scene 4 fx off = 1 99 16\n"
+        "scene 4 fx on = 1 99 16\n"
         "range 2 = 20 60\n"
         "range 3 = 70 30\n"                        // end before start: ignored
         "range 4 = 50\n"                           // no end: ignored
@@ -164,7 +164,7 @@ TEST(perf_bank_text_is_forgiving) {
     CHECK_EQ(b.scene[2][2], 3);
     CHECK_EQ(b.scene[2][3], 0);
     CHECK_EQ(b.fxSet, uint16_t(1u << 3));
-    CHECK_EQ(b.fxOff[3], uint16_t(1u | 1u << 15));
+    CHECK_EQ(b.fxOn[3], uint16_t(1u | 1u << 15));
     CHECK_EQ(b.on[0], 2);
     CHECK_EQ(b.on[1], 1);   // b = 0 is no scene: the default
     CHECK_EQ(b.range[1][0], 20);   // [I] #12
@@ -192,7 +192,7 @@ TEST(perf_bank_save_and_load) {
     r.pj().perfScene[3][1] = 1;
     r.pj().perfSceneOn[1] = 3;
     r.pj().perfSceneFxSet = 1u << 3;
-    r.pj().perfSceneFxOff[3] = 0x00F0;
+    r.pj().perfSceneFxOn[3] = 0x00F0;
     CHECK(a.savePerfBank("Kit", s));
     CHECK(r.h.fs.exists("Performance/Scenes/Kit.txt"));
     CHECK(readText(r.h.fs, "Performance/Scenes/Kit.txt").find("column 2 = Tape stop: 2 0 0\n") != std::string::npos);
@@ -214,7 +214,7 @@ TEST(perf_bank_save_and_load) {
     CHECK_EQ(r.pj().perfScene[3][1], 1);
     CHECK_EQ(r.pj().perfSceneOn[1], 3);
     CHECK(r.pj().sceneHasFx(3));
-    CHECK_EQ(r.pj().perfSceneFxOff[3], 0x00F0);
+    CHECK_EQ(r.pj().perfSceneFxOn[3], 0x00F0);
     // A scene row on a column with no type is dropped (as on the device).
     writeText(r.h.fs, "Performance/Scenes/Bare.txt", "column 1 = Tune: 1 2 3\nscene 1 = 1 3\n");
     CHECK(a.loadPerfBank("Bare", s));

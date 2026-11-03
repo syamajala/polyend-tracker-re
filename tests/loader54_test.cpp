@@ -438,7 +438,7 @@ TEST(loader54_marquee_widget) {
     const int innerW = 297 - 6, left = 1 + 3, right = left + innerW;
     const int tw = textWidth(lv.font, kLongItem.c_str());
     CHECK(1 + 13 + tw > right);
-    // [I] Rows that don't scroll are glyph runs (#71 part 4), drawn from the
+    // [I] Rows that don't scroll are glyph runs, drawn from the
     // row's top instead of centred on it.
     auto rowTexts = [&](int row) {
         std::vector<std::pair<int, std::string>> v;
@@ -540,7 +540,7 @@ TEST(loader54_marquee_redraws_only_while_needed) {
     while (l.sdCursor < longI) h.tap(btn::Down);
     const int row = longI - wg::listFollow(longI, l.count, wg::listVisibleRows(362), 0);
     // [I] The row's text as CMD_TEXT centred on the row, or as a glyph run
-    // (#71 part 4) from the row's top (half a font height above).
+    // from the row's top (half a font height above).
     const int ty = 61 + 17 + 27 * row;
     auto firstX = [&] {
         for (auto& s : h.disp.last) {

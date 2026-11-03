@@ -172,7 +172,6 @@ void SynthScreen::start(int opt) {
     // another slot's / model's section list).
     section = row = 0;
     listTop_ = 0;
-    padNote_ = -1;
     refreshBar();
 }
 
@@ -183,8 +182,18 @@ void SynthScreen::stop() {
 
 void SynthScreen::audition(bool on, uint8_t note) {
     audio::SynthBank& b = app_.engine.synth();
-    if (on) b.auditionOn(slot, note);
-    else b.auditionOff();
+    if (on) {
+        b.auditionOn(slot, note);
+        return;
+    }
+    b.auditionOff();
+    padsOff();
+}
+
+void SynthScreen::padsOff() {
+    for (int p = 0; p < kPadCount; ++p)
+        if (padsHeld_ >> p & 1) app_.previewOff(uint16_t(p));
+    padsHeld_ = 0;
 }
 
 void SynthScreen::edited() {
@@ -631,7 +640,7 @@ void SynthScreen::openBrowser() {
 
 void SynthScreen::closeBrowser() {
     audition(false, 0);
-    padNote_ = previewKey_ = -1;
+    previewKey_ = -1;
     app_.endSynthPreview();
     previewSel_ = -1;
     bank[0] = 0;
@@ -685,7 +694,7 @@ bool SynthScreen::loadSelected() {
 bool SynthScreen::loadSelectedNow() {
     if (browserSel < 0 || browserSel >= browserCount) return false;
     audition(false, 0);
-    padNote_ = previewKey_ = -1;
+    previewKey_ = -1;
     app_.endSynthPreview();   // the slot's own patch first, then the real load
     previewSel_ = -1;
     bool ok;
@@ -824,15 +833,15 @@ void SynthScreen::onButton(uint8_t id, uint8_t state) {
             if (state == kPress) macroNameKeyboard();
         } else if (state == kPress) {
             audition(true, 60);   // manual p.152: the centre button auditions
-        } else if (state == kRelease && padNote_ < 0) {
-            audition(false, 0);
+        } else if (state == kRelease) {
+            app_.engine.synth().auditionOff();   // its own note; held pads play on
         }
         return;
     }
     if (view == View::Browser && (id == btn::F5 || id == btn::F6) && state == kRelease) {
         if (previewKey_ == int(id)) {
             previewKey_ = -1;
-            if (padNote_ < 0) audition(false, 0);
+            app_.engine.synth().auditionOff();   // its own note; held pads play on
         }
         return;
     }
@@ -937,10 +946,14 @@ bool SynthScreen::encoderOnList() const {
     if (view != View::Edit || !available()) return false;
     const synthui::Section* sec = nullptr;
     const int n = synthui::sections(engine(), &sec);
-    if (section < 0 || section >= n || sec[section].macro >= 0) return false;
+    if (section < 0 || section >= n) return false;
+    // A macro's Off / On row is a two-item list (drawn by listColumn).
+    if (sec[section].macro >= 0) return row == 1;
     if (row < 0 || row >= sec[section].count) return false;
     const synthui::ParamUi* u = synthui::paramUi(engine(), sec[section].params[row]);
-    return u && u->fmt == synthui::kFmtEnum;   // Filter Type, LFO Waveform, ...
+    // Enum rows (Filter Type, LFO Waveform, ...) and On / Off rows are drawn
+    // as lists (tester report: the wheel ran backwards on On / Off rows).
+    return u && (u->fmt == synthui::kFmtEnum || u->fmt == synthui::kFmtOnOff);
 }
 #endif
 
@@ -963,34 +976,36 @@ void SynthScreen::onPad(uint8_t pad, uint8_t state) {
         const int c = pad % kPadCols, r = pad / kPadCols;
         const synthui::Section* sec = nullptr;
         const int n = synthui::sections(engine(), &sec);
-        if (c < 4 && r * 4 + c < n) {
-            if (state == kPress) {
-                section = r * 4 + c;
-                row = 0;
-                listTop_ = 0;
-                refreshBar();
-                ui_.dirty();
-            }
+        // (A release falls through: the pad may have been pressed in
+        // another view and still hold its note.)
+        if (c < 4 && r * 4 + c < n && state == kPress) {
+            section = r * 4 + c;
+            row = 0;
+            listTop_ = 0;
+            refreshBar();
+            ui_.dirty();
             return;
         }
     }
-    // Pads audition the slot (scale map of the pad grid); in Load Patch the
-    // highlighted patch (Tracker+ 1.0).
+    // Pads audition the slot (scale map of the pad grid), a chord up to its
+    // polyphony; in Load Patch the highlighted patch (Tracker+ 1.0).
+    if (pad >= kPadCount) return;
     if (state == kPress) {
         if (view == View::Browser && !previewHighlighted()) return;
         const uint8_t n = app_.padNote(pad);
-        if (n == PadNotes::kNoNote) return;   // [I] #42: a piano layout gap
-        padNote_ = pad;
-        audition(true, n);
-    } else if (state == kRelease && padNote_ == int(pad)) {
-        padNote_ = -1;
-        audition(false, 0);
+        if (n == PadNotes::kNoNote) return;   // [I] a piano layout gap
+        padsHeld_ |= uint64_t(1) << pad;
+        app_.previewOn(pad, uint8_t(kFirstSynthInstrument + slot), n, 127);
+    } else if (state == kRelease) {
+        // Also a pad pressed on another page (its note is released here).
+        padsHeld_ &= ~(uint64_t(1) << pad);
+        app_.previewOff(pad);
     }
 }
 
 void SynthScreen::padLeds(uint8_t* lv) {
     if (view != View::Edit) {
-        pianoLeds(lv);   // [I] #42: the browser's pads play the patch
+        pianoLeds(lv);   // [I] the pads play the slot
         return;
     }
     const synthui::Section* sec = nullptr;

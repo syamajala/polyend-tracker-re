@@ -50,6 +50,41 @@ const fontdata::FontInfo* customFont(uint8_t handle) {
     return &fontdata::info(gFontSet, handle - IDisplay::kFontHandleBase);
 }
 
+// Characters a font draws (issue #128). FatFs hands file names over as
+// code page 437 bytes ("\x97" = u grave) and the fonts end at '~', so a byte
+// past it made CMD_TEXT draw the memory after the font. Text drawing maps
+// the CP437 accented letters 0x80..0xA5 (and 0xE1, sharp s) to their base
+// letter and any other byte the font has no glyph for to '?'; textWidth
+// measures the same characters. Only drawing changes, never the names.
+// `first`: the font's first glyph (custom fonts: their table, symbols from
+// 17; ROM fonts: 1, as before), 0 = no mapping (the icon sheet).
+constexpr char kCp437Base[] = "CueaaaaceeeiiiAAEaAooouuyOU????faiounN";   // 0x80..0xA5
+static_assert(sizeof(kCp437Base) == 0xA6 - 0x80 + 1, "CP437 0x80..0xA5");
+inline uint8_t shownChar(uint8_t ch, uint8_t first) {
+    if (!first || (ch >= first && ch < 0x7F)) return ch;
+    if (ch >= 0x80 && ch <= 0xA5) return uint8_t(kCp437Base[ch - 0x80]);
+    return ch == 0xE1 ? uint8_t('s') : uint8_t('?');
+}
+uint8_t firstGlyph(uint8_t handle) {
+    if (const fontdata::FontInfo* cf = customFont(handle)) return cf->first;
+    return gCustomFonts && handle == IDisplay::kIconHandle ? 0 : 1;
+}
+// `s` as drawn (shownChar): `s` itself when the font has all its characters,
+// else a mapped copy in `buf` (kShownMax - 1 characters at most: a longer
+// string is wider than the screen). Gfx::text maps before it chooses between
+// a glyph run and CMD_TEXT, so a mapped name is a glyph run like any other.
+constexpr size_t kShownMax = 160;
+const char* shownText(const char* s, uint8_t first, char (&buf)[kShownMax]) {
+    size_t n = 0;
+    bool plain = true;
+    for (; s[n]; ++n) plain = plain && shownChar(uint8_t(s[n]), first) == uint8_t(s[n]);
+    if (plain) return s;
+    if (n > kShownMax - 1) n = kShownMax - 1;
+    for (size_t i = 0; i < n; ++i) buf[i] = char(shownChar(uint8_t(s[i]), first));
+    buf[n] = 0;
+    return buf;
+}
+
 // ROM fallback role of a stock font role (gfx.h).
 uint8_t fallbackRole(uint8_t role) {
     switch (role) {
@@ -417,7 +452,7 @@ static uint32_t cmdTextWords(int x, int y, uint8_t font, const char* s, uint16_t
     return words;
 }
 
-// #71 part 4: CMD_TEXT on a custom font as the glyph run that draws the same
+// CMD_TEXT on a custom font as the glyph run that draws the same
 // pixels. The coprocessor applies the options first (RIGHTX: x - width,
 // CENTERX: x - width / 2, CENTERY: y - bitmap height / 2), then puts one
 // glyph per character at the pen (cell = character, no glyph for a space or
@@ -425,7 +460,9 @@ static uint32_t cmdTextWords(int x, int y, uint8_t font, const char* s, uint16_t
 // width. A glyph run does the same at one RAM_DL word per glyph instead of
 // 5 + 1 per glyph (2 right of x 511). It cannot draw a glyph clipped at the
 // left or top edge (VERTEX2II coordinates are unsigned) or a byte >= 127
-// (CMD_TEXT masks it to 7 bits): those stay CMD_TEXT. False: not drawn.
+// (CMD_TEXT masks it to 7 bits): those stay CMD_TEXT. Gfx::text hands it the
+// mapped string (shownText), so a CP437 name has no such byte left and is a
+// glyph run too. False: not drawn.
 bool Gfx::textAsGlyphs(int x, int y, uint8_t font, uint32_t c, const char* s, uint16_t opt) {
     if (gCustomTextMode != kCustomGlyphs || !gCustomFonts) return false;
     const fontdata::FontInfo* cf = customFont(romFontFor(font));
@@ -449,6 +486,8 @@ bool Gfx::textAsGlyphs(int x, int y, uint8_t font, uint32_t c, const char* s, ui
 
 void Gfx::text(int x, int y, uint8_t font, uint32_t c, const char* s, uint16_t opt) {
     if (!s || !*s) return;
+    char shown[kShownMax];   // a string with characters outside the font: drawn from a mapped copy
+    s = shownText(s, firstGlyph(romFontFor(font)), shown);
     if (textAsGlyphs(x, y, font, c, s, opt)) return;
     textWords(x, y, font, c, s, opt, cmdTextWords(x, y, font, s, opt));
 }
@@ -466,9 +505,10 @@ int textWidth(uint8_t font, const char* s, int len) {
     const uint8_t handle = romFontFor(font);
     const fontdata::FontInfo* cf = customFont(handle);
     const RomMetrics* m = cf ? nullptr : romMetrics(handle);
+    const uint8_t first = firstGlyph(handle);
     int w = 0;
     for (int i = 0; s[i] && (len < 0 || i < len); ++i) {
-        const uint8_t ch = uint8_t(s[i]);
+        const uint8_t ch = shownChar(uint8_t(s[i]), first);   // as drawn (Gfx::text)
         if (cf) w += fontdata::advance(*cf, ch);
         else if (gCustomFonts && handle == IDisplay::kIconHandle) w += kIconSize;
         else if (!m) w += 8;
@@ -495,7 +535,11 @@ void Gfx::glyphRun(int x, int y, uint8_t font, const char* s, uint32_t c, int ad
     // instead of a CMD_TEXT (4 + n words) per run or per cell.
     const bool rom = !gCustomFonts;
     const bool romText = rom && gRomTextMode != kRomGlyphs;
-    auto drawable = [cf, rom](uint8_t ch) {
+    const uint8_t glyph0 = firstGlyph(handle);
+    char shown[kShownMax];   // the hint and the CMD_TEXT fallbacks get the drawn text
+    s = shownText(s, glyph0, shown);
+    auto drawable = [cf, rom, glyph0](uint8_t ch) {
+        ch = shownChar(ch, glyph0);
         return ch < 127 && (rom ? ch > ' ' : ch != ' ' && (!cf || ch >= cf->first));
     };
     // One VERTEX_TRANSLATE_X for the whole run when its glyphs fit one
@@ -547,14 +591,14 @@ void Gfx::glyphRun(int x, int y, uint8_t font, const char* s, uint32_t c, int ad
     applyAlpha();
     openBitmaps();                         // shared with the previous run (closePrim ends it)
     if (hi < 0) return;
-    d_->textHint(int16_t(x), int16_t(y), font, s);   // [I] for the display command export
+    d_->textHint(int16_t(x), int16_t(y), font, s);   // [I] the run's text (IDisplay::textHint)
     int base = -1;
     if (lo >= translate_ && hi - translate_ <= 511) base = translate_;
     else if (hi <= 511) base = 0;
     else if (lo >= 400) base = 400;
     int pen = x;
     for (int i = 0; s[i]; ++i) {
-        const uint8_t ch = uint8_t(s[i]);
+        const uint8_t ch = shownChar(uint8_t(s[i]), glyph0);
         const int step = adv > 0 ? adv : ot::textWidth(font, s + i, 1);
         if (drawable(ch) && pen >= 0 && pen < 912) {
             if (!admit(2)) return;
@@ -610,8 +654,9 @@ void Gfx::textRotatedRun(const RotatedText* t, int n, uint8_t font, uint32_t c, 
     words_ += 10;
     int base = 0;
     for (int i = 0; i < n; ++i) {
-        const char* s = t[i].s;
-        if (!s || !*s) continue;
+        if (!t[i].s || !*t[i].s) continue;
+        char shown[kShownMax];   // the hint gets the drawn text
+        const char* s = shownText(t[i].s, cf->first, shown);
         // Box of the turned text: W x H with W along the reading direction.
         const int W = ot::textWidth(font, s);
         const int bw = side ? H : W, bh = side ? W : H;
@@ -619,10 +664,10 @@ void Gfx::textRotatedRun(const RotatedText* t, int n, uint8_t font, uint32_t c, 
         if (t[i].opt & IDisplay::kOptCenterX) x -= bw / 2;
         else if (t[i].opt & IDisplay::kOptRightX) x -= bw;
         if (t[i].opt & IDisplay::kOptCenterY) y -= bh / 2;
-        d_->textHint(int16_t(x), int16_t(y), font, s);   // [I] display command export
+        d_->textHint(int16_t(x), int16_t(y), font, s);   // [I] the run's text (IDisplay::textHint)
         int pen = 0;
         for (int k = 0; s[k]; ++k) {
-            const uint8_t ch = uint8_t(s[k]);
+            const uint8_t ch = shownChar(uint8_t(s[k]), cf->first);
             const int step = fontdata::advance(*cf, ch);
             if (ch != ' ' && ch < 127 && ch >= cf->first) {
                 int vx, vy;   // vertex = top-left of the turned cell

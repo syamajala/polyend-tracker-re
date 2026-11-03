@@ -28,6 +28,7 @@ struct Rig {
         h.app->seq.setPerfPatternMemory(mem.get());
         h.app->boot();
         h.app->ui.fragments.enabled = false;
+        h.app->project.perfFxOn = 0xFFFF;   // every track takes the FX (they start off, as stock)
         h.tap(btn::Performance);
     }
     App& a() { return *h.app; }

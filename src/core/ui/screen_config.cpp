@@ -63,8 +63,8 @@ const char* const kMiddleC[] = {"C-3", "C-4", "C-5", "C-6"};
 const char* const kOneTo12[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"};
 const char* const kLimiter[] = {"Subtle", "Extreme"};
 const char* const kSends[] = {"Pre-fader", "Post-fader"};
+const char* const kPadLayouts[] = {"Stock", "Piano"};
 const char* const kNoteNames[] = {"Sharps", "Flats", "Auto"};   // [I] ui/notes.h NoteSpelling
-const char* const kPadLayouts[] = {"Stock", "Piano"};            // [I] #42
 
 #define CF(f) uint16_t(offsetof(Config, f))
 const Opt kProject[] = {
@@ -98,10 +98,10 @@ const Opt kGeneral[] = {
     {"Export sample rate", kEnum, kCfg, CF(exportRate), 0, 2, kExportRates, 0},   // [I] 2.x
     {"Stream from card", kEnum, kCfg, CF(streamMode), 0, 3, kStreamModes, 0},          // [I] 2.x
     {"Stream threshold", kEnum, kCfg, CF(streamThreshold), 0, 4, kStreamThresholds, 0},   // [I] 2.x
+    // [I] Piano keyboard on the pads (PadNotes::build, piano = true).
+    {"Pad layout", kEnum, kCfg, CF(padLayout), 0, 2, kPadLayouts, 0},
     // [I] how black keys are named everywhere notes are shown (not in stock).
     {"Note names", kEnum, kCfg, CF(noteNames), 0, kNoteSpellingCount, kNoteNames, 0},
-    // [I] #42: piano keyboard on the pads (PadNotes::buildPiano).
-    {"Pad layout", kEnum, kCfg, CF(padLayout), 0, 2, kPadLayouts, 0},
 };
 const Opt kMidi[] = {
     {"Clock in", kEnum, kCfg, CF(clockIn), 0, 3, kClockIn, 0},

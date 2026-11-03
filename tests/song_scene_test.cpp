@@ -362,7 +362,7 @@ TEST(song_scene_ramp_follows_fader_ranges) {
 TEST(song_scene_keeps_the_song_bar) {
     Rig r;
     App& a = *r.h.app;
-    r.pj().perfSceneFxOff[5] = 1;   // scene 6 (slot 3) carries FX toggles
+    r.pj().perfSceneFxOn[5] = 1;   // scene 6 (slot 3) carries FX toggles
     r.pj().perfSceneFxSet = 1u << 5;
     r.h.tap(btn::F2);   // Play Song
     r.h.run(20);

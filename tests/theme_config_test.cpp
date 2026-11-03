@@ -174,7 +174,7 @@ TEST(custom_theme_persists_in_ext_v5_and_reloads_at_boot) {
     h.app->markConfigDirty();
     CHECK(h.app->saveConfig());
     const uint8_t* x = nv.mem.data() + Config::kExtOffset;
-    CHECK_BYTES(x, 'O', 'T', 'X', 6, 53);   // [I] + noteNames, perfExt[12], padLayout, perfArg[12]
+    CHECK_BYTES(x, 'O', 'T', 'X', 6, 53);   // + padLayout, noteNames, [I] perfExt[12], perfArg[12]
     CHECK_EQ(Config::kExtSize, 59u);
     CHECK(std::memcmp(x + 11, "Paper\0", 6) == 0);
     CHECK_EQ(nv.mem[0xD5], 1);   // the stock byte holds the base
@@ -299,7 +299,7 @@ TEST(ext_record_v4_reads_as_no_custom_theme) {
     uint8_t x[Config::kExtSize];
     c.toExt(x);
     CHECK_EQ(x[3], 6);
-    CHECK_EQ(x[4], 53);   // [I] upstream's 27 + noteNames, perfExt[12], padLayout, perfArg[12]
+    CHECK_EQ(x[4], 53);   // [I] upstream's 29 + perfExt[12], perfArg[12]
     Config d;
     CHECK(d.fromExt(x, sizeof x));
     CHECK_STR(d.themeFile, "My theme");

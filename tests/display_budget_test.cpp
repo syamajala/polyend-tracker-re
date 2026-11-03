@@ -190,6 +190,9 @@ TEST(performance_frame_budget) {
     PerformanceScreen& p = *static_cast<PerformanceScreen*>(r.h.app->ui.screen(kModPerformance));
     for (int c = 0; c < perf::kSlots; ++c)
         for (int row = 1; row < perf::kRows; ++row) p.src.setValue(c, row, int16_t(row * 7 - 11));
+    // FX on for tracks 1-8: every label lit red (the worst case; issue #86).
+    for (uint8_t k : {btn::F1, btn::F2, btn::F3, btn::F4, btn::F5, btn::F6, btn::F7, btn::F8}) r.h.tap(k);
+    for (int t = 0; t < 8; ++t) CHECK(p.fxOn[t]);
     r.h.tap(btn::Rec);   // edit mode: focus frame on column 0
     r.h.tap(btn::Right);
     r.h.tap(btn::Play);
@@ -200,8 +203,8 @@ TEST(performance_frame_budget) {
     std::printf("performance (values, edit, playing): max %u DL words\n", unsigned(words));
     // 1500 when gradients counted 5 words; ~1680 at Gfx::kGradientDlWords
     // (verified on a Tracker: ~7.4 KB of the 8 KB RAM_DL, no faults); ~1740
-    // since upstream 2.2.1's red labels of tracks with the FX off; 1879 with
-    // CMD_TEXT at what the FT81x builds (#71: the Performance screen's 56
+    // since upstream 2.2.1's red labels (tracks with the FX on, issue #86); 1879 with
+    // CMD_TEXT at what the FT81x builds (the Performance screen's 56
     // strings, 100 glyphs right of x 511, were ~190 words over the old count).
     CHECK(words <= 1900);
     r.h.tap(btn::Play);
@@ -225,7 +228,7 @@ TEST(mixer_frame_budget) {
     uint32_t words = r.m.maxWords;
     std::printf("track mixer (playing): max %u DL words\n", unsigned(words));
     r.m.printTally();
-    CHECK(words <= 1780);   // 1750 with CMD_TEXT at its RAM_DL cost (#71; was ~1620)
+    CHECK(words <= 1780);   // 1750 with CMD_TEXT at its RAM_DL cost (was ~1620)
     r.h.tap(btn::Master);   // Global Mixer 3/3
     r.play(100);
     r.m.resetMax();
@@ -233,7 +236,7 @@ TEST(mixer_frame_budget) {
     words = r.m.maxWords;
     std::printf("global mixer (playing): max %u DL words\n", unsigned(words));
     r.m.printTally();
-    CHECK(words <= 1780);   // 1715 (#71)
+    CHECK(words <= 1780);   // 1715
     r.h.tap(btn::Play);
 }
 
@@ -276,7 +279,7 @@ TEST(pattern_playing_sparse_frame_budget) {
     r.m.resetMax();
     r.play(1000);
     std::printf("pattern playing (sparse): max %u DL words, %u FIFO bytes\n", unsigned(r.m.maxWords), unsigned(r.m.maxBytes));
-    CHECK(r.m.maxWords <= 1100);              // measured 1053 (917 before #71's CMD_TEXT cost)
+    CHECK(r.m.maxWords <= 1100);              // measured 1053 (917 before CMD_TEXT was counted right)
     CHECK(r.m.maxBytes <= 4400);              // measured 3900
     r.h.tap(btn::Play);
 }
@@ -643,9 +646,9 @@ TEST(overlay_matrix_pattern) {
     h.down(btn::Shift);
     r.measure("pattern dense + mute page");
     h.tap(btn::Rec);
-    // 1960 words with CMD_TEXT at its RAM_DL cost (#71): over the design
+    // 1960 words with CMD_TEXT at its RAM_DL cost: over the design
     // target, under the guard, and 48 words below the chip's 2048 with the
-    // driver's 36. Text as glyph runs (#71 part 4) brings it back under.
+    // driver's 36. Drawing text as glyph runs brings it back under.
     r.measure("pattern dense + Live-REC arm page (all armed)", 60, Ui::kDlGuardWords - 10);
     h.up(btn::Shift);
     r.measure("pattern dense + Live-REC arm page, Shift up");
@@ -794,7 +797,7 @@ TEST(overlay_matrix_tracks_13_16) {
     h.tap(btn::Rec);
     // Measured on a Tracker: this frame (dense grid + arm page) faulted the
     // FT81x; with the honest count the guard drew it in low detail. With its
-    // text as glyph runs (#71 part 4) it fits in full.
+    // text as glyph runs it fits in full.
     r.measure("pattern 13-16 dense + Live-REC arm page (bank B)");
     h.up(btn::Shift);
     h.tap(btn::Rec);

@@ -80,7 +80,7 @@ void Screen::onPad(uint8_t pad, uint8_t state) {
     // One track voice per held pad, voiceId = pad number (spec 07 Q7).
     if (state == kPress) {
         const uint8_t n = app_.padNote(pad);
-        if (n != PadNotes::kNoNote) app_.previewOn(pad, app_.currentInstrument(), n, 127);   // [I] #42: gaps
+        if (n != PadNotes::kNoNote) app_.previewOn(pad, app_.currentInstrument(), n, 127);   // [I] gaps
     }
     else if (state == kRelease) app_.previewOff(pad);
 }
@@ -1006,11 +1006,6 @@ void Ui::resampleKey() {
 
 void Ui::update(uint32_t now) {
     now_ = now;
-    // [I] Note names (Config > General): Auto follows the project key, which
-    // changes on project open and in Config, so it is re-derived every pass.
-    const bool flats = noteSpellingFlats();
-    setNoteSpelling(app.cfg.noteNames, app.project.u8(pf::kRootNote), app.project.u8(pf::kScale));
-    if (noteSpellingFlats() != flats) dirty();
     // [I] Live resampling status: one notice per state change (armed,
     // armed and playing, recording, stopping), so other notices stay up;
     // the Resample screen shows the bar count.
@@ -1035,6 +1030,12 @@ void Ui::update(uint32_t now) {
             }
         }
     }
+    // [I] Note names (Config > General): Auto follows the project key, which
+    // changes on project open and in Config; setNoteSpelling re-derives it
+    // only when the setting, root or scale changed.
+    const bool flats = noteSpellingFlats();
+    setNoteSpelling(app.cfg.noteNames, app.project.u8(pf::kRootNote), app.project.u8(pf::kScale));
+    if (noteSpellingFlats() != flats) dirty();
     if (noteUntil_ && int32_t(now - noteUntil_) >= 0) {
         noteUntil_ = 0;
         note_[0] = 0;

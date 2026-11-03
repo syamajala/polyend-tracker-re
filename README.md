@@ -218,8 +218,40 @@ Upstream's photos (2.2.1, on an original Tracker):
 
 2.x brings the newer Tracker Mini features to the original hardware: 16 tracks, synth
 engines, stereo samples, Mini-compatible project files and USB Storage mode. These notes cover
-the whole 2.x line (2.0 to 2.2.1); the full list is in the release notes of the
-[2.2.1 download](https://github.com/sandlbn/polyend-tracker-re/releases).
+the whole 2.x line (2.0 to 2.2.4); the full list is in the release notes of the
+[2.2.4 download](https://github.com/sandlbn/polyend-tracker-re/releases).
+
+## New in 2.2.4
+
+- **Piano pad layout** (contributed by syamajala): Config > General > Pad layout > Piano
+  turns the pads into two keyboards an octave apart, white keys in a row and black keys
+  above, with the pad lights drawing the keyboard and the scale. Stock stays the default.
+- **Chords in step entry** (contributed by syamajala): select two or more tracks and press
+  pads together; the notes fill the selected tracks on one step. One Undo removes the chord.
+- **Synth pads play chords** up to the slot's Polyphony; before, each new pad released the
+  last one (reported by idagani).
+- **Cleaner 44.1 kHz export** (contributed by bungoleena): a 32-tap sinc conversion, clean up
+  to 18 kHz. Export Song takes about 28 % longer; stems barely change.
+- **Sample Loader:** previews of 24-bit and float stereo files no longer drop out, and names
+  with accents show as plain letters instead of stray symbols (issue #128).
+- **Busy screens no longer fault** (contributed by syamajala): screens with many gradients
+  or lots of text, such as the MIDI instrument CC page, draw in full detail again.
+
+## New in 2.2.2 to 2.2.3
+
+- **Stream long samples from the card** (optional, Off by default): Config > General >
+  Stream from card. Long samples load only their start into memory and play the rest from
+  the SD card, so projects with long stems fit. The Sample Loader marks files that will
+  stream with `~`.
+- **Your own colour themes:** theme files in `/Themes` on the card, plus Export theme. Twelve
+  example themes come as a separate download, among them Halloween (contributed by
+  AnthonyBerg1983).
+- **Steady MIDI clock on the DIN jack** while you change screens, and **pitch bend** from a
+  MIDI keyboard on live notes.
+- **Synth stereo Width**, and a hand-turned Synth Macro now takes over from a pattern FX CC.
+- **Stack overflow protection** (contributed by syamajala) and many fixes from user and
+  beta reports, among them the Sample Editor, synth notes in the pattern editor and
+  starting without an SD card.
 
 ### New in 2.1 to 2.2.1
 
@@ -306,7 +338,7 @@ the whole 2.x line (2.0 to 2.2.1); the full list is in the release notes of the
 
 1. Download the latest image from this fork's
    [Releases](https://github.com/syamajala/polyend-tracker-re/releases) and copy
-   `PolyendTrackerOTv223.ptf` to `/Firmware` on the SD card. Keep the name; the bootloader
+   `PolyendTrackerOTv224.ptf` to `/Firmware` on the SD card. Keep the name; the bootloader
    only accepts 24-character names.
 2. Go to **Config > Firmware update**, select it and confirm. If the screen stays dark
    after the update, press the power button once.
@@ -326,7 +358,7 @@ rules; not yet confirmed on a stock unit).
 
 ## Building
 
-- Firmware: `make` (Arm GNU toolchain) writes `build/PolyendTrackerOTv223.ptf`.
+- Firmware: `make` (Arm GNU toolchain) writes `build/PolyendTrackerOTv224.ptf`.
 - Host tests: `make host-test`. Performance and memory gate: `make perf-gate`.
 - Simulator: `make sim`, then `build/sim/opentracker-sim` (see `sim/README.md`).
 
@@ -334,9 +366,10 @@ rules; not yet confirmed on a stock unit).
 
 - The synth sound is own design: settings match the Mini, the sound is close but not
   identical.
-- Synth notes ignore the per-track Performance columns
-  ([#30](https://github.com/syamajala/polyend-tracker-re/issues/30)); the master insert FX
-  do include them.
+- Synth notes take the Performance filters, panning and sends; bit depth, overdrive, the
+  LFOs, start / end and direction act on samples only
+  ([#30](https://github.com/syamajala/polyend-tracker-re/issues/30)). The master insert FX
+  include synth notes.
 - The synth voice pool defaults to 4 because of the processor's speed.
 - USB Storage mode: back up the card before first use; Linux systems without a desktop may need
   `partprobe` or a re-plug to see the card.
@@ -345,7 +378,10 @@ rules; not yet confirmed on a stock unit).
   clicks now and then).
 - Live resampling from Line In starts 10–14 ms late (the round trip through external gear);
   compensation is planned.
-- Games (the NES player) is not in the release image since 2.2.1.
+- Games (the game-music player) is not in the release image since 2.2.1.
+- Stream from card is new and Off by default; please report anything odd when you turn it on.
+- A couple of Performance screen issues are still open (among them the global Pattern length
+  in Song mode); fixes are planned.
 
 ## Test songs
 

@@ -182,11 +182,13 @@ private:
     uint32_t countInUntil_ = 0;     // "Counting in" popup end (ms), 0 = none
     bool countInDrawn_ = false;
     int8_t padVoice_[48];
-    // [I] Chord step entry: pads pressed while a note pad is held go to the
-    // next tracks on the step the first one was written to.
-    uint64_t chordPads_ = 0;        // held note pads of the chord (bit = pad)
-    int16_t chordStep_ = -1;        // the chord's step, -1 = none
+    // [I] Pad chord entry (padChordEntry): pads held together fill the
+    // target's tracks left to right on its first step.
+    bool padChordEntry(uint8_t pad, uint8_t note);
+    uint64_t chordPads_ = 0;        // held note pads of the chord (bit = pad), 0 = none
     int8_t chordTrack_ = -1;        // the last track the chord wrote
+    uint8_t chordIns_ = 0;          // the instrument as mapped on the chord's first track
+    uint8_t chordPattern_ = 0;      // the pattern the chord writes
     Picker pop_;                    // column-key popup state (drawn by this screen)
     int noteWin_ = 36;              // Notes popup: lowest shown note (C3)
     int popTop_ = 0;                // list popup: first visible row
@@ -348,7 +350,7 @@ public:
     void draw(Gfx& g) override;
     void onButton(uint8_t id, uint8_t state) override;
     void onPad(uint8_t pad, uint8_t state) override;
-    bool padsPlayNotes() const override { return false; }   // [I] #42: pads only type here
+    bool padsPlayNotes() const override { return false; }   // [I] pads only type here
     void onEncoder(int d) override;
 #if !(defined(OT_TARGET_DEVICE) && OT_TARGET_DEVICE)
     bool encoderOnList() const override;
@@ -591,7 +593,7 @@ public:
     void draw(Gfx& g) override;
     void onButton(uint8_t id, uint8_t state) override;
     void onPad(uint8_t pad, uint8_t state) override;
-    bool padsPlayNotes() const override { return false; }   // [I] #42: pads only feed the test code
+    bool padsPlayNotes() const override { return false; }   // [I] pads only feed the test code
     void onEncoder(int d) override;
 #if !(defined(OT_TARGET_DEVICE) && OT_TARGET_DEVICE)
     bool encoderOnList() const override;
@@ -782,10 +784,10 @@ public:
     bool edit = false;
     int column = 0;
     int bank = 0;                   // 2.x: F1..F8 = tracks 1-8 (0) or 9-16 (1)
-    // FX enabled per track. [I] #54: mirrors Project::perfFxOff (remembered
-    // across visits, saved; stock reset them to all on at every start).
-    bool fxOn[kTrackCount] = {true, true, true, true, true, true, true, true,
-                              true, true, true, true, true, true, true, true};
+    // FX enabled per track. [I] #54: mirrors Project::perfFxOn (remembered
+    // across visits, saved; stock turns every track off at every start,
+    // issue #86 stock check A1).
+    bool fxOn[kTrackCount] = {};
     perf::Source src;               // active preset source (spec 12 §A.1)
     uint8_t sourceIndex = 0;        // 0 global (config), 1 per project
     int16_t cur[12] = {};           // current value per slot (what is applied)
@@ -815,9 +817,9 @@ public:
     // Empties the scene; the slots the scenes drove go back to their pad rows.
     void clearScene(int scene);
     void setFader(int x);
-    // [I] #54: sets the per-track FX toggles (Project::perfFxOff + fxOn);
+    // [I] #54: sets the per-track FX toggles (Project::perfFxOn + fxOn);
     // clearSceneFx puts a scene's toggles back to "-".
-    void setFxOff(uint16_t off);
+    void setFxOn(uint16_t on);
     void clearSceneFx(int scene);
     // Every FX type in scene A or B, blended at `fader` into the slots' cur values.
     void applyScenes();
@@ -930,7 +932,7 @@ private:
     void drawBankGrid(Gfx& g);   // the 16 scenes
     void drawTypeList(Gfx& g);   // [I] #89
     uint8_t savedRows_[12] = {};   // [I] the pad rows before a scene was opened for editing
-    uint16_t savedFxOff_ = 0;      // [I] #54: the live FX toggles while a scene is edited
+    uint16_t savedFxOn_ = 0;      // [I] #54: the live FX toggles while a scene is edited
     char bankName_[25] = {};       // [I] #70 the file being exported
     void exportBankNow();
     bool editFxTouched_ = false;   // [I] #54: an F key was tapped while editing the scene
@@ -999,14 +1001,16 @@ public:
     // Run the selected effect on Start..End and commit it (keeps one undo).
     bool apply();
     bool undo();
-    bool preview(int note = 60);   // process the selection and play it at `note` (60 = own pitch)
+    // Process the selection and play it at `note` (60 = own pitch). plainIfFull:
+    // without the free memory, play the selection unprocessed (pads, MIDI).
+    bool preview(int note = 60, bool plainIfFull = false);
 
 private:
     void enter();
     void refreshBar();
     void markerDelta(int which, int d);
     void paramDelta(int d);
-    bool fits(uint32_t newFrames, uint32_t extraSamples);
+    bool fits(uint32_t newFrames, uint32_t extraSamples, bool ask = true);
     void stopPreview();
     void selection(uint32_t* s0, uint32_t* s1) const;
     uint32_t undoFrames_ = 0;
@@ -1338,8 +1342,11 @@ private:
     void drawEdit(Gfx& g);
     void drawBrowser(Gfx& g);
     void title(Gfx& g, const char* text);
+    // on: the slot's audition note (Enc push, Load Patch F5 / F6); off: that
+    // note and every held pad.
     void audition(bool on, uint8_t note);
-    int padNote_ = -1;      // pad holding the audition, -1 none
+    void padsOff();
+    uint64_t padsHeld_ = 0;   // pads held on this page (each on a synth live track)
     int previewSel_ = -1;   // Load Patch: browser entry playing in the slot, -1 none
     int previewKey_ = -1;   // Load Patch: F5 / F6 holding the Preview note
     int browserTop_ = 0;

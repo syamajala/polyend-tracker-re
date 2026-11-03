@@ -108,8 +108,8 @@ void Project::setLoadPrefill() {
     std::memset(perfExtType, 0, sizeof(perfExtType));
     std::memset(perfExtArg, 0, sizeof(perfExtArg));
     std::memset(perfRange, 0, sizeof(perfRange));
-    perfFxOff = 0;
-    std::memset(perfSceneFxOff, 0, sizeof(perfSceneFxOff));
+    perfFxOn = 0;
+    std::memset(perfSceneFxOn, 0, sizeof(perfSceneFxOn));
     perfSceneFxSet = 0;
     setU16(mt::kU16_5FE, 20000);
     for (int i = 0; i < 8; ++i) {

@@ -14,7 +14,7 @@ bool perfScenesUsed(const Project& p) {
         if (t) return true;
     for (const auto& r : p.perfRange)
         if (r[0] || r[1]) return true;
-    if (p.perfFxOff || p.perfSceneFxSet) return true;
+    if (p.perfFxOn || p.perfSceneFxSet) return true;
     return p.perfSceneOn[0] != 0 || p.perfSceneOn[1] != 1;
 }
 
@@ -56,9 +56,9 @@ void encodePerfScenes(const Project& p, uint8_t out[pscn::kFileSize]) {
         fx[2 * i] = uint8_t(v & 0xFF);
         fx[2 * i + 1] = uint8_t(v >> 8);
     };
-    put16(0, p.perfFxOff);
+    put16(0, p.perfFxOn);
     put16(1, p.perfSceneFxSet);
-    for (int i = 0; i < Project::kPerfScenes; ++i) put16(2 + i, p.perfSceneFxOff[i]);
+    for (int i = 0; i < Project::kPerfScenes; ++i) put16(2 + i, p.perfSceneFxOn[i]);
     fx[pscn::kFxBytes] = sum8(fx, pscn::kFxBytes);
     uint8_t* tg = out + pscn::kFxEnd;
     std::memcpy(tg, p.perfExtArg, Project::kPerfSceneSlots);
@@ -75,8 +75,8 @@ FmtStatus decodePerfScenes(const uint8_t* file, size_t len, Project& p) {
     std::memset(p.perfRange, 0, sizeof(p.perfRange));
     p.perfSceneOn[0] = 0;
     p.perfSceneOn[1] = 1;
-    p.perfFxOff = 0;
-    std::memset(p.perfSceneFxOff, 0, sizeof(p.perfSceneFxOff));
+    p.perfFxOn = 0;
+    std::memset(p.perfSceneFxOn, 0, sizeof(p.perfSceneFxOn));
     p.perfSceneFxSet = 0;
     if (len < pscn::kHeaderSize) return FmtStatus::TooShort;
     if (std::memcmp(file, "OTPS", 4) != 0 || file[4] < 3) return FmtStatus::BadMagic;
@@ -104,9 +104,9 @@ FmtStatus decodePerfScenes(const uint8_t* file, size_t len, Project& p) {
     const size_t fx = ab + 3;
     if (file[4] >= 4 && len >= fx + pscn::kFxBytes + 1 && sum8(file + fx, pscn::kFxBytes) == file[fx + pscn::kFxBytes]) {
         auto get16 = [&](int i) { return uint16_t(file[fx + 2 * i] | (file[fx + 2 * i + 1] << 8)); };
-        p.perfFxOff = get16(0);
+        p.perfFxOn = get16(0);
         p.perfSceneFxSet = get16(1);
-        for (int i = 0; i < Project::kPerfScenes; ++i) p.perfSceneFxOff[i] = get16(2 + i);
+        for (int i = 0; i < Project::kPerfScenes; ++i) p.perfSceneFxOn[i] = get16(2 + i);
     }
     // The MIDI CC column targets (version 5; checked by perf::Source::validate).
     const size_t tg = fx + pscn::kFxBytes + 1, ns = size_t(Project::kPerfSceneSlots);

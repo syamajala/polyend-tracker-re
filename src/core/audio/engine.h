@@ -322,6 +322,17 @@ public:
     bool masterFxActive() const { return masterFx_.active(); }
     TapeStop& masterTape() { return masterFx_.tape(); }
     const TapeStop& masterTape() const { return masterFx_.tape(); }
+    // The same offsets on the synth notes of track 0..15 (issue #23): the
+    // LP / HP / BP offset in octaves on the synth's own cutoff (the sample
+    // law 20 Hz x 2^(c x 477 / 50): 1.0 = 9.54 octaves), pan and sends.
+    void setSynthPerf(int track, const PerfOffsets& p) {
+        SynthPerf s;
+        if (p.filterType >= 0) s.cutoffOct = p.cutoff * (477.0f / 50.0f);
+        s.pan = p.pan;
+        s.dsend = p.dsend;
+        s.rsend = p.rsend;
+        synth_.setTrackPerf(track, s);
+    }
 
     void stopAll();
     void clearEffects();   // zero delay and reverb memory
@@ -337,8 +348,9 @@ public:
     // and synth_1..3.wav (Mini %s/synth_%d.wav, spec 21 §2; 1-based: U13).
     // Stops after maxBlocks or when running(ctx) returns false.
     // resampleTo44100=false: device-rate samples with 44117 in the header, as
-    // stock (spec 04 §6.1). [I] resampleTo44100=true: the WAVs are resampled to
-    // 44.1 kHz and say 44100. Returns blocks rendered, <0 on I/O error.
+    // stock (spec 04 §6.1). [I] resampleTo44100=true: the WAVs are converted to
+    // 44.1 kHz with a 32-tap fractional-delay FIR (audio/export_resampler.h) and say
+    // 44100. Returns blocks rendered, <0 on I/O error.
     int32_t exportWav(IStorage& fs, const char* path, bool stems, uint32_t maxBlocks, bool (*running)(void*),
                       void* ctx, bool resampleTo44100);
     // Stem block buffer for exportWav (~7 KB; SDRAM on the device). Without

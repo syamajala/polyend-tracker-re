@@ -636,11 +636,12 @@ TEST(pads_audition_the_slot) {
     openSlot(h, 1);
     h.push(InputEvent::kPadDown, 5);
     h.audio.pump(4);
-    CHECK(a.engine.synth().voiceOfTrack(audio::kSynthAuditionTrack) != nullptr);
+    // A held pad takes a synth live track (pads play chords: synth_pad_chord_test).
+    CHECK(a.engine.synth().voiceOfTrack(audio::kSynthLiveTrack0) != nullptr);
     CHECK(a.engine.synth().voicesOf(1) == 1);
     h.push(InputEvent::kPadUp, 5);
     h.audio.pump(4);
-    const audio::SynthVoice* v = a.engine.synth().voiceOfTrack(audio::kSynthAuditionTrack);
+    const audio::SynthVoice* v = a.engine.synth().voiceOfTrack(audio::kSynthLiveTrack0);
     CHECK(v == nullptr || !v->gate);
 }
 
@@ -1421,6 +1422,37 @@ TEST(stop_cuts_synth_voices) {
     CHECK_EQ(a.engine.synth().busyRecords(), 0);
 }
 
+// Issue #117: in edit mode the note encoder on a synth step held the note
+// forever. Stock re-triggers the edited row (spec 06 §1.6 Encoder, Note
+// column), so the note gets one step and then the patch's release.
+TEST(note_encoder_on_a_synth_step_releases) {
+    Harness h;
+    App& a = *h.app;
+    audio::synthParamSet(a.synthPatch(1), 17, 1.0f);    // held tone
+    audio::synthParamSet(a.synthPatch(1), 18, 0.01f);   // short release
+    a.markSynthPatchDirty(1);
+    Step& st = a.pattern().tracks[0].steps[0];
+    st.note = 60;
+    st.instrument = 65;
+    a.patternEdited();
+    h.tap(btn::Rec);
+    CHECK(a.editMode);
+    h.enc(1);
+    CHECK_EQ(int(a.pattern().tracks[0].steps[0].note), 61);
+    bool sounded = false;
+    for (int i = 0; i < 10; ++i) {
+        h.audio.pump(4);
+        h.run(10);
+        sounded = sounded || a.engine.synth().sounding() > 0;
+    }
+    CHECK(sounded);
+    for (int i = 0; i < 200; ++i) {   // ~2 s: one step at 130 BPM, then the release
+        h.audio.pump(4);
+        h.run(10);
+    }
+    CHECK_EQ(a.engine.synth().sounding(), 0);
+}
+
 TEST(synth_edit_wheel_hint_lists_and_values) {
     // The simulator flips its wheel on lists (Ui::encoderOnList): in Edit
     // Patch the enum rows (Filter Type, LFO Waveform) are lists, value rows
@@ -1610,6 +1642,46 @@ TEST(dx7_syx_bank_browser) {
     openSlot(h, 2);
     h.tap(btn::F7);
     for (int i = 0; i < s.browserCount; ++i) CHECK(s.browserKind[i] == SynthScreen::Entry::Patch);
+}
+
+// Tester report (3.0 preview, 2026-11-02): the wheel scrolled the wrong
+// way on every On / Off row (Sync, Reset, Oversampling, ...) and on a
+// macro's Off / On row: they are drawn as two-item lists like the enum
+// rows, so they are lists for the wheel hint too.
+TEST(synth_edit_wheel_hint_on_off_rows_are_lists) {
+    Harness h;
+    App& a = *h.app;
+    int onOff = 0, macroRows = 0;
+    for (SynthModel m : {SynthModel::ACD, SynthModel::FAT, SynthModel::VAP, SynthModel::WTFM}) {
+        openSlot(h, 1, m);
+        SynthScreen& s = synth(a);
+        if (s.view != SynthScreen::View::Params) h.tap(btn::InstrParams);
+        h.tap(btn::F8);
+        CHECK(s.view == SynthScreen::View::Edit);
+        const synthui::Section* sec = nullptr;
+        const int n = synthui::sections(s.engine(), &sec);
+        for (int i = 0; i < n; ++i) {
+            s.section = i;
+            if (sec[i].macro >= 0) {
+                s.row = 1;   // Off / On (bipolar)
+                CHECK(a.ui.encoderOnList());
+                s.row = 0;   // Name: Edit key
+                CHECK(!a.ui.encoderOnList());
+                ++macroRows;
+                continue;
+            }
+            for (int r = 0; r < sec[i].count; ++r) {
+                s.row = r;
+                const synthui::ParamUi* u = synthui::paramUi(s.engine(), sec[i].params[r]);
+                const bool list = u && (u->fmt == synthui::kFmtEnum || u->fmt == synthui::kFmtOnOff);
+                CHECK_EQ(a.ui.encoderOnList(), list);
+                onOff += u && u->fmt == synthui::kFmtOnOff;
+            }
+        }
+        h.tap(btn::Pattern);
+    }
+    CHECK(onOff >= 5);
+    CHECK(macroRows >= 1);
 }
 
 TEST(instr_hold_chooser_on_the_synth_page) {
