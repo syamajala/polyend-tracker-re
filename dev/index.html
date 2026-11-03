@@ -1138,9 +1138,10 @@ releases, a version picker at the top selects the docs that match your image.</p
 <li>The synth engines are our own design: their settings follow the Tracker Mini, and the
   sound is close but not identical.</li>
 <li>Wavetable and granular samples play the left channel only.</li>
-<li>Synth notes ignore the per-track Performance columns
-  (<a href="https://github.com/syamajala/polyend-tracker-re/issues/30">#30</a>); the master FX do
-  include them.</li>
+<li>Synth notes take the Performance filters, panning and sends; bit depth, overdrive, the
+  LFOs, start / end and direction act on samples only
+  (<a href="https://github.com/syamajala/polyend-tracker-re/issues/30">#30</a>). The master FX include
+  synth notes.</li>
 <li>The synth voice pool defaults to 4 voices because of the processor's speed.</li>
 <li>USB audio works with Linux and Windows computers, not macOS.</li>
 <li>USB Storage mode: back up the card before first use.</li>
