@@ -38,6 +38,29 @@ against it.
 **The test:** does it make the Tracker more fun to play without making it less cohesive
 or less immediate? If it costs one of the three, it needs a very good reason.
 
+## Clean room
+
+OpenTracker is a clean-room implementation. Polyend has published its own firmware as
+Tracker CE (`polyend/tracker-ce`) under a noncommercial licence; its code stays out of
+OpenTracker (one MIT exception below).
+
+- Never clone, fetch, open, search or quote CE source code, headers or binaries, and don't
+  port, translate or paraphrase them. This includes code search, web pages that show CE
+  code, and snippets pasted into a prompt.
+- CE's user-facing docs (manual, changelog, release notes) and on-device behaviour are
+  fine as a reference, written up in your own words.
+- Developer docs that describe internals or contain code count as source. Plain hardware
+  facts from them (pins, part numbers, buses, memory sizes) are fine.
+- `.ptfx` interface docs (file format, plugin API) are fine: under the SDK exception below
+  when they're MIT, and as interface facts when they're not. How CE's own code loads
+  plugins stays out.
+- The one exception is CE's sample editor SDK (the `.ptfx` plugin SDK), which is MIT
+  licensed. It may be read and reused, as long as it goes in `third_party/` with its
+  licence and copyright notice. Check the licence of the exact version you take. The
+  exception covers only the SDK: nothing else in the CE repository.
+- Spec references cite stock behaviour or published docs, never CE code.
+- If a task looks like it needs CE source, stop and say so instead of looking.
+
 ## Build and test
 
 - Firmware: `make clean && make -j`. Don't pass `VERSION`: the Makefile default follows the
@@ -66,11 +89,6 @@ or less immediate? If it costs one of the three, it needs a very good reason.
   perf-gate shows it's needed. Check the CI size report on every PR. See `docs/dev/memory.md`.
 - **Audio path:** no allocation, no I/O, no locks.
 - `src/core` is platform-independent (firmware, sim, host tests); `src/hal` is the K66 layer.
-- **Clean room: never read Polyend Tracker CE source** (`polyend/tracker-ce`, PolyForm
-  Noncommercial). Its user docs, changelog and on-device behaviour are fine as a reference;
-  its code, headers and binaries are not. Don't clone it into the workspace or copy its
-  file formats from source (only from published docs). Spec references cite behaviour,
-  not CE code.
 - Mark fork-only behaviour with `[I]` comments, and reverse-engineered stock behaviour
   with spec references.
 
