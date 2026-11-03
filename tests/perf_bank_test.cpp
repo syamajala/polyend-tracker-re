@@ -89,7 +89,7 @@ TEST(perf_bank_text_round_trip) {
     CHECK(n > 0);
     const std::string t(buf, n);
     CHECK(t.find("# OpenTracker scene bank\n") == 0);
-    CHECK(t.find("column 1 = Sample LP cutoff: -60 0 60\n") != std::string::npos);
+    CHECK(t.find("column 1 = LP cutoff: -60 0 60\n") != std::string::npos);
     CHECK(t.find("column 2 = Tape stop: 1 3 6\n") != std::string::npos);
     CHECK(t.find("column 3 = MIDI CC: - 64 127 @ midi 2 slot D\n") != std::string::npos);
     CHECK(t.find("column 4 = ---\n") != std::string::npos);
@@ -131,7 +131,7 @@ TEST(perf_bank_longest_text_fits) {
 TEST(perf_bank_text_is_forgiving) {
     const std::string t =
         "# a bank typed on a computer\r\n"
-        "COLUMN 1 = sample lp CUTOFF : -50 999 50   # 999 is out of range\r\n"
+        "COLUMN 1 = lp CUTOFF : -50 999 50   # 999 is out of range\r\n"
         "column 2 = Not an FX: 1 2 3\n"
         "column 3 = Volume/Velocity: 10\n"          // rows 2 / 3 missing
         "column 4 = MIDI CC: 0 x 127 @ midi 17 slot A\n"   // bad target: MIDI 1 slot A

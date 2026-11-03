@@ -157,7 +157,7 @@ Bank files are text, so they can be written or changed on a computer:
 
 ```
 # OpenTracker scene bank
-column 1 = Sample LP cutoff: -60 0 60
+column 1 = LP cutoff: -60 0 60
 column 2 = Tape stop: 1 3 5
 column 3 = MIDI CC: - 64 127 @ midi 2 slot A
 column 4 = ---

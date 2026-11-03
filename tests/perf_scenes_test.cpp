@@ -463,7 +463,7 @@ TEST(perf_scene_store_and_clear_one_column) {
     CHECK_EQ(a.project.perfScene[0][0], 1);
     CHECK_EQ(a.project.perfScene[0][1], 3);
     r.h.run(20);
-    CHECK(r.frameHas("Scene 1 (A): Sample panning 0") || r.h.disp.lastHasText("Scene 1 (A): Sample panning"));
+    CHECK(r.frameHas("Scene 1 (A): Panning 0") || r.h.disp.lastHasText("Scene 1 (A): Panning"));
     // Hold column 2 row 1 + Shift+Right: B gets only column 2.
     r.h.push(InputEvent::kPadDown, 12 * 1 + 2);
     r.h.run(1);
