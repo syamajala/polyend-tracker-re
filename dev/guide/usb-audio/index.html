@@ -1125,6 +1125,10 @@ Tracker's master bus, the same signal Resample From Master takes:</p>
   records the Tracker while playing through it doesn't record its own playback again.</li>
 </ul>
 <p>Nothing to turn on: it's sent while the computer records.</p>
+<p>To just listen on Linux, <code>tools/usb_listen.sh</code> links the Tracker to the computer's output
+(<code>tools/usb_listen.sh off</code> removes it; run it again after the Tracker reconnects). Easy
+Effects moves every recording stream, a DAW's included, onto its own microphone input:
+the Tracker then sounds silent. Turn off its <strong>Process all inputs</strong>, or exclude the app.</p>
 <h2 id="good-to-know">Good to know<a class="headerlink" href="#good-to-know" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Latency is about 5 ms each way on the Tracker plus the computer's own buffer: fine for
