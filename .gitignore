@@ -7,3 +7,6 @@ __pycache__/
 tools/make_demo/make_demo
 dist/
 __pycache__/
+
+# Personal notes (making-tracks tips, idea sketches, upstream PR drafts)
+/notes/
