@@ -178,9 +178,8 @@ TEST(chord_entry_stops_at_a_track_that_cannot_play_it) {
     up(h, kPads[1]);
 }
 
-TEST(chord_entry_not_while_playing) {
-    // Playing: the pads keep their normal behaviour (a single-row selection
-    // only auditions), no chord is written.
+TEST(chord_entry_while_playing) {
+    // [I] Playing: chords still go in, on a selection and on a single cursor.
     Harness h;
     App& a = *h.app;
     setUp(h);
@@ -189,8 +188,15 @@ TEST(chord_entry_not_while_playing) {
     CHECK(a.seq.isPlaying());
     CHECK(a.editMode);
     for (int i = 0; i < 3; ++i) down(h, kPads[i]);
-    for (int t = 0; t < 3; ++t) CHECK_EQ(note(h, t, 0), kNoteEmpty);
+    for (int t = 0; t < 3; ++t) CHECK_EQ(note(h, t, 0), a.padNote(kPads[t]));
     for (int i = 0; i < 3; ++i) up(h, kPads[i]);
+    pe(h).selState = 0;
+    pe(h).track = 0;
+    pe(h).step = 4;
+    for (int i = 0; i < 2; ++i) down(h, kPads[i]);
+    CHECK_EQ(note(h, 0, 4), a.padNote(kPads[0]));
+    CHECK_EQ(note(h, 1, 4), a.padNote(kPads[1]));
+    for (int i = 0; i < 2; ++i) up(h, kPads[i]);
     h.tap(btn::Play);
     CHECK(!a.seq.isPlaying());
 }
@@ -215,7 +221,7 @@ TEST(chord_entry_resets_on_pattern_change) {
     up(h, kPads[1]);
 }
 
-TEST(chord_entry_resets_when_edit_mode_or_play_starts) {
+TEST(chord_entry_resets_when_edit_mode_ends) {
     Harness h;
     App& a = *h.app;
     setUp(h);
@@ -230,14 +236,5 @@ TEST(chord_entry_resets_when_edit_mode_or_play_starts) {
     down(h, kPads[1]);
     CHECK_EQ(note(h, 0, 0), a.padNote(kPads[1]));
     CHECK_EQ(note(h, 1, 0), kNoteEmpty);
-    // Play started and stopped with both pads held.
-    h.tap(btn::Play);
-    CHECK(a.seq.isPlaying());
-    h.tap(btn::Play);
-    CHECK(!a.seq.isPlaying());
-    select(h, 0, 2, 0, 0);
-    down(h, kPads[2]);
-    CHECK_EQ(note(h, 0, 0), a.padNote(kPads[2]));
-    CHECK_EQ(note(h, 1, 0), kNoteEmpty);
-    for (int i = 0; i < 3; ++i) up(h, kPads[i]);
+    for (int i = 0; i < 2; ++i) up(h, kPads[i]);
 }

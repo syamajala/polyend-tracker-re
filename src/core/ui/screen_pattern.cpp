@@ -196,8 +196,9 @@ bool PatternScreen::midiChordEntry(int t, uint8_t note, uint8_t velocity) {
 
 bool PatternScreen::padChordEntry(uint8_t pad, uint8_t note) {
     // [I] Chord step entry from the pads, as midiChordEntry: edit mode on,
-    // the sequencer stopped, no popup open and a target over more than one
-    // track. Pads held together fill the target's tracks left to right on
+    // no popup open and a target over more than one track. [I] Fork: also
+    // while the sequencer plays (midiChordEntry keeps the stock stopped-only
+    // gate). Pads held together fill the target's tracks left to right on
     // its first step; the cursor stays. A note past the last target track,
     // or on a track that would map the instrument differently from the
     // chord's first track (a MIDI track for a sample instrument), only
@@ -207,7 +208,7 @@ bool PatternScreen::padChordEntry(uint8_t pad, uint8_t note) {
     // by the step jump; pads pressed while it is held go on the same step,
     // one track to the right each, up to the last track.
     App& a = app_;
-    if (!edit() || a.seq.isPlaying()) return false;
+    if (!edit()) return false;
     if (focus != -1 || fillOpen || pop_.isOpen() || ui_.kb.isOpen() || ui_.askOpen()) return false;
     const SelRect r = target();
     if (chordPads_ && chordPattern_ != a.patternNumber()) chordPads_ = 0;
@@ -1549,9 +1550,9 @@ void PatternScreen::fillApply() {
 
 void PatternScreen::update(uint32_t now) {
     App& a = app_;
-    // [I] Pad chord entry ends when the pattern changes, edit mode ends or
-    // play starts: a pad still held then does not continue it.
-    if (chordPads_ && (!edit() || a.seq.isPlaying() || chordPattern_ != a.patternNumber())) chordPads_ = 0;
+    // [I] Pad chord entry ends when the pattern changes or edit mode ends:
+    // a pad still held then does not continue it.
+    if (chordPads_ && (!edit() || chordPattern_ != a.patternNumber())) chordPads_ = 0;
     // Playhead follow (not in edit mode): every pass, so the frame drawn for
     // a step change (App::onStepChanged -> Ui::dirty) already scrolls to the
     // new step. Behind the 20 ms throttle below the same step cost two
