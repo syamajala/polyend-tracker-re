@@ -198,34 +198,40 @@ bool PatternScreen::padChordEntry(uint8_t pad, uint8_t note) {
     // [I] Chord step entry from the pads, as midiChordEntry: edit mode on,
     // the sequencer stopped, no popup open and a target over more than one
     // track. Pads held together fill the target's tracks left to right on
-    // its first step; the cursor stays. A single-cell cursor keeps plain
-    // note entry (a fast melody never becomes a chord). A note past the
-    // last target track, or on a track that would map the instrument
-    // differently from the chord's first track (a MIDI track for a sample
-    // instrument), only sounds. One Undo removes the whole chord.
+    // its first step; the cursor stays. A note past the last target track,
+    // or on a track that would map the instrument differently from the
+    // chord's first track (a MIDI track for a sample instrument), only
+    // sounds. One Undo removes the whole chord.
+    // [I] Fork preference (upstream keeps plain note entry here): on a
+    // single-cell cursor the first pad is plain entry and the cursor moves
+    // by the step jump; pads pressed while it is held go on the same step,
+    // one track to the right each, up to the last track.
     App& a = app_;
     if (!edit() || a.seq.isPlaying()) return false;
     if (focus != -1 || fillOpen || pop_.isOpen() || ui_.kb.isOpen() || ui_.askOpen()) return false;
     const SelRect r = target();
-    if (r.t1 <= r.t0) return false;
     if (chordPads_ && chordPattern_ != a.patternNumber()) chordPads_ = 0;
+    if (!chordPads_ && r.t1 <= r.t0 && !r.single()) return false;
     const uint8_t ins = a.currentInstrument();
     const uint16_t voice = pad;
     const int t = chordPads_ ? chordTrack_ + 1 : r.t0;
-    if (chordPads_ && (t > r.t1 || pops::mapInstrument(t, ins) != chordIns_)) {
+    if (chordPads_ && (t > chordLast_ || pops::mapInstrument(t, ins) != chordIns_)) {
         a.previewOn(voice, ins, note, 127);   // falls through: audition only
         padVoice_[pad] = int8_t(pad);
         return true;
     }
-    if (!chordPads_) {
+    const bool first = !chordPads_;
+    if (first) {
         a.pushUndo();
         chordIns_ = pops::mapInstrument(t, ins);
         chordPattern_ = a.patternNumber();
+        chordStep_ = uint8_t(r.s0);
+        chordLast_ = int8_t(r.single() ? kTrackCount - 1 : r.t1);
     }
     a.previewOn(voice, ins, note, 127, t);   // each note on its own track
     padVoice_[pad] = int8_t(pad);
     SelRect c;
-    c.s0 = c.s1 = r.s0;
+    c.s0 = c.s1 = chordStep_;
     c.t0 = c.t1 = t;
     pops::writeNote(a.pattern(), c, note, ins);
     chordTrack_ = int8_t(t);
@@ -233,6 +239,7 @@ bool PatternScreen::padChordEntry(uint8_t pad, uint8_t note) {
     a.project.setU8(pf::kLastNote, note);
     a.markProjectDirty();
     a.patternEdited();
+    if (first && r.single()) advance();   // the chord's later notes stay on chordStep_
     refreshBar();
     return true;
 }

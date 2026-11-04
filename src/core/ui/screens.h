@@ -189,6 +189,8 @@ private:
     int8_t chordTrack_ = -1;        // the last track the chord wrote
     uint8_t chordIns_ = 0;          // the instrument as mapped on the chord's first track
     uint8_t chordPattern_ = 0;      // the pattern the chord writes
+    uint8_t chordStep_ = 0;         // [I] the step the chord writes
+    int8_t chordLast_ = -1;         // [I] the last track the chord may write
     Picker pop_;                    // column-key popup state (drawn by this screen)
     int noteWin_ = 36;              // Notes popup: lowest shown note (C3)
     int popTop_ = 0;                // list popup: first visible row

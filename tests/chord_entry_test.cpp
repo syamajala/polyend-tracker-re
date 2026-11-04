@@ -2,7 +2,9 @@
 // entry (PatternScreen::midiChordEntry, spec 17 §1.4 step 8): in edit mode,
 // with the sequencer stopped and a selection over more than one track, pads
 // held together fill the selected tracks left to right on the selection's
-// first step. A single-cell cursor keeps plain note entry.
+// first step. Fork preference: on a single-cell cursor the first pad is
+// plain entry (the cursor moves by the step jump) and pads held with it go
+// on the same step, one track to the right each.
 #include "test.h"
 #include "ui_fakes.h"
 
@@ -47,22 +49,66 @@ void setUp(Harness& h) {
 const uint8_t kPads[4] = {36, 40, 43, 47};
 }  // namespace
 
-TEST(chord_entry_fast_melody_on_a_single_cursor) {
-    // Overlapping presses with a single-cell cursor are a melody: each
-    // note goes to the cursor, which advances (as before chord entry).
+TEST(chord_entry_on_a_single_cursor_fills_the_row) {
+    // [I] Pads held together on a single-cell cursor: the first note goes
+    // on the cursor's step and the cursor moves by the step jump; the rest
+    // go on that step, one track to the right each.
+    Harness h;
+    App& a = *h.app;
+    setUp(h);
+    a.setStepJump(4);
+    pe(h).track = 2;
+    pe(h).step = 3;
+    int want[4];
+    for (int i = 0; i < 4; ++i) want[i] = a.padNote(kPads[i]);
+    down(h, kPads[0]);
+    CHECK_EQ(pe(h).step, 7);   // moved on with the first pad
+    for (int i = 1; i < 4; ++i) down(h, kPads[i]);
+    for (int i = 0; i < 4; ++i) CHECK_EQ(note(h, 2 + i, 3), want[i]);
+    CHECK_EQ(note(h, 6, 3), kNoteEmpty);
+    CHECK_EQ(note(h, 2, 7), kNoteEmpty);
+    CHECK_EQ(pe(h).step, 7);   // later pads don't move it again
+    CHECK_EQ(pe(h).track, 2);
+    for (int i = 0; i < 4; ++i) up(h, kPads[i]);
+    // One Undo removes the whole chord.
+    CHECK(a.undoEdit());
+    for (int t = 2; t < 6; ++t) CHECK_EQ(note(h, t, 3), kNoteEmpty);
+    // The next chord goes on the new cursor step.
+    down(h, kPads[0]);
+    down(h, kPads[1]);
+    CHECK_EQ(note(h, 2, 7), want[0]);
+    CHECK_EQ(note(h, 3, 7), want[1]);
+    CHECK_EQ(pe(h).step, 11);
+    up(h, kPads[0]);
+    up(h, kPads[1]);
+}
+
+TEST(chord_entry_single_cursor_chord_stops_at_the_last_track) {
+    Harness h;
+    App& a = *h.app;
+    setUp(h);
+    pe(h).track = 6;   // track 7: room for 7 and 8 (sample tracks)
+    down(h, kPads[0]);
+    down(h, kPads[1]);
+    down(h, kPads[2]);   // track 9 is MIDI: only sounds
+    CHECK_EQ(note(h, 6, 0), a.padNote(kPads[0]));
+    CHECK_EQ(note(h, 7, 0), a.padNote(kPads[1]));
+    CHECK_EQ(note(h, 8, 0), kNoteEmpty);
+    for (int i = 0; i < 3; ++i) up(h, kPads[i]);
+}
+
+TEST(chord_entry_melody_on_a_single_cursor) {
+    // Pads pressed one after another (each released first) are a melody:
+    // every note goes to the cursor, which advances.
     Harness h;
     App& a = *h.app;
     setUp(h);
     int want[4];
     for (int i = 0; i < 4; ++i) want[i] = a.padNote(kPads[i]);
-    down(h, kPads[0]);
-    down(h, kPads[1]);
-    up(h, kPads[0]);
-    down(h, kPads[2]);
-    down(h, kPads[3]);
-    up(h, kPads[1]);
-    up(h, kPads[2]);
-    up(h, kPads[3]);
+    for (int i = 0; i < 4; ++i) {
+        down(h, kPads[i]);
+        up(h, kPads[i]);
+    }
     for (int i = 0; i < 4; ++i) CHECK_EQ(note(h, 0, i), want[i]);
     for (int t = 1; t < 4; ++t)
         for (int s = 0; s < 4; ++s) CHECK_EQ(note(h, t, s), kNoteEmpty);

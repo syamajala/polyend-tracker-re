@@ -46,6 +46,8 @@ held make a chord: the first note goes on the cursor's step and the cursor moves
 usual; each further note goes on the same step, one track to the right. Hold the chord's
 pads together, release them, and play the next chord.
 
+- With a selection over several tracks, the chord fills the selected tracks on the
+  selection's first step instead, and the cursor stays.
 - One Undo removes the whole chord.
 - A track that can't play the current instrument (a MIDI track for a sample instrument)
   ends the chord there.
