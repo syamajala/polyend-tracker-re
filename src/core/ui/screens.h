@@ -234,9 +234,17 @@ public:
     // Loop Pattern active in the current play run (a stop elsewhere ends it).
     bool loopingInSong() const;
     bool loopTogglePending() const { return togglePending_; }
+    // [I] #121 the Progression list (Insert in edit mode): rows of the
+    // list, the selected one, the first shown.
+    bool progOpen = false;
+    int progRows = 0, progCursor = 0, progTop = 0;
+    void openProgressions();
+    void insertSelectedProgression();
 
 private:
     void refreshBar();
+    void progMove(int d);
+    void drawProgressions(Gfx& g);
     void setPattern(int slot, int num);
     int passShown_ = -1;   // [I] playing slot * 32 + pass last drawn
     void setCount(int slot, int count);   // [I] repeat count, 1 .. Project::kSongCountMax

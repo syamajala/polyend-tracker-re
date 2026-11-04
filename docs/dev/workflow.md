@@ -52,6 +52,10 @@ Projects must keep opening in stock firmware, upstream OpenTracker and the Track
   scene banks (`formats/perf_bank.h`). Both use `key = value` lines, `#` comments and
   ignore unknown keys, so later versions can add keys. The shipped MIDI presets are in
   `midi_presets/`; host tests parse each one.
+- `Progressions/<Group>.txt` (Song mode progressions, `ui/progression.h`) is one
+  progression per line in scale numbers, not `key = value`. The built-in files are
+  compiled in (`prog::defaultText`) and written only when the folder has no `.txt` file,
+  never over an existing one.
 
 ## Code conventions
 
