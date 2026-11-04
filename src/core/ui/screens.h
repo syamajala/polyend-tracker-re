@@ -773,6 +773,7 @@ public:
     // toggled the track bank, now Left / Right outside edit mode).
     bool ownsModuleKey(uint8_t id) const override { return id == btn::Performance; }
     void padLeds(uint8_t* levels) override;
+    bool padsPlayNotes() const override { return false; }   // [I] pads are FX here (no chord hints)
     // MIDI CC 41-48 / 51-62 (spec 12 §B.2, §B.3); handled at the next update.
     void perfTrackPatternCc(uint8_t track, uint8_t value) override;
     void perfSlotCc(uint8_t slot, uint8_t value) override;

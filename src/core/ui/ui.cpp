@@ -705,16 +705,27 @@ bool Ui::chordHint(ScaleChord& out) {
     return scaleTriad(n, root, sc, out);
 }
 
+namespace {
+// [I] A chord's name and its notes: "Dm  ii: D F A".
+void chordLine(const ScaleChord& c, char* out, int cap) {
+    char n[20];
+    scaleTriadName(c, n, sizeof(n));
+    std::snprintf(out, size_t(cap), "%s: %s %s %s", n, pitchClassName(c.pc[0]), pitchClassName(c.pc[1]),
+                  pitchClassName(c.pc[2]));
+}
+}  // namespace
+
 // Shows the held chord's name while it's held; clears it when the pads are let go.
 void Ui::chordHintNotice(bool press) {
     ScaleChord ch;
     if (press && chordHint(ch)) {
         if (pads_ == (1ull << chordPad_)) {
-            char t[48], a[20], b[20];
+            // "Em  v: E G B  /  E  V: E G# B": the name, then the notes to press.
+            char t[72], a[32], b[32];
             ScaleChord bo;
-            scaleTriadName(ch, a, sizeof(a));
+            chordLine(ch, a, sizeof(a));
             if (borrowedTriad(ch, bo)) {
-                scaleTriadName(bo, b, sizeof(b));
+                chordLine(bo, b, sizeof(b));
                 std::snprintf(t, sizeof(t), "%s  /  %s", a, b);
             } else {
                 copyStr(t, a, sizeof(t));
