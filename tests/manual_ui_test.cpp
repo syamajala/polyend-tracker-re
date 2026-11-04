@@ -488,7 +488,7 @@ int songProgressY(Harness& h) {
     for (size_t i = 0; i + 1 < h.disp.last.size(); ++i) {
         int x0, y0, x1, y1;
         if (std::sscanf(h.disp.last[i].c_str(), "VERTEX %d %d", &x0, &y0) == 2 &&
-            std::sscanf(h.disp.last[i + 1].c_str(), "VERTEX %d %d", &x1, &y1) == 2 && x0 == 5 && x1 > 400 &&
+            std::sscanf(h.disp.last[i + 1].c_str(), "VERTEX %d %d", &x1, &y1) == 2 && x0 == 5 && x1 > 300 &&
             y1 - y0 == 1 && y0 >= 92 && y0 <= 118)
             last = y0;
     }
@@ -518,14 +518,14 @@ TEST(song_progress_line_follows_the_playing_pattern) {
     const int y2 = songProgressY(h);
     CHECK(y1 >= 92);
     CHECK(y2 > y1 + 10);
-    // The line stays inside the 12-column grid (device photo: on 2.x it ran
-    // through the Pattern list), i.e. it ends before the list at x 491.
+    // The line stays inside the grid (device photo: on 2.x it ran
+    // through the Pattern list), i.e. it ends before the list ([I] x 331).
     for (size_t i = 0; i + 1 < h.disp.last.size(); ++i) {
         int x0, yA, x1, yB;
         if (std::sscanf(h.disp.last[i].c_str(), "VERTEX %d %d", &x0, &yA) == 2 &&
             std::sscanf(h.disp.last[i + 1].c_str(), "VERTEX %d %d", &x1, &yB) == 2 && x0 == 5 && yB - yA == 1 &&
             yA == y2)
-            CHECK(x1 < 491);
+            CHECK(x1 < 331);
     }
     h.tap(btn::F2);   // Stop
     h.run(60);

@@ -69,11 +69,13 @@ constexpr int kPitchX = 40;          // grid column pitch
 constexpr int kPitchY = 27;          // grid / list row pitch
 constexpr int kGridX = 5;            // dark tile box (5 + 40 c, 92 + 27 r, 39 x 26)
 constexpr int kGridY = 92;
-constexpr int kListNumX = 520;       // CMD_NUMBER at rightX - 178 (rightX 698)
-constexpr int kListX0 = 491, kListX1 = 688;   // selection outline centre lines
+// [I] The list starts where the 8-column grid ends (stock: 491, after 12):
+// number, then the pattern name, clipped before Count.
+constexpr int kListX0 = 331, kListX1 = 688;   // selection outline centre lines
+constexpr int kListNumX = kListX0 + 29;       // stock: 29 px into the outline
+constexpr int kListNameX = kListNumX + 30;    // room for "255"
 // [I] Count (Project::playlistCount), Scene (playlistScene) and Ramp
-// (playlistRamp) columns after the pattern numbers; the pattern names no
-// longer fit in the list.
+// (playlistRamp) columns after the pattern names.
 constexpr int kCountX0 = 556;        // Count cell outline left (right: kSceneX0 - 4)
 constexpr int kCountX = 577;         // Count text centre
 constexpr int kSceneX0 = 602;        // Scene cell outline left (right: kRampX0 - 4)
@@ -857,11 +859,7 @@ void SongScreen::draw(Gfx& g) {
         drawProgressions(g);
         return;
     }
-    // [I] #121 the cursor slot's pattern name ("Am i"), before EDIT.
-    const char* nm = a.names.get(a.project.playlist[cursor]);
-    char right[PatternNames::kMaxLen + 8];
-    std::snprintf(right, sizeof(right), "%s%s%s", nm, nm[0] && edit ? "   " : "", edit ? "EDIT" : "");
-    ui_.drawTitle(g, "Song", right[0] ? right : nullptr);
+    ui_.drawTitle(g, "Song", edit ? "EDIT" : nullptr);
     const int n = length();
     gListTop = wg::listFollow(cursor, n, kRows, gListTop);
     const int first = gListTop;
@@ -875,8 +873,8 @@ void SongScreen::draw(Gfx& g) {
     // [8] empty tile 121212, [9] selection 30cb3f.
     // Rotated column headers (style bit7, font 1).
     const uint32_t white = th.slot(slot::kSongList);
-    const int ft = firstTrack;   // first shown track: 0 or 4 (12-column window)
-    // All 2 x 12 header runs in one turned-text batch (RAM_DL).
+    const int ft = firstTrack;   // first shown track: 0 or 8 (8-column pages)
+    // All 2 x 8 header runs in one turned-text batch (RAM_DL).
     Gfx::RotatedText heads[2 * kGridCols];
     char nums[kGridCols][24];
     for (int c = 0; c < kGridCols; ++c) {
@@ -957,7 +955,7 @@ void SongScreen::draw(Gfx& g) {
     }
 
     // Pattern list: caption, numbers (names after them), selection outline.
-    g.text(516, 59, kFont1, white, "Pattern", IDisplay::kOptCenter);   // [I] over the numbers (stock 565)
+    g.text(kListNameX, 59, kFont1, white, "Pattern", IDisplay::kOptCenterY);   // [I] over the names (stock 565)
     g.text(kCountX, 59, kFont1, white, "Count", IDisplay::kOptCenter);
     g.text(kSceneX, 59, kFont1, white, "Scene", IDisplay::kOptCenter);
     g.text(kRampX, 59, kFont1, white, "Ramp", IDisplay::kOptCenter);
@@ -969,6 +967,14 @@ void SongScreen::draw(Gfx& g) {
         if (slotI == playing)       // ▶ while the song plays, the loop arrow while Shift+Play loops it
             g.icon(kListNumX - 26, cy - 6, loopInSong_ ? kIconLoop : kIconPlay, white);
         g.textf(kListNumX, cy, kFont1, c, IDisplay::kOptCenterY, "%d", num);
+        // [I] #121 the pattern's name ("Am i"), as stock, clipped before Count.
+        if (const char* nm = a.names.get(num); nm[0]) {
+            const int w = kCountX0 - 6 - kListNameX;
+            const bool clipIt = g.textWidth(kFont1, nm) > w;
+            if (clipIt) g.clip(kListNameX, cy - 13, w, 26);
+            g.text(kListNameX, cy, kFont1, c, nm, IDisplay::kOptCenterY);
+            if (clipIt) g.noClip();
+        }
         // [I] Count: the playing slot shows its pass; once is drawn dim.
         const int cnt = a.project.slotCount(slotI);
         if (slotI == playing && cnt > 1)

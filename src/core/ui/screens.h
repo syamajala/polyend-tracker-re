@@ -219,9 +219,11 @@ public:
     // [I] The ramp d encoder detents after `ramp` for a slot of `count` passes.
     static int rampAfter(int ramp, int count, int d);
     int selRow0 = 0, selRows = 1, selTrack0 = 0, selTracks = 1;
-    // 2.x (docs/M1_PLAN.md §4, spec gap 4): the grid shows 12 of the 16
-    // tracks; the first shown track is 0 or 4 and follows the grid cursor.
-    static constexpr int kGridCols = 12;
+    // 2.x (docs/M1_PLAN.md §4, spec gap 4): the grid shows part of the 16
+    // tracks and follows the grid cursor. [I] 8 columns (stock 1.9.x: 12), so
+    // the pages are the sample tracks 1-8 and the MIDI tracks 9-16 and the
+    // list has room for the pattern names.
+    static constexpr int kGridCols = 8;
     int firstTrack = 0;
     int tapCount = 0;
     uint32_t tapT0 = 0;

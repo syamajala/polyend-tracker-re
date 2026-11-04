@@ -7,6 +7,10 @@ patterns added in the order of a chord progression.
 
 ![The Song list with Count, Scene and Ramp columns](../images/song.png)
 
+The track grid shows 8 tracks at a time: tracks 1-8 (the sample tracks), and tracks 9-16
+(the MIDI tracks) once the grid cursor moves past track 8. The space this frees shows each
+pattern's name next to its number, as on stock.
+
 The Song list has four columns: **Pattern**, **Count**, **Scene** and **Ramp**. In edit
 mode (**Rec**), **Right** moves from the list into the columns, **Left** back. **Delete**
 resets the selected value.
@@ -65,10 +69,9 @@ or change the voicing.
 
 ![The Progression list on a new project](../images/song-progressions.png)
 
-![The four slots it adds, with the cursor pattern's name in the title](../images/song-progression-added.png)
+![The four slots it adds, each pattern named after its chord](../images/song-progression-added.png)
 
-- The Song title bar shows the name of the pattern under the cursor, so you can read the
-  chords as you move down the list.
+- The Pattern list shows each pattern's name, so the song reads as its chords.
 - The list shows each progression's chords in the project key, with its numbers (or its
   title) on the right, under a heading per file. **Up / Down** or the encoder pick one,
   **F8** or **Insert** adds it, **F7** or **Left** closes the list.
