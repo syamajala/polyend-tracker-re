@@ -96,6 +96,7 @@ bool parse(const char* line, Progression& out) {
     for (int i = 0; i < n; ++i) {
         out.chords[i].degree = uint8_t((steps[tok[i].value - 1] + tok[i].accidental + 12) % 12);
         out.chords[i].quality = tok[i].quality;
+        out.chords[i].accidental = int8_t(tok[i].accidental);
     }
     out.count = uint8_t(n);
     if (bar) {
@@ -114,9 +115,14 @@ int tonic(const Progression& p, int root, uint8_t scale) {
     const uint16_t m = scaleMask(scale);
     const bool keyMinor = ((m >> 3) & 1) && !((m >> 4) & 1);
     int t = root % 12;
-    if (p.minor && !keyMinor) t += 9;        // the relative minor
-    else if (!p.minor && keyMinor) t += 3;   // the relative major
-    return t % 12;
+    if (p.minor == keyMinor) return t;
+    // A mode of the major scale (Dorian, Mixolydian, ...): its parent major
+    // key, the major scale with the same notes (D Dorian: C).
+    int major = -1;
+    for (int k = 0; k < 12 && major < 0; ++k)
+        if (((m >> k) | (m << (12 - k))) % 4096 == 0xab5) major = (t + k) % 12;
+    if (major < 0) major = keyMinor ? t + 3 : t;   // other scales: as natural minor / major
+    return (p.minor ? major + 9 : major) % 12;     // the major key or its relative minor
 }
 
 int intervals(uint8_t q, int out[kMaxNotes]) {
@@ -130,12 +136,15 @@ int intervals(uint8_t q, int out[kMaxNotes]) {
     return n;
 }
 
-void chordName(int rootPc, uint8_t q, char* out, int cap) {
-    static const char* const kSuffix[kQualityCount] = {"", "m", "dim", "aug", "7", "maj7", "m7", "m7b5", "dim7", "sus2", "sus4"};
-    std::snprintf(out, size_t(cap), "%s%s", pitchClassName(rootPc % 12), kSuffix[q < kQualityCount ? q : 0]);
-}
-
 int chordRoot(const Progression& p, int i, int tonicPc) { return (tonicPc + p.chords[i].degree) % 12; }
+
+void chordName(const Progression& p, int i, int tonicPc, char* out, int cap) {
+    static const char* const kSuffix[kQualityCount] = {"", "m", "dim", "aug", "7", "maj7", "m7", "m7b5", "dim7", "sus2", "sus4"};
+    const Chord& c = p.chords[i];
+    const int root = chordRoot(p, i, tonicPc);
+    const char* pc = noteSpellingAuto() && c.accidental ? pitchClassName(root, c.accidental < 0) : pitchClassName(root);
+    std::snprintf(out, size_t(cap), "%s%s", pc, kSuffix[c.quality < kQualityCount ? c.quality : 0]);
+}
 
 // ---------------------------------------------------------------------------
 // Files
@@ -144,8 +153,9 @@ namespace {
 
 constexpr const char* kHeader =
     "# One progression per line, chords as numbers in the key.\n"
-    "# Upper case = major, lower case = minor; after it 7, maj7, m7, dim, m7b5;\n"
-    "# b or # in front = borrowed (bVII). Text after | is the title.\n";
+    "# Upper case = major, lower case = minor; after it 7, maj7, m7, dim,\n"
+    "# dim7, m7b5, aug, sus2 or sus4. b or # in front = borrowed (bVII).\n"
+    "# Text after | is the title.\n";
 
 struct DefaultFile {
     const char* name;

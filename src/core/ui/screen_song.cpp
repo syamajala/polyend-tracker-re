@@ -42,7 +42,7 @@ void progItem(void*, int i, char* out, int cap) {
     int n = 0;
     for (int c = 0; c < p.count && n < cap; ++c) {
         char nm[16];
-        prog::chordName(prog::chordRoot(p, c, t), p.chords[c].quality, nm, sizeof(nm));
+        prog::chordName(p, c, t, nm, sizeof(nm));
         n += std::snprintf(out + n, size_t(cap - n), c ? "  %s" : "   %s", nm);
     }
 }

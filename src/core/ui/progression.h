@@ -12,7 +12,10 @@
 // sus2 or sus4; b or # in front moves the root a semitone (bVII). A line
 // with a lower-case i is in a minor key (numbers on the natural minor
 // scale), any other in a major key; a progression in the other key than the
-// project's plays in its relative key (I V vi IV in A minor: C G Am F).
+// project's plays in its relative key (I V vi IV in A minor: C G Am F), and
+// in a mode in the mode's parent major key or its relative minor
+// (I V vi IV in D Dorian: C G Am F). With Auto note names a b chord is
+// spelled with flats and a # chord with sharps (bVII in C: Bb).
 // Text after '|' is the title; a line starting with '#' (not #I..) is a comment.
 #pragma once
 
@@ -38,6 +41,7 @@ enum Quality : uint8_t { kMaj, kMin, kDim, kAug, kDom7, kMaj7, kMin7, kHalfDim7,
 struct Chord {
     uint8_t degree = 0;    // semitones above the key's tonic, 0..11
     uint8_t quality = kMaj;
+    int8_t accidental = 0;   // -1 b, +1 #, as written
     char numeral[10] = {};   // as written ("bVII", "ii7")
 };
 
@@ -54,10 +58,11 @@ bool parse(const char* line, Progression& out);
 int tonic(const Progression& p, int root, uint8_t scale);
 // Semitones above the chord root; returns the note count (3 or 4).
 int intervals(uint8_t quality, int out[kMaxNotes]);
-// "Am", "G7", "Bm7b5" (pitch class names in the current spelling).
-void chordName(int rootPc, uint8_t quality, char* out, int cap);
-// Chord i of p in a key: its root pitch class and name.
+// Chord i of p in a key (tonic pitch class): its root pitch class.
 int chordRoot(const Progression& p, int i, int tonicPc);
+// Its name: "Am", "G7", "Bm7b5" (pitch class names in the current spelling;
+// on Auto a b / # chord in flats / sharps).
+void chordName(const Progression& p, int i, int tonicPc, char* out, int cap);
 
 // The list: every progression of every file, files sorted by name.
 struct Library {

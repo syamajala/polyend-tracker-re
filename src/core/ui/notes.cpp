@@ -24,6 +24,7 @@ const char* const kScaleNames[kScaleCount] = {
 const char* const kSharpNames[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 const char* const kFlatNames[12] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
 bool gFlats = false;
+OT_SDRAM_BSS bool gAuto;   // [I] Auto spelling chosen (progression chord names)
 // setNoteSpelling's last inputs packed as a key (0: none yet); Auto is
 // re-derived only when one changes. Main-loop UI state, in SDRAM.
 OT_SDRAM_BSS uint32_t gLastSpellingKey;
@@ -63,13 +64,17 @@ void setNoteSpelling(uint8_t spelling, int root, uint8_t scale) {
     const uint32_t key = uint32_t(spelling + 1) | uint32_t(uint8_t(root)) << 8 | uint32_t(scale) << 16;
     if (key == gLastSpellingKey) return;
     gLastSpellingKey = key;
+    gAuto = spelling == kSpellAuto;
     gFlats = spelling == kSpellFlats || (spelling == kSpellAuto && keyUsesFlats(root, scale));
 }
 
 bool noteSpellingFlats() { return gFlats; }
+bool noteSpellingAuto() { return gAuto; }
 
-const char* pitchClassName(int note) {
-    const char* const* names = gFlats ? kFlatNames : kSharpNames;
+const char* pitchClassName(int note) { return pitchClassName(note, gFlats); }
+
+const char* pitchClassName(int note, bool flats) {
+    const char* const* names = flats ? kFlatNames : kSharpNames;
     return names[((note % 12) + 12) % 12];
 }
 

@@ -107,10 +107,17 @@ i VI III VII | Jungle pads
 - After the number: `7` (a 7th: dominant on upper case, minor on lower), `maj7`, `m7`,
   `dim`, `dim7`, `m7b5`, `aug`, `sus2`, `sus4`.
 - `b` or `#` in front moves the chord a semitone, for chords borrowed from outside the key
-  (`bVII` in C is Bb, shown as A# with sharp note names).
+  (`bVII` in C is Bb). With **Note names** on Auto (Config > General), a `b` chord is
+  named with a flat and a `#` chord with a sharp; with Sharps or Flats, all chords follow
+  that setting (`bVII` in C shows as A# with Sharps).
 - A line with a lower-case `i` is a minor-key progression, any other line a major-key one.
   A major-key progression in a minor project plays in its relative major (`I V vi IV` in
   A minor gives C G Am F), and the other way round.
+- Modes count as minor (Dorian, Phrygian, Locrian) or major (Lydian, Mixolydian) by their
+  third. A progression of the other kind plays in the key with the mode's notes: `I V vi IV`
+  in D Dorian gives C G Am F (D Dorian has the notes of C major), and `i VI III VII` in G
+  Mixolydian gives Am F C G. A progression of the same kind stays on the root: `i IV` in
+  D Dorian is Dm G.
 - Text after `|` is the title shown in the list. Lines starting with `#` are comments.
   Lines that can't be read are skipped; the list says how many.
 

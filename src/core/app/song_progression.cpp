@@ -44,7 +44,7 @@ int App::insertProgression(const prog::Progression& p, int after, const char** w
     char name[prog::kMaxChords][16];
     int fresh = 0;
     for (int i = 0; i < p.count; ++i) {
-        prog::chordName(prog::chordRoot(p, i, tonic), p.chords[i].quality, name[i], sizeof(name[i]));
+        prog::chordName(p, i, tonic, name[i], sizeof(name[i]));
         for (int n = 1; n <= kPatternCount && !num[i]; ++n)
             if (nameIsChord(names.get(n), name[i])) num[i] = uint8_t(n);
         bool dup = false;

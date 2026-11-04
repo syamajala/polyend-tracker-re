@@ -15,7 +15,7 @@
 using namespace ot;
 
 namespace {
-constexpr uint8_t kMinor = 1, kMajor = 2;   // scaleName order (spec 16 §B.2)
+constexpr uint8_t kMinor = 1, kMajor = 2, kDorian = 3, kPhrygian = 7, kMixolydian = 9, kHarmMinor = 11;   // scaleName order (spec 16 §B.2)
 constexpr uint8_t kRootA = 9, kRootC = 0;   // root options C1.. (pitch class = option % 12)
 
 // The chord names in a key ("Am F C G"); valid until the next call.
@@ -25,7 +25,7 @@ const char* names(const prog::Progression& p, int root, uint8_t scale) {
     const int t = prog::tonic(p, root, scale);
     for (int i = 0; i < p.count; ++i) {
         char n[16];
-        prog::chordName(prog::chordRoot(p, i, t), p.chords[i].quality, n, sizeof(n));
+        prog::chordName(p, i, t, n, sizeof(n));
         out += (i ? " " : "") + std::string(n);
     }
     return out.c_str();
@@ -85,6 +85,49 @@ TEST(progression_relative_key) {
     // Chromatic counts as major.
     CHECK(prog::parse("I IV V", p));
     CHECK_STR(names(p, kRootC + 2, 0), "D G A");
+}
+
+TEST(progression_modes) {
+    setNoteSpelling(kSpellSharps, 0, 0);
+    prog::Progression p;
+    // In the mode's own key quality the progression stays on its root (the Dorian vamp).
+    CHECK(prog::parse("i IV", p));
+    CHECK_STR(names(p, kRootC + 2, kDorian), "Dm G");
+    // The other quality plays in the parent major key or its relative minor,
+    // so its chords use the mode's notes.
+    CHECK(prog::parse("I V vi IV", p));
+    CHECK_STR(names(p, kRootC + 2, kDorian), "C G Am F");
+    CHECK_STR(names(p, kRootC + 4, kPhrygian), "C G Am F");
+    CHECK(prog::parse("i VI III VII", p));
+    CHECK_STR(names(p, kRootC + 7, kMixolydian), "Am F C G");
+    // Not a mode of the major scale: as natural minor.
+    CHECK(prog::parse("I V vi IV", p));
+    CHECK_STR(names(p, kRootA, kHarmMinor), "C G Am F");
+}
+
+TEST(progression_auto_spelling) {
+    prog::Progression p;
+    CHECK(prog::parse("I bVII IV", p));
+    CHECK(prog::parse("i bII", p));
+    // Auto: a b chord in flats, a # chord in sharps, the rest in the key's spelling.
+    setNoteSpelling(kSpellAuto, kRootA, kMinor);
+    CHECK_STR(names(p, kRootA, kMinor), "Am Bb");
+    CHECK(prog::parse("I bVII IV #IV", p));
+    setNoteSpelling(kSpellAuto, kRootC, kMajor);
+    CHECK_STR(names(p, kRootC, kMajor), "C Bb F F#");
+    CHECK(prog::parse("i iv v", p));
+    setNoteSpelling(kSpellAuto, kRootC, kMinor);
+    CHECK_STR(names(p, kRootC, kMinor), "Cm Fm Gm");
+    CHECK(prog::parse("i VI", p));
+    CHECK_STR(names(p, kRootC, kMinor), "Cm Ab");
+    // A chosen spelling wins.
+    CHECK(prog::parse("I bVII", p));
+    setNoteSpelling(kSpellSharps, kRootC, kMajor);
+    CHECK_STR(names(p, kRootC, kMajor), "C A#");
+    setNoteSpelling(kSpellFlats, kRootC, kMajor);
+    CHECK(prog::parse("I #IV", p));
+    CHECK_STR(names(p, kRootC, kMajor), "C Gb");
+    setNoteSpelling(kSpellSharps, 0, 0);
 }
 
 TEST(progression_defaults_written_and_read) {

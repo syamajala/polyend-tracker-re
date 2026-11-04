@@ -21,8 +21,11 @@ bool keyUsesFlats(int root, uint8_t scale);
 // Cheap to call every UI pass: it recomputes only when an argument changed.
 void setNoteSpelling(uint8_t spelling, int root, uint8_t scale);
 bool noteSpellingFlats();
+bool noteSpellingAuto();
 // Pitch class text without octave: "C", "C#" / "Db", ... (current spelling).
 const char* pitchClassName(int note);
+// The same in a given spelling.
+const char* pitchClassName(int note, bool flats);
 
 uint16_t scaleMask(uint8_t scale);
 const char* scaleName(uint8_t scale);   // stock names (spec 16 §B.2)
