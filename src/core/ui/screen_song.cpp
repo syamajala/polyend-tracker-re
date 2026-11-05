@@ -797,7 +797,7 @@ void SongScreen::insertSelectedProgression() {
         return;
     }
     progOpen = false;
-    cursor = first;
+    cursor = first + p.count - 1;   // the next Insert follows the progression
     focus = 1;
     char t[48];
     std::snprintf(t, sizeof(t), "Progression added: %d slots", p.count);

@@ -157,6 +157,16 @@ bool previewPtiStart(App& a, const char* path) {
     return true;
 }
 
+bool previewStreamStart(App& a, const char* path);
+
+// [I] #3 An .sfz previews its sample nearest middle C (C4 = 60), streamed
+// like a WAV (the whole file: the region's offset / end aren't applied).
+bool previewSfzStart(App& a, const char* path) {
+    char wav[340];
+    if (!a.multisamplePreviewPath(path, 60, wav, sizeof(wav))) return false;
+    return previewStreamStart(a, wav);
+}
+
 bool previewStreamStart(App& a, const char* path) {
     previewStreamStop(a);
     PreviewStream& p = previewStream();
@@ -874,6 +884,7 @@ void LoaderScreen::moveCursor(int d) {
                 entryPath(nc, path, sizeof(path));
                 if (hasExt(path, ".wav")) previewStreamStart(app_, path);
                 else if (hasExt(path, ".pti")) previewPtiStart(app_, path);
+                else if (hasExt(path, ".sfz")) previewSfzStart(app_, path);
             }
         }
     } else if (focus == 1) {
@@ -997,6 +1008,7 @@ void LoaderScreen::onButton(uint8_t id, uint8_t state) {
                     entryPath(sdCursor, path, sizeof(path));
                     if (hasExt(path, ".wav")) previewStreamStart(a, path);
                     else if (hasExt(path, ".pti")) previewPtiStart(a, path);
+                    else if (hasExt(path, ".sfz")) previewSfzStart(a, path);
                     previewing_ = true;
                 }
             } else if (state == kRelease) {

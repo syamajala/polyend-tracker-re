@@ -468,13 +468,24 @@ TEST(progression_song_screen_insert) {
     CHECK(!s.progOpen);
     CHECK_STR(a.names.get(2), "F VI");
     CHECK_EQ(a.project.playlist[3], 4);
-    CHECK_EQ(s.cursor, 0);
-    // The title shows the cursor slot's pattern name.
+    // The cursor ends on the last added slot; the title shows its pattern name.
+    CHECK_EQ(s.cursor, 3);
     h.run(50);
-    CHECK(h.disp.lastHasText("Am i"));
+    CHECK(h.disp.lastHasText("G VII"));
+    h.tap(btn::Up);
+    h.run(50);
+    CHECK(h.disp.lastHasText("C III"));
     h.tap(btn::Down);
-    h.run(50);
-    CHECK(h.disp.lastHasText("F VI"));
+    // The next Insert follows the progression instead of splitting it (device
+    // test: a Wide chorus landed between the verse's first and second chord).
+    h.tap(btn::Insert);
+    h.tap(btn::F6);
+    h.tap(btn::F6);   // Wide
+    h.tap(btn::F8);
+    CHECK_STR(a.names.get(a.project.playlist[3]), "G VII");
+    CHECK_STR(a.names.get(a.project.playlist[4]), "Am i Wide");
+    CHECK_STR(a.names.get(a.project.playlist[7]), "G VII Wide");
+    CHECK_EQ(s.cursor, 7);
 }
 
 namespace {

@@ -4,6 +4,7 @@
 // each on its slice point, as one mono Slice instrument with a zone map.
 #include <cstddef>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <new>
 
@@ -86,6 +87,22 @@ int App::multisampleProbe(const char* sfzPath, ms::Candidate* out, int cap) {
         out[n++] = ms::Candidate{r.root, uint8_t(i), frames};
     }
     return ms::uniqueByRoot(out, n);
+}
+
+bool App::multisamplePreviewPath(const char* sfzPath, int note, char* out, size_t cap) {
+    const SfzParse p = readSfz(sfzPath);
+    if (!p.file) return false;
+    int best = -1, bestDist = 1000;
+    for (int i = 0; i < p.file->count; ++i) {
+        const sfz::Region& r = p.file->regions[i];
+        // In range first, then the nearest root (make_sfz.py regions span every key).
+        const int d = (note >= r.lokey && note <= r.hikey ? 0 : 200) + std::abs(note - int(r.root));
+        if (d < bestDist && sfz::samplePath(p.text, *p.file, r, sfzPath, out, cap) && fs().exists(out)) {
+            best = i;
+            bestDist = d;
+        }
+    }
+    return best >= 0 && sfz::samplePath(p.text, *p.file, p.file->regions[best], sfzPath, out, cap);
 }
 
 uint32_t App::multisampleFreeFrames(int slot) const {
