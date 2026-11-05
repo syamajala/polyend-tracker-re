@@ -125,7 +125,9 @@ pattern.
 That pattern is made to be resampled and chopped, the way a sampled record is flipped:
 
 1. Play it with the sound you want, then resample it from Master for as many bars as it
-   has chords (see [Resampling](resampling.md)), with **Slices** on.
+   has chords (see [Resampling](resampling.md)), with **Slices: Step hits**. The slices go
+   where a new sound starts, so a sound with a slow fade-in may not mark every chord
+   change; take it with a sharper sound (or a shorter attack) instead.
 2. The take is a Beat Slice instrument with a slice per chord: pad 1 plays the first chord,
    pad 2 the second, each at its own pitch.
 3. Put the slices in a new order, cut them short, or play them with the Performance FX.
