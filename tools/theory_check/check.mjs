@@ -74,5 +74,32 @@ for (const [, root, scaleName, key, line, names, outside] of text.matchAll(mode)
   }
 }
 
+// Chord hints: the triad stacked on the scale's notes, and the alternate
+// major / minor chord (the 3rd a chromatic semitone the other way, same letter).
+const hint = /^HINT_CASE\("([^"]*)", "([^"]*)", "([^"]*)", "([^"]*)", "([^"]*)", "([^"]*)"\)/gm;
+for (const [, root, scaleName, chordRoot, name, notes, alt] of text.matchAll(hint)) {
+  ++rows;
+  const sc = Scale.get(`${root} ${scaleName}`).notes;
+  const d = sc.indexOf(chordRoot);
+  const fail = (what) => { console.log(`FAIL ${root} ${scaleName} ${chordRoot}: ${what}`); ++bad; };
+  if (sc.length !== 7 || d < 0) { fail(`not a degree of ${sc.join(" ")}`); continue; }
+  const triad = [sc[d], sc[(d + 2) % 7], sc[(d + 4) % 7]];
+  if (triad.join(" ") !== notes) fail(`Tonal notes ${triad.join(" ")}, case ${notes}`);
+  // The name's chord part ("E#dim" of "E#dim  vii") is what Tonal detects.
+  const want = name.split("  ")[0];
+  const found = Chord.detect(triad).map((n) => n.replace(/M$/, ""));
+  if (!found.includes(want)) fail(`Tonal detects ${found.join(", ")}, case ${want}`);
+  // Roman numeral: the degree, upper case for major and aug.
+  const num = name.split("  ")[1];
+  const q = Chord.get(want).quality;
+  const roman = ["I", "II", "III", "IV", "V", "VI", "VII"][d];
+  const wantNum = q === "Major" || q === "Augmented" ? roman : roman.toLowerCase();
+  if (num !== wantNum) fail(`numeral ${num}, Tonal quality ${q} on degree ${d + 1}: ${wantNum}`);
+  let altNotes = "";
+  if (q === "Major" || q === "Minor")
+    altNotes = [triad[0], Note.transpose(triad[1], q === "Major" ? "-1A" : "1A"), triad[2]].join(" ");
+  if (altNotes !== alt) fail(`alternate ${altNotes || "none"}, case ${alt || "none"}`);
+}
+
 console.log(`${rows} rows, ${bad} mismatches`);
 process.exit(bad || !rows ? 1 : 0);

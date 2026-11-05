@@ -14,6 +14,7 @@
 #include "hal_api.h"
 #include "ui/buttons.h"
 #include "ui/gfx.h"
+#include "ui/notes.h"
 #include "ui/screen_factory.h"
 #include "ui/screen_usb_storage.h"
 #include "ui/theme.h"
@@ -541,6 +542,10 @@ private:
     bool songTemporary_ = false;          // Song entered by a hold: release goes back
     uint64_t down_ = 0;
     uint64_t pads_ = 0;
+    int8_t chordPad_ = -1;   // [I] chord hints: the first pad held (-1 = none)
+    bool chordNotice_ = false;   // the notice shows the held chord's name
+    bool chordHint(ScaleChord& out);
+    void chordHintNotice(bool press);
     uint64_t holdSent_ = 0;
     uint32_t downAt_[64] = {};
     uint32_t now_ = 0;

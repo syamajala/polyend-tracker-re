@@ -38,6 +38,30 @@ const char* scaleName(uint8_t scale);   // stock names (spec 16 §B.2)
 bool isInScale(int note, int root, uint8_t scale);
 // Root note option 0..36 = C1..C4; the root pitch class is root % 12.
 
+// [I] Chord hints: the chord on `note` that fits the scale, built by stacking
+// every other scale note (root, 3rd, 5th; C major: D -> D F A). False when the
+// note is outside the scale or the scale has no thirds to stack (Chromatic).
+struct ScaleChord {
+    uint8_t pc[3];     // pitch classes: root, 3rd, 5th
+    uint8_t degree;    // 0-based scale degree of the root
+    uint8_t degrees;   // notes in the scale (Roman numerals only for 7)
+    int8_t letter[3];  // Auto spelling in 7-note scales: each note's letter (0 = C), else -1
+};
+// With Auto note names a 7-note scale is spelled one letter per degree from
+// the root's (F# major: F# G# A# B C# D# E#), so the chord's notes are too.
+bool scaleTriad(int note, int root, uint8_t scale, ScaleChord& out);
+// Note j (0 root, 1 3rd, 2 5th) of a chord: by its letter, else the name table.
+const char* chordToneName(const ScaleChord& c, int j);
+// "Dm  ii", "Bdim  vii", "Caug": chord name and, in 7-note scales, the Roman
+// numeral; unusual stacks list their notes ("D F# B").
+void scaleTriadName(const ScaleChord& c, char* out, int cap);
+// [I] The alternate major / minor chord on the same root: a major triad's 3rd
+// lowered to minor, a minor triad's raised to major (A minor: Em -> E, the
+// major V of harmonic minor; C major: F -> Fm). Its notes keep their letters
+// (E G# B). Just the other quality, not a chord picked from another mode.
+// False for dim and aug.
+bool alternateTriad(const ScaleChord& in, ScaleChord& out);
+
 // Pad -> note table (spec 05 §4.1). Physical pad index = row*12 + col, row 0 = top.
 class PadNotes {
 public:
