@@ -37,8 +37,10 @@ Tracker's master bus, the same signal Resample From Master takes:
   without changing the recording level.
 - **Line in** is in it when unmuted in the Global Mixer, so the Tracker also works as the
   sound card for whatever is plugged into it.
-- Not in it: the metronome, file preview, and the computer's own USB audio. A DAW that
-  records the Tracker while playing through it doesn't record its own playback again.
+- **File preview** is in it (Sample Loader Preview, the Preview buttons), so you can audition
+  samples when you listen over USB.
+- Not in it: the metronome and the computer's own USB audio. A DAW that records the
+  Tracker while playing through it doesn't record its own playback again.
 
 Nothing to turn on: it's sent while the computer records.
 

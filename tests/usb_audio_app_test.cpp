@@ -271,6 +271,21 @@ TEST(send_is_the_master_bus_without_usb_in) {
     CHECK_NEAR(double(settleSend(h)), double(line), 2.0);
 }
 
+// [I] The file preview (Loader Preview, Preview buttons) is sent too: it's
+// heard when the Tracker is monitored over USB.
+TEST(send_has_the_file_preview) {
+    Harness h;
+    App& a = *h.app;
+    h.usbRecording = true;
+    CHECK_EQ(settleSend(h), 0);
+    static int16_t dc[48000];
+    for (int16_t& v : dc) v = 8000;
+    a.engine.previewBuffer(dc, 48000, false);
+    CHECK(settleSend(h) > 1000);
+    a.engine.previewStop();
+    CHECK_EQ(settleSend(h), 0);
+}
+
 // Offline renders (export) never reach the computer.
 TEST(send_live_only) {
     Harness h;
