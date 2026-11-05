@@ -195,8 +195,8 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
   health, and per-take resample diagnostics.
 
 ### Build and memory
-- **Games are off by default** in this fork's builds (`make OT_GAMES=1` builds them); this
-  frees 5.8 KB of SRAM and ~49 KB of flash for the features above.
+- **Games are gone** (removed with the 3.x merge, as upstream); they had been off by default
+  since 2.2.1, which freed 5.8 KB of SRAM and ~49 KB of flash for the features above.
 - The UI screens live in SDRAM instead of the SRAM heap, and the stack reserve is 75 KiB
   (measured peak use: 18 KB).
 - **CI** builds and tests every push and pull request; tagged versions are released
@@ -413,7 +413,7 @@ See `AGENTS.md` for the full rules.
   clicks now and then).
 - Live resampling from Line In starts 10–14 ms late (the round trip through external gear);
   compensation is planned.
-- Games (the game-music player) is not in the release image since 2.2.1.
+- Games (the game-music player) is not in the release image since 2.2.1 and is removed in 3.x.
 - Stream from card is new and Off by default; please report anything odd when you turn it on.
 - A couple of Performance screen issues are still open (among them the global Pattern length
   in Song mode); fixes are planned.

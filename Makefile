@@ -7,7 +7,6 @@
 # make perf-gate  -> bench-m4 instruction counts vs tests/perf_baseline.txt (+5 % max), engine
 #                    limits, flash <= 800,000 B, host bench, telemetry thresholds on LOG=<device log>
 #                    (docs/HARDWARE_TESTING.md)
-# OT_GAMES=1      -> image with Games (NES player, screen, menu entry; build dir build/<profile>/games); off by default since 2.2.1
 # OT_SDRAM_CACHE=0 -> image without the LMEM system cache for the SDRAM (build dir build/nocache)
 # OT_FASTRUN=0    -> image with all audio code in flash (no .fastrun in SRAM_L; build dir build/nofastrun)
 # OT_USB_MSC=0    -> image without the USB mass-storage interface (old MIDI + Serial descriptors;
@@ -50,14 +49,6 @@ endif
 OT_FASTRUN ?= 1
 ifeq ($(OT_FASTRUN),0)
 BUILD     := $(BUILD)/nofastrun
-endif
-# Games (spec 14): 1 = NES player + Games screen + menu entry (2.0.0 - 2.2.0
-# default), 0 = compiled out (docs/OPTIMIZATION_2X.md OP-4). Off by default
-# since 2.2.1 (owner decision): -48.9 KB flash, -5.8 KB RAM (stack headroom for
-# SD streaming). Host tests and the simulator still build it. Own build dir.
-OT_GAMES ?= 0
-ifeq ($(OT_GAMES),1)
-BUILD     := $(BUILD)/games
 endif
 # Stack guard test build (src/hal/stack_guard.h): 1 = with
 # /Firmware/ot_guardtest.txt on the card, overflows the stack once on purpose.
@@ -109,7 +100,7 @@ CPUFLAGS  := -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
 DEFS      := -D__MK66FX1M0__ -DF_CPU=180000000 -DUSB_MIDI_SERIAL -DLAYOUT_US_ENGLISH \
              -DF_BUS=90000000 -DSERIAL5_TX_BUFFER_SIZE=512 -DSERIAL5_RX_BUFFER_SIZE=512 \
              -DTEENSYDUINO=159 -DARDUINO=10819 -DOT_VERSION=\"$(VERSION)\" -DOT_TARGET_DEVICE=1 \
-             -DOT_SDRAM_CACHE=$(OT_SDRAM_CACHE) -DOT_GAMES=$(OT_GAMES) -DOT_FASTRUN=$(OT_FASTRUN) -DOT_USB_MSC=$(OT_USB_MSC) -DOT_USB_AUDIO=$(OT_USB_AUDIO) -DOT_STACK_GUARD_TEST=$(OT_STACK_GUARD_TEST) -DOT_REMOTE_REGS=$(OT_REMOTE_REGS) -DOT_FONTS_COMPRESSED=1 $(USB_ID) $(DEFS_EXTRA) $(MOD_DEFS)
+             -DOT_SDRAM_CACHE=$(OT_SDRAM_CACHE) -DOT_FASTRUN=$(OT_FASTRUN) -DOT_USB_MSC=$(OT_USB_MSC) -DOT_USB_AUDIO=$(OT_USB_AUDIO) -DOT_STACK_GUARD_TEST=$(OT_STACK_GUARD_TEST) -DOT_REMOTE_REGS=$(OT_REMOTE_REGS) -DOT_FONTS_COMPRESSED=1 $(USB_ID) $(DEFS_EXTRA) $(MOD_DEFS)
 INCS      := -I$(CORE) -Isrc -Isrc/core -Isrc/hal -Ithird_party/fatfs $(MOD_INCS)
 COMMON    := $(CPUFLAGS) $(DEFS) $(INCS) -O2 -g -ffunction-sections -fdata-sections -Wall -MMD -fstack-usage
 CFLAGS    := $(COMMON) -std=gnu11
@@ -125,9 +116,6 @@ CORE_C    := $(wildcard $(CORE)/*.c)
 CORE_CXX  := $(filter-out $(CORE)/main.cpp $(CORE)/usb_audio.cpp,$(wildcard $(CORE)/*.cpp))
 APP_C     := $(shell find src -name '*.c') third_party/fatfs/ff.c third_party/fatfs/ffunicode.c
 APP_CXX   := $(shell find src -name '*.cpp')
-ifeq ($(OT_GAMES),0)
-APP_CXX   := $(filter-out src/core/games/%,$(APP_CXX))
-endif
 OBJS      := $(patsubst %,$(BUILD)/%.o,$(CORE_C) $(CORE_CXX) $(APP_C) $(APP_CXX))
 # Profile modules (profile.mk): sources from MODULES_DIR and the generated
 # registry, found through vpath; -O2 (audio path). The .fastrun groups in
@@ -136,23 +124,18 @@ MOD_OBJS  := $(patsubst %.cpp,$(BUILD)/mod/%.cpp.o,$(MOD_SRCS))
 OBJS      += $(MOD_OBJS)
 
 # Size optimization per directory (docs/OPTIMIZATION_2X.md OP-4): UI, app,
-# HAL, games, formats, remote control and FatFs build with -Os; everything on the audio /
+# HAL, formats, remote control and FatFs build with -Os; everything on the audio /
 # sequencer path or in an interrupt handler keeps -O2:
 #  - src/core/audio, src/core/sequencer, src/core/model (pattern assembly runs in
 #    the audio block on a pattern switch), the Teensy core (USB / DMA ISRs);
 #  - app.cpp (App::preBlock, ISequencerHost callbacks), capture.cpp (recorder
 #    tap in the audio block), render.cpp (offline engine render loop);
-#  - games/session.cpp (IAudioOut callback while gaming). The NES core builds
-#    with -Os (-8.3 KB): its interpreter loop is always_inline either way;
-#    QEMU -icount: +5..6 % instructions per emulated frame (1.60 -> 1.69 M,
-#    56 % of a 60.1 Hz frame at 180 MHz; the session drops frames beyond).
 #  - hal: ft81x.cpp (display SPI/DMA), sdhc.cpp (SD transfers), sdram_cache.cpp,
 #    audio_sgtl5000.cpp (I2S DMA ISRs), diag.cpp (USB drain / fault handler ISR),
 #    board.cpp (PORTC ISR), usb_storage.cpp (USB interrupt hook, SD block I/O for the computer).
-OS_DIRS   := src/core/ui/% src/core/app/% src/hal/% src/core/games/% src/core/formats/% src/core/remote/% \
+OS_DIRS   := src/core/ui/% src/core/app/% src/hal/% src/core/formats/% src/core/remote/% \
              third_party/fatfs/%
 O2_KEEP   := src/core/app/app.cpp src/core/app/capture.cpp src/core/app/render.cpp \
-             src/core/games/session.cpp \
              src/hal/ft81x.cpp src/hal/sdhc.cpp src/hal/sdram_cache.cpp src/hal/audio_sgtl5000.cpp \
              src/hal/diag.cpp src/hal/board.cpp src/hal/usb_storage.cpp src/hal/usb_audio.cpp
 OS_SRCS   := $(filter-out $(O2_KEEP),$(filter $(OS_DIRS),$(APP_C) $(APP_CXX)))

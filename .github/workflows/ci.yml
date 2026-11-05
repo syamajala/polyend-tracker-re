@@ -1,4 +1,4 @@
-# Host unit tests, headless simulator checks, the firmware build (Games off)
+# Host unit tests, headless simulator checks, the firmware build
 # with the flash / stack-headroom / libm checks, and the .ptf image as a
 # downloadable artifact.
 # On pull requests also a memory report: flash, SRAM, SDRAM and stack
@@ -171,7 +171,7 @@ jobs:
           path: build/full/sim/eve
           if-no-files-found: ignore
 
-  # The fork's build: Games off (the default; OT_GAMES=1 is not built here).
+  # The fork's build (the full profile).
   firmware:
     runs-on: ubuntu-24.04
     timeout-minutes: 20   # normally a few minutes; a stuck step (apt) otherwise holds the runner 6 h

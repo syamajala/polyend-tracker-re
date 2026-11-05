@@ -120,7 +120,7 @@ def main(argv):
     ap.add_argument("head")
     ap.add_argument("--size-tool", default="arm-none-eabi-size")
     ap.add_argument("--nm-tool", default=None)
-    ap.add_argument("--title", default="Firmware memory (Games off)")
+    ap.add_argument("--title", default="Firmware memory")
     a = ap.parse_args(argv)
     nm = a.nm_tool or (a.size_tool[:-4] + "nm" if a.size_tool.endswith("size") else "nm")
     try:

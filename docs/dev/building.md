@@ -40,7 +40,6 @@ lengths), so it carries the version digits only.
 
 | Option | Builds |
 |---|---|
-| `OT_GAMES=1` | an image with Games (off by default in this fork: it frees 5.8 KB of SRAM and ~49 KB of flash); build dir `build/full/games` |
 | `OT_STACK_GUARD_TEST=1` | a stack guard test image: with `/Firmware/ot_guardtest.txt` on the card it overflows the stack once on purpose, and the next boot logs PASSED / FAILED; build dir `build/full/guardtest` |
 | `SELFTEST=1` | a hardware bring-up image that always runs the selftest |
 | `OT_SDRAM_CACHE=0`, `OT_FASTRUN=0`, `OT_USB_MSC=0` | diagnostic variants (no SDRAM cache, all audio code in flash, no USB mass storage) |

@@ -72,8 +72,7 @@ OpenTracker (one MIT exception below).
 - Audio changes: `make perf-gate`. Size checks: `tools/telemetry_check.py size` and `frames`.
 - Test in the simulator and on the host first. Use the device only for sound, real CPU and
   stack use, pads/LEDs, codec and SD timing, and batch device tests into one flash.
-- Games are off by default (`OT_GAMES=1` builds them into `build/games`). Say which one
-  you measured when you quote memory numbers.
+- Games (the NES player) are gone since the 3.x merge, as upstream.
 - Stack guard: `/Firmware/ot_noguard.txt` on the card turns it off, and
   `make OT_STACK_GUARD_TEST=1` builds the overflow self-test image.
 - Memory tools: `tools/size_report.py <base.elf> <head.elf>` prints the same table as the CI
