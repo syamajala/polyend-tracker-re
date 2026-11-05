@@ -1165,6 +1165,10 @@ side, and only upstream's other changes need applying on top
   scene banks (<code>formats/perf_bank.h</code>). Both use <code>key = value</code> lines, <code>#</code> comments and
   ignore unknown keys, so later versions can add keys. The shipped MIDI presets are in
   <code>midi_presets/</code>; host tests parse each one.</li>
+<li><code>Progressions/&lt;Group&gt;.txt</code> (Song mode progressions, <code>ui/progression.h</code>) is one
+  progression per line in scale numbers, not <code>key = value</code>. The built-in files are
+  compiled in (<code>prog::defaultText</code>) and written only when the folder has no <code>.txt</code> file,
+  never over an existing one.</li>
 </ul>
 <h2 id="code-conventions">Code conventions<a class="headerlink" href="#code-conventions" title="Permanent link">&para;</a></h2>
 <ul>

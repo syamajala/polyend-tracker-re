@@ -866,6 +866,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#music-theory-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Music theory cases
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#remote-scripts" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1047,6 +1058,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#music-theory-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Music theory cases
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#remote-scripts" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1151,6 +1173,17 @@ the codec and Line in, SD timing). Batch device tests so one flash covers severa
 </tr>
 </tbody>
 </table>
+<h2 id="music-theory-cases">Music theory cases<a class="headerlink" href="#music-theory-cases" title="Permanent link">&para;</a></h2>
+<p>Chord names and notes the tests expect (progressions, chord hints) are rows in
+<code>tests/theory_cases.inc</code>, so they aren't taken from our own code: the host tests read the
+rows, and <code>tools/theory_check/check.mjs</code> checks the same rows against the
+<a href="https://github.com/tonaljs/tonal">Tonal</a> library (letter spelling, chord notes, minor
+keys with harmonic minor's leading tone). After adding or changing a row:</p>
+<div class="highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>tools/theory_check<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>npm<span class="w"> </span>ci<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>node<span class="w"> </span>check.mjs
+</code></pre></div>
+<p>It needs Node and the network for <code>npm ci</code>, so it isn't part of <code>make host-test</code>. Tonal
+only checks the theory: how a progression's key is picked and where it plays in a project
+scale are our own rules, tested in <code>tests/progression_test.cpp</code>.</p>
 <h2 id="remote-scripts">Remote scripts<a class="headerlink" href="#remote-scripts" title="Permanent link">&para;</a></h2>
 <p>Scripts in <code>tools/remote_scripts/</code> drive the app through
 <a href="../../guide/remote-control/#drive-mode-scripts"><code>tracker_remote.py</code></a> and are written to run

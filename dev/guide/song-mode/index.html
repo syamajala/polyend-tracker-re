@@ -560,6 +560,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#progressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progressions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Progressions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#voicing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Voicing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-progression-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The progression files
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#saved-with-the-project" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1091,6 +1130,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#progressions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progressions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Progressions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#voicing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Voicing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-progression-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The progression files
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#saved-with-the-project" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1135,8 +1213,12 @@
 <h1 id="song-mode">Song mode<a class="headerlink" href="#song-mode" title="Permanent link">&para;</a></h1>
 <p>The Song screen arranges patterns into a list of slots. The fork adds <strong>repeat counts</strong>,
 a <strong>Performance scene per slot</strong>, and <strong>fader ramps</strong> between two scenes, so a song can be
-arranged with performance changes without copying patterns.</p>
+arranged with performance changes without copying patterns, and <strong>progressions</strong>: chord
+patterns added in the order of a chord progression.</p>
 <p><img alt="The Song list with Count, Scene and Ramp columns" src="../../images/song.png" /></p>
+<p>The track grid shows 8 tracks at a time: tracks 1-8 (the sample tracks), and tracks 9-16
+(the MIDI tracks) once the grid cursor moves past track 8. The space this frees shows each
+pattern's name next to its number, as on stock.</p>
 <p>The Song list has four columns: <strong>Pattern</strong>, <strong>Count</strong>, <strong>Scene</strong> and <strong>Ramp</strong>. In edit
 mode (<strong>Rec</strong>), <strong>Right</strong> moves from the list into the columns, <strong>Left</strong> back. <strong>Delete</strong>
 resets the selected value.</p>
@@ -1197,6 +1279,124 @@ resets the selected value.</p>
 <li><strong>Song + Right</strong> jumps from the track grid straight to the Pattern list; <strong>Song + Left</strong>
   goes back into the grid (edit mode). <strong>Shift + Left / Right</strong> still sizes the grid
   selection.</li>
+</ul>
+<h2 id="progressions">Progressions<a class="headerlink" href="#progressions" title="Permanent link">&para;</a></h2>
+<p>A common way to write chords on the Tracker is one chord per pattern, each pattern named
+after its chord, with Song mode putting them in order. <strong>Insert</strong> (in edit mode) does that
+for you: pick a progression and it adds the slots, with a named pattern for each chord.</p>
+<p>For example, in A minor (Config &gt; Project Settings: Root note A, Scale Minor), press
+<strong>Rec</strong>, then <strong>Insert</strong>, pick <code>Am  F  C  G   i VI III VII</code> and press <strong>F8 Insert</strong>. Four
+slots appear after the cursor, playing four patterns named <code>Am i</code>, <code>F VI</code>, <code>C III</code> and
+<code>G VII</code>, each with its chord on step 1 of tracks 1-3, using the current instrument. The
+cursor ends on the last of them, so a second Insert (a chorus, say) follows on. Press
+<strong>F2 Play Song</strong> to hear it, then open each pattern to give the chord a rhythm, add drums,
+or change the voicing.</p>
+<p><img alt="The Progression list on a new project" src="../../images/song-progressions.png" /></p>
+<p><img alt="The four slots it adds, each pattern named after its chord" src="../../images/song-progression-added.png" /></p>
+<ul>
+<li>The Pattern list shows each pattern's name, so the song reads as its chords.</li>
+<li>The list shows each progression's chords in the project key, with its numbers (or its
+  title) on the right, under a heading per file. <strong>Up / Down</strong> or the encoder pick one,
+  <strong>F8</strong> or <strong>Insert</strong> adds it, <strong>F7</strong> or <strong>Left</strong> closes the list.</li>
+<li>A chord that already has a pattern named after it reuses that pattern (only the name's
+  first word is checked, so a pattern you called <code>F</code> counts as F). A chord that comes twice
+  in a progression gets one pattern.</li>
+<li>New chords go into empty, unnamed patterns that aren't in the song yet. Nothing you made
+  is overwritten. If the cursor slot holds an empty, unnamed pattern (a new project's
+  slot 1), the progression starts there instead of after it.</li>
+<li>New patterns take the track lengths of the cursor slot's pattern. Sevenths use tracks 1-4.</li>
+<li>The numbers are worked out from the key when you add the progression. Changing the key
+  later leaves the pattern names as they are.</li>
+</ul>
+<h3 id="voicing">Voicing<a class="headerlink" href="#voicing" title="Permanent link">&para;</a></h3>
+<p>The same chord can be stacked in different shapes: Am is A, C and E, close together or
+spread out. <strong>F6 Voicing</strong> in the list picks the shape before you press <strong>F8</strong>. Each press
+shows the first two chords' notes, for example <code>Smooth: Am A4 C5 E5 &gt; F A4 C5 F5</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Voicing</th>
+<th>What it writes</th>
+<th>Good for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Smooth</strong></td>
+<td>each chord in the shape closest to the one before, so the notes move little (A and C stay from Am to F)</td>
+<td>pads and keys; the default</td>
+</tr>
+<tr>
+<td><strong>Block</strong></td>
+<td>every chord in root position, root in the C4 octave</td>
+<td>stabs, a plain chord sound</td>
+</tr>
+<tr>
+<td><strong>Wide</strong></td>
+<td>the root an octave lower, then the 5th, the 3rd an octave up</td>
+<td>big pads, strings</td>
+</tr>
+<tr>
+<td><strong>Bass</strong></td>
+<td>the root an octave lower on its own track, the chord above it (Smooth)</td>
+<td>giving the bass its own instrument afterwards; uses one more track</td>
+</tr>
+</tbody>
+</table>
+<p><img alt="Voicing on F6, with the first chords' notes" src="../../images/song-progression-voicing.png" /></p>
+<ul>
+<li>A voicing other than Smooth adds its name to each pattern's name (<code>Am i Wide</code>), and
+  a chord is only reused from a pattern with the same voicing. So you can insert a verse
+  Smooth and a chorus Wide, and the chorus gets its own patterns:</li>
+</ul>
+<p><img alt="The same progression Smooth, then Wide" src="../../images/song-progression-wide.png" /></p>
+<ul>
+<li>The choice stays until the Tracker is switched off.</li>
+<li>A reused pattern keeps its notes: a chord that comes twice is one pattern, voiced the
+  first time. To change a single chord's shape, open its pattern and move the notes.</li>
+</ul>
+<h3 id="the-progression-files">The progression files<a class="headerlink" href="#the-progression-files" title="Permanent link">&para;</a></h3>
+<p>The list comes from text files in <code>Progressions/</code> on the card, one heading per file
+(<code>Jazz.txt</code> shows as Jazz). The first time you open the list with no files there, the
+Tracker writes its own: DnB, Hip-hop, Jazz and Pop. Edit them, add your own, or copy
+them to share; a file of yours is never overwritten. To get the built-in files back,
+delete or rename them.</p>
+<p>Each line is one progression, written as numbers so the same file works in any key:</p>
+<div class="highlight"><pre><span></span><code># Jazz.txt
+ii7 V7 Imaj7 | Two-five-one
+iim7b5 V7 i
+i VI III VII | Jungle pads
+</code></pre></div>
+<ul>
+<li><strong>I</strong> to <strong>VII</strong> are the chords on the 1st to 7th note of the key. Upper case is a major
+  chord, lower case a minor one.</li>
+<li>After the number: <code>7</code> (a 7th: dominant on upper case, minor on lower), <code>maj7</code>, <code>m7</code>,
+  <code>dim</code>, <code>dim7</code>, <code>m7b5</code>, <code>aug</code>, <code>sus2</code>, <code>sus4</code>.</li>
+<li><code>b</code> or <code>#</code> in front lowers or raises the chord's root a semitone (<code>bVII</code> in C is Bb).</li>
+<li>Chords are built as written, even when that takes a note from outside the key: <code>V</code> in
+  a minor key is a major chord (E in A minor), as it usually is in minor.</li>
+<li><strong>Major or minor:</strong> start a line with <code>major:</code> or <code>minor:</code> to say which key it is in
+  (<code>minor: iv V</code>). Without it, the Tracker picks the key whose own chords the line uses
+  most: <code>iv V</code> and <code>iv VII III VI</code> are minor (Dm E and Dm G C F in A minor), <code>I V vi IV</code>
+  is major. In a minor key the numbers count on the natural minor scale (<code>VI</code> in A minor
+  is F), and <code>viidim</code> / <code>viidim7</code> sit on the raised 7th, as in harmonic minor (G#dim in
+  A minor).</li>
+<li><strong>In the project key:</strong> a scale with a minor 3rd and no major 3rd counts as minor (Minor, Dorian,
+  Phrygian, Locrian, Harm Min, ...), any other as major (Major, Lydian, Mixolydian,
+  Chromatic, ...). A progression of the same kind plays on the project's root note; one
+  of the other kind plays in the relative key. In A minor, <code>I V vi IV</code> gives C G Am F.</li>
+<li><strong>Modes</strong> play progressions as their parallel major or minor key. D Dorian counts as
+  D minor: <code>i IV</code> gives Dm G and <code>I V vi IV</code> gives F C Dm Bb. Chords that use the note
+  where the mode differs from plain minor or major leave the mode's scale (the Bb above;
+  Dorian has B).</li>
+<li><strong>Names:</strong> with <strong>Note names</strong> on Auto (Config &gt; General) chords are spelled from the
+  key: each number has its own letter, so <code>bVII</code> in C is Bb and <code>vii</code> dim in F# major is
+  E#dim, not Fdim. With Sharps or Flats, every chord name follows that setting (<code>bVII</code> in C
+  shows as A# with Sharps); the notes always sound the same.</li>
+<li>The numbers in a pattern's name are the progression's, as written: in A minor,
+  <code>I V vi IV</code> names its first pattern <code>C I</code>.</li>
+<li>Text after <code>|</code> is the title shown in the list. Lines starting with <code>#</code> are comments.
+  Lines that can't be read are skipped; the list says how many.</li>
 </ul>
 <h2 id="saved-with-the-project">Saved with the project<a class="headerlink" href="#saved-with-the-project" title="Permanent link">&para;</a></h2>
 <p>Counts, scenes and ramps are stored in <code>song.bin</code> next to <code>project.mt</code>. Stock firmware
