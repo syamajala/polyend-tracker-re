@@ -9,6 +9,7 @@
 #include "model/multisample.h"
 #include "ui/notes.h"
 #include "ui/screens.h"
+#include "fmath.h"
 
 namespace ot {
 
@@ -249,8 +250,8 @@ void PlaybackScreen::refreshBar() {
     // against it), not the resident head.
     const float secs = float(a.bank.fullFrames(ci)) / 44100.0f;
     char v[24];
-    auto t = [&](uint16_t m, const char* fmt) {
-        std::snprintf(v, sizeof(v), fmt, double(secs * float(m) / 65535.0f));
+    auto t = [&](uint16_t m, const char* unit) {
+        std::snprintf(v, sizeof(v), "%s%s", fm::fixed(double(secs * float(m) / 65535.0f), 3).s, unit);
         return v;
     };
     const int mode = in.playMode & 7;
@@ -264,29 +265,29 @@ void PlaybackScreen::refreshBar() {
         char nn[4];
         noteName(int8_t(m.root[in.selectedSlice % kMultiMaxZones]), nn);
         b.set(1, "Root", nn);
-        std::snprintf(v, sizeof(v), "%.2f", double(view.zoom()));
+        std::snprintf(v, sizeof(v), "%s", fm::fixed(double(view.zoom()), 2).s);
         b.set(4, "Zoom", v);
     } else if (mode <= 3) {
         // Appendix B §1.4 a).
         b.set(0, "Preview", "-");
-        b.set(1, "Start", t(in.startPoint, "%.3fs"));
+        b.set(1, "Start", t(in.startPoint, "s"));
         // 1-Shot: F3/F4 stay blank [S snap 008].
         if (mode) {
-            b.set(2, "Loop Start", t(in.loopPoint1, "%.3fs"));
-            b.set(3, "Loop End", t(in.loopPoint2, "%.3fs"));
+            b.set(2, "Loop Start", t(in.loopPoint1, "s"));
+            b.set(3, "Loop End", t(in.loopPoint2, "s"));
         }
-        b.set(4, "End", t(in.endPoint, "%.3fs"));
-        std::snprintf(v, sizeof(v), "%.2f", double(view.zoom()));
+        b.set(4, "End", t(in.endPoint, "s"));
+        std::snprintf(v, sizeof(v), "%s", fm::fixed(double(view.zoom()), 2).s);
         b.set(5, "Zoom", v);
     } else if (isSlice(mode) && !more) {
         // b) page 0.
         if (in.sliceCount) std::snprintf(v, sizeof(v), "%d of %d", in.selectedSlice + 1, in.sliceCount);
         else std::snprintf(v, sizeof(v), "-");
         b.set(0, "Slice", v);
-        b.set(1, "Adjust", in.sliceCount ? t(in.slices[in.selectedSlice], "%.3f s") : "-");
+        b.set(1, "Adjust", in.sliceCount ? t(in.slices[in.selectedSlice], " s") : "-");
         b.set(2, "Add");
         b.set(3, "Remove");
-        std::snprintf(v, sizeof(v), "%.2f", double(view.zoom()));
+        std::snprintf(v, sizeof(v), "%s", fm::fixed(double(view.zoom()), 2).s);
         b.set(4, "Zoom", v);
         b.set(5, "More");
     } else if (isSlice(mode)) {
@@ -304,8 +305,8 @@ void PlaybackScreen::refreshBar() {
     } else if (mode == 7) {
         // c) granular.
         b.set(0, "Preview", "-");
-        b.set(1, "Position", t(in.granularPosition, "%0.3f s"));
-        std::snprintf(v, sizeof(v), "%0.1f ms", double(in.grainLength / 44.1f));
+        b.set(1, "Position", t(in.granularPosition, " s"));
+        std::snprintf(v, sizeof(v), "%s ms", fm::fixed(double(in.grainLength / 44.1f), 1).s);
         b.set(2, "Length", v);
         b.set(3, "Shape", kShapes[in.grainShape % 3]);
         b.set(4, "Loop", kLoops[in.granularLoop % 3]);

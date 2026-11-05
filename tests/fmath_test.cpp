@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <vector>
 
 #include "test.h"
@@ -180,6 +181,35 @@ TEST(fmath_transcendentals_within_4_ulp) {
 
 TEST(fmath_note_ratio_table_is_pow) {
     for (int n = 0; n < 128; ++n) CHECK(ulps(fm::kNoteRatio[n], std::pow(2.0, double(n - 60) / 12.0)) <= 1.0);
+}
+
+// [I] #122 fm::fixed is printf("%.Nf") without the float printf: the same
+// text as glibc's correctly rounded printf, ties (0.125, 2.5) included.
+TEST(fmath_fixed_matches_printf) {
+    auto same = [](double v, int d) {
+        char ref[64];
+        std::snprintf(ref, sizeof ref, "%.*f", d, v);
+        const bool ok = std::strcmp(ref, fm::fixed(v, d).s) == 0;
+        if (!ok) std::printf("  fixed(%a, %d) = %s, printf %s\n", v, d, fm::fixed(v, d).s, ref);
+        return ok;
+    };
+    int bad = 0;
+    for (int d = 0; d <= 3; ++d) {
+        for (double v : {0.0, -0.0, 0.5, 1.5, 2.5, -2.5, 0.125, 0.375, -0.04, 0.0005, 0.0015, 1e-300, 4.9e-324,
+                         99.995, 120.0, 44.1, -40.0, 999999999.4, -123456789.0})
+            bad += !same(v, d);
+        for (int i = -200000; i <= 200000; ++i) bad += !same(i / 1000.0, d) + !same(i / 8.0, d) + !same(double(float(i) * 0.05f), d);
+        uint64_t x = 0x9e3779b97f4a7c15ull;
+        for (int i = 0; i < 300000; ++i) {
+            x ^= x << 13, x ^= x >> 7, x ^= x << 17;
+            const double v = double(int64_t(x >> 20)) / double(uint64_t(1) << (x & 63));
+            if (std::fabs(v) < 1e9) bad += !same(v, d) + !same(double(float(v)), d);
+        }
+    }
+    CHECK(bad == 0);
+    CHECK(std::strcmp(fm::fixed(1.0 / 0.0, 1).s, "inf") == 0);
+    CHECK(std::strcmp(fm::fixed(-1e300, 3).s, "-999999999.999") == 0);   // clamped, fits Fixed::s
+    CHECK(std::strcmp(fm::fixed(1e9, 0).s, "999999999") == 0);
 }
 
 TEST(sample_fx_within_tolerance_of_the_double_libm_results) {

@@ -17,6 +17,7 @@
 #include "formats/patch_pb.h"
 #include "sdram_bss.h"
 #include "ui/screens.h"
+#include "fmath.h"
 
 namespace ot {
 
@@ -438,7 +439,7 @@ void SynthScreen::macroRowText(int m, int r, char* label, int lcap, char* value,
             else std::snprintf(value, size_t(vcap), "Unassigned");   // Mini manual p.173 figure
         } else {
             std::snprintf(label, size_t(lcap), "Amount %d", k + 1);
-            if (live) std::snprintf(value, size_t(vcap), "%.2f", double(patchBitsToFloat(mc.targets[k].amountBits)));
+            if (live) std::snprintf(value, size_t(vcap), "%s", fm::fixed(double(patchBitsToFloat(mc.targets[k].amountBits)), 2).s);
             else std::snprintf(value, size_t(vcap), "-");
         }
     }

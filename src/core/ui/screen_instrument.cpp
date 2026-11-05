@@ -11,6 +11,7 @@
 #include "app/midi_cc.h"
 #include "formats/midi_preset.h"
 #include "ui/screens.h"
+#include "fmath.h"
 
 namespace ot {
 
@@ -291,7 +292,7 @@ void InstrumentScreen::valueText(int c, char* out, int cap, float* frac, bool* b
                 const int idx = dest == 0 ? l.speed + 5 : l.speed;
                 std::snprintf(out, size_t(cap), "%s", kSpeedNames[clampi(idx, 0, 28)]);
                 *frac = float(l.speed) / (dest == 0 ? 23.0f : 28.0f);
-            } else if (c == 4) { std::snprintf(out, size_t(cap), "%.0f", double(l.amount * 100)); *frac = l.amount; }
+            } else if (c == 4) { std::snprintf(out, size_t(cap), "%s", fm::fixed(double(l.amount * 100), 0).s); *frac = l.amount; }
             else out[0] = 0;
             return;
         }
@@ -304,10 +305,10 @@ void InstrumentScreen::valueText(int c, char* out, int cap, float* frac, bool* b
             case 2: ms = e.attackMs; break;
             case 3: ms = e.decayMs; break;
             case 5: ms = e.releaseMs; break;
-            case 4: std::snprintf(out, size_t(cap), "%.0f", double(e.sustain * 100)); *frac = e.sustain; return;
-            case 6: std::snprintf(out, size_t(cap), "%.0f", double(e.amount * 100)); *frac = e.amount; return;
+            case 4: std::snprintf(out, size_t(cap), "%s", fm::fixed(double(e.sustain * 100), 0).s); *frac = e.sustain; return;
+            case 6: std::snprintf(out, size_t(cap), "%s", fm::fixed(double(e.amount * 100), 0).s); *frac = e.amount; return;
         }
-        std::snprintf(out, size_t(cap), "%.3fs", double(ms) / 1000.0);
+        std::snprintf(out, size_t(cap), "%ss", fm::fixed(double(ms) / 1000.0, 3).s);
         *frac = ms <= 1000 ? float(ms) * 0.5f / 1000.0f : 0.5f + float(ms - 1000) * 0.5f / 9000.0f;
         return;
     }
@@ -319,7 +320,7 @@ void InstrumentScreen::valueText(int c, char* out, int cap, float* frac, bool* b
             case 3: {
                 const int v = c == 2 ? in.reverbSend : in.delaySend;
                 if (v == 0) std::snprintf(out, size_t(cap), "-inf dB");
-                else std::snprintf(out, size_t(cap), "%.2f dB", double((v - 100) * 0.4f));
+                else std::snprintf(out, size_t(cap), "%s dB", fm::fixed(double((v - 100) * 0.4f), 2).s);
                 *frac = v / 100.0f;
                 break;
             }
@@ -329,7 +330,7 @@ void InstrumentScreen::valueText(int c, char* out, int cap, float* frac, bool* b
     switch (c) {
         case 0:
             if (in.volume == 0) std::snprintf(out, size_t(cap), "-inf dB");
-            else std::snprintf(out, size_t(cap), "%.2f dB", double((in.volume - 50) * 0.48f));
+            else std::snprintf(out, size_t(cap), "%s dB", fm::fixed(double((in.volume - 50) * 0.48f), 2).s);
             *frac = in.volume / 100.0f;
             break;
         case 1:
