@@ -39,6 +39,29 @@ C  D  E  F  G  A  B  C  D  E  F  G
 - Stock is the default and keeps the original layout. The setting is global, not saved
   with the project.
 
+### Chord hints
+
+With a scale picked (Config > Project Settings), hold a key on the piano pads and the
+notes of its chord light up. In A minor, hold E: on the upper keyboard E, G and B light
+(Em, the chord on E in the key), on the lower keyboard E, G# and B (E major, its
+alternate). Press the lit keys to play the chord. The screen shows
+`Em  v: E G B  /  E  V: E G# B` while you hold it.
+
+- The upper keyboard shows the chord built from the scale's own notes (every other note
+  of the scale: root, 3rd, 5th), with its number in the key (`v`).
+- The lower keyboard shows the alternate major / minor chord on the same root: the 3rd
+  moved a semitone, so a minor chord becomes major and the other way round. Some of these
+  are common outside notes (E major in A minor is the V chord of harmonic minor), others
+  just a colour to try. Diminished and augmented chords have none.
+- With **Note names** on Auto the notes are spelled from the key, one letter per note of
+  the scale: in F# major the chord on E# is `E#dim: E# G# B`, not F. With Sharps or Flats
+  they follow that setting.
+- In a mode the hints show the mode's own chords (in D Dorian, G is major: `G  IV`).
+  Song mode progressions play modes as their parallel major or minor key, so a chord from
+  a progression can differ from the hint (`i VI` in D Dorian is Dm Bb).
+- No hints in Chromatic or in scales of fewer than 5 notes, or where the pads do something
+  else (Performance).
+
 ## Chord entry
 
 In the pattern editor's edit mode (stopped), pads pressed while another note pad is still

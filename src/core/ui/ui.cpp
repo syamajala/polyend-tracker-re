@@ -710,8 +710,7 @@ namespace {
 void chordLine(const ScaleChord& c, char* out, int cap) {
     char n[20];
     scaleTriadName(c, n, sizeof(n));
-    std::snprintf(out, size_t(cap), "%s: %s %s %s", n, pitchClassName(c.pc[0]), pitchClassName(c.pc[1]),
-                  pitchClassName(c.pc[2]));
+    std::snprintf(out, size_t(cap), "%s: %s %s %s", n, chordToneName(c, 0), chordToneName(c, 1), chordToneName(c, 2));
 }
 }  // namespace
 
@@ -722,10 +721,10 @@ void Ui::chordHintNotice(bool press) {
         if (pads_ == (1ull << chordPad_)) {
             // "Em  v: E G B  /  E  V: E G# B": the name, then the notes to press.
             char t[72], a[32], b[32];
-            ScaleChord bo;
+            ScaleChord alt;
             chordLine(ch, a, sizeof(a));
-            if (borrowedTriad(ch, bo)) {
-                chordLine(bo, b, sizeof(b));
+            if (alternateTriad(ch, alt)) {
+                chordLine(alt, b, sizeof(b));
                 std::snprintf(t, sizeof(t), "%s  /  %s", a, b);
             } else {
                 copyStr(t, a, sizeof(t));
@@ -1160,19 +1159,19 @@ void Ui::updateLeds() {
     ScaleChord ch;
     if (!factory.active() && !kb.isOpen() && !picker.isOpen() && chordHint(ch)) {
         // [I] Chord hints: the upper keyboard (top two rows) lights the
-        // held note's chord in the scale, the lower keyboard the borrowed
-        // chord on the same root (major <-> minor; none for dim), a step below
+        // held note's chord in the scale, the lower keyboard the alternate
+        // major / minor chord on the same root (none for dim), a step below
         // a held pad. The other keys dim so the chords stand out.
-        ScaleChord bo;
-        const bool hasBo = borrowedTriad(ch, bo);
+        ScaleChord alt;
+        const bool hasAlt = alternateTriad(ch, alt);
         const uint8_t hint = uint8_t((dim + 2 * full) / 3);
         for (int p = 0; p < 48; ++p) {
             const uint8_t n = app.padNote(uint8_t(p));
             if (n == PadNotes::kNoNote) continue;
             const bool upper = p < 24;   // physical rows 0-1
             bool tone = false;
-            if (upper || hasBo)
-                for (uint8_t pc : (upper ? ch : bo).pc) tone = tone || n % 12 == pc;
+            if (upper || hasAlt)
+                for (uint8_t pc : (upper ? ch : alt).pc) tone = tone || n % 12 == pc;
             lv[p] = tone ? hint : uint8_t(lv[p] / 3 > 0 ? lv[p] / 3 : 1);
         }
     }

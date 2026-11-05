@@ -141,7 +141,14 @@ bool scaleTriad(int note, int root, uint8_t scale, ScaleChord& out) {
     for (int j = 0; j < 3; ++j) out.pc[j] = uint8_t((degs[(idx + 2 * j) % k] + root) % 12);
     out.degree = uint8_t(idx);
     out.degrees = uint8_t(k);
+    const int l = k == 7 && noteSpellingAuto() ? keyLetter(root, scale) : -1;
+    for (int j = 0; j < 3; ++j) out.letter[j] = int8_t(l < 0 ? -1 : (l + idx + 2 * j) % 7);
     return true;
+}
+
+const char* chordToneName(const ScaleChord& c, int j) {
+    const char* n = c.letter[j] >= 0 ? letterName(c.letter[j], c.pc[j]) : nullptr;
+    return n ? n : pitchClassName(c.pc[j]);
 }
 
 void scaleTriadName(const ScaleChord& c, char* out, int cap) {
@@ -153,20 +160,19 @@ void scaleTriadName(const ScaleChord& c, char* out, int cap) {
     else if (i3 == 3 && i5 == 6) q = "dim", lower = true;
     else if (i3 == 4 && i5 == 8) q = "aug";
     if (!q) {
-        std::snprintf(out, size_t(cap), "%s %s %s", pitchClassName(c.pc[0]), pitchClassName(c.pc[1]),
-                      pitchClassName(c.pc[2]));
+        std::snprintf(out, size_t(cap), "%s %s %s", chordToneName(c, 0), chordToneName(c, 1), chordToneName(c, 2));
         return;
     }
     static const char* const kUpper[7] = {"I", "II", "III", "IV", "V", "VI", "VII"};
     static const char* const kLower[7] = {"i", "ii", "iii", "iv", "v", "vi", "vii"};
     if (c.degrees == 7 && c.degree < 7)
-        std::snprintf(out, size_t(cap), "%s%s  %s", pitchClassName(c.pc[0]), q,
+        std::snprintf(out, size_t(cap), "%s%s  %s", chordToneName(c, 0), q,
                       (lower ? kLower : kUpper)[c.degree]);
     else
-        std::snprintf(out, size_t(cap), "%s%s", pitchClassName(c.pc[0]), q);
+        std::snprintf(out, size_t(cap), "%s%s", chordToneName(c, 0), q);
 }
 
-bool borrowedTriad(const ScaleChord& in, ScaleChord& out) {
+bool alternateTriad(const ScaleChord& in, ScaleChord& out) {
     const int i3 = (in.pc[1] - in.pc[0] + 12) % 12, i5 = (in.pc[2] - in.pc[0] + 12) % 12;
     if (i5 != 7 || (i3 != 3 && i3 != 4)) return false;
     out = in;
