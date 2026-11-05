@@ -675,6 +675,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Piano pads">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#chord-hints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chord hints
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1138,6 +1155,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Piano pads">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#chord-hints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chord hints
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1309,6 +1343,28 @@ C  D  E  F  G  A  B  C  D  E  F  G
   Performance, the synth edit page, and Beat Slice instruments (one pad per slice).</li>
 <li>Stock is the default and keeps the original layout. The setting is global, not saved
   with the project.</li>
+</ul>
+<h3 id="chord-hints">Chord hints<a class="headerlink" href="#chord-hints" title="Permanent link">&para;</a></h3>
+<p>With a scale picked (Config &gt; Project Settings), hold a key on the piano pads and the
+notes of its chord light up. In A minor, hold E: on the upper keyboard E, G and B light
+(Em, the chord on E in the key), on the lower keyboard E, G# and B (E major, its
+alternate). Press the lit keys to play the chord. The screen shows
+<code>Em  v: E G B  /  E  V: E G# B</code> while you hold it.</p>
+<ul>
+<li>The upper keyboard shows the chord built from the scale's own notes (every other note
+  of the scale: root, 3rd, 5th), with its number in the key (<code>v</code>).</li>
+<li>The lower keyboard shows the alternate major / minor chord on the same root: the 3rd
+  moved a semitone, so a minor chord becomes major and the other way round. Some of these
+  are common outside notes (E major in A minor is the V chord of harmonic minor), others
+  just a colour to try. Diminished and augmented chords have none.</li>
+<li>With <strong>Note names</strong> on Auto the notes are spelled from the key, one letter per note of
+  the scale: in F# major the chord on E# is <code>E#dim: E# G# B</code>, not F. With Sharps or Flats
+  they follow that setting.</li>
+<li>In a mode the hints show the mode's own chords (in D Dorian, G is major: <code>G  IV</code>).
+  Song mode progressions play modes as their parallel major or minor key, so a chord from
+  a progression can differ from the hint (<code>i VI</code> in D Dorian is Dm Bb).</li>
+<li>No hints in Chromatic or in scales of fewer than 5 notes, or where the pads do something
+  else (Performance).</li>
 </ul>
 <h2 id="chord-entry">Chord entry<a class="headerlink" href="#chord-entry" title="Permanent link">&para;</a></h2>
 <p>In the pattern editor's edit mode (stopped), pads pressed while another note pad is still
