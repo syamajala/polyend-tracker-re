@@ -170,6 +170,10 @@ private:
     bool encUsedInHold_ = false;
     bool patternHeld_ = false;
     bool patternCombo_ = false;   // another key / the encoder was used while Pattern was held
+    bool patternLatch_ = false;   // 2.x: F1 tapped, the pads keep picking patterns
+    bool focusUsed_ = false;      // a pad / arrow / key / the encoder was used while F1 was held
+    bool f1Ends_ = false;         // this F1 press ended the latch: its release does nothing
+    uint32_t focusAt_ = 0;
     int maskKeys_[2] = {-1, -1};
     uint32_t lastUpdate_ = 0;
     int lastPlayStep_ = -1;
@@ -415,6 +419,7 @@ public:
     void openImport();                  // F5 (spec 06 §5.5 step 1)
     // §5.5 gating: Normal iff 2n < free - 10000, low quality iff n < free - 10000.
     bool importAllowed(bool lowQuality) const;
+    int sdFilesSelected() const;   // files in the SD selection (folders skipped)
     bool over() const { return over_; }
     uint32_t memoryShown() const { return shown_; }   // bytes the memory bar and label show
 
@@ -1101,8 +1106,8 @@ private:
     void selection(uint32_t* s0, uint32_t* s1) const;
     const int16_t* data() const;
     const int16_t* dataR() const;          // right lane (stereo take), else nullptr
-    bool stereoInput() const;              // Line In source with Config Line in channel = Stereo
-    const char* sourceName(int src) const; // "Line in ST" / "Line in L" / "Line in R" for Line In
+    bool stereoInput() const;              // Line In with Line in channel = Stereo, or Radio with Radio stereo On
+    const char* sourceName(int src) const; // "Line in ST" / "Line in L" / "Line in R" for Line In, "Radio ST"
     struct View {
         uint32_t off, len;
     } undo_[kUndoLevels] = {};

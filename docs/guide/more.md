@@ -142,6 +142,12 @@ audio runs at 44,117 Hz. At 44.1 kHz, exported songs, patterns, stems and render
 converted to a standard 44,100 Hz WAV, so they play in time in any DAW. 44117 Hz writes
 the Tracker's own rate, as the original firmware does.
 
+### Radio stereo
+
+**Config > General > Radio stereo: Off (default) or On.** On records the built-in radio in
+stereo, and the Sample Recorder's source list shows `Radio ST`. Off keeps it mono, as the
+original firmware does: mono is cleaner on weak stations and doubles the recording time.
+
 ### Stereo samples
 
 Stereo WAVs keep both channels and play in stereo in one-shot, loop, slice and beat-slice
