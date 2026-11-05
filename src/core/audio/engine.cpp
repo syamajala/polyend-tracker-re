@@ -876,18 +876,6 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
         }
         tap->tapBlock(tl, tr, kBlock);
     }
-    // [I] USB send (#97 step 2): the limiter output, what Resample From
-    // Master records. Live only; the limiter wrote its output (zeros when
-    // silent) either way.
-    if (!offline && usbSend_.buffer) {
-        if (int16_t* u = usbSend_.buffer(usbSend_.ctx)) {
-            for (uint32_t i = 0; i < kBlock; ++i) {
-                u[2 * i] = toS16(limOutL[i]);
-                u[2 * i + 1] = toS16(limOutR[i]);
-            }
-            usbSend_.commit(usbSend_.ctx);
-        }
-    }
     // 8. OUT mixers (§5.4, mode 0): limiter * master volume + file preview
     //    (input 1) + metronome (input 5, SEND[metronomeVolume], after the
     //    limiter and master volume, centred; spec 07 Q10). [I] USB in (#97)
@@ -952,6 +940,19 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
         raw_.pos = pos;
         if (pos >= len) raw_.active = false;
         raw = true;
+    }
+    // [I] USB send (#97 step 2): the limiter output, what Resample From
+    // Master records, plus the file preview so it's heard when monitoring
+    // over USB; never the metronome. Live only; the limiter wrote its output
+    // (zeros when silent) either way.
+    if (!offline && usbSend_.buffer) {
+        if (int16_t* u = usbSend_.buffer(usbSend_.ctx)) {
+            for (uint32_t i = 0; i < kBlock; ++i) {
+                u[2 * i] = toS16(raw ? limOutL[i] + rawL[i] : limOutL[i]);
+                u[2 * i + 1] = toS16(raw ? limOutR[i] + rawR[i] : limOutR[i]);
+            }
+            usbSend_.commit(usbSend_.ctx);
+        }
     }
     float g0, c0;
     const float gi = master_.begin(g0), ci = click_.begin(c0);
