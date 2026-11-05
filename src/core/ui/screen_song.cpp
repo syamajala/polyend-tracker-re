@@ -38,7 +38,7 @@ void progItem(void*, int i, char* out, int cap) {
         out[0] = 0;
         return;
     }
-    const int t = prog::tonic(p, g_progView.tonicRoot, g_progView.scale);
+    const prog::Tonic t = prog::tonic(p, g_progView.tonicRoot, g_progView.scale);
     int n = 0;
     for (int c = 0; c < p.count && n < cap; ++c) {
         char nm[16];

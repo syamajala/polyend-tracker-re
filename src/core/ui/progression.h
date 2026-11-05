@@ -9,13 +9,26 @@
 //
 // Upper case = a major chord, lower case = minor; after it 7 (a dominant
 // 7th on upper case, a minor 7th on lower), maj7, m7, dim, dim7, m7b5, aug,
-// sus2 or sus4; b or # in front moves the root a semitone (bVII). A line
-// with a lower-case i is in a minor key (numbers on the natural minor
-// scale), any other in a major key; a progression in the other key than the
-// project's plays in its relative key (I V vi IV in A minor: C G Am F), and
-// in a mode in the mode's parent major key or its relative minor
-// (I V vi IV in D Dorian: C G Am F). With Auto note names a b chord is
-// spelled with flats and a # chord with sharps (bVII in C: Bb).
+// sus2 or sus4; b or # in front lowers or raises the root a semitone (bVII).
+// The chord is always built as written, also when it has notes outside the
+// key (V in minor is major).
+//
+// Key: "major:" or "minor:" in front says it; otherwise the key whose own
+// chords the line uses most (minor counts V, V7 and vii dim as its own, as in
+// harmonic minor), on a tie the I / i chord's case, else major. Numbers are
+// on that key's scale (natural minor: VI in A minor is F); in minor, vii dim,
+// dim7 and m7b5 sit on the raised 7th (G#dim in A minor).
+//
+// In the project: a scale counts as minor when it has a minor 3rd and no
+// major 3rd (Minor, Dorian, Phrygian, Harm Min, ...), otherwise as major. A
+// progression of the same kind plays on the project root, the other kind in
+// the relative key (I V vi IV: C G Am F in A minor, F C Dm Bb in D Dorian).
+// So a mode plays progressions as its parallel major or minor key; chords on
+// the mode's own note leave its scale (i VI in D Dorian: Dm Bb).
+//
+// Names: with Auto note names the chord root is spelled on the numeral's
+// letter counted from the key's tonic (vii in F# major is E#, bVII in C is
+// Bb); with Sharps / Flats every name follows that table.
 // Text after '|' is the title; a line starting with '#' (not #I..) is a comment.
 #pragma once
 
@@ -40,6 +53,7 @@ enum Quality : uint8_t { kMaj, kMin, kDim, kAug, kDom7, kMaj7, kMin7, kHalfDim7,
 
 struct Chord {
     uint8_t degree = 0;    // semitones above the key's tonic, 0..11
+    uint8_t step = 0;      // the numeral - 1 (I = 0 .. VII = 6): its letter above the tonic's
     uint8_t quality = kMaj;
     int8_t accidental = 0;   // -1 b, +1 #, as written
     char numeral[10] = {};   // as written ("bVII", "ii7")
@@ -48,21 +62,29 @@ struct Chord {
 struct Progression {
     uint8_t count = 0;
     bool minor = false;      // numbers on the natural minor scale
+    bool keyGiven = false;   // "major:" / "minor:" in front
     Chord chords[kMaxChords];
     char title[kLineMax] = {};
 };
 
 // One line ("ii7 V7 Imaj7 | Two-five-one"); false when it isn't a progression.
 bool parse(const char* line, Progression& out);
-// The progression's tonic pitch class in a project key (root option, scale).
-int tonic(const Progression& p, int root, uint8_t scale);
+// The key a progression plays in: its tonic's pitch class and, for Auto
+// spelling, the tonic's letter (0 = C .. 6 = B; -1: none, the name tables).
+struct Tonic {
+    int pc = 0;
+    int letter = -1;
+};
+// The progression's tonic in a project key (root option, scale).
+Tonic tonic(const Progression& p, int root, uint8_t scale);
+// True when the project scale counts as minor (a minor 3rd, no major 3rd).
+bool scaleIsMinor(uint8_t scale);
 // Semitones above the chord root; returns the note count (3 or 4).
 int intervals(uint8_t quality, int out[kMaxNotes]);
-// Chord i of p in a key (tonic pitch class): its root pitch class.
-int chordRoot(const Progression& p, int i, int tonicPc);
-// Its name: "Am", "G7", "Bm7b5" (pitch class names in the current spelling;
-// on Auto a b / # chord in flats / sharps).
-void chordName(const Progression& p, int i, int tonicPc, char* out, int cap);
+// Chord i of p in a key: its root pitch class.
+int chordRoot(const Progression& p, int i, const Tonic& t);
+// Its name: "Am", "G7", "Bm7b5" (see Names above).
+void chordName(const Progression& p, int i, const Tonic& t, char* out, int cap);
 
 // The list: every progression of every file, files sorted by name.
 struct Library {

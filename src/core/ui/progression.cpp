@@ -15,6 +15,11 @@ namespace {
 
 constexpr uint8_t kMajorSteps[7] = {0, 2, 4, 5, 7, 9, 11};
 constexpr uint8_t kMinorSteps[7] = {0, 2, 3, 5, 7, 8, 10};
+// Each key's own chords per degree: triads and sevenths (natural minor).
+constexpr uint8_t kMajorTriads[7] = {kMaj, kMin, kMin, kMaj, kMaj, kMin, kDim};
+constexpr uint8_t kMajorSevenths[7] = {kMaj7, kMin7, kMin7, kMaj7, kDom7, kMin7, kHalfDim7};
+constexpr uint8_t kMinorTriads[7] = {kMin, kDim, kMaj, kMin, kMin, kMaj, kMaj};
+constexpr uint8_t kMinorSevenths[7] = {kMin7, kHalfDim7, kMaj7, kMin7, kMin7, kMaj7, kDom7};
 
 bool isSpace(char c) { return c == ' ' || c == '\t' || c == '\r'; }
 char lower(char c) { return (c >= 'A' && c <= 'Z') ? char(c + 32) : c; }
@@ -67,6 +72,34 @@ bool parseToken(const char* s, int n, Token& t) {
     return true;
 }
 
+// In minor: vii dim / dim7 / m7b5 is the leading-tone chord (harmonic minor).
+bool leadingTone(const Token& t) {
+    return t.value == 7 && !t.accidental && (t.quality == kDim || t.quality == kDim7 || t.quality == kHalfDim7);
+}
+
+// The chord is one of the key's own (minor also takes V, V7 and the
+// leading-tone chords of harmonic minor).
+bool ownChord(const Token& t, bool minor) {
+    if (t.accidental) return false;
+    const int d = t.value - 1;
+    const uint8_t q = t.quality;
+    if (q == (minor ? kMinorTriads : kMajorTriads)[d] || q == (minor ? kMinorSevenths : kMajorSevenths)[d]) return true;
+    return minor && ((d == 4 && (q == kMaj || q == kDom7)) || leadingTone(t));
+}
+
+bool minorQuality(uint8_t q) { return q == kMin || q == kMin7 || q == kDim || q == kHalfDim7 || q == kDim7; }
+
+// "major:" / "minor:" at s (any case): 1 major, 2 minor, 0 none.
+int keyPrefix(const char* s) {
+    static const char* const kKey[2] = {"major:", "minor:"};
+    for (int k = 0; k < 2; ++k) {
+        int i = 0;
+        while (kKey[k][i] && lower(s[i]) == kKey[k][i]) ++i;
+        if (!kKey[k][i]) return k + 1;
+    }
+    return 0;
+}
+
 }  // namespace
 
 bool parse(const char* line, Progression& out) {
@@ -74,6 +107,9 @@ bool parse(const char* line, Progression& out) {
     if (!line) return false;
     const char* bar = std::strchr(line, '|');
     const char* end = bar ? bar : line + std::strlen(line);
+    while (line < end && isSpace(*line)) ++line;
+    const int given = keyPrefix(line);
+    if (given) line += 6;
     Token tok[kMaxChords];
     int n = 0;
     for (const char* p = line; p < end;) {
@@ -90,11 +126,25 @@ bool parse(const char* line, Progression& out) {
         p = q;
     }
     if (n == 0) return false;
-    for (int i = 0; i < n; ++i)
-        if (tok[i].value == 1 && !tok[i].upper && !tok[i].accidental) out.minor = true;
+    if (given) {
+        out.minor = given == 2;
+        out.keyGiven = true;
+    } else {
+        // The key whose own chords the line uses most (iv V: minor, Dm E in
+        // A minor); a tie goes by the I / i chord, else major.
+        int major = 0, minor = 0, tonicMinor = -1;
+        for (int i = 0; i < n; ++i) {
+            major += ownChord(tok[i], false);
+            minor += ownChord(tok[i], true);
+            if (tonicMinor < 0 && tok[i].value == 1 && !tok[i].accidental) tonicMinor = minorQuality(tok[i].quality);
+        }
+        out.minor = minor > major || (minor == major && tonicMinor == 1);
+    }
     const uint8_t* steps = out.minor ? kMinorSteps : kMajorSteps;
     for (int i = 0; i < n; ++i) {
-        out.chords[i].degree = uint8_t((steps[tok[i].value - 1] + tok[i].accidental + 12) % 12);
+        const int raise = out.minor && leadingTone(tok[i]) ? 1 : 0;   // G#dim in A minor
+        out.chords[i].degree = uint8_t((steps[tok[i].value - 1] + raise + tok[i].accidental + 12) % 12);
+        out.chords[i].step = uint8_t(tok[i].value - 1);
         out.chords[i].quality = tok[i].quality;
         out.chords[i].accidental = int8_t(tok[i].accidental);
     }
@@ -111,18 +161,22 @@ bool parse(const char* line, Progression& out) {
     return true;
 }
 
-int tonic(const Progression& p, int root, uint8_t scale) {
+bool scaleIsMinor(uint8_t scale) {
     const uint16_t m = scaleMask(scale);
-    const bool keyMinor = ((m >> 3) & 1) && !((m >> 4) & 1);
-    int t = root % 12;
-    if (p.minor == keyMinor) return t;
-    // A mode of the major scale (Dorian, Mixolydian, ...): its parent major
-    // key, the major scale with the same notes (D Dorian: C).
-    int major = -1;
-    for (int k = 0; k < 12 && major < 0; ++k)
-        if (((m >> k) | (m << (12 - k))) % 4096 == 0xab5) major = (t + k) % 12;
-    if (major < 0) major = keyMinor ? t + 3 : t;   // other scales: as natural minor / major
-    return (p.minor ? major + 9 : major) % 12;     // the major key or its relative minor
+    return ((m >> 3) & 1) && !((m >> 4) & 1);
+}
+
+Tonic tonic(const Progression& p, int root, uint8_t scale) {
+    // The project scale as its parallel major or minor key; a progression of
+    // the other kind plays in the relative key (minor 3rd up / down: A minor
+    // -> C, letter A -> C; C major -> A).
+    const bool keyMinor = scaleIsMinor(scale);
+    const int up = p.minor == keyMinor ? 0 : keyMinor ? 3 : 9;
+    const int letters = p.minor == keyMinor ? 0 : keyMinor ? 2 : 5;
+    Tonic t;
+    t.pc = (root % 12 + up) % 12;
+    if (noteSpellingAuto()) t.letter = (keyLetter(root, scale) + letters) % 7;
+    return t;
 }
 
 int intervals(uint8_t q, int out[kMaxNotes]) {
@@ -136,13 +190,15 @@ int intervals(uint8_t q, int out[kMaxNotes]) {
     return n;
 }
 
-int chordRoot(const Progression& p, int i, int tonicPc) { return (tonicPc + p.chords[i].degree) % 12; }
+int chordRoot(const Progression& p, int i, const Tonic& t) { return (t.pc + p.chords[i].degree) % 12; }
 
-void chordName(const Progression& p, int i, int tonicPc, char* out, int cap) {
+void chordName(const Progression& p, int i, const Tonic& t, char* out, int cap) {
     static const char* const kSuffix[kQualityCount] = {"", "m", "dim", "aug", "7", "maj7", "m7", "m7b5", "dim7", "sus2", "sus4"};
     const Chord& c = p.chords[i];
-    const int root = chordRoot(p, i, tonicPc);
-    const char* pc = noteSpellingAuto() && c.accidental ? pitchClassName(root, c.accidental < 0) : pitchClassName(root);
+    const int root = chordRoot(p, i, t);
+    // Auto: on the numeral's letter (a double sharp / flat falls back to the table).
+    const char* pc = t.letter >= 0 ? letterName(t.letter + c.step, root) : nullptr;
+    if (!pc) pc = pitchClassName(root);
     std::snprintf(out, size_t(cap), "%s%s", pc, kSuffix[c.quality < kQualityCount ? c.quality : 0]);
 }
 
@@ -154,8 +210,9 @@ namespace {
 constexpr const char* kHeader =
     "# One progression per line, chords as numbers in the key.\n"
     "# Upper case = major, lower case = minor; after it 7, maj7, m7, dim,\n"
-    "# dim7, m7b5, aug, sus2 or sus4. b or # in front = borrowed (bVII).\n"
-    "# Text after | is the title.\n";
+    "# dim7, m7b5, aug, sus2 or sus4. b or # in front lowers or raises\n"
+    "# the root a semitone (bVII). major: or minor: in front sets the key\n"
+    "# (minor: iv V). Text after | is the title.\n";
 
 struct DefaultFile {
     const char* name;

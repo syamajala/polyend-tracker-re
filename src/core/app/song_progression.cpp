@@ -37,7 +37,7 @@ int App::insertProgression(const prog::Progression& p, int after, const char** w
     }
     uint8_t scale = pr.u8(pf::kScale);
     if (scale >= kScaleCount) scale = 0;
-    const int tonic = prog::tonic(p, pr.u8(pf::kRootNote), scale);
+    const prog::Tonic tonic = prog::tonic(p, pr.u8(pf::kRootNote), scale);
     // Pattern per chord: named already, a chord earlier in this progression,
     // or a new one (0 here).
     uint8_t num[prog::kMaxChords] = {};

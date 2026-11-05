@@ -106,18 +106,29 @@ i VI III VII | Jungle pads
   chord, lower case a minor one.
 - After the number: `7` (a 7th: dominant on upper case, minor on lower), `maj7`, `m7`,
   `dim`, `dim7`, `m7b5`, `aug`, `sus2`, `sus4`.
-- `b` or `#` in front moves the chord a semitone, for chords borrowed from outside the key
-  (`bVII` in C is Bb). With **Note names** on Auto (Config > General), a `b` chord is
-  named with a flat and a `#` chord with a sharp; with Sharps or Flats, all chords follow
-  that setting (`bVII` in C shows as A# with Sharps).
-- A line with a lower-case `i` is a minor-key progression, any other line a major-key one.
-  A major-key progression in a minor project plays in its relative major (`I V vi IV` in
-  A minor gives C G Am F), and the other way round.
-- Modes count as minor (Dorian, Phrygian, Locrian) or major (Lydian, Mixolydian) by their
-  third. A progression of the other kind plays in the key with the mode's notes: `I V vi IV`
-  in D Dorian gives C G Am F (D Dorian has the notes of C major), and `i VI III VII` in G
-  Mixolydian gives Am F C G. A progression of the same kind stays on the root: `i IV` in
-  D Dorian is Dm G.
+- `b` or `#` in front lowers or raises the chord's root a semitone (`bVII` in C is Bb).
+- Chords are built as written, even when that takes a note from outside the key: `V` in
+  a minor key is a major chord (E in A minor), as it usually is in minor.
+- **Major or minor:** start a line with `major:` or `minor:` to say which key it is in
+  (`minor: iv V`). Without it, the Tracker picks the key whose own chords the line uses
+  most: `iv V` and `iv VII III VI` are minor (Dm E and Dm G C F in A minor), `I V vi IV`
+  is major. In a minor key the numbers count on the natural minor scale (`VI` in A minor
+  is F), and `viidim` / `viidim7` sit on the raised 7th, as in harmonic minor (G#dim in
+  A minor).
+- **In the project key:** a scale with a minor 3rd and no major 3rd counts as minor (Minor, Dorian,
+  Phrygian, Locrian, Harm Min, ...), any other as major (Major, Lydian, Mixolydian,
+  Chromatic, ...). A progression of the same kind plays on the project's root note; one
+  of the other kind plays in the relative key. In A minor, `I V vi IV` gives C G Am F.
+- **Modes** play progressions as their parallel major or minor key. D Dorian counts as
+  D minor: `i IV` gives Dm G and `I V vi IV` gives F C Dm Bb. Chords that use the note
+  where the mode differs from plain minor or major leave the mode's scale (the Bb above;
+  Dorian has B).
+- **Names:** with **Note names** on Auto (Config > General) chords are spelled from the
+  key: each number has its own letter, so `bVII` in C is Bb and `vii` dim in F# major is
+  E#dim, not Fdim. With Sharps or Flats, every chord name follows that setting (`bVII` in C
+  shows as A# with Sharps); the notes always sound the same.
+- The numbers in a pattern's name are the progression's, as written: in A minor,
+  `I V vi IV` names its first pattern `C I`.
 - Text after `|` is the title shown in the list. Lines starting with `#` are comments.
   Lines that can't be read are skipped; the list says how many.
 

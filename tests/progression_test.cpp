@@ -1,6 +1,7 @@
 // [I] #121 Song mode progressions: the text format (ui/progression.h), the
 // files with their built-in defaults, App::insertProgression and the Song
 // screen's Insert list.
+#include <cstdio>
 #include <cstring>
 #include <string>
 
@@ -22,7 +23,7 @@ constexpr uint8_t kRootA = 9, kRootC = 0;   // root options C1.. (pitch class = 
 const char* names(const prog::Progression& p, int root, uint8_t scale) {
     static std::string out;
     out.clear();
-    const int t = prog::tonic(p, root, scale);
+    const prog::Tonic t = prog::tonic(p, root, scale);
     for (int i = 0; i < p.count; ++i) {
         char n[16];
         prog::chordName(p, i, t, n, sizeof(n));
@@ -38,6 +39,17 @@ void setKey(App& a, uint8_t root, uint8_t scale) {
 
 void putFile(Harness& h, const char* path, const char* text) {
     h.fs.files[path] = std::vector<uint8_t>(text, text + std::strlen(text));
+}
+
+// "F#" -> pitch class and letter; "D##" too (theory_cases.inc).
+prog::Tonic spelled(const char* name) {
+    static const int kPc[7] = {9, 11, 0, 2, 4, 5, 7};   // A..G
+    prog::Tonic t;
+    t.letter = (name[0] - 'A' + 5) % 7;
+    t.pc = kPc[name[0] - 'A'];
+    for (const char* c = name + 1; *c; ++c) t.pc += *c == '#' ? 1 : *c == 'b' ? -1 : 0;
+    t.pc = (t.pc % 12 + 12) % 12;
+    return t;
 }
 
 SongScreen& song(Harness& h) { return *static_cast<SongScreen*>(h.app->ui.screen(kModSong)); }
@@ -59,7 +71,7 @@ TEST(progression_parse) {
     CHECK_STR(p.title, "Two-five-one");
     CHECK_STR(names(p, kRootC, kMajor), "Dm7 G7 Cmaj7");
     CHECK_STR(p.chords[2].numeral, "Imaj7");
-    // Minor two-five-one, borrowed chords, sus.
+    // Minor two-five-one, a lowered root (bVII), sus.
     CHECK(prog::parse("iim7b5 V7 i", p));
     CHECK_STR(names(p, kRootA, kMinor), "Bm7b5 E7 Am");
     CHECK(prog::parse("I bVII IV Isus4", p));
@@ -88,45 +100,172 @@ TEST(progression_relative_key) {
 }
 
 TEST(progression_modes) {
+    // A mode plays progressions as its parallel major or minor key (by its
+    // 3rd): the same kind on the root, the other kind in the relative key.
     setNoteSpelling(kSpellSharps, 0, 0);
     prog::Progression p;
-    // In the mode's own key quality the progression stays on its root (the Dorian vamp).
-    CHECK(prog::parse("i IV", p));
+    CHECK(prog::parse("i IV", p));   // the Dorian vamp: IV as written, major
     CHECK_STR(names(p, kRootC + 2, kDorian), "Dm G");
-    // The other quality plays in the parent major key or its relative minor,
-    // so its chords use the mode's notes.
-    CHECK(prog::parse("I V vi IV", p));
-    CHECK_STR(names(p, kRootC + 2, kDorian), "C G Am F");
-    CHECK_STR(names(p, kRootC + 4, kPhrygian), "C G Am F");
+    CHECK(prog::parse("i VI", p));   // VI of D minor: Bb, outside D Dorian
+    CHECK_STR(names(p, kRootC + 2, kDorian), "Dm A#");
+    CHECK(prog::parse("I V vi IV", p));   // D Dorian counts as D minor: F major
+    CHECK_STR(names(p, kRootC + 2, kDorian), "F C Dm A#");
+    CHECK_STR(names(p, kRootC + 4, kPhrygian), "G D Em C");
+    CHECK_STR(names(p, kRootC + 7, kMixolydian), "G D Em C");   // major kind: on G
     CHECK(prog::parse("i VI III VII", p));
-    CHECK_STR(names(p, kRootC + 7, kMixolydian), "Am F C G");
-    // Not a mode of the major scale: as natural minor.
+    CHECK_STR(names(p, kRootC + 7, kMixolydian), "Em C G D");
+    // Other scales the same way: Harmonic minor counts as minor.
     CHECK(prog::parse("I V vi IV", p));
     CHECK_STR(names(p, kRootA, kHarmMinor), "C G Am F");
+    CHECK(prog::parse("i iv V", p));
+    CHECK_STR(names(p, kRootA, kHarmMinor), "Am Dm E");
+    CHECK(prog::scaleIsMinor(kDorian));
+    CHECK(!prog::scaleIsMinor(kMixolydian));
+    CHECK(!prog::scaleIsMinor(0));   // Chromatic: major
+}
+
+TEST(progression_key_from_chords) {
+    // The key whose own chords a line uses most, not one chord's case.
+    setNoteSpelling(kSpellSharps, 0, 0);
+    prog::Progression p;
+    CHECK(prog::parse("iv V", p));   // no i, still minor (V as in harmonic minor)
+    CHECK(p.minor);
+    CHECK(!p.keyGiven);
+    CHECK_STR(names(p, kRootA, kMinor), "Dm E");
+    CHECK_STR(names(p, kRootC, kMajor), "Dm E");   // in A minor, the relative minor
+    CHECK(prog::parse("iv VII III VI", p));
+    CHECK_STR(names(p, kRootA, kMinor), "Dm G C F");
+    CHECK(prog::parse("V i", p));
+    CHECK(p.minor);
+    CHECK(prog::parse("I bVII IV", p));
+    CHECK(!p.minor);
+    // A tie goes by the I / i chord, else major.
+    CHECK(prog::parse("i IV", p));
+    CHECK(p.minor);
+    CHECK(prog::parse("I iv", p));
+    CHECK(!p.minor);
+    CHECK(prog::parse("Isus4 V", p));
+    CHECK(!p.minor);
+    // The leading-tone chord: on the raised 7th in minor, on the 7th in major.
+    CHECK(prog::parse("viidim i", p));
+    CHECK_STR(names(p, kRootA, kMinor), "G#dim Am");
+    CHECK(prog::parse("viidim I", p));
+    CHECK_STR(names(p, kRootC, kMajor), "Bdim C");
+    CHECK(prog::parse("VII i", p));   // VII stays on the natural 7th
+    CHECK_STR(names(p, kRootA, kMinor), "G Am");
+    // The key said in front wins.
+    CHECK(prog::parse("major: iv V", p));
+    CHECK(!p.minor);
+    CHECK(p.keyGiven);
+    CHECK_STR(names(p, kRootC, kMajor), "Fm G");
+    CHECK_STR(names(p, kRootA, kMinor), "Fm G");   // in C, A minor's relative major
+    CHECK(prog::parse("  Minor:I iv | Picardy", p));
+    CHECK(p.minor);
+    CHECK_EQ(p.count, 2);
+    CHECK_STR(p.chords[0].numeral, "I");
+    CHECK_STR(names(p, kRootA, kMinor), "A Dm");
+    CHECK(!prog::parse("minor:", p));
+    CHECK(!prog::parse("dorian: i IV", p));
+}
+
+TEST(progression_builtins_keep_their_key) {
+    // Every built-in line reads in the key it was written for: minor exactly
+    // when it has a plain i chord.
+    for (int f = 0; f < prog::defaultCount(); ++f) {
+        const char* t = prog::defaultText(f);
+        while (*t) {
+            const char* e = std::strchr(t, '\n');
+            const std::string line(t, e ? size_t(e - t) : std::strlen(t));
+            t = e ? e + 1 : t + line.size();
+            prog::Progression p;
+            CHECK(prog::parse(line.c_str(), p));
+            const std::string pad = " " + line.substr(0, line.find('|')) + " ";
+            const bool wantMinor = pad.find(" i ") != std::string::npos || pad.find(" i7 ") != std::string::npos;
+            if (p.minor != wantMinor) std::printf("  %s\n", line.c_str());
+            CHECK_EQ(p.minor, wantMinor);
+        }
+    }
+}
+
+TEST(progression_theory_cases) {
+    // Rows checked against Tonal by tools/theory_check (names and notes).
+    setNoteSpelling(kSpellAuto, kRootC, kMajor);
+    int rows = 0;
+    auto check = [&](const char* tonicName, const char* key, const char* line, const char* wantNames,
+                     const char* wantNotes) {
+        ++rows;
+        prog::Progression p;
+        CHECK(prog::parse(line, p));
+        CHECK_EQ(p.minor, std::strcmp(key, "minor") == 0);
+        const prog::Tonic t = spelled(tonicName);
+        std::string got, notes = wantNotes;
+        for (int i = 0; i < p.count; ++i) {
+            char n[16];
+            prog::chordName(p, i, t, n, sizeof(n));
+            got += (i ? " " : "") + std::string(n);
+            // The chord's notes as pitch classes against the spelled notes.
+            const size_t bar = notes.find('|');
+            std::string want = notes.substr(0, bar);
+            notes = bar == std::string::npos ? "" : notes.substr(bar + 1);
+            int iv[prog::kMaxNotes];
+            const int k = prog::intervals(p.chords[i].quality, iv);
+            std::string have, exp;
+            for (int j = 0; j < k; ++j) have += std::to_string((prog::chordRoot(p, i, t) + iv[j]) % 12) + " ";
+            for (size_t s = 0; s < want.size();) {
+                while (s < want.size() && want[s] == ' ') ++s;
+                size_t e = want.find(' ', s);
+                if (e == std::string::npos) e = want.size();
+                if (e > s) exp += std::to_string(spelled(want.substr(s, e - s).c_str()).pc) + " ";
+                s = e;
+            }
+            if (have != exp) std::printf("  %s: chord %d notes %s, want %s\n", line, i + 1, have.c_str(), exp.c_str());
+            CHECK(have == exp);
+        }
+        if (got != wantNames) std::printf("  %s %s: %s, want %s\n", tonicName, line, got.c_str(), wantNames);
+        CHECK(got == wantNames);
+    };
+#define PROG_CASE(tonic, key, line, n, notes) check(tonic, key, line, n, notes);
+#include "theory_cases.inc"
+#undef PROG_CASE
+    CHECK(rows >= 15);
+    setNoteSpelling(kSpellSharps, 0, 0);
 }
 
 TEST(progression_auto_spelling) {
     prog::Progression p;
-    CHECK(prog::parse("I bVII IV", p));
+    // Auto: roots on the numeral's letter from the key's tonic.
     CHECK(prog::parse("i bII", p));
-    // Auto: a b chord in flats, a # chord in sharps, the rest in the key's spelling.
     setNoteSpelling(kSpellAuto, kRootA, kMinor);
     CHECK_STR(names(p, kRootA, kMinor), "Am Bb");
+    CHECK(prog::parse("I V vi IV", p));   // relative major: letters from C
+    CHECK_STR(names(p, kRootA, kMinor), "C G Am F");
     CHECK(prog::parse("I bVII IV #IV", p));
     setNoteSpelling(kSpellAuto, kRootC, kMajor);
     CHECK_STR(names(p, kRootC, kMajor), "C Bb F F#");
-    CHECK(prog::parse("i iv v", p));
-    setNoteSpelling(kSpellAuto, kRootC, kMinor);
-    CHECK_STR(names(p, kRootC, kMinor), "Cm Fm Gm");
     CHECK(prog::parse("i VI", p));
+    setNoteSpelling(kSpellAuto, kRootC, kMinor);
     CHECK_STR(names(p, kRootC, kMinor), "Cm Ab");
-    // A chosen spelling wins.
+    // F# major: the 7th is E#, not F.
+    CHECK(prog::parse("Imaj7 viidim", p));
+    setNoteSpelling(kSpellAuto, kRootC + 6, kMajor);
+    CHECK_STR(names(p, kRootC + 6, kMajor), "F#maj7 E#dim");
+    // A double sharp falls back to the key's table (#vii in F#: E## -> F#).
+    CHECK(prog::parse("I #vii", p));
+    CHECK_STR(names(p, kRootC + 6, kMajor), "F# F#m");
+    // D Dorian (spelled like D minor, flats): F C Dm Bb.
+    CHECK(prog::parse("I V vi IV", p));
+    setNoteSpelling(kSpellAuto, kRootC + 2, kDorian);
+    CHECK_STR(names(p, kRootC + 2, kDorian), "F C Dm Bb");
+    // A chosen spelling wins: the name table (sounding pitch).
     CHECK(prog::parse("I bVII", p));
     setNoteSpelling(kSpellSharps, kRootC, kMajor);
     CHECK_STR(names(p, kRootC, kMajor), "C A#");
     setNoteSpelling(kSpellFlats, kRootC, kMajor);
     CHECK(prog::parse("I #IV", p));
     CHECK_STR(names(p, kRootC, kMajor), "C Gb");
+    CHECK(prog::parse("Imaj7 viidim", p));
+    setNoteSpelling(kSpellSharps, kRootC + 6, kMajor);
+    CHECK_STR(names(p, kRootC + 6, kMajor), "F#maj7 Fdim");
     setNoteSpelling(kSpellSharps, 0, 0);
 }
 

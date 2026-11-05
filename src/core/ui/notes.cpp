@@ -23,6 +23,10 @@ const char* const kScaleNames[kScaleCount] = {
     "Overtone",  "DoubHarm",  "Indian",    "GypsyMin",  "NeapoMaj",  "NeapoMin", "Enigmatic"};
 const char* const kSharpNames[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
 const char* const kFlatNames[12] = {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"};
+// [I] Letters C..B: flat, natural, sharp; and each letter's natural pitch class.
+const char* const kLetterNames[7][3] = {{"Cb", "C", "C#"}, {"Db", "D", "D#"}, {"Eb", "E", "E#"}, {"Fb", "F", "F#"},
+                                        {"Gb", "G", "G#"}, {"Ab", "A", "A#"}, {"Bb", "B", "B#"}};
+constexpr uint8_t kLetterPc[7] = {0, 2, 4, 5, 7, 9, 11};
 bool gFlats = false;
 OT_SDRAM_BSS bool gAuto;   // [I] Auto spelling chosen (progression chord names)
 // setNoteSpelling's last inputs packed as a key (0: none yet); Auto is
@@ -76,6 +80,17 @@ const char* pitchClassName(int note) { return pitchClassName(note, gFlats); }
 const char* pitchClassName(int note, bool flats) {
     const char* const* names = flats ? kFlatNames : kSharpNames;
     return names[((note % 12) + 12) % 12];
+}
+
+const char* letterName(int letter, int pc) {
+    letter = ((letter % 7) + 7) % 7;
+    const int d = ((pc - kLetterPc[letter]) % 12 + 18) % 12 - 6;   // -6..5 semitones off the natural
+    return d >= -1 && d <= 1 ? kLetterNames[letter][d + 1] : nullptr;
+}
+
+int keyLetter(int root, uint8_t scale) {
+    const char* n = pitchClassName(root, keyUsesFlats(root, scale));
+    return (n[0] - 'A' + 5) % 7;   // A = 5, B = 6, C = 0
 }
 
 void noteName(int8_t note, char out[4]) {

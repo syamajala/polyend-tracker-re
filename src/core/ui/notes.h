@@ -26,6 +26,12 @@ bool noteSpellingAuto();
 const char* pitchClassName(int note);
 // The same in a given spelling.
 const char* pitchClassName(int note, bool flats);
+// [I] Auto spelling by letter, for chord names: pitch class `pc` written on a
+// letter (0 = C .. 6 = B), so F# major's 7th is E# ("E#" for pc 5 on E).
+// nullptr when that needs a double sharp or flat.
+const char* letterName(int letter, int pc);
+// The letter Auto spells the project root with (A minor: 5 = A; Gb is F#: 3).
+int keyLetter(int root, uint8_t scale);
 
 uint16_t scaleMask(uint8_t scale);
 const char* scaleName(uint8_t scale);   // stock names (spec 16 §B.2)

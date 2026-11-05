@@ -1,0 +1,8 @@
+{
+  "name": "opentracker-theory-check",
+  "private": true,
+  "type": "module",
+  "description": "Checks tests/theory_cases.inc against the Tonal music theory library",
+  "scripts": { "check": "node check.mjs" },
+  "dependencies": { "tonal": "6.5.1" }
+}

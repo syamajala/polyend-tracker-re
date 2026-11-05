@@ -14,6 +14,22 @@ the codec and Line in, SD timing). Batch device tests so one flash covers severa
 | M4 benchmark | `make perf-gate` | audio instruction counts on an emulated Cortex-M4 against a baseline, engine limits, size checks |
 | Device | `tools/tracker_remote.py`, `tools/telemetry_check.py log` | scripts and telemetry on a real Tracker |
 
+## Music theory cases
+
+Chord names and notes the tests expect (progressions, chord hints) are rows in
+`tests/theory_cases.inc`, so they aren't taken from our own code: the host tests read the
+rows, and `tools/theory_check/check.mjs` checks the same rows against the
+[Tonal](https://github.com/tonaljs/tonal) library (letter spelling, chord notes, minor
+keys with harmonic minor's leading tone). After adding or changing a row:
+
+```sh
+cd tools/theory_check && npm ci && node check.mjs
+```
+
+It needs Node and the network for `npm ci`, so it isn't part of `make host-test`. Tonal
+only checks the theory: how a progression's key is picked and where it plays in a project
+scale are our own rules, tested in `tests/progression_test.cpp`.
+
 ## Remote scripts
 
 Scripts in `tools/remote_scripts/` drive the app through
