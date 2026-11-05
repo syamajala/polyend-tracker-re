@@ -10,9 +10,13 @@ namespace dx7 {
 constexpr int kTabLg = 10;                // 1024 entries per table
 constexpr int kTabN = 1 << kTabLg;
 
-extern int32_t gDx7Sin[kTabN + 1];          // Q24 sine (SRAM)
+extern int32_t gDx7Sin[kTabN + 1];          // Q24 sine (SRAM, built by initSinTable)
 extern const uint32_t kDx7Exp2[kTabN + 1];  // Q30 2^x mantissa
 extern const int32_t kDx7FreqLut[kTabN + 1];  // log2 Hz (fraction) -> phase increment
+
+// [I] #122 Builds gDx7Sin (idempotent): audio::initTables() and dx7::engine()
+// call it, before any render.
+void initSinTable();
 
 // Sine of a Q24 phase (1 << 24 = one cycle; it wraps, so unsigned), Q24
 // result (msfa Sin::lookup). Neighbour differences are < 2^17, so the

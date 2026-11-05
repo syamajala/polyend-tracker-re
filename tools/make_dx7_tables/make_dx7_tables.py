@@ -3,7 +3,10 @@
 
 The tables follow the integer recipes of Google's Music Synthesizer for
 Android (msfa, Apache 2.0: sin.cc, exp2.cc, freqlut.cc), computed here
-offline so they live in flash instead of 20 KB of SRAM filled at boot.
+offline so they live in flash instead of 20 KB of SRAM filled at boot. The
+sine table is the exception: it is read from SRAM, so initSinTable() builds it
+there at boot from two constants, with the same integer steps as sin_table()
+(#122: no 4 KB flash copy of it).
 The frequency table depends on the audio sample rate (kSampleRate,
 audio_tables.h). Usage: make_dx7_tables.py > src/core/audio/engines/dx7_tables.cpp
 """
@@ -14,12 +17,18 @@ LG_N = 10
 N = 1 << LG_N
 
 
-def sin_table():
-    # msfa Sin::init (values in Q24), plain form: N + 1 entries.
-    R = 1 << 29
+def sin_steps():
+    # cos / sin of one table step, Q30: the only floating point in Sin::init.
     dphase = 2 * math.pi / N
-    c = int(math.floor(math.cos(dphase) * (1 << 30) + 0.5))
-    s = int(math.floor(math.sin(dphase) * (1 << 30) + 0.5))
+    return (int(math.floor(math.cos(dphase) * (1 << 30) + 0.5)),
+            int(math.floor(math.sin(dphase) * (1 << 30) + 0.5)))
+
+
+def sin_table():
+    # msfa Sin::init (values in Q24), plain form: N + 1 entries. initSinTable()
+    # in the generated file runs the same steps.
+    R = 1 << 29
+    c, s = sin_steps()
     u, v = 1 << 30, 0
     tab = [0] * (N + 1)
     for i in range(N // 2):
@@ -74,9 +83,25 @@ def main():
     print("namespace audio {")
     print("namespace dx7 {")
     print()
-    print("// Sine, Q24, one cycle + the wrap entry. Not const: it lives in SRAM")
-    print("// (.data), read 6 x 128 times per voice per block, never from flash.")
-    print(emit("gDx7Sin", sin_table(), const=False))
+    c, s = sin_steps()
+    print("// Sine, Q24, one cycle + the wrap entry. In SRAM (.bss), read 6 x 128")
+    print("// times per voice per block; built at boot by initSinTable() (msfa")
+    print("// Sin::init: a rotation by one step per entry, integer only, ~60 us).")
+    print("int32_t gDx7Sin[kTabN + 1];")
+    print()
+    print("void initSinTable() {")
+    print("    if (gDx7Sin[kTabN / 4]) return;   // built: sin(pi / 2) = 1 << 24")
+    print(f"    constexpr int64_t kCos = {c}, kSin = {s}, kRound = 1 << 29;   // one step, Q30")
+    print("    int32_t u = 1 << 30, v = 0;")
+    print("    for (int i = 0; i < kTabN / 2; ++i) {")
+    print("        gDx7Sin[i] = (v + 32) >> 6;")
+    print("        gDx7Sin[i + kTabN / 2] = -((v + 32) >> 6);")
+    print("        const int32_t t = int32_t((int64_t(u) * kSin + int64_t(v) * kCos + kRound) >> 30);")
+    print("        u = int32_t((int64_t(u) * kCos - int64_t(v) * kSin + kRound) >> 30);")
+    print("        v = t;")
+    print("    }")
+    print("    gDx7Sin[kTabN] = 0;")
+    print("}")
     print()
     print("// 2^x mantissa, Q30 (unsigned: the last entry is 2^31).")
     print(emit("kDx7Exp2", [x & 0xffffffff for x in exp2_table()], ctype="uint32_t"))

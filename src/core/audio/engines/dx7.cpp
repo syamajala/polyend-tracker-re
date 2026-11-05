@@ -852,7 +852,10 @@ void setVoice(SynthSlotScratch& slot, const uint8_t v[kVoiceBytes]) {
     s.loaded = true;
 }
 
-ISynthEngine* engine() { return &gEngine; }
+ISynthEngine* engine() {
+    initSinTable();   // normally done by audio::initTables(); direct users (tests) too
+    return &gEngine;
+}
 
 }  // namespace dx7
 }  // namespace audio
