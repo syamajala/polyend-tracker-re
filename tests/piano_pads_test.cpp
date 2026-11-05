@@ -67,22 +67,22 @@ TEST(piano_key_lights) {
     CHECK_EQ(lv[kLowCs], 6);   // black key dimmer
     CHECK_EQ(lv[kLowGap], 0);  // gaps dark
     CHECK_EQ(lv[0], 0);
-    // D major: D brightest, C and C# outside the scale barely lit, F# a
-    // black key in the scale.
+    // D major: D brightest, C and F outside the scale barely lit, the
+    // scale's black keys (C#, F#) as bright as its white ones.
     std::memset(lv, 0, sizeof(lv));
     p.build(kMajor, 0, 26, true);
     p.pianoLeds(lv, 10, 31);
-    CHECK_EQ(lv[kLowD], 20);
+    CHECK_EQ(lv[kLowD], 24);
     CHECK_EQ(lv[kLowC], 2);
-    CHECK_EQ(lv[kLowCs], 6);   // C# is in D major
-    CHECK_EQ(lv[28], 6);       // F#
+    CHECK_EQ(lv[kLowCs], 15);  // C# is in D major
+    CHECK_EQ(lv[28], 15);      // F#
     CHECK_EQ(lv[39], 2);       // F
     // Low pad brightness: never darker than 1, so the keyboard stays visible.
     std::memset(lv, 0, sizeof(lv));
     p.pianoLeds(lv, 3, 10);
     CHECK_EQ(lv[kLowC], 1);
-    CHECK_EQ(lv[kLowCs], 1);
-    CHECK_EQ(lv[kLowD], 6);
+    CHECK_EQ(lv[kLowCs], 4);
+    CHECK_EQ(lv[kLowD], 8);
 }
 
 TEST(piano_config_record) {
@@ -168,7 +168,7 @@ TEST(piano_key_lights_are_cached) {
     CHECK(b1 - b0 <= 1);
     // A new pad brightness or a new table rebuilds them once.
     p.pianoLeds(lv, 3, 10);
-    CHECK_EQ(lv[kLowD], 6);
+    CHECK_EQ(lv[kLowD], 8);
     CHECK_EQ(p.ledBuilds(), b1 + 1);
     p.pianoLeds(lv, 3, 10);
     CHECK_EQ(p.ledBuilds(), b1 + 1);

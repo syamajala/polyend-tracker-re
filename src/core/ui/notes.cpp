@@ -227,14 +227,20 @@ uint8_t PadNotes::note(uint8_t physicalPad, bool raw) const {
 void PadNotes::buildLeds() {
     static const bool kBlack[12] = {false, true, false, true, false, false, true, false, true, false, true, false};
     const uint8_t dim = ledDim_, full = ledFull_;
-    const uint8_t rootLv = uint8_t((dim + full) / 2);
-    const uint8_t blackLv = uint8_t(dim * 6 / 10 > 0 ? dim * 6 / 10 : 1);
+    // [I] With a scale picked, the scale's keys stand out at one level, black
+    // or white, the root brighter and the keys outside it barely lit (user:
+    // the black keys of a scale read as outside it). Chromatic keeps the
+    // piano shape: black keys dimmer than white.
+    const bool scaled = scale_ != 0;
+    const uint8_t rootLv = uint8_t(scaled ? full * 4 / 5 : (dim + full) / 2);
+    const uint8_t whiteLv = uint8_t(scaled ? dim * 3 / 2 : dim);
+    const uint8_t blackLv = scaled ? whiteLv : uint8_t(dim * 6 / 10 > 0 ? dim * 6 / 10 : 1);
     const uint8_t outLv = uint8_t(dim / 4 > 0 ? dim / 4 : 1);
     for (int lp = 0; lp < 48; ++lp) {
         const uint8_t n = notes_[lp];
         uint8_t v = kNoNote;
         if (n != kNoNote) {
-            v = kBlack[n % 12] ? blackLv : dim;
+            v = kBlack[n % 12] ? blackLv : whiteLv;
             if (!isInScale(n, root_, scale_)) v = outLv;
             else if (n % 12 == root_ % 12) v = rootLv;
         }
