@@ -63,7 +63,8 @@ for you: pick a progression and it adds the slots, with a named pattern for each
 For example, in A minor (Config > Project Settings: Root note A, Scale Minor), press
 **Rec**, then **Insert**, pick `Am  F  C  G   i VI III VII` and press **F8 Insert**. Four
 slots appear after the cursor, playing four patterns named `Am i`, `F VI`, `C III` and
-`G VII`, each with its chord on step 1 of tracks 1-3, using the current instrument. Press
+`G VII`, each with its chord on step 1 of tracks 1-3, using the current instrument. The
+cursor ends on the last of them, so a second Insert (a chorus, say) follows on. Press
 **F2 Play Song** to hear it, then open each pattern to give the chord a rhythm, add drums,
 or change the voicing.
 
