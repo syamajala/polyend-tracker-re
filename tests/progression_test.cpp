@@ -416,6 +416,53 @@ TEST(progression_insert_names_patterns) {
     CHECK_EQ(a.project.playlist[4], 3);
 }
 
+// [I] #123 Insert Pattern: the whole progression in one pattern, a chord per
+// bar, named after its chords.
+TEST(progression_insert_pattern) {
+    Harness h;
+    App& a = *h.app;
+    setKey(a, kRootA, kMinor);
+    a.setCurrentInstrument(0);
+    prog::Progression p;
+    CHECK(prog::parse("i VI III VII", p));
+    const char* why = nullptr;
+    // New project: the empty pattern 1 in slot 1 is filled.
+    CHECK_EQ(a.insertProgressionPattern(p, 0, &why), 0);
+    CHECK_EQ(a.project.playlist[0], 1);
+    CHECK_EQ(a.project.playlist[1], 0);
+    CHECK_STR(a.names.get(1), "Am F C G");
+    const PatternStock& st = a.storedStock(1);
+    for (int t = 0; t < kStockTrackCount; ++t) CHECK_EQ(int(st.tracks[t].lastStep), 63);   // 4 bars of 16
+    CHECK_EQ(st.tracks[0].steps[0].note, 57);   // Am: A4 C5 E5, as Insert's
+    CHECK_EQ(st.tracks[1].steps[0].note, 60);
+    CHECK_EQ(st.tracks[2].steps[0].note, 64);
+    CHECK_EQ(st.tracks[0].steps[0].instrument, 0);
+    for (int b = 1; b < 4; ++b)
+        for (int t = 0; t < 3; ++t) CHECK(st.tracks[t].steps[b * 16].note >= 0);
+    CHECK_EQ(st.tracks[0].steps[1].note, kNoteEmpty);   // held to the next bar
+    CHECK_EQ(st.tracks[3].steps[16].note, kNoteEmpty);
+    // The same progression again: the same pattern in a new slot.
+    CHECK_EQ(a.insertProgressionPattern(p, 0, &why), 1);
+    CHECK_EQ(a.project.playlist[1], 1);
+    CHECK(!a.patternHasData(2));
+    // Another voicing is another pattern.
+    CHECK_EQ(a.insertProgressionPattern(p, 1, &why, prog::kWide), 2);
+    CHECK_EQ(a.project.playlist[2], 2);
+    CHECK_STR(a.names.get(2), "Am F C G Wide");
+    // A triad after a 7th stops the 7th's fourth track.
+    CHECK(prog::parse("i7 VI", p));
+    CHECK_EQ(a.insertProgressionPattern(p, 2, &why), 3);
+    const int n = a.project.playlist[3];
+    CHECK_STR(a.names.get(n), "Am7 F");
+    CHECK(a.storedStock(n).tracks[3].steps[0].note >= 0);
+    CHECK_EQ(a.storedStock(n).tracks[3].steps[16].note, kNoteOff);
+    CHECK_EQ(int(a.storedStock(n).tracks[0].lastStep), 31);
+    // Eight chords fill the longest pattern.
+    CHECK(prog::parse("i VI III VII i VI III VII", p));
+    CHECK_EQ(a.insertProgressionPattern(p, 3, &why), 4);
+    CHECK_EQ(int(a.storedStock(a.project.playlist[4]).tracks[0].lastStep), 127);
+}
+
 TEST(progression_insert_refuses_when_full) {
     Harness h;
     App& a = *h.app;
@@ -570,6 +617,30 @@ TEST(progression_insert_voicing_names) {
     CHECK(a.storedStock(a.project.playlist[17]).tracks[4].steps[0].note >= 0);   // 5 tracks
     CHECK_EQ(a.insertProgression(p, 17, &why), 18);
     CHECK_EQ(a.project.playlist[18], 20);
+}
+
+// [I] #123 F5 Insert Pattern in the Progression list.
+TEST(progression_song_screen_insert_pattern) {
+    Harness h;
+    App& a = *h.app;
+    setKey(a, kRootA, kMinor);
+    h.tap(btn::Song);
+    SongScreen& s = song(h);
+    h.tap(btn::Rec);
+    h.tap(btn::Insert);
+    h.run(50);
+    CHECK(h.disp.lastHasText("Pattern"));
+    h.tap(btn::F5);
+    CHECK(!s.progOpen);
+    CHECK_EQ(a.project.playlist[0], 1);
+    CHECK_EQ(a.project.playlist[1], 0);
+    CHECK_STR(a.names.get(1), "Am F C G");
+    CHECK_EQ(s.cursor, 0);
+    // F8 still adds a slot per chord.
+    h.tap(btn::Insert);
+    h.tap(btn::F8);
+    CHECK_EQ(a.project.playlist[4], 5);
+    CHECK_STR(a.names.get(2), "Am i");
 }
 
 TEST(progression_song_screen_voicing_key) {

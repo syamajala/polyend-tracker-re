@@ -75,7 +75,8 @@ or change the voicing.
 - The Pattern list shows each pattern's name, so the song reads as its chords.
 - The list shows each progression's chords in the project key, with its numbers (or its
   title) on the right, under a heading per file. **Up / Down** or the encoder pick one,
-  **F8** or **Insert** adds it, **F7** or **Left** closes the list.
+  **F8** or **Insert** adds it as a slot per chord, **F5** as one pattern (below), **F7** or
+  **Left** closes the list.
 - A chord that already has a pattern named after it reuses that pattern (only the name's
   first word is checked, so a pattern you called `F` counts as F). A chord that comes twice
   in a progression gets one pattern.
@@ -110,6 +111,27 @@ shows the first two chords' notes, for example `Smooth: Am A4 C5 E5 > F A4 C5 F5
 - The choice stays until the Tracker is switched off.
 - A reused pattern keeps its notes: a chord that comes twice is one pattern, voiced the
   first time. To change a single chord's shape, open its pattern and move the notes.
+
+### One pattern to resample
+
+**F5 Insert Pattern** adds the progression as a single pattern instead: one slot playing a
+pattern named after its chords (`Am F C G`), with a chord on the first step of each bar
+(16 steps in 4/4), so four chords make a 64-step pattern and eight fill 128. Voicing works
+the same (`Am F C G Wide`), and the same progression in the same voicing reuses its
+pattern.
+
+![Insert Pattern: the four chords in one pattern, a bar each](../images/song-progression-pattern.png)
+
+That pattern is made to be resampled and chopped, the way a sampled record is flipped:
+
+1. Play it with the sound you want, then resample it from Master for as many bars as it
+   has chords (see [Resampling](resampling.md)), with **Slices** on.
+2. The take is a Beat Slice instrument with a slice per chord: pad 1 plays the first chord,
+   pad 2 the second, each at its own pitch.
+3. Put the slices in a new order, cut them short, or play them with the Performance FX.
+
+To play one chord at other pitches instead (a chord stab), set the instrument to **Slice**,
+pick the chord with the Slice FX and play it from the pads.
 
 ### The progression files
 

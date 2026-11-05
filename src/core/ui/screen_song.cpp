@@ -228,6 +228,7 @@ void SongScreen::refreshBar() {
     BottomBar& b = ui_.bar;
     b.clear();
     if (progOpen) {   // [I] #121
+        b.set(4, "Insert", "Pattern");   // [I] #123 the progression as one pattern
         b.set(5, "Voicing", prog::voicingName(progVoicing));
         b.set(6, "Cancel", nullptr);
         b.set(7, "Insert", nullptr);
@@ -463,6 +464,7 @@ void SongScreen::onButton(uint8_t id, uint8_t state) {
         switch (id) {
             case btn::Up: progMove(-1); break;
             case btn::Down: progMove(1); break;
+            case btn::F5: insertSelectedProgression(true); break;
             case btn::F6: nextVoicing(); break;
             case btn::F8:
             case btn::Insert: insertSelectedProgression(); break;
@@ -786,21 +788,27 @@ void SongScreen::nextVoicing() {
     ui_.notify(t, 2500);
 }
 
-void SongScreen::insertSelectedProgression() {
+void SongScreen::insertSelectedProgression(bool asPattern) {
     if (progCursor < 0 || progCursor >= progRows || g_progRow[progCursor] < 0) return;
     prog::Progression p;
     if (!prog::parse(g_progs.line[g_progRow[progCursor]], p)) return;
     const char* why = nullptr;
-    const int first = app_.insertProgression(p, cursor, &why, progVoicing);
+    const int first = asPattern ? app_.insertProgressionPattern(p, cursor, &why, progVoicing)
+                                      : app_.insertProgression(p, cursor, &why, progVoicing);
     if (first < 0) {
         ui_.notify(why ? why : "Progression not added");
         return;
     }
     progOpen = false;
-    cursor = first + p.count - 1;   // the next Insert follows the progression
     focus = 1;
     char t[48];
-    std::snprintf(t, sizeof(t), "Progression added: %d slots", p.count);
+    if (asPattern) {
+        cursor = first;
+        std::snprintf(t, sizeof(t), "Progression added: 1 pattern, %d bars", p.count);
+    } else {
+        cursor = first + p.count - 1;   // the next Insert follows the progression
+        std::snprintf(t, sizeof(t), "Progression added: %d slots", p.count);
+    }
     ui_.notify(t, 1500);
 }
 

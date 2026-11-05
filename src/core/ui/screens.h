@@ -244,7 +244,7 @@ public:
     int progRows = 0, progCursor = 0, progTop = 0;
     uint8_t progVoicing = 0;   // F6 (prog::Voicing), kept until power-off
     void openProgressions();
-    void insertSelectedProgression();
+    void insertSelectedProgression(bool asPattern = false);   // [I] #123 F5: one pattern
 
 private:
     void refreshBar();
