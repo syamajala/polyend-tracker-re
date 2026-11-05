@@ -11,7 +11,7 @@ The full reference is [`sim/README.md`](https://github.com/syamajala/polyend-tra
 
 ```sh
 make -C sim
-build/sim/opentracker-sim [--sd DIR] [--scale 2] [--line-in]
+build/full/sim/opentracker-sim [--sd DIR] [--scale 2] [--line-in]
 ```
 
 - `--sd DIR` is the SD card root (default `~/.opentracker-sd`, created on first run). The

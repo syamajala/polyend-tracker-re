@@ -18,6 +18,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+      # The synth and effect modules (profiles/*.toml, ci.yml).
+      - name: Fetch the module repositories
+        run: |
+          for r in opentracker-synths opentracker-fx; do
+            git clone --depth 1 "https://github.com/opentracker-fw/$r" "$GITHUB_WORKSPACE/../../$r"
+          done
       - name: Install GCC 14
         # On the ubuntu-24.04 image already; apt only if a new image drops it.
         run: command -v g++-14 || { sudo apt-get update && sudo apt-get install -y g++-14; }
@@ -34,6 +40,12 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+      # The synth and effect modules (profiles/*.toml, ci.yml).
+      - name: Fetch the module repositories
+        run: |
+          for r in opentracker-synths opentracker-fx; do
+            git clone --depth 1 "https://github.com/opentracker-fw/$r" "$GITHUB_WORKSPACE/../../$r"
+          done
       - uses: carlosperate/arm-none-eabi-gcc-action@v1
         with:
           release: '14.2.Rel1'
@@ -51,7 +63,7 @@ jobs:
       - name: Build
         run: make -j"$(nproc)" VERSION=${{ steps.ver.outputs.version }}
       - name: Flash, stack headroom and libm checks
-        run: python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size build/opentracker.elf
+        run: python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size build/full/opentracker.elf
       # [I] #13 the example MIDI presets, as the card folder MidiPresets/.
       - name: MIDI presets zip
         run: |
@@ -62,5 +74,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" build/*.ptf build/MidiPresets.zip \
+          gh release create "${GITHUB_REF_NAME}" build/full/*.ptf build/MidiPresets.zip \
             --title "OpenTracker ${GITHUB_REF_NAME}" --generate-notes

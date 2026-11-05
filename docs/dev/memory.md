@@ -157,7 +157,7 @@ which never runs alongside the app.
   - `size`: the link-time limits;
   - `frames`: the deepest frame vs the stack guard;
   - `log`: stack peak, heap, CPU and overruns from a device log.
-- **`-fstack-usage`** on every build; `pahole -C <type> build/opentracker.elf`
+- **`-fstack-usage`** on every build; `pahole -C <type> build/full/opentracker.elf`
   for struct layouts.
 - **Remote-control scripts** (`tools/remote_scripts/*.txt`), run on the
   simulator in CI and on a Tracker with the telemetry log captured.

@@ -8,6 +8,7 @@
 #include "build_id.h"
 #include "diag_log.h"
 #include "k66.h"
+#include "ot_version.h"
 #include "sdhc.h"
 #include "usb_dev.h"
 #include "usb_mem.h"
@@ -253,7 +254,7 @@ void diagInit() {
     __enable_irq();
     NVIC_SET_PRIORITY(IRQ_SOFTWARE, kDrainPriority);
     NVIC_ENABLE_IRQ(IRQ_SOFTWARE);
-    diagLogf("OpenTracker diag log %s (%s), built %s %s. Send any byte to replay the boot log.", OT_VERSION,
+    diagLogf("OpenTracker diag log %s (%s), built %s %s. Send any byte to replay the boot log.", OT_VERSION_TEXT,
              kBuildHash, __DATE__, __TIME__);
     diagLogf("RCM_SRS0 0x%02X RCM_SRS1 0x%02X SIM_CLKDIV1 0x%08lX SCB_SHCSR 0x%08lX", unsigned(RCM_SRS0),
              unsigned(RCM_SRS1), static_cast<unsigned long>(SIM_CLKDIV1),

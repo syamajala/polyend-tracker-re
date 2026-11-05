@@ -12,6 +12,16 @@
 // -30 dBFS) and stay at least 1 dB below full scale. Macros M1..M6 at both extremes must stay finite and
 // below full scale too. When the release folder (releases/OpenTracker-Presets)
 // exists, its files must be the generator's bytes (for the models it has).
+// 3.x: the pack holds the models of the profile's modules (presets.cpp); the
+// JU6 module engine (JU6S, Patches/JU6/) plays 4-voice chords and single
+// notes like VAP, the mono D-Type (DTY1, Patches/DTYPE/) a few notes at
+// Poly 1 like ACD, the duophonic A-Type (ATY1, Patches/ATYPE/) the mono
+// notes plus a Duo pair from two tracks, the CS-Type (CST1, Patches/CSTYPE/)
+// 4-voice chords like VAP (its Poly 1 patches the mono notes), the T-Type kits (TTY1, Patches/TTYPE/)
+// every drum alone, then eight drums at once, at Poly 1; the retro engines 8-Type, B-Type and Arc-Type
+// (8TY1, BTY1, ARC1) like CS-Type (Poly 1: the mono notes, else 4-voice chords), Hand-Type (HND1,
+// Patches/HANDTYPE/) channel patches the mono notes and its kits ("OT Kit ") every drum alone, then
+// five in one block; this test runs in every profile with a preset module (profile.mk PRESET_MODS).
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -28,6 +38,7 @@
 #include "audio/synth_bank.h"
 #include "audio/synth_params.h"
 #include "formats/patch_pb.h"
+#include "modules/synth_models.h"
 
 using namespace ot;
 using namespace ot::audio;
@@ -35,7 +46,13 @@ using namespace ot::audio;
 namespace {
 
 std::string libPath(const presets::Preset& p) {
-    return std::string("Patches/") + synthModelName(p.model) + "/" + p.name + ".patch";
+    return std::string("Patches/") + presets::folderOf(p) + "/" + p.name + ".patch";
+}
+
+// The slot on the preset's engine (a module engine keeps the record's model).
+void setEngine(App& a, int s, const presets::Preset& p) {
+    a.setSynthModel(s, int(p.model));
+    if (p.engine) a.setSynthEngine(s, p.engine);
 }
 
 std::vector<uint8_t> encode(const SynthPatch& p) {
@@ -58,7 +75,7 @@ struct Slot {
     float peak = 0.0f;
     long clips = 0;
     bool finite = true;
-    Slot(const SynthPatch& p, SynthModel m, int poly, int macroValue = -1) : patch(p) {
+    Slot(const SynthPatch& p, SynthModel m, int poly, int macroValue = -1, int32_t engine = 0) : patch(p) {
         gov.setBudget(8);
         bank.setGovernor(&gov);
         bank.setStartsPerBlock(0);
@@ -73,6 +90,7 @@ struct Slot {
         if (macroValue >= 0)
             for (int k = 0; k < kSynthSeqMacros; ++k) rec.macros[k] = uint8_t(macroValue);
         bank.setSlotRecord(0, rec);
+        bank.setSlotEngine(0, engine);
         block();
     }
     void block() {
@@ -100,15 +118,55 @@ struct Slot {
     }
 };
 
+// A Hand-Type kit (the Drums channel, every drum by note).
+bool handKit(const presets::Preset& p) { return std::strncmp(p.name, "OT Kit ", 7) == 0; }
+
 double dbfs(float x) { return 20.0 * std::log10(x > 1e-9f ? double(x) : 1e-9); }
 
 constexpr int kBlocksPerSec = 345;   // 44.1 kHz / 128
 
 // The test performance of one preset; returns the slot (peak, clips). FAT
-// and WTFM presets play as ACD (mono, Poly 1) or as VAP (chords, Poly 4).
-void perform(Slot& s, SynthModel m, int poly) {
-    if (m == SynthModel::FAT || m == SynthModel::WTFM) m = poly > 1 ? SynthModel::VAP : SynthModel::ACD;
-    if (m == SynthModel::ACD) {
+// and WTFM presets play as ACD (mono, Poly 1) or as VAP (chords, Poly 4);
+// JU6 presets always as VAP (4-voice chords, whatever their suggested Poly),
+// D-Type presets as ACD (mono), A-Type as ACD then two tracks held together
+// (Duo), CS-Type as VAP or, at Poly 1, as ACD.
+void perform(Slot& s, const presets::Preset& p, int poly) {
+    SynthModel m = p.model;
+    if (p.engine == presets::kJu6Engine) m = SynthModel::VAP;
+    else if (p.engine == presets::kDtypeEngine || p.engine == presets::kAtypeEngine) m = SynthModel::ACD;
+    else if (p.engine == presets::kCstypeEngine || p.engine == presets::kEightEngine || p.engine == presets::kBtypeEngine ||
+             p.engine == presets::kArcEngine)
+        m = poly > 1 ? SynthModel::VAP : SynthModel::ACD;
+    else if (p.engine == presets::kHandEngine) m = handKit(p) ? SynthModel::PERC : SynthModel::ACD;
+    else if (m == SynthModel::FAT || m == SynthModel::WTFM) m = poly > 1 ? SynthModel::VAP : SynthModel::ACD;
+    if (p.engine == presets::kHandEngine && m == SynthModel::PERC) {
+        // Every drum alone (kick, blip, snare, clap, both hats, bell, crash,
+        // ride, a tom low and high, a wrapped note, a low tom transposed), then
+        // five in one block (twice).
+        const int notes[13] = {60, 61, 62, 63, 64, 67, 68, 69, 70, 48, 59, 74, 40};
+        for (int n : notes) {
+            s.on(0, n);
+            s.run(kBlocksPerSec / 2);
+        }
+        for (int rep = 0; rep < 2; ++rep) {
+            const int kit[5] = {60, 62, 64, 69, 52};
+            for (int k = 0; k < 5; ++k) s.on(k, kit[k]);
+            s.run(kBlocksPerSec);
+        }
+    } else if (p.engine == presets::kTtypeEngine) {
+        // Every drum alone (both hats, crash and ride, a tom of each group,
+        // a low tom transposed), then eight drums in one block (twice).
+        const int notes[14] = {60, 61, 62, 63, 64, 67, 68, 69, 70, 71, 48, 53, 59, 40};
+        for (int n : notes) {
+            s.on(0, n);
+            s.run(kBlocksPerSec / 2);
+        }
+        for (int rep = 0; rep < 2; ++rep) {
+            const int kit[8] = {60, 62, 63, 67, 69, 48, 52, 56};
+            for (int k = 0; k < 8; ++k) s.on(k, kit[k]);
+            s.run(kBlocksPerSec);
+        }
+    } else if (m == SynthModel::ACD) {
         const int notes[5] = {36, 43, 48, 60, 72};
         for (int n : notes) {
             s.on(0, n);
@@ -117,6 +175,18 @@ void perform(Slot& s, SynthModel m, int poly) {
             s.run(kBlocksPerSec / 4);
         }
         s.run(kBlocksPerSec);
+        if (p.engine == presets::kAtypeEngine) {   // a Duo pair: two tracks, then either released
+            const int pairs[2][2] = {{43, 50}, {55, 67}};
+            for (int k = 0; k < 2; ++k) {
+                s.on(0, pairs[k][0]);
+                s.on(1, pairs[k][1]);
+                s.run(kBlocksPerSec);
+                s.off(k);
+                s.run(kBlocksPerSec / 2);
+                s.off(1 - k);
+                s.run(kBlocksPerSec / 2);
+            }
+        }
     } else if (m == SynthModel::VAP) {
         // 4-voice chords held 2 s (slow pads reach full level), then single
         // notes low and high.
@@ -151,6 +221,13 @@ void perform(Slot& s, SynthModel m, int poly) {
 }
 
 int polyFor(const presets::Preset& p) {
+    if (p.engine == presets::kTtypeEngine) return 1;   // one voice owns the kit
+    if (p.engine == presets::kEightEngine || p.engine == presets::kHandEngine || p.engine == presets::kBtypeEngine ||
+        p.engine == presets::kArcEngine)
+        return p.playPoly;
+    if (p.engine == presets::kJu6Engine) return 4;
+    if (p.engine == presets::kDtypeEngine || p.engine == presets::kAtypeEngine) return 1;
+    if (p.engine == presets::kCstypeEngine) return p.playPoly;
     if (p.model == SynthModel::FAT || p.model == SynthModel::WTFM) return p.playPoly;
     return p.model == SynthModel::VAP ? 4 : 1;
 }
@@ -168,14 +245,32 @@ Pack& pack() {
 }  // namespace
 
 TEST(presets_names_counts_and_macros) {
-    int acd = 0, fat = 0, vap = 0, wtfm = 0, perc = 0;
+    int acd = 0, fat = 0, vap = 0, wtfm = 0, perc = 0, ju6 = 0, dtype = 0, cstype = 0, atype = 0, ttype = 0;
+    int eight = 0, hand = 0, btype = 0, arc = 0;
     std::vector<std::string> names;
     for (const presets::Preset& p : presets::all()) {
-        acd += p.model == SynthModel::ACD;
-        fat += p.model == SynthModel::FAT;
-        vap += p.model == SynthModel::VAP;
-        wtfm += p.model == SynthModel::WTFM;
-        perc += p.model == SynthModel::PERC;
+        const int32_t e = presets::engineOf(p);
+        acd += e == kSynthEngineAcd;
+        fat += e == kSynthEngineFat;
+        vap += e == kSynthEngineVap;
+        wtfm += e == kSynthEngineWtfm;
+        perc += e == kSynthEnginePerc;
+        ju6 += e == presets::kJu6Engine;
+        dtype += e == presets::kDtypeEngine;
+        cstype += e == presets::kCstypeEngine;
+        atype += e == presets::kAtypeEngine;
+        ttype += e == presets::kTtypeEngine;
+        eight += e == presets::kEightEngine;
+        hand += e == presets::kHandEngine;
+        btype += e == presets::kBtypeEngine;
+        arc += e == presets::kArcEngine;
+        if (e == presets::kHandEngine && handKit(p)) CHECK(p.playPoly >= 4);   // a kit: a voice per hit
+        if (e == presets::kDtypeEngine || e == presets::kAtypeEngine) CHECK_EQ(p.playPoly, 1);   // mono / Duo
+        if (e == presets::kTtypeEngine) {   // a kit: Poly 1, "OT Kit " names
+            CHECK_EQ(p.playPoly, 1);
+            CHECK(std::strncmp(p.name, "OT Kit ", 7) == 0);
+        }
+        CHECK(p.engine == 0 || p.engine >= 0x80);
         CHECK(std::strncmp(p.name, "OT ", 3) == 0);
         CHECK(std::strlen(p.name) <= 24);
         CHECK(std::strchr(p.name, '/') == nullptr);
@@ -187,12 +282,56 @@ TEST(presets_names_counts_and_macros) {
             CHECK(!m.targets.empty() && m.targets.size() <= size_t(kPatchMacroTargets));
         }
     }
-    std::printf("  presets: ACD %d, FAT %d, VAP %d, WTFM %d, PERC %d\n", acd, fat, vap, wtfm, perc);
+    std::printf("  presets: ACD %d, FAT %d, VAP %d, WTFM %d, PERC %d, JU6 %d, D-Type %d, CS-Type %d, A-Type %d, T-Type %d\n", acd,
+                fat, vap, wtfm, perc, ju6, dtype, cstype, atype, ttype);
+    std::printf("  presets: 8-Type %d, Hand-Type %d, B-Type %d, Arc-Type %d\n", eight, hand, btype, arc);
+#if defined(OT_MOD_ACD1)
     CHECK(acd >= 10);
+#endif
+#if defined(OT_MOD_FAT1)
     CHECK(fat >= 8);
+#endif
+#if defined(OT_MOD_VAP1)
     CHECK(vap >= 14);
+#endif
+#if defined(OT_MOD_WTF1)
     CHECK(wtfm >= 30);
+#endif
+#if defined(OT_MOD_PRC1)
     CHECK(perc >= 16);
+#endif
+#if defined(OT_MOD_JU6S)
+    CHECK(ju6 >= 12);
+#endif
+#if defined(OT_MOD_DTY1)
+    CHECK(dtype >= 12);
+#endif
+#if defined(OT_MOD_CST1)
+    CHECK(cstype >= 12);
+#endif
+#if defined(OT_MOD_ATY1)
+    CHECK(atype >= 12);
+#endif
+#if defined(OT_MOD_TTY1)
+    CHECK(ttype >= 12);
+#endif
+#if defined(OT_MOD_8TY1)
+    CHECK(eight >= 12);
+#endif
+#if defined(OT_MOD_HND1)
+    CHECK(hand >= 12);
+#endif
+#if defined(OT_MOD_BTY1)
+    CHECK(btype >= 12);
+#endif
+#if defined(OT_MOD_ARC1)
+    CHECK(arc >= 12);
+#endif
+    (void)ttype;
+    (void)eight;
+    (void)hand;
+    (void)btype;
+    (void)arc;
 }
 
 TEST(presets_save_and_load_through_the_app) {
@@ -213,25 +352,26 @@ TEST(presets_save_and_load_through_the_app) {
         // The file on its own: decodes, engine id of its folder, valid.
         SynthPatch dec;
         CHECK(decodePatch(file.data(), file.size(), &dec) == PatchStatus::kOk);
-        CHECK_EQ(dec.engine, int32_t(synthEngineId(p.model)));
+        CHECK_EQ(dec.engine, presets::engineOf(p));
         CHECK_EQ(validatePatch(dec, nullptr, 0), 0);
         // Load Patch: the slot on the model's Init, then the library patch.
-        a.setSynthModel(0, int(p.model));
+        setEngine(a, 0, p);
         a.initSynthPatch(0);
         CHECK(a.loadSynthLibraryPatch(0, p.name));
         CHECK(a.synthPatchSource(0) == App::PatchSource::Library);
         const SynthSlotRecord rec = a.synthSlot(0);
         CHECK_EQ(rec.model, uint32_t(p.model));
         CHECK_STR(rec.patchName, p.name);
-        CHECK_EQ(a.synthPatch(0).engine, int32_t(synthEngineId(p.model)));
+        CHECK_EQ(a.synthPatch(0).engine, presets::engineOf(p));
+        CHECK_EQ(a.slotEngineId(0), presets::engineOf(p));
         CHECK(encode(a.synthPatch(0)) == file);
         // Macro page values: bipolar macros at 63 (the patch as saved).
         for (int k = 0; k < kSynthSeqMacros; ++k)
             CHECK_EQ(int(rec.macros[k]), a.synthPatch(0).macros[k].bipolar ? 63 : 0);
         // Another engine's folder does not have it.
-        a.setSynthModel(0, int(p.model == SynthModel::VAP ? SynthModel::ACD : SynthModel::VAP));
+        a.setSynthModel(0, int(p.model == SynthModel::VAP && !p.engine ? SynthModel::ACD : SynthModel::VAP));
         CHECK(!a.loadSynthLibraryPatch(0, p.name));
-        a.setSynthModel(0, int(p.model));
+        setEngine(a, 0, p);
         CHECK(a.loadSynthLibraryPatch(0, p.name));
         pk.files.push_back(file);
         pk.loaded.push_back(a.synthPatch(0));
@@ -250,9 +390,9 @@ TEST(presets_render_audible_and_never_full_scale) {
     std::string loudName, quietName;
     for (size_t i = 0; i < pk.loaded.size(); ++i) {
         const presets::Preset& p = presets::all()[i];
-        Slot s(pk.loaded[i], p.model, polyFor(p));
-        perform(s, p.model, polyFor(p));
-        std::printf("  %-5s %-22s peak %6.1f dBFS\n", synthModelName(p.model), p.name, dbfs(s.peak));
+        Slot s(pk.loaded[i], p.model, polyFor(p), -1, p.engine);
+        perform(s, p, polyFor(p));
+        std::printf("  %-5s %-22s peak %6.1f dBFS\n", presets::folderOf(p), p.name, dbfs(s.peak));
         CHECK(s.finite);
         CHECK(dbfs(s.peak) > -30.0);
         CHECK(dbfs(s.peak) < -1.0);   // headroom: as saved, the loudest phrase stays 1 dB below full scale
@@ -270,11 +410,37 @@ TEST(presets_perc_every_drum_audible) {
     const Pack& pk = pack();
     for (size_t i = 0; i < pk.loaded.size(); ++i) {
         const presets::Preset& p = presets::all()[i];
-        if (p.model != SynthModel::PERC) continue;
+        if (p.model != SynthModel::PERC || p.engine) continue;   // (T-Type kits keep PERC as the record's model)
         const int notes[8] = {60, 62, 64, 67, 69, 71, 45, 57};
         std::string line;
         for (int n : notes) {
             Slot s(pk.loaded[i], p.model, 1);
+            s.on(0, n);
+            s.run(kBlocksPerSec);
+            char b[16];
+            std::snprintf(b, sizeof b, " %6.1f", dbfs(s.peak));
+            line += b;
+            if (dbfs(s.peak) <= -30.0 || dbfs(s.peak) >= -1.0) std::printf("       %s note %d\n", p.name, n);
+            CHECK(dbfs(s.peak) > -30.0);
+            CHECK(dbfs(s.peak) < -1.0);
+            CHECK_EQ(s.clips, 0L);
+        }
+        std::printf("  %-22s%s\n", p.name, line.c_str());
+    }
+}
+
+// T-Type: every drum of every kit on its own (kick, rim, snare, clap, closed
+// and open hat, cowbell, crash, ride, a tom of each group) is audible and
+// below full scale.
+TEST(presets_ttype_every_drum_audible) {
+    const Pack& pk = pack();
+    for (size_t i = 0; i < pk.loaded.size(); ++i) {
+        const presets::Preset& p = presets::all()[i];
+        if (p.engine != presets::kTtypeEngine) continue;
+        const int notes[12] = {60, 61, 62, 63, 64, 67, 68, 69, 70, 49, 54, 58};
+        std::string line;
+        for (int n : notes) {
+            Slot s(pk.loaded[i], p.model, 1, -1, p.engine);
             s.on(0, n);
             s.run(kBlocksPerSec);
             char b[16];
@@ -294,14 +460,82 @@ TEST(presets_macro_extremes_stay_in_bounds) {
     for (size_t i = 0; i < pk.loaded.size(); ++i) {
         const presets::Preset& p = presets::all()[i];
         for (int v : {0, 127}) {
-            Slot s(pk.loaded[i], p.model, polyFor(p), v);
-            perform(s, p.model, polyFor(p));
+            Slot s(pk.loaded[i], p.model, polyFor(p), v, p.engine);
+            perform(s, p, polyFor(p));
             if (!s.finite || s.clips)
                 std::printf("       %s macros %d: peak %.1f dBFS, %ld clipped\n", p.name, v, dbfs(s.peak), s.clips);
             CHECK(s.finite);
             CHECK_EQ(s.clips, 0L);
         }
     }
+}
+
+// Contributed patches (tools/make_patches/contrib/<MODEL>/, made on the
+// device, copied into the pack as they are): for the models of this build
+// each file decodes with the engine id of its folder, validates, loads
+// through Load Patch byte for byte, and plays like the generated presets of
+// its engine (audible, 1 dB below full scale, no clip as saved and with all
+// macros at either extreme). Names: no "OT " (the generated pack), at most
+// 24 characters, none twice.
+TEST(contrib_patches_load_and_render) {
+    namespace fs = std::filesystem;
+    const fs::path dir = fs::path("../tools/make_patches/contrib");
+    Harness h;
+    App& a = *h.app;
+    std::vector<std::string> names;
+    for (const presets::Preset& p : presets::all()) names.push_back(p.name);
+    int checked = 0;
+    std::vector<presets::Preset> engines;   // one generated preset per engine of this build
+    for (const presets::Preset& p : presets::all())
+        if (std::none_of(engines.begin(), engines.end(), [&](const presets::Preset& q) { return presets::engineOf(q) == presets::engineOf(p); }))
+            engines.push_back(p);
+    for (const presets::Preset& e : engines) {
+        const fs::path md = dir / presets::folderOf(e);
+        if (!fs::is_directory(md)) continue;
+        std::vector<fs::path> files;
+        for (const auto& f : fs::directory_iterator(md)) files.push_back(f.path());
+        std::sort(files.begin(), files.end());
+        for (const fs::path& f : files) {
+            const std::string name = f.stem().string();
+            CHECK(f.extension() == ".patch");
+            CHECK(name.compare(0, 3, "OT ") != 0);
+            CHECK(name.size() <= 24);
+            CHECK(std::find(names.begin(), names.end(), name) == names.end());
+            names.push_back(name);
+            std::ifstream in(f, std::ios::binary);
+            const std::vector<uint8_t> file((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            SynthPatch dec;
+            CHECK(decodePatch(file.data(), file.size(), &dec) == PatchStatus::kOk);
+            CHECK_EQ(dec.engine, presets::engineOf(e));
+            CHECK_EQ(validatePatch(dec, nullptr, 0), 0);
+            h.fs.files[std::string("Patches/") + presets::folderOf(e) + "/" + name + ".patch"] = file;
+            setEngine(a, 0, e);
+            a.initSynthPatch(0);
+            CHECK(a.loadSynthLibraryPatch(0, name.c_str()));
+            CHECK(encode(a.synthPatch(0)) == file);
+            const SynthPatch loaded = a.synthPatch(0);
+            Slot s(loaded, e.model, polyFor(e), -1, e.engine);
+            perform(s, e, polyFor(e));
+            std::printf("  %-5s %-24s peak %6.1f dBFS\n", presets::folderOf(e), name.c_str(), dbfs(s.peak));
+            CHECK(s.finite);
+            CHECK(dbfs(s.peak) > -30.0);
+            CHECK(dbfs(s.peak) < -1.0);
+            CHECK_EQ(s.clips, 0L);
+            for (int v : {0, 127}) {
+                Slot x(loaded, e.model, polyFor(e), v, e.engine);
+                perform(x, e, polyFor(e));
+                if (!x.finite || x.clips)
+                    std::printf("       %s macros %d: peak %.1f dBFS, %ld clipped\n", name.c_str(), v, dbfs(x.peak), x.clips);
+                CHECK(x.finite);
+                CHECK_EQ(x.clips, 0L);
+            }
+            ++checked;
+        }
+    }
+#if defined(OT_MOD_ATY1)
+    CHECK(checked >= 35);
+#endif
+    std::printf("  contributed: %d\n", checked);
 }
 
 TEST(presets_release_folder_matches_the_generator) {
@@ -315,10 +549,16 @@ TEST(presets_release_folder_matches_the_generator) {
     // for it: the models it has must match the generator.
     const Pack& pk = pack();
     int files = 0, want = 0;
-    for (const auto& e : fs::recursive_directory_iterator(dir / "Patches")) files += e.is_regular_file();
     auto released = [&](const presets::Preset& p) {
-        return fs::is_directory(dir / "Patches" / synthModelName(p.model));
+        return fs::is_directory(dir / "Patches" / presets::folderOf(p));
     };
+    // Only the folders of the models in this build (profile nofm has no WTFM).
+    std::vector<std::string> folders;
+    for (const presets::Preset& p : presets::all())
+        if (released(p) && std::find(folders.begin(), folders.end(), presets::folderOf(p)) == folders.end())
+            folders.push_back(presets::folderOf(p));
+    for (const std::string& d : folders)
+        for (const auto& e : fs::recursive_directory_iterator(dir / "Patches" / d)) files += e.is_regular_file();
     for (const presets::Preset& p : presets::all()) want += released(p);
     CHECK_EQ(files, want);
     for (size_t i = 0; i < pk.files.size(); ++i) {
@@ -328,4 +568,51 @@ TEST(presets_release_folder_matches_the_generator) {
         const std::vector<uint8_t> b((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
         CHECK(b == pk.files[i]);
     }
+}
+
+// The retro engines (8-Type, Hand-Type, B-Type, Arc-Type): every macro M1..M6
+// of every patch changes the sound at one of its extremes (a short phrase;
+// the other macros at their page defaults).
+TEST(presets_retro_macros_have_an_effect) {
+    const Pack& pk = pack();
+    int checked = 0;
+    for (size_t i = 0; i < pk.loaded.size(); ++i) {
+        const presets::Preset& p = presets::all()[i];
+        if (p.engine < presets::kEightEngine || p.engine > presets::kArcEngine) continue;
+        auto phrase = [&](int macro, int value) {
+            Slot s(pk.loaded[i], p.model, polyFor(p), -1, p.engine);
+            if (macro >= 0) {
+                s.rec.macros[macro] = uint8_t(value);
+                s.bank.setSlotRecord(0, s.rec);
+            }
+            std::vector<float> out;
+            const bool kit = p.engine == presets::kHandEngine && handKit(p);
+            const int notes[6] = {60, 62, 64, 67, 69, 48};
+            for (int k = 0; k < (kit ? 6 : 3); ++k) {
+                s.on(0, kit ? notes[k] : 48 + 9 * k);
+                for (int b = 0; b < kBlocksPerSec / 3; ++b) {
+                    s.block();
+                    out.insert(out.end(), s.L, s.L + kBlock);
+                }
+                s.off(0);
+                for (int b = 0; b < kBlocksPerSec / 6; ++b) {
+                    s.block();
+                    out.insert(out.end(), s.L, s.L + kBlock);
+                }
+            }
+            return out;
+        };
+        const std::vector<float> base = phrase(-1, 0);
+        for (int k = 0; k < kSynthSeqMacros; ++k) {
+            double d = 0.0;
+            for (int v : {0, 127}) {
+                const std::vector<float> x = phrase(k, v);
+                for (size_t j = 0; j < x.size() && j < base.size(); ++j) d = std::max(d, double(std::fabs(x[j] - base[j])));
+            }
+            if (!(d > 1e-4)) std::printf("       %s M%d (%s) does nothing\n", p.name, k + 1, p.macros[size_t(k)].name);
+            CHECK(d > 1e-4);
+            ++checked;
+        }
+    }
+    std::printf("  retro macros checked: %d\n", checked);
 }

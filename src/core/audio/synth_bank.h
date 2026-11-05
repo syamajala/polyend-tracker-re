@@ -32,6 +32,19 @@
 // queued note whose own note-off follows within the block, started when every
 // record is busy, is dropped like a pending note that gets its note-off.)
 //
+// [3.x] Held notes (C1, docs/PLAN_CLASSIC.md §3): every track holds at most
+// one note (its last note-on until its note-off; a note-on on another slot
+// moves it). A slot's held notes reach its engine as SynthParams::held. An
+// engine with kSynthFlagNotePriority on a polyphony-1 slot gets the note
+// priority (Last / Low / High, its descriptor's priorityParam): a new note
+// takes the voice only when it wins, else it is held silently; when the
+// sounding note is released (or its track plays a losing note) while others
+// are held, the voice plays the winner of those (noteOn reused + overlap, the
+// held note's velocity, its track's Tune / Micro-tune as the bend). A losing
+// note stays silent also when no voice sounds (the winner's ended or was
+// taken; it is not fired again). Cut forgets a note without a return. Without the flag nothing changes: last-note, released at its
+// note-off.
+//
 // Macros: M1..M6 = the slot's page values (record +0x38), overridden by FX
 // CC a..f until Stop; M7 = the note's Volume FX; M8 stored only. Law and the
 // M7 rule: synth_params.h. Evaluated at block rate and ramped across the
@@ -67,11 +80,18 @@
 #include "audio/block_profile.h"
 #include "audio/dsp.h"
 #include "audio/governor.h"
+#include "audio/inserts.h"
 #include "audio/synth_engine.h"
 #include "audio/synth_params.h"
 #include "model/project.h"
 #include "model/synth_patch.h"
 #include "sequencer/seq_sink.h"
+#if __has_include("ot_profile.h")
+#include "ot_profile.h"
+#endif
+#ifndef OT_SLOT_INSERTS
+#define OT_SLOT_INSERTS 0
+#endif
 
 namespace ot {
 namespace audio {
@@ -88,7 +108,7 @@ constexpr int kSynthAllTracks = kSynthLiveTrack0 + kSynthLiveTracks;
 // What the synth UI shows for one slot (SynthBank::slotView).
 struct SynthSlotView {
     int32_t engine = 0;          // Tracker Mini engine id of the record's model
-    const char* model = "";      // "ACD".."PERC" ("" for a bad record)
+    const char* model = "";      // "ACD".."PERC", a module engine's display name ("" for a bad record)
     bool available = false;      // false: "Synth k (WTFM) not available", silent
     bool patchBound = false;     // a patch is attached
     bool patchMismatch = false;  // patch engine != record model (silent)
@@ -152,6 +172,11 @@ public:
     // The project record of slot s (spec 21 §3.3). Gain / pan / sends ramp,
     // polyphony applies to new notes, a model change silences the slot.
     void setSlotRecord(int s, const SynthSlotRecord& r);
+    // 3.x: slot s plays module engine `engineId` (>= 0x80) instead of the
+    // record's Mini model (0 = the record decides). Main loop; applies at the
+    // next block like a record change.
+    void setSlotEngine(int s, int32_t engineId);
+    int32_t slotEngine(int s) const { return engineOf_[clampSlot(s)]; }
     // A hand edit of macro m (Synth Macros page) takes over from its FX CC
     // override: the page value applies from the next block (slotView shows it
     // at once); the next FX CC on that macro overrides it again.
@@ -167,6 +192,24 @@ public:
     // velocity, else 0..100. Main loop; the audio block starts it.
     void liveOn(int k, int s, uint8_t note, int8_t volume);
     void liveOff(int k);
+#if OT_SLOT_INSERTS
+    // [3.x] Slot inserts: slot s's effect (nullptr = none) and its settings,
+    // after the engine's slot effect, before Width, gain, pan and the slot
+    // sends (a note's own sends stay dry). Main loop; a change of kind fades
+    // the old effect out first. An effect with work memory needs the lines
+    // (setInsertMemory), else it is not bound. off (the first setting's
+    // "Off"): the effect fades out, then is not run until on again (its
+    // settings and memory kept).
+    void setSlotInsert(int s, IEffect* fx, const EffectSettings& set, bool off = false);
+    // kSynthSlots lines of kEffectWorkMax bytes in slow memory (SDRAM), before
+    // audio starts; moved to the voice scratch once per block.
+    void setInsertMemory(int16_t* lines) { insLines_ = lines; }
+    const IEffect* slotInsert(int s) const { return ins_[clampSlot(s)].fx; }
+    bool slotInsertOff(int s) const { return ins_[clampSlot(s)].bypass; }
+#endif
+    // The voice scratch as an int16 window of kEffectWorkMax bytes: free
+    // outside render() (the master chain's slow effect memory, effectWindow()).
+    int16_t* scratchWindow() { return vs_.w; }
     // 2.x live MIDI input pitch bend in semitones for every note the live
     // tracks started (releases included). Main loop; the audio block applies it.
     void setLiveBend(float semis) { liveBend_ = semis; }
@@ -177,7 +220,7 @@ public:
     // Performance FX of track t (0..15; main loop, read at the next block;
     // kept across reset()). The default value = none.
     void setTrackPerf(int t, const SynthPerf& p);
-    const SynthPerf& trackPerf(int t) const { return perf_[t < 0 || t >= kSynthTracks ? 0 : t]; }
+    SynthPerf trackPerf(int t) const;
     void applyFx(int track, uint8_t type, uint8_t value);
     void macroFx(int slot, int macro, uint8_t value);
     void transportStop();     // macro overrides -> page values
@@ -185,9 +228,11 @@ public:
     void stopAll();           // every voice silent now (no fade)
     // True when a voice sounds or a slot ramp is still moving, a UI
     // audition request waits (it is taken in render's sync) or note-ons are
-    // queued / counted for the block (note-on spreading).
+    // queued / counted for the block (note-on spreading), or an engine's
+    // slot effect still rings (ISynthEngine::slotPost).
     bool active() const {
-        return activeVoices_ != 0 || aud_.req != 0 || nDefer_ != 0 || starts_ != 0 || livePending();
+        return activeVoices_ != 0 || aud_.req != 0 || nDefer_ != 0 || starts_ != 0 || tails_ != 0 || insTails() ||
+               livePending();
     }
     // Render one block: adds into mL/mR and the send buses. stems[s] (may be
     // nullptr) receives slot s's post-gain/pan bus as interleaved int16.
@@ -296,6 +341,13 @@ private:
         // ended on, and the side signal's allpass chain state (x1, y1).
         float widthEnd = 0.0f, widthCur = 0.0f;
         float ap[4][2] = {};
+        // [3.x] C1: the engine's descriptor has kSynthFlagNotePriority, and
+        // its priority parameter (-1: Last).
+        bool prio = false;
+        int8_t prioIdx = -1;
+        // [3.x] T0: the engine keeps state beyond a voice (kSynthFlagKitState:
+        // PERC's, T-Type's kit).
+        bool kit = false;
         SynthSlotScratch scratch;
     };
 
@@ -321,6 +373,15 @@ private:
     void fade(int r, bool steal = false);
     void startOn(int r, int track, int s, const SynthNote& n, float bend, float bendTarget, float bendStep);
     void releaseTrack(int track);
+    // [3.x] C1 held-note registry (see the header comment).
+    void holdSet(int track, int s, uint8_t note, float velocity);
+    void holdClear(int track);
+    void heldUpdate(int s);           // SynthParams::held of slot s
+    int heldWinner(int s) const;      // the track whose held note wins on slot s, -1 none
+    // Voice r (gated, on a priority slot) plays the winner of the held notes
+    // instead of entering its release; false when none is held.
+    bool returnToHeld(int r);
+    void handTo(int r, int track);    // voice r plays track's held note (reused, overlap)
     float mixSlot(Slot& sl, float* mL, float* mR, float* dsend, float* rsend, int16_t* stem);   // block peak
     void notePitchFx(const SynthNoteOn& n, float prevPitch, bool hasPrev, float& bend, float& target, float& step) const;
 
@@ -338,17 +399,30 @@ private:
     // resample tap); -1 free. Not in Voice: one more byte pads each record.
     int8_t owner_[kSynthMaxVoices];
     float trackPitch_[kSynthAllTracks];       // last note pitch (Glide FX source)
-    SynthPerf perf_[kSynthTracks];            // Performance FX per track (setTrackPerf)
-    volatile uint8_t perfActive_ = 0;         // tracks with a non-default perf_
+    // [3.x] C1: the note each track holds, its slot, its velocity (x 255) and
+    // its key order (1.. ascending, 0 = none; renumbered before it wraps).
+    uint8_t heldNote_[kSynthAllTracks];
+    uint8_t heldVel_[kSynthAllTracks];
+    uint8_t heldSlot_[kSynthAllTracks];
+    uint8_t heldSeq_[kSynthAllTracks];
+    uint8_t heldNext_ = 0;
+    // Performance FX per track (setTrackPerf), one word each: bytes 0..3 =
+    // filter value (-100..100, x 477 / 5000 octaves), pan, delay and reverb
+    // send offsets (int8). Packed: the stack headroom has no room for more.
+    uint32_t perfWord_[kSynthTracks] = {};
+    volatile uint8_t perfActive_ = 0;         // tracks with a non-zero perfWord_
     uint32_t serial_ = 0;
     uint32_t steals_ = 0;
     int activeVoices_ = 0;                    // records not free
+    uint8_t tails_ = 0;                       // bit s: slot s's slotPost reported a tail
     const Governor* gov_ = nullptr;
     BlockProfile* prof_ = nullptr;
     ISynthEngine* override_ = nullptr;
     // Main loop -> audio handshake (one writer each side; a flag is cleared
     // before its data is read, so a later write is seen at the next block).
     volatile bool rebind_[kSynthSlots] = {};  // engine / patch must be re-read
+    volatile int32_t engineOf_[kSynthSlots] = {};   // module engine per slot (0 = the record's model)
+    int32_t engineFor(int s, const SynthSlotRecord& r) const;
     volatile bool recDirty_[kSynthSlots] = {};
     volatile bool ovrRelease_[kSynthSlots][kSynthSeqMacros] = {};   // releaseMacro()
     SynthSlotRecord pendRec_[kSynthSlots];
@@ -367,13 +441,54 @@ private:
     uint8_t liveSeen_[kSynthLiveTracks] = {};   // audio side: last serial
     uint8_t liveSerial_[kSynthLiveTracks] = {}; // main loop: last serial
     void liveDrain();
+    static float perfNote(uint32_t w, const SynthSlotRecord& rec, int8_t& pan, int8_t& sendD, int8_t& sendR);
     bool livePending() const {
         for (int k = 0; k < kSynthLiveTracks; ++k)
             if (uint8_t(live_[k]) != liveSeen_[k]) return true;
         return false;
     }
     float busL_[kBlock] = {}, busR_[kBlock] = {};   // slot bus, zero between slots
-    float voiceL_[kBlock] = {}, voiceR_[kBlock] = {};
+    // One voice's output during the voice loop; a slot insert's work memory
+    // (int16) after it, while the insert runs.
+    union VoiceScratch {
+        float f[2][kBlock];
+        int16_t w[kEffectWorkMax / 2];
+    } vs_ = {};
+    static_assert(sizeof(int16_t) * (kEffectWorkMax / 2) <= sizeof(float) * 2 * kBlock, "insert work fits");
+#if OT_SLOT_INSERTS
+    struct Ins {
+        IEffect* fx = nullptr;          // bound (runs)
+        IEffect* next = nullptr;        // bound after the fade-out (off)
+        EffectSettings set = {}, nextSet = {};
+        bool off = false;               // fading the bound effect out (a kind change)
+        bool bypass = false;            // Off: the effect fades out, then parks
+        bool parked = false;            // Off and faded out: not run
+        bool fresh = true;              // state / line zero: reset() at the next run
+        uint8_t offBlocks = 0;
+        uint16_t quiet = 0;             // frames of silent bus
+        alignas(8) uint8_t state[kEffectStateMax] = {};
+    };
+    Ins ins_[kSynthSlots];
+    struct PendIns {
+        IEffect* fx = nullptr;
+        EffectSettings set = {};
+        bool bypass = false;
+    };
+    PendIns pendIns_[kSynthSlots];
+    volatile bool insDirty_[kSynthSlots] = {};
+    int16_t* insLines_ = nullptr;
+    uint8_t insTails_ = 0;              // bit s: slot s's insert rings
+    // Rings, or a main-loop change waits for sync() (a quiet bank renders once).
+    bool insTails() const { return insTails_ != 0 || insDirty_[0] || insDirty_[1] || insDirty_[2]; }
+    static_assert(kSynthSlots == 3, "insTails() names each slot");
+    bool insTailOf(int s) const { return ((insTails_ >> s) & 1u) != 0; }
+    void syncInsert(int s);
+    bool runInsert(int s, bool voiced);
+    void clearInsert(Ins& in);
+#else
+    bool insTails() const { return false; }
+    bool insTailOf(int) const { return false; }
+#endif
     int8_t noteSendD_ = -1, noteSendR_ = -1;   // sends of the note being started (startOn)
     int8_t notePan_ = -1;                      // its Panning FX   // a note with its own sends (step FX)
     volatile float peak_[kSynthSlots] = {};          // bus peaks for slotPeak()

@@ -9,7 +9,7 @@
 # other. PNGs are optimised with Pillow when it is installed.
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
-sim="$root/build/sim/opentracker-sim"
+sim="$root/build/${PROFILE:-full}/sim/opentracker-sim"
 songs="$root/build/testsongs"
 out="$root/docs/images"
 [ -x "$sim" ] || { echo "docs_screens: build the simulator first (make -C sim)" >&2; exit 2; }

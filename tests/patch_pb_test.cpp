@@ -4,6 +4,7 @@
 // $OT_VENDOR_FIXTURES/mini-patches-2.0/<ENGINE>/*.patch, never copied, and the
 // fixture tests skip when the folder is absent.
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
@@ -13,6 +14,13 @@
 
 #include "formats/patch_pb.h"
 #include "test.h"
+#include "ot_profile.h"
+// The engine tables live in the synth modules (modules/synth_descriptor.h).
+#if defined(OT_MOD_ACD1) && defined(OT_MOD_FAT1) && defined(OT_MOD_VAP1) && defined(OT_MOD_PRC1) && defined(OT_MOD_WTF1)
+#define OT_PATCH_TABLES 1
+#else
+#define OT_PATCH_TABLES 0
+#endif
 
 namespace fs = std::filesystem;
 using namespace ot;
@@ -222,6 +230,7 @@ TEST(vendor_truncation_every_offset) {
 // Init patches
 // ---------------------------------------------------------------------------
 
+#if OT_PATCH_TABLES   // needs the engine descriptors (synth modules)
 TEST(init_patch_per_engine) {
     for (int32_t e : kEngines) {
         SynthPatch p;
@@ -264,7 +273,9 @@ TEST(init_patch_per_engine) {
     CHECK(!patchInit(3, &p));
     CHECK(!patchInit(0, &p));
 }
+#endif
 
+#if OT_PATCH_TABLES   // needs the engine descriptors (synth modules)
 TEST(engine_param_counts) {
     const int want[] = {29, 25, 60, 63, 84, int(kDx7ParamCount)};
     for (int i = 0; i < 6; ++i) {
@@ -276,6 +287,7 @@ TEST(engine_param_counts) {
     CHECK(patchEngineParams(3, &n) == nullptr);
     CHECK_EQ(n, 0);
 }
+#endif
 
 // ---------------------------------------------------------------------------
 // Wire format units
@@ -290,6 +302,7 @@ TEST(extra_constant_block) {
     CHECK_BYTES(e + kPatchExtraSize - 20, 0x12, 0x12, 0x12, 0x10);
 }
 
+#if OT_PATCH_TABLES   // needs the engine descriptors (synth modules)
 TEST(proto3_omission_and_negative_int32) {
     SynthPatch p;
     patchInit(kSynthEngineAcd, &p);
@@ -325,7 +338,9 @@ TEST(proto3_omission_and_negative_int32) {
     CHECK(decodePatch(zb.data(), zb.size(), &zq) == PatchStatus::kOk);
     CHECK(samePatch(z, zq));
 }
+#endif
 
+#if OT_PATCH_TABLES   // needs the engine descriptors (synth modules)
 TEST(unknown_fields_kept_in_order) {
     SynthPatch p;
     patchInit(kSynthEngineVap, &p);
@@ -344,6 +359,7 @@ TEST(unknown_fields_kept_in_order) {
     CHECK_EQ(int(q.opaqueLen), 2 + 6 + int(sizeof(tail)));
     CHECK(encode(q) == b);
 }
+#endif
 
 // DX7 patches keep the voice in top-level field 100 (formats/patch_pb.h).
 TEST(dx7_voice_field) {
@@ -402,6 +418,7 @@ TEST(dx7_voice_field) {
     CHECK_EQ(int(r.opaqueLen), int(before));
 }
 
+#if OT_PATCH_TABLES   // needs the engine descriptors (synth modules)
 TEST(error_cases) {
     SynthPatch p;
     // Too large.
@@ -489,7 +506,9 @@ TEST(error_cases) {
     CHECK_EQ(n, size_t(0));
     CHECK(std::strcmp(patchStatusText(PatchStatus::kTruncated), "patch truncated") == 0);
 }
+#endif
 
+#if OT_PATCH_TABLES   // needs the engine descriptors (synth modules)
 TEST(validation_ranges) {
     // Half-precision bounds: LFO Frequency min 0.1 is stored as the half 0.0999755859375.
     CHECK(patchParamInRange(kSynthEngineAcd, 23, 0.0999755859375f));
@@ -529,6 +548,29 @@ TEST(validation_ranges) {
     CHECK(is[4].kind == PatchIssue::kTargetAmount && is[4].index == 3 && is[4].sub == 1);
     p.engine = 9;
     CHECK(validatePatch(p, nullptr, 0) >= 1);
+}
+#endif
+
+// Every parameter of every engine in this build takes its own min and max:
+// a bound that rounds inward as a half (T-Type Closed Decay min 0.01 s ->
+// 0.0100021) used to send the bound itself back to the default.
+TEST(every_param_accepts_its_own_bounds) {
+    int engines = 0;
+    for (int32_t e = 0; e < 256; ++e) {
+        int n = 0, ne = 0;
+        const PatchParamRange* t = patchEngineParams(e, &n);
+        const PatchParamRange* x = patchEngineExtParams(e, &ne);
+        if (!t) continue;
+        ++engines;
+        for (int i = 0; i < n + ne; ++i) {
+            const PatchParamRange& r = i < n ? t[i] : x[i - n];
+            if (!patchParamInRange(e, i, r.min) || !patchParamInRange(e, i, r.max))
+                std::printf("       engine 0x%02x param %d: %g..%g\n", unsigned(e), i, double(r.min), double(r.max));
+            CHECK(patchParamInRange(e, i, r.min));
+            CHECK(patchParamInRange(e, i, r.max));
+        }
+    }
+    CHECK(engines > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -612,4 +654,46 @@ TEST(fuzz_mutations_and_truncation) {
         checkDecoded(m);
     }
     std::printf("  fuzz: %d / %d mutants accepted (all re-encode to a fixed point)\n", accepted, kIters);
+}
+
+TEST(codec_needs_no_engine_table) {
+    // A patch of an engine no module describes (0xFE): the codec still reads
+    // and writes it byte for byte; the Mini engine names are format constants.
+    SynthPatch p{};
+    p.engine = 0xFE;
+    p.paramCount = 3;
+    for (int i = 0; i < 3; ++i) {
+        p.params[i].present = true;
+        p.params[i].bits = patchFloatToBits(0.25f * float(i + 1));
+    }
+    std::snprintf(p.macros[0].name, sizeof(p.macros[0].name), "Tone");
+    p.macros[0].nameLen = 4;
+    p.macros[0].count = 1;
+    p.macros[0].targets[0].param = 2;
+    p.macros[0].targets[0].amountBits = patchFloatToBits(0.5f);
+    p.extraPresent = true;
+    std::vector<uint8_t> a(kPatchMaxFileSize), b(kPatchMaxFileSize);
+    size_t na = 0, nb = 0;
+    CHECK(encodePatch(p, a.data(), a.size(), &na) == PatchStatus::kOk);
+    SynthPatch q{};
+    CHECK(decodePatch(a.data(), na, &q) == PatchStatus::kOk);
+    CHECK_EQ(q.engine, int32_t(0xFE));
+    CHECK_EQ(int(q.paramCount), 3);
+    CHECK(encodePatch(q, b.data(), b.size(), &nb) == PatchStatus::kOk);
+    CHECK(na == nb && std::memcmp(a.data(), b.data(), na) == 0);
+    CHECK(patchEngineName(0xFE) == nullptr);
+    CHECK_STR(patchEngineName(kSynthEngineWtfm), "WTFM");
+    CHECK_STR(patchEngineName(kSynthEnginePerc), "PERC");
+    int n = -1;
+    CHECK(patchEngineParams(0xFE, &n) == nullptr && n == 0);
+    CHECK_EQ(patchVolumeParam(0xFE), -1);
+#if OT_PATCH_TABLES
+    CHECK(patchEngineParams(kSynthEngineAcd, &n) != nullptr && n == 29);
+    CHECK_EQ(patchVolumeParam(kSynthEngineWtfm), 42);
+#elif defined(OT_MOD_ACD1)   // a part of the synth pack (profile nofm)
+    CHECK(patchEngineParams(kSynthEngineAcd, &n) != nullptr && n == 29);
+#else
+    CHECK(patchEngineParams(kSynthEngineAcd, &n) == nullptr && n == 0);
+    CHECK(!patchInit(kSynthEngineAcd, &q));
+#endif
 }

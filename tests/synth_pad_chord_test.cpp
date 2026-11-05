@@ -1,5 +1,5 @@
 // Pads held together on a synth instrument play a chord up to the slot's
-// polyphony (tester report on 3.0.0 preview: JU6 at Polyphony 4 played only the last
+// polyphony (tester report on 3.0.0: JU6 at Polyphony 4 played only the last
 // pad held, from the pattern editor and the synth page; the sim's computer
 // keyboard sends the same pad presses). Each held pad takes a synth live
 // track, as MIDI input notes do; the Enc-push audition stays one note.
@@ -8,6 +8,9 @@
 
 #include "audio/synth_bank.h"
 #include "audio/synth_engine.h"
+#include "modules/module.h"
+#include "modules/synth_descriptor.h"
+#include "modules/synth_models.h"
 #include "ui/screens.h"
 
 using namespace ot;
@@ -24,17 +27,11 @@ int gated(App& a) {
     return n;
 }
 
-// The model whose engine is `engineId`.
-void setEngine(App& a, int s, int32_t engineId) {
-    for (int m = 0; m < kSynthModelCount; ++m)
-        if (synthEngineId(SynthModel(m)) == engineId) a.setSynthModel(s, m);
-}
-
 // Slot 0 on `engine` at polyphony `poly`, current instrument S1; `synthPage`
 // opens its synth page, else the pattern editor is shown.
 void setUp(Harness& h, int32_t engine, int poly, bool synthPage) {
     App& a = *h.app;
-    setEngine(a, 0, engine);
+    a.setSynthEngine(0, engine);
     SynthSlotRecord r = a.synthSlot(0);
     r.polyphony = uint32_t(poly);
     a.setSynthSlotRecord(0, r);
@@ -53,12 +50,18 @@ void padUp(Harness& h, uint8_t p) {
     h.audio.pump(2);
 }
 
-// The poly engines. Not PERC: every hit hands the whole kit, its ringing
-// drums included, to the newest voice, so its chords are not counted in voices.
+// Poly engines of this build. Not the kit engines (PERC, T-Type:
+// kSynthFlagKitState): every hit hands the whole kit, its ringing drums
+// included, to the newest voice, so their chords are not counted in voices.
 template <typename F>
 void forEachPolyEngine(F f) {
-    for (int32_t id : {kSynthEngineAcd, kSynthEngineFat, kSynthEngineVap, kSynthEngineWtfm})
-        if (audio::synthEngineFor(id)) f(id);
+    for (int k = 0; k < synthModelListCount(); ++k) {
+        const int32_t id = synthModelListEngine(k);
+        if (!id || !audio::synthEngineFor(id)) continue;
+        const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(id);
+        if (id == kSynthEnginePerc || (d && (d->flags & mod::kSynthFlagKitState))) continue;
+        f(id);
+    }
 }
 
 }  // namespace

@@ -9,6 +9,7 @@
 #include "ui/notes.h"
 #include "ui/screens.h"
 #include "ui/widgets.h"
+#include "ot_version.h"
 
 namespace ot {
 
@@ -1365,11 +1366,7 @@ void Ui::render() {
     if (factory.active()) s = nullptr;
     if (!s && !factory.active() && progressOpen_) {
         // Boot (no screen started yet): the splash, not the popup box.
-#ifdef OT_VERSION
-        wg::bootSplash(g, t, progTitle_, progPct_, "v" OT_VERSION);
-#else
-        wg::bootSplash(g, t, progTitle_, progPct_, nullptr);
-#endif
+        wg::bootSplash(g, t, progTitle_, progPct_, OT_SPLASH_VERSION);
         finishFrame(g, nullptr);
         return;
     }

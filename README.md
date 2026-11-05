@@ -380,9 +380,10 @@ rules; not yet confirmed on a stock unit).
 
 ## Building
 
-- Firmware: `make` (Arm GNU toolchain) writes `build/PolyendTrackerOTv225.ptf`.
+- Firmware: `make` (Arm GNU toolchain and the synth / effect module repositories, see
+  `docs/dev/building.md`) writes `build/full/PolyendTrackerOTv300.ptf`.
 - Host tests: `make host-test`. Performance and memory gate: `make perf-gate`.
-- Simulator: `make sim`, then `build/sim/opentracker-sim` (see `sim/README.md`).
+- Simulator: `make sim`, then `build/full/sim/opentracker-sim` (see `sim/README.md`).
 
 ## Clean room
 

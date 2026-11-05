@@ -48,7 +48,7 @@ The simulator shows the Tracker's screen live and sends its window's keys and mo
 the Tracker:
 
 ```sh
-build/sim/opentracker-sim --mirror /dev/ttyACM0
+build/full/sim/opentracker-sim --mirror /dev/ttyACM0
 ```
 
 The Tracker sends each frame it draws (about 12 per second while playing).
@@ -59,7 +59,7 @@ The Tracker becomes the simulator's front panel: its buttons, pads and encoder d
 simulator, and the simulator lights its pads.
 
 ```sh
-build/sim/opentracker-sim --remote /dev/ttyACM0
+build/full/sim/opentracker-sim --remote /dev/ttyACM0
 ```
 
 The Tracker shows "Remote control: panel drives the simulator" and stops reacting to its

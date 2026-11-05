@@ -11,11 +11,11 @@ Needs a host `g++` (C++17), SDL2 (`pkg-config sdl2`) and optionally ALSA
 
 ```
 make -C reimpl sim                 # or: make -C reimpl/sim
-reimpl/build/sim/opentracker-sim   # opens the window
+reimpl/build/full/sim/opentracker-sim   # opens the window
 make -C reimpl/sim check           # headless smoke test -> build/sim/smoke*.png
 ```
 
-`check` first runs `build/sim/jpeg-check` (sources in `check/`): it loads
+`check` first runs `build/full/sim/jpeg-check` (sources in `check/`): it loads
 `fixtures/cover.jpg` through `SwDisplay::loadJpeg` into the RAM_G model at the
 cover address (spec 13 §I.3), draws it with `drawImage` and checks the pixels and
 the rejections (progressive, size limits). JPEG decode on the host uses the
@@ -114,7 +114,7 @@ show on its pads. On the Tracker, set Config > USB > Remote control to On
 (it is Off after every power-on), connect it by USB and start
 
 ```
-build/sim/opentracker-sim --remote /dev/ttyACM0
+build/full/sim/opentracker-sim --remote /dev/ttyACM0
 ```
 
 (add your user to the `uucp` group, or the group that owns `/dev/ttyACM*`,
@@ -150,7 +150,7 @@ with `--serve` (it prints the pseudo-terminal to give the script; its CPU
 fields read -1, the host has no cycle counter):
 
 ```
-build/sim/opentracker-sim --serve          # prints "serve: /dev/pts/N"
+build/full/sim/opentracker-sim --serve          # prints "serve: /dev/pts/N"
 tools/tracker_remote.py /dev/pts/N -c "status"
 ```
 
@@ -172,7 +172,7 @@ from it:
 
 ```
 tools/tracker_remote.py /dev/ttyACM0 -c "tap SampleLoader; wait 300; expect-text SD Card; text; frame loader.otf"
-build/sim/opentracker-sim --frame loader.otf --screenshot loader.png   # draw a saved frame
+build/full/sim/opentracker-sim --frame loader.otf --screenshot loader.png   # draw a saved frame
 ```
 
 `text` prints every string on screen with its position; `expect-text` /
@@ -185,7 +185,7 @@ sends the window's keys, mouse and wheel to the Tracker (drive mode, so the
 Tracker's own controls keep working too):
 
 ```
-build/sim/opentracker-sim --mirror /dev/ttyACM0 [--mirror-record frames/]
+build/full/sim/opentracker-sim --mirror /dev/ttyACM0 [--mirror-record frames/]
 ```
 
 The Tracker sends every frame it draws while the link has room and skips
@@ -221,6 +221,7 @@ expect-usbstorage on|off    fail unless the mode, its page and the card lock all
                             the app touched the locked card
 expect-usbwarn on|off       fail unless the eject reminder is (not) shown
 theme N / font N            config Display theme 0..2 / Display font 0..1 (no Config key flow)
+theme NAME                  config Display theme from the card's Themes/NAME.txt (2.x theme files)
 echo TEXT                   print to stderr
 budget-reset                start a display-budget window
 budget NAME WORDS           fail if a frame since the reset uploaded > WORDS
@@ -252,7 +253,7 @@ INSTR FX1 FX2 PATTERN PLAY COPY INSERT UP DELETE REC SHIFT LEFT DOWN RIGHT
 ENCPUSH AUX HELP POWER`, or a numeric id (`0x17`). Example: `scripts/smoke.txt`.
 
 ```
-SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/sim/opentracker-sim \
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy build/full/sim/opentracker-sim \
     --sd /tmp/sd --script sim/scripts/smoke.txt --screenshot out.png
 ```
 
@@ -350,7 +351,7 @@ uncompressed deflate, so files are ~1 MB).
   ```
   pactl load-module module-null-sink sink_name=tracker_usb \
       sink_properties=device.description=TrackerUSB
-  build/sim/opentracker-sim --usb-in "Monitor of TrackerUSB"
+  build/full/sim/opentracker-sim --usb-in "Monitor of TrackerUSB"
   ```
 
   then pick TrackerUSB as the output of the browser or DAW. The sim prefers

@@ -7,6 +7,7 @@
 #include "app/project_fields.h"
 #include "app/project_io.h"
 #include "formats/file_io.h"
+#include "modules/module.h"
 #include "sdram_bss.h"
 #include "ui/screens.h"
 
@@ -64,11 +65,24 @@ bool App::init(const HalRefs& hal, const AppMemory& mem) {
     if (!mem_.extTracks || mem_.extTrackBlocks < 2 || !mem_.extMeta) return false;
     extDiscard_ = &mem_.extTracks[mem_.extTrackBlocks - 1];
     ext_.attach(mem_.extTracks, mem_.extTrackBlocks - 1, mem_.extMeta);
+    // Compiled-in modules (synth engines, docs/PLAN_3X.md §7) before audio starts.
+    mod::ModuleHost::instance().init();
     // spec 04: delay/reverb memory and the sample pool are caller-provided (SDRAM).
     if (!engine.init(mem_.fxMemory, mem_.fxSamples, mem_.sampleBank, mem_.sampleBankSamples, instruments))
         return false;
     for (auto& v : stream_.streamOf) v = -1;   // SD streaming: every slot in RAM
     engine.setMidiOut(hal_.midi);
+    // Modules' master inserts (audio/inserts.h), a chain in profile order.
+    {
+        audio::IMasterInsert* ins[audio::AudioEngine::kMaxMasterInserts];
+        const int n = mod::ModuleHost::instance().masterInserts(ins, audio::AudioEngine::kMaxMasterInserts);
+        engine.setMasterInserts(ins, n);
+    }
+#if OT_SLOT_INSERTS
+    // Synth slot inserts: one delay line per slot from the profile's SDRAM
+    // block (the core's reservation, tools/profile.py).
+    engine.synth().setInsertMemory(static_cast<int16_t*>(mod::ModuleHost::instance().slotInsertLines()));
+#endif
     engine.setPreBlockHook(&App::preBlockThunk, this);
     engine.setUsbSend(hal_.usbSend);   // [I] #97 step 2
     // Tempo-locked LFO phase (spec 07 Q5).

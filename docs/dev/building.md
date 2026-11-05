@@ -2,21 +2,36 @@
 
 ## Firmware
 
-Needs the **Arm GNU toolchain** (`arm-none-eabi-gcc`; CI uses 14.2.Rel1) and Python 3.
+Needs the **Arm GNU toolchain** (`arm-none-eabi-gcc`; CI uses 14.2.Rel1), Python 3 and the
+two module repositories from upstream 3.x: the synth engines
+([opentracker-synths](https://github.com/opentracker-fw/opentracker-synths)) and the effects
+([opentracker-fx](https://github.com/opentracker-fw/opentracker-fx)), side by side.
 
 ```sh
+git clone https://github.com/opentracker-fw/opentracker-synths
+git clone https://github.com/opentracker-fw/opentracker-fx
 make clean
-make -j
+make -j MODULES_DIR=$PWD/../opentracker-synths
 ```
 
+`MODULES_DIR` defaults to `../../opentracker-synths` (two levels up, where CI puts it);
+set it, or export it once, if the repositories sit next to this one. `opentracker-fx` is
+found next to `opentracker-synths`.
+
+A **build profile** (`profiles/<name>.toml`, `PROFILE=`, default `full`) picks the modules
+compiled into the image: `full` has ACD, FAT, VAP, PERC, WTFM and the master chorus, BBD
+chorus and tape inserts; `core` has none. DX7 is part of the fork's core, in every profile.
+Each profile builds into `build/<profile>/`.
+
 `VERSION` defaults to the Makefile's value, which follows the last upstream merge, so leave
-it unset unless you need a different one. This writes `build/opentracker.elf`,
-`build/opentracker.hex` and the flashable image `build/PolyendTrackerOTv<digits>.ptf`
-(e.g. `PolyendTrackerOTv223.ptf` for 2.2.3).
+it unset unless you need a different one. This writes `build/full/opentracker.elf`,
+`build/full/opentracker.hex` and the flashable image `build/full/PolyendTrackerOTv<digits>.ptf`
+(e.g. `PolyendTrackerOTv300.ptf` for 3.0.0; the letter after `OT` is the profile's variant,
+`v` for `full`).
 
 !!! warning "Change VERSION? Run `make clean` first"
     Objects aren't rebuilt when only `VERSION` changes, so the image would report the old
-    version. Check with `strings build/opentracker.elf | grep -x <version>`.
+    version. Check with `strings build/full/opentracker.elf | grep -x <version>`.
 
 The image name must be exactly 24 characters (the update bootloader rejects other
 lengths), so it carries the version digits only.
@@ -25,16 +40,17 @@ lengths), so it carries the version digits only.
 
 | Option | Builds |
 |---|---|
-| `OT_GAMES=1` | an image with Games (off by default in this fork: it frees 5.8 KB of SRAM and ~49 KB of flash); build dir `build/games` |
-| `OT_STACK_GUARD_TEST=1` | a stack guard test image: with `/Firmware/ot_guardtest.txt` on the card it overflows the stack once on purpose, and the next boot logs PASSED / FAILED; build dir `build/guardtest` |
+| `OT_GAMES=1` | an image with Games (off by default in this fork: it frees 5.8 KB of SRAM and ~49 KB of flash); build dir `build/full/games` |
+| `OT_STACK_GUARD_TEST=1` | a stack guard test image: with `/Firmware/ot_guardtest.txt` on the card it overflows the stack once on purpose, and the next boot logs PASSED / FAILED; build dir `build/full/guardtest` |
 | `SELFTEST=1` | a hardware bring-up image that always runs the selftest |
 | `OT_SDRAM_CACHE=0`, `OT_FASTRUN=0`, `OT_USB_MSC=0` | diagnostic variants (no SDRAM cache, all audio code in flash, no USB mass storage) |
 
 ### Size checks
 
 ```sh
-python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size build/opentracker.elf
-python3 tools/telemetry_check.py frames build
+python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size build/full/opentracker.elf
+python3 tools/telemetry_check.py frames build/full
+make budget   # the profile's module flash budgets
 ```
 
 - **Flash** (`.text + .data`): fails above 800,000 B, warns above 720,000 B (upstream fails at 720,000 B; the fork's DX7, remote control and Performance mode need more). The image itself may not pass 877,664 B, the stock 1.9.2 extent (`tools/check_image.py`).
@@ -63,7 +79,7 @@ can miss warnings that GCC 14 reports (CI builds with `-Werror`); to reproduce C
 
 ```sh
 make -C sim
-build/sim/opentracker-sim
+build/full/sim/opentracker-sim
 ```
 
 Needs SDL2 (and ALSA for MIDI). See [Simulator](simulator.md).

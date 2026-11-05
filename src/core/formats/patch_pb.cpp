@@ -1,6 +1,9 @@
 // Tracker Mini `.patch` codec (spec 21 §7, §8). See patch_pb.h.
 #include "formats/patch_pb.h"
 
+#include "modules/module.h"
+#include "modules/synth_descriptor.h"
+
 #include <cmath>
 #include <cstring>
 
@@ -264,89 +267,6 @@ PatchStatus rawFieldLen(const uint8_t* d, size_t n, uint32_t* field, size_t* len
     *len = size_t(r.p - d);
     return PatchStatus::kOk;
 }
-
-// ---------------------------------------------------------------------------
-// Engine parameter tables (spec 21 §8; MINI_PLAN corrections: VAP 27/31 and
-// WTFM 32/36 LFO Ratio are Hz 0..100, hi-hat/cymbal Timbre 0..24).
-// ---------------------------------------------------------------------------
-
-constexpr uint8_t NR = kParamFlagNoRange | kParamFlagInitAbsent;
-
-const PatchParamRange kAcd[29] = {
-    {1, 0, 1},     {0, 0, 1},       {0, 0, 1},       {0, -1, 1},    {0.5f, 0, 1},  {0, 0, 5},
-    {0, -1, 1},    {0, -1, 1},      {0, -3, 3},      {400, 20, 20000}, {0.5f, 0, 1.5f}, {1, 0, 2},
-    {1, -2, 2},    {0, -1, 1},      {0.14f, -1, 1},  {0, 0, 10},    {0.5f, 0, 10}, {0, 0, 1},
-    {0.5f, 0, 10}, {0, 0, 10},      {0.5f, 0, 10},   {0, 0, 1},     {0.5f, 0, 10}, {1, 0.1f, 100},
-    {1, 0, 5},     {2, 0, 2},       {0, 0, 3},       {0, 0, 3},     {1, 0, 2},
-};
-
-const PatchParamRange kFat[25] = {
-    {0.1f, 0, 1},  {1, -1, 1},      {0.05f, 0, 1},   {0, 0, 1},     {0, 0, 1},     {1, 0, 1},
-    {0, 0, 2},     {400, 20, 20000}, {0.5f, 0, 1.5f}, {0, -1, 1},   {0.14f, -1, 1}, {0, 0, 10},
-    {0.5f, 0, 10}, {0, 0, 1},       {0.5f, 0, 10},   {0, 0, 10},    {0.5f, 0, 10}, {0, 0, 1},
-    {0.5f, 0, 10}, {1, 0.1f, 100},  {1, 0, 5},       {2, 0, 2},     {0, 0, 3},     {0, 0, 3},
-    {1, 0, 2},
-};
-
-#define MODSLOT {0, 0, 4}, {0, 0, 13}, {0, -4, 4}
-
-const PatchParamRange kVap[60] = {
-    {0.5f, 0, 1},  {0.5f, 0, 1},    {0, -0.5f, 0.5f}, {0, -0.5f, 0.5f}, {0, -1, 1},  {0, -36, 36},
-    {0, -36, 36},  {0, 0, 100},     {0, -100, 100},  {0, 0, 1},     {0, 0, 1},     {0, 0, 14},
-    {400, 20, 20000}, {0.5f, 0, 1.5f}, {0.14f, -1, 1}, {0, 0, 10},   {0.5f, 0, 10}, {1, 0, 1},
-    {0.3f, 0, 10}, {0, 0, 10},      {0.5f, 0, 10},   {0, 0, 1},     {0.5f, 0, 10}, {0, 0, 10},
-    {0.5f, 0, 10}, {0, 0, 1},       {0.3f, 0, 10},
-    {0, 0, 100},   {1, 0, 5},       {2, 0, 2},       {0, 0, 1},  // 27-30 LFO 1
-    {0, 0, 100},   {1, 0, 5},       {2, 0, 2},       {0, 0, 1},  // 31-34 LFO 2
-    {0, 0, 3},     {0, 0, 3},       {1, -2, 2},      {0, -2, 2},    {1, 0, 2},     {0, 0, 1},
-    {0, 0, 1},     // 41 Noise
-    MODSLOT,       MODSLOT,         MODSLOT,         MODSLOT,       MODSLOT,       MODSLOT,
-};
-
-const PatchParamRange kWtfm[63] = {
-    {3, 0, 47},    {3, 0, 47},      {0, -100, 100},  {0, -100, 100}, {0, 0, 1},    {0, 0, 1},
-    {0, 0, 0, NR}, {0, 0, 0, NR},   {0, 0, 1},       {0, 0, 8},     {0, 0, 8},     {0, 0, 10},
-    {0, 0, 1},     {0, 0, 1},       {0, 0, 1},       {0, 0, 14},    {400, 20, 20000}, {0.5f, 0, 1.5f},
-    {0.14f, -1, 1}, {1, -2, 2},
-    {0, 0, 10},    {0.5f, 0, 10},   {1, 0, 1},       {0.3f, 0, 10},  // 20-23 Amp Env
-    {0, 0, 10},    {0.5f, 0, 10},   {0, 0, 1},       {0.5f, 0, 10},  // 24-27 Env 1
-    {0, 0, 10},    {0.5f, 0, 10},   {0, 0, 1},       {0.3f, 0, 10},  // 28-31 Env 2
-    {0, 0, 100},   {1, 0, 5},       {2, 0, 2},       {0, 0, 1},      // 32-35 LFO 1
-    {0, 0, 100},   {1, 0, 5},       {2, 0, 2},       {0, 0, 1},      // 36-39 LFO 2
-    {0, 0, 3},     {0, 0, 3},       {1, 0, 2},
-    MODSLOT,       MODSLOT,         MODSLOT,         MODSLOT,       MODSLOT,       MODSLOT,
-    {0, 0, 1},     {0, 0, 1},
-};
-
-#undef MODSLOT
-#define MIXER(level, pan, delay) {level, 0, 2}, {pan, -1, 1}, {delay, 0, 1}, {0, 0, 1}, {0, 0, 2}
-
-const PatchParamRange kPerc[84] = {
-    // Kick 0-8
-    {0, 0, 175}, {31, 12, 119}, {1.8f, 0, 100}, {0.26f, 0, 10}, {0.32f, -1, 1}, {0.5f, 0, 1},
-    {0.13f, 0, 10}, {0.2f, -1, 1}, {2, 0, 2},
-    // Tom 9-17
-    {0, 0, 175}, {1.4f, 0, 100}, {0.41f, 0, 10}, {0.58f, 0, 1}, {1, 0, 2}, {0.05f, 0, 10},
-    {1.65f, -10, 10}, {0.4f, -1, 1}, {1, 0, 2},
-    // Snare 18-26
-    {0, 0, 175}, {50, 12, 119}, {0.5f, 0, 1}, {1, 0, 4}, {0.17f, 0, 10}, {0.8f, 0, 100},
-    {0.26f, 0, 10}, {-0.39f, -1, 1}, {0.13f, 0, 1},
-    // Hi-hat 27-35
-    {0.12f, 0, 1}, {0.16f, 0, 10}, {0.81f, 0, 10}, {5080, 10, 20000}, {9040, 10, 20000},
-    {209, 100, 880}, {-0.09f, -1, 1}, {0, 0, 24}, {0, 0, 1},
-    // Cymbal 36-44
-    {3000, 500, 10000}, {7000, 500, 10000}, {1.5f, 0, 10}, {0.25f, 0, 10}, {204, 80, 880},
-    {-0.39f, -1, 1}, {0.29f, -1, 1}, {0, 0, 1}, {0, 0, 24},
-    // Perc 45-48
-    {0, 0, 4}, {0.07f, 0, 1}, {0.62f, 0, 1}, {0.14f, 0, 2},
-    // Mixer 49-78: Kick, Tom, Snare, Hihat, Cymbal, Perc
-    MIXER(1, 0, 0), MIXER(0.8f, 0.2f, 0), MIXER(1, -0.1f, 0.5f), MIXER(1, 0.3f, 0.5f),
-    MIXER(1, -0.3f, 0.5f), MIXER(1, 0.1f, 0.5f),
-    // FX 79-83
-    {0, 0, 1}, {0, 0, 4}, {0, -18, 18}, {0, -18, 18}, {0, -18, 18},
-};
-
-#undef MIXER
 
 // DX7 (OpenTracker): the engine's controls on top of the voice. New controls
 // are appended (a shorter stored list reads the rest as defaults).
@@ -686,40 +606,22 @@ PatchStatus encodePatch(const SynthPatch& pt, uint8_t* out, size_t cap, size_t* 
     return PatchStatus::kOk;
 }
 
+// Engine tables come from the synth modules (modules/synth_descriptor.h); the
+// Tracker Mini engine names are format constants (folder names) and stay here.
 const PatchParamRange* patchEngineParams(int32_t engine, int* count) {
-    const PatchParamRange* t = nullptr;
-    int n = 0;
-    switch (engine) {
-        case kSynthEngineAcd: t = kAcd, n = 29; break;
-        case kSynthEngineFat: t = kFat, n = 25; break;
-        case kSynthEngineVap: t = kVap, n = 60; break;
-        case kSynthEngineWtfm: t = kWtfm, n = 63; break;
-        case kSynthEnginePerc: t = kPerc, n = 84; break;
-        case kSynthEngineDx7: t = kDx7, n = kDx7ParamCount; break;
-        default: break;
+    if (engine == kSynthEngineDx7) {   // [I] DX7 is a core engine, not a module
+        if (count) *count = kDx7ParamCount;
+        return kDx7;
     }
-    if (count) *count = n;
-    return t;
+    const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(engine);
+    if (count) *count = d ? int(d->paramCount) : 0;
+    return d ? d->params : nullptr;
 }
 
-namespace {
-// [OT] Width (all but PERC) and FAT Stereo: 0..1, 0 = mono (today's sound).
-const PatchParamRange kExtWidth[] = {{0.0f, 0.0f, 1.0f, kParamFlagInitAbsent}};
-const PatchParamRange kExtFat[] = {{0.0f, 0.0f, 1.0f, kParamFlagInitAbsent}, {0.0f, 0.0f, 1.0f, kParamFlagInitAbsent}};
-}  // namespace
-
 const PatchParamRange* patchEngineExtParams(int32_t engine, int* count) {
-    const PatchParamRange* t = nullptr;
-    int n = 0;
-    switch (engine) {
-        case kSynthEngineAcd:
-        case kSynthEngineVap:
-        case kSynthEngineWtfm: t = kExtWidth, n = 1; break;
-        case kSynthEngineFat: t = kExtFat, n = 2; break;
-        default: break;
-    }
-    if (count) *count = n;
-    return t;
+    const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(engine);
+    if (count) *count = d ? int(d->extCount) : 0;
+    return d && d->extCount ? d->ext : nullptr;
 }
 
 const char* patchEngineName(int32_t engine) {
@@ -730,19 +632,16 @@ const char* patchEngineName(int32_t engine) {
         case kSynthEngineWtfm: return "WTFM";
         case kSynthEnginePerc: return "PERC";
         case kSynthEngineDx7: return "DX7";
-        default: return nullptr;
+        default: break;
     }
+    const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(engine);
+    return d ? d->name : nullptr;
 }
 
 int patchVolumeParam(int32_t engine) {
-    switch (engine) {
-        case kSynthEngineAcd: return 28;
-        case kSynthEngineFat: return 24;
-        case kSynthEngineVap: return 39;
-        case kSynthEngineWtfm: return 42;
-        case kSynthEngineDx7: return 0;
-        default: return -1;
-    }
+    if (engine == kSynthEngineDx7) return 0;   // [I]
+    const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(engine);
+    return d ? int(d->volumeParam) : -1;
 }
 
 bool patchInit(int32_t engine, SynthPatch* out) {
@@ -812,6 +711,10 @@ bool patchParamInRange(int32_t engine, int index, float v) {
     if (!t || index < 0 || index >= n + ne || !std::isfinite(v)) return false;
     const PatchParamRange& r = index < n ? t[index] : x[index - n];
     if (r.flags & kParamFlagNoRange) return true;
+    // Our patches store full floats, Mini patches halves: a bound is in range
+    // either way (half 0.1 is 0.09998, half 0.01 is 0.0100021). The float
+    // check first: it is the common case and costs no rounding (note-on path).
+    if (v >= r.min && v <= r.max) return true;
     return v >= toHalfPrecision(r.min) && v <= toHalfPrecision(r.max);
 }
 

@@ -11,6 +11,8 @@
 #include "ui/config_help.h"
 #include "ui/notes.h"
 #include "ui/screens.h"
+#include "ot_profile.h"
+#include "ot_version.h"
 #include "ui/theme_file.h"
 #include "sdram_bss.h"
 
@@ -217,8 +219,9 @@ void applyBacklight(App& a) {
 // open-source components it uses.
 bool gLicMode = false;
 const char* const kLicenseLines[] = {
-    ("OpenTracker " OT_VERSION),
+    OT_VERSION_LINE,
     "Open-source firmware for this sampler/sequencer hardware.",
+    "Profile " OT_PROFILE_NAME ": " OT_PROFILE_MODULES,
     "",
     "Third-party components:",
     "- Teensy 3.x core library (c) PJRC.COM, LLC",
@@ -289,7 +292,7 @@ static void optValueText(App& a, const Opt& o, int index, char* out, int cap) {
         case 3: std::snprintf(out, size_t(cap), "%lu", static_cast<unsigned long>(gov.cuts())); break;
         case 4: std::snprintf(out, size_t(cap), "%d/%d", gov.cap(), gov.budget()); break;
         case 1: std::snprintf(out, size_t(cap), "%s  %s", kBuildDate, kBuildHash); break;   // "Oct 24 2026  e5bb173"
-        default: std::snprintf(out, size_t(cap), "%s", "OpenTracker " OT_VERSION);
+        default: std::snprintf(out, size_t(cap), "%s", OT_VERSION_LINE);
         }
         return;
     }

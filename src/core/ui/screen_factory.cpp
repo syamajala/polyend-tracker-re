@@ -165,9 +165,9 @@ void FactoryTest::runRadio() {
 // has no check in OpenTracker.
 void FactoryTest::runSd() {
     IStorage& fs = app_.fs();
-    // [I] The staging block borrows the browsers' shared list buffer
-    // (screens.h): no browser is open on this screen, and each rebuilds its
-    // list when it opens.
+    // The browsers' list memory (screens.h): the test is entered from Config
+    // (whose pickers may be open), but it returns through ConfigScreen::start(),
+    // which resets them, and every list is rebuilt when it opens.
     constexpr uint32_t kBlock = 4096;
     static_assert(kBlock <= kBrowserListBytes, "the SD test block fits the list buffer");
     uint8_t* const buf = static_cast<uint8_t*>(browserListMem());

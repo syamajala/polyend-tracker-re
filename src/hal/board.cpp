@@ -20,6 +20,8 @@
 #include "sdhc.h"
 #include "telemetry.h"
 #include "app/project_io.h"
+#include "ot_profile.h"
+#include "ot_version.h"
 #include "audio/cpu_meter.h"
 #include "fmath.h"
 
@@ -332,6 +334,10 @@ const BootReport& boardInit() {
         diagLogf("fastrun: off (OT_FASTRUN=0), %lu B in SRAM_L", static_cast<unsigned long>(n));
 #endif
     }
+    // Build profile and its modules (docs/PLAN_3X.md §7.4). The flavour name is pasted into the
+    // format (no stack for an extra argument); tools/profile.py keeps '%' out of it.
+    diagLogf("profile: %s (" OT_PROFILE_DISPLAY_NAME ") modules: %s rev %s", OT_PROFILE_NAME, OT_PROFILE_MODULES,
+             OT_MODULES_REV);
 
     // 2.x performance workstream: system cache for the SDRAM (write-through,
     // coherency self-test, sdram_cache.h), then ADMA2 straight into SDRAM behind

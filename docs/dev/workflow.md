@@ -68,4 +68,4 @@ Projects must keep opening in stock firmware, upstream OpenTracker and the Track
 - No static constructors: a namespace-scope object or pointer must not need dynamic
   initialisation (for example `T* const p = f();` with `f()` in another file). Use
   `constexpr`, an `extern` array with `inline` helpers, or set it up in `start()`. Check
-  with `arm-none-eabi-nm -C build/opentracker.elf | grep _GLOBAL__sub_I`.
+  with `arm-none-eabi-nm -C build/full/opentracker.elf | grep _GLOBAL__sub_I`.

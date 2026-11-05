@@ -29,14 +29,14 @@ struct ScreenSet {
     PerformanceScreen performance;
     MixerScreen mixer;
 #if OT_GAMES
-    GamesScreen games;
+    GamesScreen games;   // [I] Games stay in the fork as an OT_GAMES=1 build
 #endif
     SynthScreen synth;
 };
 }  // namespace
 
 // The browsers' shared name lists (screens.h browserListMem()).
-OT_SDRAM_BSS alignas(8) unsigned char g_browserLists[kBrowserListBytes];
+OT_SDRAM_BSS alignas(kBrowserListAlign) unsigned char g_browserLists[kBrowserListBytes];
 
 namespace {
 // The device's one Ui keeps its screens (~8 KB) in the SDRAM instead of on

@@ -4,6 +4,8 @@
 // Save As / Init, the "not available" read-only state, the Instrument popup
 // S1..S3 entries and the Global Mixer synth columns.
 #include "test.h"
+
+#include "modules/synth_models.h"
 #include "ui_fakes.h"
 
 #include <cstdio>
@@ -225,11 +227,17 @@ TEST(model_change_loads_init) {
     h.tap(btn::F1);
     h.tap(btn::F1);
     CHECK(a.synthSlot(1).model == uint32_t(SynthModel::PERC));
+    // 3.x: module engines (modules/synth_models.h) follow the Mini models.
+    for (int k = kSynthModelCount; k < synthModelListCount(); ++k) {
+        h.tap(btn::F1);
+        CHECK_EQ(a.slotEngineId(1), synthModelListEngine(k));
+    }
     h.tap(btn::F1);
     CHECK(a.synthSlot(1).model == uint32_t(SynthModel::DX7));
     CHECK(a.synthPatch(1).engine == kSynthEngineDx7);
     h.tap(btn::F1);
     CHECK(a.synthSlot(1).model == uint32_t(SynthModel::ACD));
+    CHECK_EQ(a.slotEngineId(1), int32_t(kSynthEngineAcd));
     CHECK(a.synthPatch(1).engine == kSynthEngineAcd);
     // The list stops at its ends.
     h.tap(btn::Up);
@@ -596,7 +604,9 @@ TEST(not_available_is_read_only) {
     h.tap(btn::F1);     // Model already selected: cycles WTFM -> PERC
     CHECK(a.synthSlot(0).model == uint32_t(SynthModel::PERC));
     CHECK(s.available());
-    CHECK(frameHas(h, "Synth 1 (PERC)"));
+    char want[32];
+    std::snprintf(want, sizeof(want), "Synth 1 (%s)", synthEngineFolder(a.slotEngineId(0)));
+    CHECK(frameHas(h, want));
     audio::synthEngineHide(kSynthEngineWtfm, false);
 }
 

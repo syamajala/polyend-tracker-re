@@ -26,6 +26,9 @@
 //             saturation, side-chain limiter, line-in with sends
 //   synth4    2.x synth framework: 4 voices of the internal test engine
 //   synth4w   synth4 with Width 1 (stereo S2 slot widener)
+//   synth4i   synth4 with the image's first effect as Synth 1's slot insert
+//             (images with slot inserts); synth.ins = synth4i - synth4, one
+//             insert incl. its SDRAM line copies
 //   fatstereo fatworst with the [OT] Stereo at 1 (stereo S4: D stack, two filter paths)
 //             (sine + envelope) in Synth 1, reverb send on; WP-F engines
 //             replace the test engine (docs/MINI_PLAN.md §4: <= 72k/block)
@@ -89,15 +92,28 @@
 #include "audio/engine.h"
 #include "audio/export_resampler.h"
 #include "audio/stream_source.h"
-#include "audio/engines/perc.h"
 #include "audio/synth_params.h"
-#include "audio/engines/acd.h"
 #include "audio/engines/dx7.h"
-#include "audio/engines/fat.h"
-#include "audio/engines/vap.h"
-#include "audio/engines/wtfm.h"
+#include "modules/module.h"
+#include "ot_profile.h"
+// The engine scenarios need the synth pack modules (opentracker-synths); a
+// profile without them reports only the core scenarios.
+#if defined(OT_MOD_ACD1) && defined(OT_MOD_FAT1) && defined(OT_MOD_VAP1) && defined(OT_MOD_PRC1) && defined(OT_MOD_WTF1)
+#define OT_BENCH_SYNTH_PACK 1
+#include "acd.h"
+#include "fat.h"
+#include "perc.h"
+#include "vap.h"
+#include "wtfm.h"
+#endif
 #include "formats/patch_pb.h"
+#include "bench_api.h"
 #include "peak_trace.h"
+
+// Song 5 trace (tests/Makefile PEAK_TRACE; build/<profile>/bench/song5.trace).
+#ifndef OT_BENCH_TRACE
+#define OT_BENCH_TRACE "../build/" OT_PROFILE_NAME "/bench/song5.trace"
+#endif
 #include "sequencer/sequencer.h"
 
 using namespace ot;
@@ -140,6 +156,16 @@ constexpr const char* kUnit = "us";
 constexpr int kReps = 5;
 constexpr int kScale = 1;
 #endif
+
+}  // namespace
+
+namespace otbench {
+double nowUnits() { return ::nowUnits(); }
+int scale() { return kScale; }
+const char* unit() { return kUnit; }
+}  // namespace otbench
+
+namespace {
 
 OT_BIG int16_t gFx[AudioEngine::kFxMemorySamples];
 SynthPatch gSynthPatch;
@@ -261,7 +287,7 @@ void report(const char* name, double v) {
 #endif
 }
 
-
+#ifdef OT_BENCH_SYNTH_PACK
 // One VAP voice per block (prepare + render), sustained note.
 double vapVoice(bool worst) {
     static float vals[kSynthParamMax];
@@ -613,6 +639,7 @@ void mixBench(int budget, const char* name, int32_t engine = kSynthEngineAcd) {
     std::printf("  (%s: budget %d, %d synth voices sounding)\n", name, budget, b.sounding());
 #endif
 }
+#endif  // OT_BENCH_SYNTH_PACK
 
 // pswitch: immediate pattern switch (see the header).
 struct SwitchHost : ISequencerHost {
@@ -987,6 +1014,7 @@ void components() {
         std::printf("    synth    %10.1f  (4 test voices, engine only)\n", eng);
         std::printf("    synth.fw %10.1f  (framework overhead per block, limit 3000 M4 insn)\n", all - eng);
     }
+#ifdef OT_BENCH_SYNTH_PACK
     {   // PERC: six drums ringing in one slot, retriggered every 32 blocks
         static SynthPatch pp;
         static SynthParams sp;
@@ -1091,6 +1119,7 @@ void components() {
                         (nowUnits() - t0) / n, worst ? 18000 : 12000);
         }
     }
+#endif  // OT_BENCH_SYNTH_PACK
     {   // mono fused for comparison
         Rig r;
         r.load(0, tone(44100, 220.0f), PlayMode::ForwardLoop);
@@ -1106,6 +1135,7 @@ void components() {
         for (int b = 0; b < n; ++b) v.render(c, o, ds, rs, ml, mr, false);
         std::printf("    v.render %10.1f  (mono, fused)\n", (nowUnits() - t0) / n);
     }
+    runModuleBenches();   // module benches (bench_api.h, generated runner)
 }
 
 #ifdef OT_BENCH_M4
@@ -1164,7 +1194,7 @@ int main(int argc, char** argv) {
 #ifdef OT_BENCH_PEAK_ONLY
     // make -C tests bench-m4-hot: the song 5 replay alone, profiled per
     // translation block by tests/bench_m4/hot_plugin.c.
-    peakBench("../build/bench/song5.trace", 3000);
+    peakBench(OT_BENCH_TRACE, 3000);
     return 0;
 #endif
 #ifdef OT_BENCH_M4
@@ -1357,6 +1387,7 @@ int main(int argc, char** argv) {
         r.eng->previewBuffer(noise.data(), uint32_t(noise.size()), false);
         report("worst", timeBlocks(r, 2000, lineNoise));
     }
+    double synth4 = 0.0;   // synth4i's reference
     {   // synth4: 4 test-engine voices in Synth 1 (sustained), reverb send
         Rig r;
         r.synth(4);
@@ -1366,9 +1397,29 @@ int main(int argc, char** argv) {
         rc.reverbSend = 40.0f;
         r.eng->synth().setSlotRecord(0, rc);
         for (int k = 0; k < 4; ++k) r.synthNote(uint8_t(8 + k), 0, uint8_t(48 + 7 * k));
-        report("synth4", timeBlocks(r, 2000, lineNoise));
+        synth4 = timeBlocks(r, 2000, lineNoise);
+        report("synth4", synth4);
         std::printf("  (synth voices sounding after the run: %d)\n", r.eng->synth().sounding());
     }
+#if OT_SLOT_INSERTS
+    if (audio::IEffect* fx = mod::ModuleHost::instance().effectAt(0)) {   // synth4i: synth4 + one slot insert
+        static int16_t lines[kSynthSlots * audio::kEffectWorkMax / 2];
+        Rig r;
+        r.synth(4);
+        SynthSlotRecord rc = SynthSlotRecord::defaults(0);
+        rc.model = uint32_t(SynthModel::ACD);
+        rc.polyphony = 4;
+        rc.reverbSend = 40.0f;
+        r.eng->synth().setSlotRecord(0, rc);
+        r.eng->synth().setInsertMemory(lines);
+        r.eng->synth().setSlotInsert(0, fx, audio::effectDefaults(*fx));
+        for (int k = 0; k < 4; ++k) r.synthNote(uint8_t(8 + k), 0, uint8_t(48 + 7 * k));
+        const double v = timeBlocks(r, 2000, lineNoise);
+        report("synth4i", v);
+        std::printf("    synth.ins %10.1f  (one %s slot insert incl. its SDRAM line copies)\n", v - synth4, fx->name());
+    }
+#endif
+#ifdef OT_BENCH_SYNTH_PACK   // Width needs the ACD module's extension table
     {   // synth4w: synth4 with the slot's [OT] Width at 1 (stereo S2 widener)
         Rig r;
         r.synth(4);
@@ -1382,18 +1433,22 @@ int main(int argc, char** argv) {
         for (int k = 0; k < 4; ++k) r.synthNote(uint8_t(8 + k), 0, uint8_t(48 + 7 * k));
         report("synth4w", timeBlocks(r, 2000, lineNoise));
     }
+#endif
     for (int i = 0; i < kBlock * 2; ++i) gLineNoise[i] = lineNoise[i];
+#ifdef OT_BENCH_SYNTH_PACK
     mixBench(4, "mix");   // Governor::kDefaultBudget
     mixBench(5, "mix5");
     mixBench(6, "mix6");
     mixBench(4, "mixfat", kSynthEngineFat);
     mixBench(4, "mixwtfm", kSynthEngineWtfm);
+#endif
     switchBench();
 #ifdef OT_BENCH_M4
-    peakBench("../build/bench/song5.trace", 8100);   // song positions 0-2 (intro, groove, sixteen-track chords)
+    peakBench(OT_BENCH_TRACE, 8100);   // song positions 0-2 (intro, groove, sixteen-track chords)
 #else
-    peakBench(argc > 1 ? argv[1] : "../build/bench/song5.trace", 0xFFFFFFFFu);
+    peakBench(argc > 1 ? argv[1] : OT_BENCH_TRACE, 0xFFFFFFFFu);
 #endif
+#ifdef OT_BENCH_SYNTH_PACK
     reportVoice("vapinit", vapVoice(false), 12000);
     reportVoice("vapworst", vapVoice(true), 18000);
     reportVoice("fatinit", fatVoice(false), 12000);
@@ -1405,6 +1460,7 @@ int main(int argc, char** argv) {
     reportVoice("fatstereo", fatVoice(true, true), 34000);
     reportVoice("wtfminit", wtfmVoice(false), 12000);
     reportVoice("wtfmworst", wtfmVoice(true), 32000);
+#endif
     report("exportm", exportBlocks(1, 0));
     report("exports", exportBlocks(ExportResampler::kMaxStems, 0));
     report("exports.s5", exportBlocks(ExportResampler::kMaxStems, 1));   // informational

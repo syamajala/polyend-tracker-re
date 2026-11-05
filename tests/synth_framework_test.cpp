@@ -13,9 +13,9 @@
 #include <vector>
 
 #include "audio/engine.h"
-#include "audio/engines/acd.h"
 #include "audio/engines/dx7.h"
-#include "audio/engines/perc.h"
+#include "acd.h"
+#include "perc.h"
 #include "audio/synth_bank.h"
 #include "audio/synth_params.h"
 #include "formats/patch_pb.h"

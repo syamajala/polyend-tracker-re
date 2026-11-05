@@ -291,6 +291,9 @@ AudioEngine::AudioEngine() {
 
 bool AudioEngine::init(int16_t* fx, size_t fxSamples, int16_t* pool, size_t poolSamples, const Instrument* ins) {
     initTables();
+    // The master chain runs after the synth bank in each block: its voice
+    // scratch is the window for effects whose memory is in the SDRAM.
+    setEffectWindow(synth_.scratchWindow());
     if (!fx || fxSamples < kFxMemorySamples || !ins) return false;
     instruments_ = ins;
     bank_.init(pool, pool ? poolSamples : 0);
@@ -850,6 +853,21 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
                 case 4: masterSum<4>(l0, li); break;
                 default: masterSumClean(l0, li); break;   // the default mode, from SRAM_L (.fastrun)
             }
+        }
+    }
+    // 6b. master inserts of modules (audio/inserts.h), a chain before the
+    // limiter: one count test per block when no module provides one. An
+    // insert runs while the bus carries sound (or the inserts before it left a
+    // tail) or while it reports its own tail.
+    if (const int ni = nIns_) {
+        if (tempo_ != insTempo_) {   // [3.x] E0: tempo-synced inserts follow the song
+            insTempo_ = tempo_;
+            for (int i = 0; i < ni; ++i) masterIns_[i]->setTempo(tempo_);
+        }
+        bool sound = anyVoice || dly || rev || line;
+        for (int i = 0; i < ni; ++i) {
+            if (sound || insTail_[i]) insTail_[i] = masterIns_[i]->process(mL_, mR_, kBlock);
+            sound = sound || insTail_[i];
         }
     }
     // [I] Master insert (master_fx.h): on the summed bus, before the limiter.

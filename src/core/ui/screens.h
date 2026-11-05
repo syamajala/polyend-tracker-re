@@ -11,8 +11,15 @@
 #include "model/midi_cc_names.h"
 #include "model/multisample.h"
 #include "model/synth_patch.h"
+#include "modules/synth_descriptor.h"
 #include "ui/loader_list.h"
 #include "ui/ui.h"
+#if __has_include("ot_profile.h")
+#include "ot_profile.h"
+#endif
+#ifndef OT_SLOT_INSERTS
+#define OT_SLOT_INSERTS 0
+#endif
 #include "ui/wave.h"
 
 namespace ot {
@@ -27,10 +34,15 @@ struct ImportProbe;   // app/app.h
 // firmware entry), so they share it; each list's layout static_asserts that
 // it fits. The largest is the Sample Loader's (LoaderList: 101 FAT long
 // names of 255 characters, issue #54), then Import Mod (200 x 56 names +
-// 200 kinds).
+// 200 kinds). [3.x] Two short borrowers outside the browsers, never with a
+// browser list live: the factory test's SD buffer (FactoryTest::runSd; the
+// test returns through Config's start(), which resets its pickers) and Edit
+// Patch's Init patch for Delete (SynthScreen::resetEditRow; Edit Patch and
+// the patch browser are exclusive views).
 constexpr size_t kBrowserListBytes =
     sizeof(LoaderList) > 200 * 56 + 200 ? (sizeof(LoaderList) + 7) / 8 * 8 : 200 * 56 + 200;
-extern unsigned char g_browserLists[kBrowserListBytes];   // screens.cpp (.sdram_bss on the device)
+constexpr size_t kBrowserListAlign = 8;
+alignas(kBrowserListAlign) extern unsigned char g_browserLists[kBrowserListBytes];   // screens.cpp (.sdram_bss on the device)
 inline void* browserListMem() { return g_browserLists; }
 
 // [I] #13 / #28 CC slot `slot` (0..5) of MIDI instrument `midi` (0..15): its
@@ -1174,44 +1186,7 @@ private:
 // A slot whose model has no engine in this build (FAT until 2.1, WTFM until 2.2) shows
 // "Synth k (MODEL) not available" and is read-only except F1 Model.
 namespace synthui {
-// Value display / step kinds of one engine parameter.
-enum Fmt : uint8_t {
-    kFmtPct,      // v * 100 "%"
-    kFmtVal100,   // v * 100, no unit
-    kFmtSec,      // seconds
-    kFmtHz,       // log frequency (cutoff)
-    kFmtLfoHz,    // log frequency, two decimals
-    kFmtEnum,     // names[]
-    kFmtOnOff,
-    kFmtSemi,     // semitones
-    kFmtCents,
-    kFmtInt,      // plain integer (index without known labels)
-    kFmtMs,
-    kFmtDb,
-    kFmtNote,     // MIDI note name (PERC pitch)
-    kFmtPan,      // -1..1 -> L100..R100
-    kFmtPctMax,   // v / max(|min|, |max|) * 100 % (Resonance 0..1.5, Pitch LFO / Mod Amt bipolar)
-    kFmtMs10,     // stored 0..100 shown as 0..10 ms (PERC Body / Snap Attack)
-    kFmtPercNote, // PERC pitch 12..119 as C0..B8 (manual p.166)
-    kFmtBodyWave, // PERC Body Wave 0..175 = 16 waves x 0..100 % (manual p.166)
-    kFmtRatio,    // WTFM Ratio index 0..47 shown as 0.25 .. 12.00 (spec 2x-08 §1)
-};
-struct ParamUi {
-    const char* label;
-    uint8_t fmt;
-    const char* const* names;   // kFmtEnum
-    uint8_t nameCount;
-};
-// A section of the Edit Patch page: parameter indices in display order, or
-// macro m (0..6) when macro >= 0.
-struct Section {
-    const char* name;       // grid cell ("Osc")
-    const char* longName;   // F6 label ("Oscillator")
-    const uint8_t* params;
-    uint8_t count;
-    int8_t macro;
-};
-constexpr int kMaxSections = 16;              // 4 x 4 grid (pads 0-3, 12-15, 24-27, 36-39)
+// Fmt, ParamUi and Section: modules/synth_descriptor.h (module-facing).
 // Macro targets shown (manual p.155: Parameter / Amount 1..5). A 6th target
 // that a patch stores stays in the patch, unshown.
 constexpr int kMacroShownTargets = 5;
@@ -1301,8 +1276,11 @@ public:
     // a synth (the sample / MIDI Instrument screen opens).
     static int entrySlot(App& a, Ui& ui, int active);
 
-    enum class View : uint8_t { Params, Macros, Edit, Browser };
+    // Insert: [3.x] the slot's insert effect (Shift + Instrument Params; builds
+    // with OT_SLOT_INSERTS).
+    enum class View : uint8_t { Params, Macros, Edit, Browser, Insert };
     View view = View::Params;
+    int insFocus = 0;       // Insert: 0 the insert list (F1), 1..6 its settings (F2..F7)
     int slot = 0;           // 0..2
     int param = 0;          // Params page: F1..F6 (0 model .. 5 delay send)
     int macro = 0;          // Macros page: M1..M6
@@ -1361,6 +1339,12 @@ private:
     void drawMacros(Gfx& g);
     void drawEdit(Gfx& g);
     void drawBrowser(Gfx& g);
+#if OT_SLOT_INSERTS
+    void drawInsert(Gfx& g);
+    void insertKey(uint8_t id);
+    void insertChange(int d);
+    void insertBar();
+#endif
     void title(Gfx& g, const char* text);
     // on: the slot's audition note (Enc push, Load Patch F5 / F6); off: that
     // note and every held pad.

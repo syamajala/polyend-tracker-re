@@ -6,8 +6,9 @@ __pycache__/
 /.venv/
 tools/make_demo/make_demo
 dist/
-__pycache__/
 
 # Personal notes (making-tracks tips, idea sketches, upstream PR drafts)
 /notes/
 tools/theory_check/node_modules/
+build/
+syncv3.sh

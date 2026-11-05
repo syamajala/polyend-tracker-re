@@ -1,11 +1,13 @@
 # OpenTracker firmware for the original Polyend Tracker hardware (MK66FX1M0).
-# make            -> build/opentracker.hex and build/PolyendTrackerOTv<ver digits>.ptf (24 chars)
+# make            -> build/<profile>/opentracker.hex and PolyendTrackerOT<variant><ver digits>.ptf (24 chars)
+# PROFILE=full    -> the modules of profiles/<name>.toml (full = synth engines, core = none);
+#                    MODULES_DIR = the module repository (default ../../opentracker-synths), profile.mk
 # make SELFTEST=1 -> build/selftest/PolyendTracker_OTst<DIAG_N>.ptf (24 chars)
 # make host-test  -> build and run host-side unit tests
 # make perf-gate  -> bench-m4 instruction counts vs tests/perf_baseline.txt (+5 % max), engine
 #                    limits, flash <= 800,000 B, host bench, telemetry thresholds on LOG=<device log>
 #                    (docs/HARDWARE_TESTING.md)
-# OT_GAMES=1      -> image with Games (NES player, screen, menu entry; build dir build/games); off by default since 2.2.1
+# OT_GAMES=1      -> image with Games (NES player, screen, menu entry; build dir build/<profile>/games); off by default since 2.2.1
 # OT_SDRAM_CACHE=0 -> image without the LMEM system cache for the SDRAM (build dir build/nocache)
 # OT_FASTRUN=0    -> image with all audio code in flash (no .fastrun in SRAM_L; build dir build/nofastrun)
 # OT_USB_MSC=0    -> image without the USB mass-storage interface (old MIDI + Serial descriptors;
@@ -13,13 +15,16 @@
 # OT_USB_AUDIO=0  -> image without the USB audio function (#97; build dir build/noaudio)
 # make testsongs  -> build/testsongs/Projects/<name>/ (2.x hardware-test projects, TESTSONGS.md)
 # make patches    -> build/patches/Patches/<MODEL>/ (synth preset pack, tools/make_patches/PRESETS.md)
+# make budget     -> the profile's declared module budgets (flash, SRAM) and their limits
 # make fonts      -> regenerate the committed UI font image (src/core/ui/fonts/font_data.*,
 #                    the firmware's packed font_data_z.inc / font_adv.inc,
 #                    sim/third_party/rom_fonts.inc); needs python3 + Pillow
 # make export-sinc-table -> regenerate the committed weight table of the 44.1 kHz export
 #                    (src/core/audio/export_sinc_table.inc); needs python3
-VERSION   ?= 2.2.5
-BUILD     := build
+VERSION   ?= 3.0.0
+ROOT      := .
+include profile.mk
+BUILD     := build/$(PROFILE)
 # Image file names must be exactly 24 characters (like the stock
 # "PolyendTracker_1.9.2.ptf"): the device's update bootloader rejected a
 # 45-character name and accepted a 24-character one (docs/HARDWARE_TESTING.md).
@@ -32,7 +37,7 @@ BUILD     := build/selftest
 DEFS_EXTRA := -DOT_FORCE_SELFTEST=1
 PTF_NAME  := PolyendTracker_OTst$(DIAG_N).ptf
 else
-PTF_NAME  := PolyendTrackerOTv$(VERNUM).ptf
+PTF_NAME  := PolyendTrackerOT$(OT_PROFILE_VARIANT)$(VERNUM).ptf
 endif
 # LMEM system cache for the SDRAM (src/hal/sdram_cache.h): 1 = on (boot self-test
 # can still turn it off), 0 = never enabled. Own build dir so objects never mix.
@@ -104,8 +109,8 @@ CPUFLAGS  := -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
 DEFS      := -D__MK66FX1M0__ -DF_CPU=180000000 -DUSB_MIDI_SERIAL -DLAYOUT_US_ENGLISH \
              -DF_BUS=90000000 -DSERIAL5_TX_BUFFER_SIZE=512 -DSERIAL5_RX_BUFFER_SIZE=512 \
              -DTEENSYDUINO=159 -DARDUINO=10819 -DOT_VERSION=\"$(VERSION)\" -DOT_TARGET_DEVICE=1 \
-             -DOT_SDRAM_CACHE=$(OT_SDRAM_CACHE) -DOT_GAMES=$(OT_GAMES) -DOT_FASTRUN=$(OT_FASTRUN) -DOT_USB_MSC=$(OT_USB_MSC) -DOT_USB_AUDIO=$(OT_USB_AUDIO) -DOT_STACK_GUARD_TEST=$(OT_STACK_GUARD_TEST) -DOT_REMOTE_REGS=$(OT_REMOTE_REGS) -DOT_FONTS_COMPRESSED=1 $(USB_ID) $(DEFS_EXTRA)
-INCS      := -I$(CORE) -Isrc -Isrc/core -Isrc/hal -Ithird_party/fatfs
+             -DOT_SDRAM_CACHE=$(OT_SDRAM_CACHE) -DOT_GAMES=$(OT_GAMES) -DOT_FASTRUN=$(OT_FASTRUN) -DOT_USB_MSC=$(OT_USB_MSC) -DOT_USB_AUDIO=$(OT_USB_AUDIO) -DOT_STACK_GUARD_TEST=$(OT_STACK_GUARD_TEST) -DOT_REMOTE_REGS=$(OT_REMOTE_REGS) -DOT_FONTS_COMPRESSED=1 $(USB_ID) $(DEFS_EXTRA) $(MOD_DEFS)
+INCS      := -I$(CORE) -Isrc -Isrc/core -Isrc/hal -Ithird_party/fatfs $(MOD_INCS)
 COMMON    := $(CPUFLAGS) $(DEFS) $(INCS) -O2 -g -ffunction-sections -fdata-sections -Wall -MMD -fstack-usage
 CFLAGS    := $(COMMON) -std=gnu11
 CXXFLAGS  := $(COMMON) -std=gnu++17 -fno-exceptions -fno-rtti -felide-constructors -Wno-psabi
@@ -124,6 +129,11 @@ ifeq ($(OT_GAMES),0)
 APP_CXX   := $(filter-out src/core/games/%,$(APP_CXX))
 endif
 OBJS      := $(patsubst %,$(BUILD)/%.o,$(CORE_C) $(CORE_CXX) $(APP_C) $(APP_CXX))
+# Profile modules (profile.mk): sources from MODULES_DIR and the generated
+# registry, found through vpath; -O2 (audio path). The .fastrun groups in
+# src/hal/opentracker.ld match these objects by file name.
+MOD_OBJS  := $(patsubst %.cpp,$(BUILD)/mod/%.cpp.o,$(MOD_SRCS))
+OBJS      += $(MOD_OBJS)
 
 # Size optimization per directory (docs/OPTIMIZATION_2X.md OP-4): UI, app,
 # HAL, games, formats, remote control and FatFs build with -Os; everything on the audio /
@@ -203,6 +213,10 @@ $(BUILD)/%.cpp.o: %.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(OPT) $(WARN) $(HASHDEF) -c $< -o $@
 
+$(BUILD)/mod/%.cpp.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -fstack-usage -c $< -o $@
+
 $(BUILD)/opentracker.elf: $(OBJS) $(LDSCRIPT)
 	$(CXX) $(LDFLAGS) $(OBJS) -L$(CORE) $(LIBS) -o $@ -Wl,-Map=$(BUILD)/opentracker.map
 	$(SIZE) $@
@@ -242,22 +256,27 @@ clean:
 #     against the thresholds (render avg < 45 %, max < 70 %, loop max < 50 ms outside loading).
 #  4. Flash size of the firmware image (.text + .data): fail above 800,000 B, warn above
 #     720,000 B (upstream's budget; the image cap is tools/check_image.py); builds
-#     build/opentracker.elf when it is stale.
+#     $(BUILD)/opentracker.elf when it is stale.
 #  5. Stack frames (-fstack-usage .su files): fail when one function's frame reaches the stack
 #     guard (src/hal/stack_guard.h) less 256 B for an interrupt's exception frame, or is
 #     unbounded, or when an object of the image has no .su file (built before the flag:
 #     make clean); warn above 75 % of the guard.
-PERF_OUT := build/perf
+PERF_OUT := $(BUILD)/perf
+# Per-profile baseline when the profile has its own (tests/perf_baseline_<profile>.txt).
+PERF_BASELINE := $(firstword $(wildcard tests/perf_baseline_$(PROFILE).txt) tests/perf_baseline.txt)
 perf-gate:
 	@mkdir -p $(PERF_OUT)
 	@if command -v qemu-system-arm >/dev/null 2>&1 && command -v $(CXX) >/dev/null 2>&1; then \
 	    $(MAKE) -s -C tests bench-m4 CROSS=$(CROSS) > $(PERF_OUT)/bench_m4.txt && \
-	    python3 tools/telemetry_check.py bench --baseline tests/perf_baseline.txt $(PERF_OUT)/bench_m4.txt; \
+	    python3 tools/telemetry_check.py bench --baseline $(PERF_BASELINE) $(PERF_OUT)/bench_m4.txt; \
 	else echo "perf-gate: qemu-system-arm or $(CXX) missing -- bench-m4 SKIPPED (host-only gate)"; fi
 	@if command -v $(CXX) >/dev/null 2>&1; then \
 	    { $(MAKE) -s $(BUILD)/opentracker.elf > $(PERF_OUT)/firmware_build.txt 2>&1 || \
 	      { tail -20 $(PERF_OUT)/firmware_build.txt; exit 1; }; } && \
 	    python3 tools/telemetry_check.py size --size-tool $(SIZE) $(BUILD)/opentracker.elf && \
+	    $(SIZE) $(MOD_OBJS) > $(PERF_OUT)/module_sizes.txt && \
+	    python3 -I tools/profile.py sizes --profile profiles/$(PROFILE).toml --modules-dir $(MODULES_DIR) \
+	        --size-output $(PERF_OUT)/module_sizes.txt && \
 	    python3 tools/telemetry_check.py frames --objects $(OBJS); \
 	else echo "perf-gate: $(CXX) missing -- flash size and stack frame checks SKIPPED"; fi
 	@$(MAKE) -s -C tests bench > $(PERF_OUT)/bench_host.txt && sed 's/^/  host: /' $(PERF_OUT)/bench_host.txt | head -8
@@ -287,10 +306,15 @@ export-sinc-table:
 
 # 2.x hardware-test projects (TESTSONGS.md): build/testsongs/Projects/<name>/.
 # SONGS="1 3" limits the set; songs whose milestone is not built are skipped.
-# STEMS_SECONDS=180: song 19's stems 180 s long (default 30 s; the hardware run).
+# STEMS_SECONDS=180: song 19's stems 180 s long (default 30 s; the C13 hardware run).
 testsongs:
 	$(MAKE) -C tools/make_testsongs run SONGS="$(SONGS)" STEMS_SECONDS="$(STEMS_SECONDS)"
 .PHONY: testsongs
+
+# Declared module budgets of the profile (tools/profile.py budget).
+budget:
+	python3 -I tools/profile.py budget --profile profiles/$(PROFILE).toml --modules-dir $(MODULES_DIR)
+.PHONY: budget
 
 # Synth preset pack (tools/make_patches/PRESETS.md): build/patches/Patches/<MODEL>/.
 patches:
@@ -301,3 +325,8 @@ patches:
 sim:
 	$(MAKE) -C sim
 .PHONY: sim
+
+# OpenTracker Desktop (desktop/README.md, docs/PLAN_DESKTOP_APP.md).
+desktop:
+	$(MAKE) -C desktop
+.PHONY: desktop

@@ -327,9 +327,19 @@ bool Headless::run(const std::string& path) {
         } else if (cmd == "theme" || cmd == "font") {
             // Display theme 0..2 / font set 0..1 (config "Display theme" /
             // "Display font") without the Config key flow; visual scenes.
-            if (m.app) {
-                if (cmd == "theme") m.app->cfg.theme = uint8_t(n1);
-                else m.app->cfg.font = uint8_t(n1);
+            // 2.x: `theme <name>` loads Themes/<name>.txt from the card.
+            const bool file = cmd == "theme" && !a1.empty() && (a1[0] < '0' || a1[0] > '9');
+            if (file && (!m.app || !m.app->loadCustomTheme(a1.c_str()))) {
+                std::fprintf(stderr, "script:%d: cannot read Themes/%s.txt\n", line, a1.c_str());
+                return false;
+            }
+            if (m.app && !file) {
+                if (cmd == "theme") {
+                    m.app->clearCustomTheme();
+                    m.app->cfg.theme = uint8_t(n1);
+                } else {
+                    m.app->cfg.font = uint8_t(n1);
+                }
                 m.app->applySequencerSettings();
                 m.app->ui.dirty();
             }

@@ -5,10 +5,10 @@
 # the files of SCRIPT.sd/ (copy those to a Tracker's card too) and, here only,
 # SCRIPT.sim-sd/ (stand-ins for files a Tracker already has):
 #   tools/sim_remote_check.sh [SCRIPT ...]   (default: tools/remote_scripts/*.txt)
-# Needs build/sim/opentracker-sim (make -C sim). Exit status 1 if a check failed.
+# Needs build/full/sim/opentracker-sim (make -C sim). Exit status 1 if a check failed.
 set -u
 root=$(cd "$(dirname "$0")/.." && pwd)
-sim="$root/build/sim/opentracker-sim"
+sim="$root/build/${PROFILE:-full}/sim/opentracker-sim"
 [ -x "$sim" ] || { echo "sim_remote_check: build the simulator first (make -C sim)" >&2; exit 2; }
 [ $# -gt 0 ] || set -- "$root"/tools/remote_scripts/*.txt
 work=$(mktemp -d)

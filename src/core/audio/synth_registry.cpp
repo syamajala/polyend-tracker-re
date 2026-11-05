@@ -1,15 +1,12 @@
 // Synth engine registry (synth_engine.h): Tracker Mini engine id -> engine.
 //
-// WP-F: add each engine here (one line per id) as it lands.
+// The engines are modules (modules/module.h): the build profile picks which
+// ones are compiled in; an engine id no module serves is "not available".
 #include <cmath>
 
-#include "audio/engines/acd.h"
 #include "audio/engines/dx7.h"
-#include "audio/engines/fat.h"
-#include "audio/engines/perc.h"
-#include "audio/engines/vap.h"
-#include "audio/engines/wtfm.h"
 #include "audio/synth_engine.h"
+#include "modules/module.h"
 
 namespace ot {
 namespace audio {
@@ -27,24 +24,9 @@ void synthEngineHide(int32_t engineId, bool hide) {
 
 ISynthEngine* synthEngineFor(int32_t engineId) {
     if (gHidden && engineId >= 0 && engineId < 32 && (gHidden & (1u << engineId))) return nullptr;
-    switch (engineId) {
-        case kSynthEngineAcd:
-            return synthAcdEngine();
-        case kSynthEngineFat:
-            return fat::engine();
-        case kSynthEngineVap:
-            return vap::engine();
-        case kSynthEnginePerc:
-            return percEngine();
-        case kSynthEngineDx7:
-            return dx7::engine();
-        case kSynthEngineWtfm:
-            return wtfm::engine();
-        case kSynthEngineTest:
-            return synthTestEngine();
-        default:
-            return nullptr;
-    }
+    if (engineId == kSynthEngineTest) return synthTestEngine();
+    if (engineId == kSynthEngineDx7) return dx7::engine();   // [I] a core engine, not a module
+    return mod::ModuleHost::instance().synthEngine(engineId);
 }
 
 float synthPitchHz(float pitch) { return 440.0f * std::exp2((pitch - 69.0f) * (1.0f / 12.0f)); }

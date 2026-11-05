@@ -63,7 +63,9 @@ OpenTracker (one MIT exception below).
 
 ## Build and test
 
-- Firmware: `make clean && make -j`. Don't pass `VERSION`: the Makefile default follows the
+- Firmware: `make clean && make -j` (needs the module repositories `opentracker-synths` and
+  `opentracker-fx`; set `MODULES_DIR` when they aren't two levels up). Outputs go to
+  `build/<profile>/` (default `full`). Don't pass `VERSION`: the Makefile default follows the
   last upstream merge (bump it there when merging; run `make clean` whenever it changes).
   See `docs/dev/building.md`.
 - Host tests: `make host-test`. Simulator: `make -C sim check`, then `tools/sim_remote_check.sh`.
@@ -75,7 +77,7 @@ OpenTracker (one MIT exception below).
 - Stack guard: `/Firmware/ot_noguard.txt` on the card turns it off, and
   `make OT_STACK_GUARD_TEST=1` builds the overflow self-test image.
 - Memory tools: `tools/size_report.py <base.elf> <head.elf>` prints the same table as the CI
-  size report. `pahole -C App build/opentracker.elf` shows struct layouts (gdb isn't
+  size report. `pahole -C App build/full/opentracker.elf` shows struct layouts (gdb isn't
   ARM-aware here).
 
 ## Code rules
@@ -84,7 +86,7 @@ OpenTracker (one MIT exception below).
   initializer (e.g. `T* const p = f();` with `f()` in another file). Use `constexpr`/
   `constinit`, an `extern` array in a header with `inline` helpers, or init in `start()`.
   They run before SDRAM is up: `tools/check_ctors.py` fails the build if one touches SDRAM.
-  Check: `arm-none-eabi-nm -C build/opentracker.elf | grep _GLOBAL__sub_I`, compared with `main`.
+  Check: `arm-none-eabi-nm -C build/full/opentracker.elf | grep _GLOBAL__sub_I`, compared with `main`.
 - **Memory:** only per-block audio state goes in SRAM. Data, UI state and buffers go in
   SDRAM (`.sdram_bss`). New audio code starts in flash, not `OT_FASTRUN_FN`, unless
   perf-gate shows it's needed. Check the CI size report on every PR. See `docs/dev/memory.md`.

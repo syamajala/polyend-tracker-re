@@ -27,6 +27,14 @@ jobs:
     timeout-minutes: 30   # normally a few minutes; a stuck step (apt) otherwise holds the runner 6 h
     steps:
       - uses: actions/checkout@v5
+      # The synth and effect modules (profiles/*.toml): MODULES_DIR defaults to
+      # ../../opentracker-synths, with opentracker-fx next to it. The base build
+      # of size-report ($RUNNER_TEMP/base) finds the same folder.
+      - name: Fetch the module repositories
+        run: |
+          for r in opentracker-synths opentracker-fx; do
+            git clone --depth 1 "https://github.com/opentracker-fw/$r" "$GITHUB_WORKSPACE/../../$r"
+          done
       - name: Install GCC 14
         # On the ubuntu-24.04 image already; apt only if a new image drops it.
         run: command -v g++-14 || { sudo apt-get update && sudo apt-get install -y g++-14; }
@@ -62,6 +70,14 @@ jobs:
           path: ~/apt-cache
           key: apt-${{ runner.os }}-sim-${{ hashFiles('.github/scripts/apt-install.sh') }}
           restore-keys: apt-${{ runner.os }}-sim-
+      # The synth and effect modules (profiles/*.toml): MODULES_DIR defaults to
+      # ../../opentracker-synths, with opentracker-fx next to it. The base build
+      # of size-report ($RUNNER_TEMP/base) finds the same folder.
+      - name: Fetch the module repositories
+        run: |
+          for r in opentracker-synths opentracker-fx; do
+            git clone --depth 1 "https://github.com/opentracker-fw/$r" "$GITHUB_WORKSPACE/../../$r"
+          done
       - name: Install GCC 14 and SDL2
         timeout-minutes: 12
         run: APT_CACHE="$HOME/apt-cache" .github/scripts/apt-install.sh g++-14 libsdl2-dev pkg-config
@@ -88,7 +104,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sim-check-${{ github.sha }}
-          path: build/sim/*.png
+          path: build/full/sim/*.png
           if-no-files-found: ignore
 
   # RAM_DL on Bridgetek's FT81x emulator (#71): the display budget scripts'
@@ -109,6 +125,14 @@ jobs:
           path: ~/apt-cache
           key: apt-${{ runner.os }}-emu-${{ hashFiles('.github/scripts/apt-install.sh') }}
           restore-keys: apt-${{ runner.os }}-emu-
+      # The synth and effect modules (profiles/*.toml): MODULES_DIR defaults to
+      # ../../opentracker-synths, with opentracker-fx next to it. The base build
+      # of size-report ($RUNNER_TEMP/base) finds the same folder.
+      - name: Fetch the module repositories
+        run: |
+          for r in opentracker-synths opentracker-fx; do
+            git clone --depth 1 "https://github.com/opentracker-fw/$r" "$GITHUB_WORKSPACE/../../$r"
+          done
       - name: Install GCC 14, SDL2, Wine and MinGW
         # Only what the replay needs: 64-bit Wine running a console program and
         # the x86-64 MinGW compiler (the script skips recommends: fonts,
@@ -144,7 +168,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: eve-frames-${{ github.sha }}
-          path: build/sim/eve
+          path: build/full/sim/eve
           if-no-files-found: ignore
 
   # The fork's build: Games off (the default; OT_GAMES=1 is not built here).
@@ -153,6 +177,14 @@ jobs:
     timeout-minutes: 20   # normally a few minutes; a stuck step (apt) otherwise holds the runner 6 h
     steps:
       - uses: actions/checkout@v5
+      # The synth and effect modules (profiles/*.toml): MODULES_DIR defaults to
+      # ../../opentracker-synths, with opentracker-fx next to it. The base build
+      # of size-report ($RUNNER_TEMP/base) finds the same folder.
+      - name: Fetch the module repositories
+        run: |
+          for r in opentracker-synths opentracker-fx; do
+            git clone --depth 1 "https://github.com/opentracker-fw/$r" "$GITHUB_WORKSPACE/../../$r"
+          done
       - uses: carlosperate/arm-none-eabi-gcc-action@49f4db4520f840e77ab1e99b24cfac2c540a21b1   # v1.14.1
         with:
           release: '14.2.Rel1'
@@ -182,6 +214,14 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      # The synth and effect modules (profiles/*.toml): MODULES_DIR defaults to
+      # ../../opentracker-synths, with opentracker-fx next to it. The base build
+      # of size-report ($RUNNER_TEMP/base) finds the same folder.
+      - name: Fetch the module repositories
+        run: |
+          for r in opentracker-synths opentracker-fx; do
+            git clone --depth 1 "https://github.com/opentracker-fw/$r" "$GITHUB_WORKSPACE/../../$r"
+          done
       - uses: carlosperate/arm-none-eabi-gcc-action@49f4db4520f840e77ab1e99b24cfac2c540a21b1   # v1.14.1
         with:
           release: '14.2.Rel1'
@@ -189,13 +229,25 @@ jobs:
       - name: Build this PR
         run: |
           make -j"$(nproc)" VERSION=2.2.1
-          cp build/opentracker.elf "$RUNNER_TEMP/head.elf"
+          cp build/full/opentracker.elf "$RUNNER_TEMP/head.elf"
+      # A PR that changes the module interface needs the module repositories
+      # as they are now; the base may no longer build against them. Then
+      # there is no base to compare with: the report is skipped, not failed.
       - name: Build the base
+        id: base
         run: |
           git worktree add "$RUNNER_TEMP/base" "${{ github.event.pull_request.base.sha }}"
-          make -C "$RUNNER_TEMP/base" -j"$(nproc)" VERSION=2.2.1
-          cp "$RUNNER_TEMP/base/build/opentracker.elf" "$RUNNER_TEMP/base.elf"
+          if make -C "$RUNNER_TEMP/base" -j"$(nproc)" VERSION=2.2.1 > "$RUNNER_TEMP/base.log" 2>&1; then
+            # A base from before 3.x builds into build/, a 3.x one into build/<profile>/.
+            cp "$(find "$RUNNER_TEMP/base/build" -name opentracker.elf | head -1)" "$RUNNER_TEMP/base.elf"
+            echo "built=1" >> "$GITHUB_OUTPUT"
+          else
+            grep -m3 "error:" "$RUNNER_TEMP/base.log" || true
+            echo "::notice::The base does not build against the current module repositories (module interface changed); no memory report."
+            echo "Memory report skipped: the base does not build against the current module repositories." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Memory report
+        if: steps.base.outputs.built == '1'
         run: |
           python3 tools/size_report.py "$RUNNER_TEMP/base.elf" "$RUNNER_TEMP/head.elf" \
             --size-tool arm-none-eabi-size | tee -a "$GITHUB_STEP_SUMMARY"
