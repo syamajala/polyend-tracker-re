@@ -21,3 +21,23 @@ PROG_CASE("F#", "major", "Imaj7 IV V7 viidim", "F#maj7 B C#7 E#dim", "F# A# C# E
 PROG_CASE("F#", "major", "iii vi", "A#m D#m", "A# C# E# | D# F# A#")
 PROG_CASE("Eb", "major", "I IV V vi", "Eb Ab Bb Cm", "Eb G Bb | Ab C Eb | Bb D F | C Eb G")
 PROG_CASE("Db", "major", "ii7 V7 Imaj7", "Ebm7 Ab7 Dbmaj7", "Eb Gb Bb Db | Ab C Eb Gb | Db F Ab C")
+
+// MODE_CASE(project root, scale, key the line reads as, line, chord names
+//           with Auto spelling, the chords with a note outside the scale):
+// a mode plays a progression as its parallel major or minor key (by its
+// 3rd), the other kind in the relative key. That placement is our rule; the
+// check replays it and takes keys, chords and scales from Tonal.
+MODE_CASE("D", "dorian", "minor", "i IV", "Dm G", "")
+MODE_CASE("D", "dorian", "minor", "i VI", "Dm Bb", "Bb")
+MODE_CASE("D", "dorian", "major", "I V vi IV", "F C Dm Bb", "Bb")
+MODE_CASE("D", "dorian", "minor", "i VI III VII", "Dm Bb F C", "Bb")
+MODE_CASE("E", "phrygian", "minor", "i bII", "Em F", "")
+MODE_CASE("E", "phrygian", "major", "I V vi IV", "G D Em C", "D")
+MODE_CASE("G", "mixolydian", "major", "I bVII IV", "G F C", "")
+MODE_CASE("G", "mixolydian", "major", "I V vi IV", "G D Em C", "D")
+MODE_CASE("G", "mixolydian", "minor", "i VI III VII", "Em C G D", "D")
+MODE_CASE("F", "lydian", "major", "I II", "F G", "")
+MODE_CASE("F", "lydian", "major", "I IV", "F Bb", "Bb")
+MODE_CASE("B", "locrian", "minor", "i iv", "Bm Em", "Bm")
+MODE_CASE("A", "harmonic minor", "minor", "i iv V", "Am Dm E", "")
+MODE_CASE("A", "harmonic minor", "major", "I V vi IV", "C G Am F", "C G")

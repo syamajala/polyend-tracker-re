@@ -225,9 +225,63 @@ TEST(progression_theory_cases) {
         CHECK(got == wantNames);
     };
 #define PROG_CASE(tonic, key, line, n, notes) check(tonic, key, line, n, notes);
+#define MODE_CASE(...)
+#define HINT_CASE(...)
 #include "theory_cases.inc"
 #undef PROG_CASE
+#undef MODE_CASE
+#undef HINT_CASE
     CHECK(rows >= 15);
+    setNoteSpelling(kSpellSharps, 0, 0);
+}
+
+TEST(progression_mode_cases) {
+    // Progressions in a project scale (Tonal-checked rows): names with Auto
+    // spelling and which chords leave the scale.
+    struct S { const char* name; uint8_t scale; };
+    static const S kScales[] = {{"dorian", kDorian}, {"phrygian", kPhrygian}, {"mixolydian", kMixolydian},
+                                {"lydian", 4}, {"locrian", 6}, {"harmonic minor", kHarmMinor}};
+    int rows = 0;
+    auto check = [&](const char* rootName, const char* scaleName, const char* key, const char* line,
+                     const char* wantNames, const char* wantOutside) {
+        ++rows;
+        uint8_t sc = 0xFF;
+        for (const S& s : kScales)
+            if (std::strcmp(s.name, scaleName) == 0) sc = s.scale;
+        CHECK(sc != 0xFF);
+        const int root = spelled(rootName).pc;
+        setNoteSpelling(kSpellAuto, root, sc);
+        prog::Progression p;
+        CHECK(prog::parse(line, p));
+        CHECK_EQ(p.minor, std::strcmp(key, "minor") == 0);
+        const std::string got = names(p, root, sc);
+        const prog::Tonic t = prog::tonic(p, root, sc);
+        std::string out;
+        for (int i = 0; i < p.count; ++i) {
+            int iv[prog::kMaxNotes];
+            const int k = prog::intervals(p.chords[i].quality, iv);
+            bool inside = true;
+            for (int j = 0; j < k; ++j) inside = inside && isInScale(prog::chordRoot(p, i, t) + iv[j], root, sc);
+            if (!inside) {
+                char n[16];
+                prog::chordName(p, i, t, n, sizeof(n));
+                out += (out.empty() ? "" : " ") + std::string(n);
+            }
+        }
+        if (got != wantNames || out != wantOutside)
+            std::printf("  %s %s %s: %s (outside: %s), want %s (outside: %s)\n", rootName, scaleName, line, got.c_str(),
+                        out.c_str(), wantNames, wantOutside);
+        CHECK(got == wantNames);
+        CHECK(out == wantOutside);
+    };
+#define PROG_CASE(...)
+#define MODE_CASE(root, scale, key, line, n, outside) check(root, scale, key, line, n, outside);
+#define HINT_CASE(...)
+#include "theory_cases.inc"
+#undef PROG_CASE
+#undef MODE_CASE
+#undef HINT_CASE
+    CHECK(rows >= 10);
     setNoteSpelling(kSpellSharps, 0, 0);
 }
 
