@@ -26,7 +26,9 @@ fewer than 8 notes (kits, chords). `--name-octave 3` is for packs that call midd
 
 ## Load it
 
-1. In the **Sample Loader**, pick an empty instrument on the right.
+1. In the **Sample Loader**, pick an empty instrument on the right. To hear a pack first,
+   hold **F3 Preview** on its `.sfz`: it plays the pack's sample nearest middle C (C4), as
+   a WAV previews. Up / Down while holding it previews the next file.
 2. Select the `.sfz` file and press **Add**. A panel opens instead of loading at once:
 
 | Key | Sets |

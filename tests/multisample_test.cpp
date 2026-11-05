@@ -502,3 +502,49 @@ TEST(multisample_playback_mode_list) {
     h.run(40);
     CHECK_EQ(a.instruments[5].playMode, uint8_t(PlayMode::Granular));
 }
+
+TEST(multisample_loader_previews_sfz) {
+    // F3 on an .sfz streams its sample nearest middle C, as a WAV previews.
+    Harness h;
+    App& a = *h.app;
+    keysFolder(h);
+    char wav[128];
+    CHECK(a.multisamplePreviewPath("Samples/Keys/Keys.sfz", 60, wav, sizeof(wav)));
+    CHECK(std::strcmp(wav, "Samples/Keys/060 Keys.wav") == 0);
+    CHECK(a.multisamplePreviewPath("Samples/Keys/Keys.sfz", 30, wav, sizeof(wav)));
+    CHECK(std::strcmp(wav, "Samples/Keys/054 Keys.wav") == 0);
+    // A key range wins over a nearer root.
+    const std::string ranged = "<region> sample=054 Keys.wav lokey=0 hikey=61 pitch_keycenter=54\n"
+                               "<region> sample=062 Keys.wav lokey=62 hikey=127 pitch_keycenter=62\n";
+    h.fs.addFile("Samples/Keys/Ranged.sfz", std::vector<uint8_t>(ranged.begin(), ranged.end()));
+    CHECK(a.multisamplePreviewPath("Samples/Keys/Ranged.sfz", 60, wav, sizeof(wav)));
+    CHECK(std::strcmp(wav, "Samples/Keys/054 Keys.wav") == 0);
+    // A missing sample is skipped; none at all: no preview.
+    const std::string missing = "<region> sample=gone.wav pitch_keycenter=60\n<region> sample=066 Keys.wav pitch_keycenter=66\n";
+    h.fs.addFile("Samples/Keys/Missing.sfz", std::vector<uint8_t>(missing.begin(), missing.end()));
+    CHECK(a.multisamplePreviewPath("Samples/Keys/Missing.sfz", 60, wav, sizeof(wav)));
+    CHECK(std::strcmp(wav, "Samples/Keys/066 Keys.wav") == 0);
+    const std::string none = "<region> sample=gone.wav\n";
+    h.fs.addFile("Samples/Keys/None.sfz", std::vector<uint8_t>(none.begin(), none.end()));
+    CHECK(!a.multisamplePreviewPath("Samples/Keys/None.sfz", 60, wav, sizeof(wav)));
+    // In the Loader: F3 held on Keys.sfz plays, release stops.
+    h.tap(btn::SampleLoader);
+    h.run(40);
+    CHECK(openEntry(h, "/Samples"));
+    CHECK(openEntry(h, "/Keys"));
+    LoaderScreen& l = loader(h);
+    bool found = false;
+    for (int i = 0; i < l.count && !found; ++i) {
+        char out[128];
+        l.entryLabel(i, out, sizeof(out));
+        if (std::strcmp(out, "Keys.sfz") == 0) l.sdCursor = i, found = true;
+    }
+    CHECK(found);
+    h.down(btn::F3);
+    h.run(20);
+    CHECK(a.engine.previewBufferActive());
+    h.up(btn::F3);
+    h.run(20);
+    CHECK(!a.engine.previewBufferActive());
+    CHECK(!l.multi);   // a preview, not the panel
+}

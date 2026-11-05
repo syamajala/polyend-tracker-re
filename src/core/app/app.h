@@ -612,6 +612,10 @@ public:
     // -1 when the file has none. Load: the zones `opt` picks from them into
     // `slot` (the SFZ is read again), as a mono Slice instrument + zone map.
     int multisampleProbe(const char* sfzPath, ms::Candidate* out, int cap);
+    // [I] The sample an SFZ previews with (Loader, F3): of the regions whose
+    // key range holds `note` (else of all), the one with the nearest root.
+    // False when the SFZ has no sample on the card.
+    bool multisamplePreviewPath(const char* sfzPath, int note, char* out, size_t cap);
     bool loadMultisample(const char* sfzPath, int slot, const ms::Candidate* cand, int n, const ms::Options& opt);
     // Free sample memory for a load into `slot` (its current sample counts as free), frames.
     uint32_t multisampleFreeFrames(int slot) const;
