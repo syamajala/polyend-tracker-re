@@ -98,6 +98,37 @@ tap REC
 wait 2500
 EOF
 
+# Insert Pattern (F5 in the list): the progression as one 64-step pattern.
+shot song-progression-pattern empty <<'EOF'
+wait 300
+tap SONG
+wait 300
+tap REC
+tap INSERT
+wait 300
+tap F5
+wait 300
+tap REC
+tap PATTERN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+wait 2500
+EOF
+
 # Voicing (F6 in the list): Wide picked, its notice showing the first chords.
 shot song-progression-voicing empty <<'EOF'
 wait 300

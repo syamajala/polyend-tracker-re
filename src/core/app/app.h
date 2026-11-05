@@ -546,6 +546,11 @@ public:
     // when the song or the patterns are full (*why says which; nothing changed).
     int insertProgression(const prog::Progression& p, int after, const char** why,
                           uint8_t voicing = 0);   // prog::Voicing, 0 = Smooth
+    // [I] #123 Into: Pattern: the progression as one pattern (a chord per bar,
+    // named after its chords) in one slot after `after`; a pattern of the same
+    // name is reused. Returns the slot, -1 with *why when nothing changed.
+    int insertProgressionPattern(const prog::Progression& p, int after, const char** why,
+                                 uint8_t voicing = 0);
     bool savePerfBank(const char* name, const perf::Source& src);
     // Load Patch popup preview (Tracker+ 1.0; docs/SYNTH_UX_MINI_VS_OT.md
     // row 24): Patches/<MODEL>/<name>.patch plays in slot s (its patch and
