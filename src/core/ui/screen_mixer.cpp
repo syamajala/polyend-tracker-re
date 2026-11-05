@@ -7,6 +7,7 @@
 #include "app/perf_presets.h"
 #include "app/project_fields.h"
 #include "ui/screens.h"
+#include "fmath.h"
 
 namespace ot {
 
@@ -61,14 +62,14 @@ void sidechainText(const Project& p, int n, char* out, int cap) {
 // exactly 0 dB.
 void masterVolumeText(int v, char* out, int cap) {
     const double db = v == 81 ? 0.0 : double(v) / 100.0 * 63.5 - 51.5;
-    std::snprintf(out, size_t(cap), "%0.2f dB", db);
+    std::snprintf(out, size_t(cap), "%s dB", fm::fixed(db, 2).s);
 }
 
 // Fader level "-2.40 dB" [S snap 023].
 void levelText(uint8_t v, char* out, int cap) {
     const float g = audio::trkGain(v);
     if (g <= 0) std::snprintf(out, size_t(cap), "-inf dB");
-    else std::snprintf(out, size_t(cap), "%.2f dB", double(20.0f * std::log10(g)));
+    else std::snprintf(out, size_t(cap), "%s dB", fm::fixed(double(20.0f * std::log10(g)), 2).s);
 }
 
 // --- stock Mixer / Master chrome (spec 20 §4.9, VISUAL_DIFF §8.11-8.13) ----
@@ -392,15 +393,15 @@ void MixerScreen::refreshBar() {
             b.set(6, "Line in", v, !lineInOff(p));
             setBack(b);
         } else if (sub == 3) {
-            std::snprintf(v, sizeof(v), "%.3fs", p.u16(pf::kLimAttack) / 1000.0);
+            std::snprintf(v, sizeof(v), "%ss", fm::fixed(p.u16(pf::kLimAttack) / 1000.0, 3).s);
             b.set(0, "LimiterAtt", v);   // stock limiter labels (STRINGS_DIFF §2)
             // Attack / release are stored in ms and shown as value/1000 s (spec 07 Q2).
-            std::snprintf(v, sizeof(v), "%.3fs", double(p.f32(pf::kLimRelease)) / 1000.0);
+            std::snprintf(v, sizeof(v), "%ss", fm::fixed(double(p.f32(pf::kLimRelease)) / 1000.0, 3).s);
             b.set(1, "LimiterRls", v);
             // Displayed threshold = 20 log10(LIMTHR[v*100/32767] / 32767) (spec 07 Q2).
             const float thr = audio::limiterThreshold(p.u16(pf::kLimThreshold) > 32767 ? 32767 : p.u16(pf::kLimThreshold));
             // Threshold 0 reads "-inf dB" (manual p.243, MANUAL_AUDIT #36).
-            if (thr > 0.0f) std::snprintf(v, sizeof(v), "%.2f dB", double(20.0f * std::log10(thr)));
+            if (thr > 0.0f) std::snprintf(v, sizeof(v), "%s dB", fm::fixed(double(20.0f * std::log10(thr)), 2).s);
             else std::snprintf(v, sizeof(v), "-inf dB");
             b.set(2, "LimiterThr", v);   // "-6.00 dB" [S round 3, snap 008]
             // Read-only meter (spec 06 §4.3): one centred line, no value
@@ -414,7 +415,7 @@ void MixerScreen::refreshBar() {
             for (int i = 0; i < 5; ++i) {
                 // "0.00 dB" [S round 3, snap 011]; +0.0 rounds to "0.00".
                 const double db = double(12.0f * p.f32(pf::kEqGain + 4 * uint32_t(i)));
-                std::snprintf(v, sizeof(v), "%.2f dB", std::fabs(db) < 0.005 ? 0.0 : db);
+                std::snprintf(v, sizeof(v), "%s dB", fm::fixed(std::fabs(db) < 0.005 ? 0.0 : db, 2).s);
                 b.set(i, n[i], v);
             }
             setBack(b);

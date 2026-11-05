@@ -279,7 +279,7 @@ void App::finishResample() {
         std::snprintf(msg, sizeof(msg), "Resampled %lu bar%s -> instrument %d%s", static_cast<unsigned long>(bars),
                       bars == 1 ? "" : "s", slot + 1, inPlace ? " (replaced)" : "");
     else
-        std::snprintf(msg, sizeof(msg), "Resampled %.1f s -> instrument %d%s", double(n) / 44100.0, slot + 1,
+        std::snprintf(msg, sizeof(msg), "Resampled %s s -> instrument %d%s", fm::fixed(double(n) / 44100.0, 1).s, slot + 1,
                       end == Resampler::kEndFull ? " (memory full)" : inPlace ? " (replaced)" : "");
     if (fits && slices) {
         const size_t l = std::strlen(msg);

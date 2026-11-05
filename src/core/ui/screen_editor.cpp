@@ -13,6 +13,7 @@
 #include "app/app.h"
 #include "app/sample_fx.h"
 #include "ui/screens.h"
+#include "fmath.h"
 
 namespace ot {
 
@@ -355,11 +356,11 @@ void EditorScreen::refreshBar() {
         // spec 06 §6.3 time = len / (44100 / (1 - q/12)) * marker / 65535 (q = quality byte +0x173).
         const int q = int8_t(a.instruments[slot_].reserved173);
         const float secs = float(len) / (44100.0f / (1.0f - float(q) / 12.0f));
-        std::snprintf(v, sizeof(v), "%.3fs", double(secs * float(startM) / 65535.0f));
+        std::snprintf(v, sizeof(v), "%ss", fm::fixed(double(secs * float(startM) / 65535.0f), 3).s);
         b.set(0, "Start", v);
-        std::snprintf(v, sizeof(v), "%.3fs", double(secs * float(endM) / 65535.0f));
+        std::snprintf(v, sizeof(v), "%ss", fm::fixed(double(secs * float(endM) / 65535.0f), 3).s);
         b.set(1, "End", v);
-        std::snprintf(v, sizeof(v), "%.2f", double(view.zoom()));
+        std::snprintf(v, sizeof(v), "%s", fm::fixed(double(view.zoom()), 2).s);
         b.set(2, "Zoom", v);
         b.set(3, "Undo", nullptr, undoAvail);
         if (e.params) {
