@@ -74,6 +74,66 @@ tap F2               # Play Song
 wait 4500             # the third of four passes
 EOF
 
+# Song mode progressions (#121): the Insert list on a fresh project (the
+# built-in files are written on the first open), then the slots it adds.
+shot song-progressions empty <<'EOF'
+wait 300
+tap SONG
+wait 300
+tap REC
+tap INSERT
+wait 500
+EOF
+
+shot song-progression-added empty <<'EOF'
+wait 300
+tap SONG
+wait 300
+tap REC
+tap INSERT
+wait 300
+tap F8
+wait 300
+tap REC
+wait 2500
+EOF
+
+# Voicing (F6 in the list): Wide picked, its notice showing the first chords.
+shot song-progression-voicing empty <<'EOF'
+wait 300
+tap SONG
+wait 300
+tap REC
+tap INSERT
+wait 300
+tap F6
+tap F6
+wait 300
+EOF
+
+# The same progression twice, Smooth then Wide: Wide makes its own patterns.
+shot song-progression-wide empty <<'EOF'
+wait 300
+tap SONG
+wait 300
+tap REC
+tap INSERT
+wait 300
+tap F8
+wait 300
+tap DOWN
+tap DOWN
+tap DOWN
+tap INSERT
+wait 300
+tap F6
+tap F6
+tap F8
+wait 300
+tap REC
+wait 2500
+EOF
+
 # Performance with the master FX: DJ filter (column 1) and Tape stop
 # (column 2) set in edit mode, scene A stored, then played with both pads.
 shot performance project <<'EOF'

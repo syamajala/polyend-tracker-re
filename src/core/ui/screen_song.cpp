@@ -4,6 +4,8 @@
 
 #include "app/app.h"
 #include "app/project_fields.h"
+#include "sdram_bss.h"
+#include "ui/progression.h"
 #include "ui/screens.h"
 #include "ui/widgets.h"
 
@@ -13,17 +15,67 @@ namespace {
 constexpr float kTempoMin = 40.0f, kTempoMax = 800.0f;   // spec 06 §2.1
 int clampi(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
+// [I] #121 the Progression list: the files' progressions and the rows
+// shown (a group heading: -1 - group, else the progression index).
+OT_SDRAM_BSS prog::Library g_progs;
+OT_SDRAM_BSS int8_t g_progRow[prog::kMaxItems + prog::kMaxGroups];
+struct ProgView {
+    int tonicRoot = 0;   // project root option
+    uint8_t scale = 0;
+    uint32_t heading = 0;
+};
+OT_SDRAM_BSS ProgView g_progView;
+OT_SDRAM_BSS char g_progTag[prog::kLineMax + 1];
+
+void progItem(void*, int i, char* out, int cap) {
+    const int r = g_progRow[i];
+    if (r < 0) {
+        std::snprintf(out, size_t(cap), "%s", g_progs.group[-1 - r]);
+        return;
+    }
+    prog::Progression p;
+    if (!prog::parse(g_progs.line[r], p)) {
+        out[0] = 0;
+        return;
+    }
+    const prog::Tonic t = prog::tonic(p, g_progView.tonicRoot, g_progView.scale);
+    int n = 0;
+    for (int c = 0; c < p.count && n < cap; ++c) {
+        char nm[16];
+        prog::chordName(p, c, t, nm, sizeof(nm));
+        n += std::snprintf(out + n, size_t(cap - n), c ? "  %s" : "   %s", nm);
+    }
+}
+
+const char* progTag(void*, int i) {
+    char* tag = g_progTag;
+    const int r = g_progRow[i];
+    tag[0] = 0;
+    prog::Progression p;
+    if (r < 0 || !prog::parse(g_progs.line[r], p)) return tag;
+    const int cap = int(sizeof(g_progTag));
+    if (p.title[0]) return std::snprintf(tag, size_t(cap), "%s", p.title), tag;
+    int n = 0;
+    for (int c = 0; c < p.count && n < cap; ++c)
+        n += std::snprintf(tag + n, size_t(cap - n), c ? " %s" : "%s", p.chords[c].numeral);
+    return tag;
+}
+
+int32_t progColour(void*, int i) { return g_progRow[i] < 0 ? int32_t(g_progView.heading) : -1; }
+
 // Stock layout (spec 20 §3.18 / §4.3, VISUAL_DIFF §3.9 [S snap 010]).
 constexpr int kRows = 12;            // visible slots (grid rows = list rows)
 constexpr int kPitchX = 40;          // grid column pitch
 constexpr int kPitchY = 27;          // grid / list row pitch
 constexpr int kGridX = 5;            // dark tile box (5 + 40 c, 92 + 27 r, 39 x 26)
 constexpr int kGridY = 92;
-constexpr int kListNumX = 520;       // CMD_NUMBER at rightX - 178 (rightX 698)
-constexpr int kListX0 = 491, kListX1 = 688;   // selection outline centre lines
+// [I] The list starts where the 8-column grid ends (stock: 491, after 12):
+// number, then the pattern name, clipped before Count.
+constexpr int kListX0 = 331, kListX1 = 688;   // selection outline centre lines
+constexpr int kListNumX = kListX0 + 29;       // stock: 29 px into the outline
+constexpr int kListNameX = kListNumX + 30;    // room for "255"
 // [I] Count (Project::playlistCount), Scene (playlistScene) and Ramp
-// (playlistRamp) columns after the pattern numbers; the pattern names no
-// longer fit in the list.
+// (playlistRamp) columns after the pattern names.
 constexpr int kCountX0 = 556;        // Count cell outline left (right: kSceneX0 - 4)
 constexpr int kCountX = 577;         // Count text centre
 constexpr int kSceneX0 = 602;        // Scene cell outline left (right: kRampX0 - 4)
@@ -175,6 +227,12 @@ void SongScreen::reloadPlayingSlot() {
 void SongScreen::refreshBar() {
     BottomBar& b = ui_.bar;
     b.clear();
+    if (progOpen) {   // [I] #121
+        b.set(5, "Voicing", prog::voicingName(progVoicing));
+        b.set(6, "Cancel", nullptr);
+        b.set(7, "Insert", nullptr);
+        return;
+    }
     b.separators = 0xBF;   // spec 20 §1.2: Song drops the separator at x 600
     static const char* kF1[6] = {"Play", "Preview", "Loop", "Continue", "Loop", "Stop"};
     static const char* kF1b[6] = {"Pattern", "Track", "Pattern", "Song", "Perf.", ""};
@@ -396,6 +454,35 @@ void SongScreen::onButton(uint8_t id, uint8_t state) {
     }
     const bool press = state == kPress;
     const bool pressOrHold = state != kRelease;
+    if (progOpen) {   // [I] #121 the Progression list
+        if (id == btn::Play) {
+            if (press) onButton(ui_.shift() ? btn::F1 : btn::F2, kPress);
+            return;
+        }
+        if (!press) return;
+        switch (id) {
+            case btn::Up: progMove(-1); break;
+            case btn::Down: progMove(1); break;
+            case btn::F6: nextVoicing(); break;
+            case btn::F8:
+            case btn::Insert: insertSelectedProgression(); break;
+            case btn::F7:
+            case btn::Left:
+            case btn::Rec: progOpen = false; break;
+            default: return;
+        }
+        refreshBar();
+        ui_.dirty();
+        return;
+    }
+    // [I] #121 Insert (edit mode): the Progression list.
+    if (id == btn::Insert && press && !ui_.shift()) {
+        if (edit) openProgressions();
+        else ui_.notify("Rec first: Insert adds a progression");
+        refreshBar();
+        ui_.dirty();
+        return;
+    }
     // [I] Song + Right: jump to the Pattern list; Song + Left: back into the
     // grid (edit mode) on the slot's row. While Song is held the focus is on
     // Tempo; the jump sets the focus its release returns to.
@@ -596,6 +683,11 @@ bool SongScreen::encoderOnList() const {
 
 void SongScreen::onEncoder(int d) {
     App& a = app_;
+    if (progOpen) {   // [I] #121
+        progMove(d);
+        ui_.dirty();
+        return;
+    }
     if (focus == 1) {
         if (edit && ui_.shift()) {
             setPattern(cursor, a.project.playlist[cursor] + d);
@@ -622,10 +714,125 @@ void SongScreen::onEncoder(int d) {
     refreshBar();
 }
 
+// [I] #121 Song mode progressions (ui/progression.h).
+void SongScreen::openProgressions() {
+    if (!prog::load(app_.fs(), g_progs)) {
+        ui_.notify("No progressions in Progressions/");
+        return;
+    }
+    progRows = 0;
+    int g = -1;
+    for (int i = 0; i < g_progs.items; ++i) {
+        if (g_progs.itemGroup[i] != g) {
+            g = g_progs.itemGroup[i];
+            g_progRow[progRows++] = int8_t(-1 - g);
+        }
+        g_progRow[progRows++] = int8_t(i);
+    }
+    progOpen = true;
+    progCursor = progTop = 0;
+    progMove(0);
+    if (g_progs.skipped) {
+        char t[40];
+        std::snprintf(t, sizeof(t), "%d line%s skipped", g_progs.skipped, g_progs.skipped == 1 ? "" : "s");
+        ui_.notify(t);
+    }
+}
+
+void SongScreen::progMove(int d) {
+    // Headings are skipped: the cursor moves over the progressions only.
+    const int step = d < 0 ? -1 : 1;
+    int n = d == 0 ? 1 : (d < 0 ? -d : d);
+    int c = progCursor;
+    if (d == 0 && c < progRows && g_progRow[c] >= 0) return;
+    while (n > 0) {
+        int nc = c + (d == 0 ? 1 : step);
+        while (nc >= 0 && nc < progRows && g_progRow[nc] < 0) nc += d == 0 ? 1 : step;
+        if (nc < 0 || nc >= progRows) break;
+        c = nc;
+        --n;
+    }
+    progCursor = c;
+}
+
+// F6: the next voicing; the notice shows the first two chords of the
+// selected progression in it ("Smooth: Am A4 C5 E5 > F A4 C5 F5").
+void SongScreen::nextVoicing() {
+    progVoicing = uint8_t((progVoicing + 1) % prog::kVoicingCount);
+    char t[96];
+    int n = std::snprintf(t, sizeof(t), "%s:", prog::voicingName(progVoicing));
+    prog::Progression p;
+    if (progCursor >= 0 && progCursor < progRows && g_progRow[progCursor] >= 0 &&
+        prog::parse(g_progs.line[g_progRow[progCursor]], p)) {
+        uint8_t scale = app_.project.u8(pf::kScale);
+        if (scale >= kScaleCount) scale = 0;
+        const prog::Tonic tn = prog::tonic(p, app_.project.u8(pf::kRootNote), scale);
+        int prev[prog::kMaxVoiced], k = 0;
+        for (int i = 0; i < p.count && i < 2 && n < int(sizeof(t)); ++i) {
+            char nm[16];
+            prog::chordName(p, i, tn, nm, sizeof(nm));
+            n += std::snprintf(t + n, sizeof(t) - size_t(n), "%s %s", i ? " >" : "", nm);
+            int notes[prog::kMaxVoiced];
+            const int c = prog::voice(p, i, tn, progVoicing, prev, k, notes);
+            for (int j = 0; j < c && n < int(sizeof(t)); ++j) {
+                char nn[4];
+                noteName(int8_t(notes[j]), nn);
+                n += std::snprintf(t + n, sizeof(t) - size_t(n), " %s", nn);
+                prev[j] = notes[j];
+            }
+            k = c;
+        }
+    }
+    ui_.notify(t, 2500);
+}
+
+void SongScreen::insertSelectedProgression() {
+    if (progCursor < 0 || progCursor >= progRows || g_progRow[progCursor] < 0) return;
+    prog::Progression p;
+    if (!prog::parse(g_progs.line[g_progRow[progCursor]], p)) return;
+    const char* why = nullptr;
+    const int first = app_.insertProgression(p, cursor, &why, progVoicing);
+    if (first < 0) {
+        ui_.notify(why ? why : "Progression not added");
+        return;
+    }
+    progOpen = false;
+    cursor = first + p.count - 1;   // the next Insert follows the progression
+    focus = 1;
+    char t[48];
+    std::snprintf(t, sizeof(t), "Progression added: %d slots", p.count);
+    ui_.notify(t, 1500);
+}
+
+void SongScreen::drawProgressions(Gfx& g) {
+    App& a = app_;
+    const Theme& th = ui_.th();
+    uint8_t scale = a.project.u8(pf::kScale);
+    if (scale >= kScaleCount) scale = 0;
+    g_progView.tonicRoot = a.project.u8(pf::kRootNote);
+    g_progView.scale = scale;
+    g_progView.heading = th.accent;
+    char key[32];
+    std::snprintf(key, sizeof(key), "%s %s", pitchClassName(g_progView.tonicRoot % 12), scaleName(scale));
+    ui_.drawTitle(g, "Progression", key);
+    wg::ListView v;
+    v.w = 797;
+    v.count = progRows;
+    progTop = wg::listFollow(progCursor, v.count, wg::listVisibleRows(v.h), progTop);
+    v.top = progTop;
+    v.sel = progCursor;
+    v.active = true;
+    v.item = progItem;
+    v.tag = progTag;
+    v.colour = progColour;
+    wg::list(g, th, v);
+}
+
 void SongScreen::stop() {
     // The stock action lives on the sequencer and survives a screen switch;
     // run a still-pending one now rather than lose it.
     if (togglePending_) applyLoopToggle();
+    progOpen = false;   // [I] #121
 }
 
 void SongScreen::update(uint32_t now) {
@@ -681,6 +888,10 @@ void SongScreen::update(uint32_t now) {
 void SongScreen::draw(Gfx& g) {
     App& a = app_;
     const Theme& th = ui_.th();
+    if (progOpen) {
+        drawProgressions(g);
+        return;
+    }
     ui_.drawTitle(g, "Song", edit ? "EDIT" : nullptr);
     const int n = length();
     gListTop = wg::listFollow(cursor, n, kRows, gListTop);
@@ -695,8 +906,8 @@ void SongScreen::draw(Gfx& g) {
     // [8] empty tile 121212, [9] selection 30cb3f.
     // Rotated column headers (style bit7, font 1).
     const uint32_t white = th.slot(slot::kSongList);
-    const int ft = firstTrack;   // first shown track: 0 or 4 (12-column window)
-    // All 2 x 12 header runs in one turned-text batch (RAM_DL).
+    const int ft = firstTrack;   // first shown track: 0 or 8 (8-column pages)
+    // All 2 x 8 header runs in one turned-text batch (RAM_DL).
     Gfx::RotatedText heads[2 * kGridCols];
     char nums[kGridCols][24];
     for (int c = 0; c < kGridCols; ++c) {
@@ -777,7 +988,7 @@ void SongScreen::draw(Gfx& g) {
     }
 
     // Pattern list: caption, numbers (names after them), selection outline.
-    g.text(516, 59, kFont1, white, "Pattern", IDisplay::kOptCenter);   // [I] over the numbers (stock 565)
+    g.text(kListNameX, 59, kFont1, white, "Pattern", IDisplay::kOptCenterY);   // [I] over the names (stock 565)
     g.text(kCountX, 59, kFont1, white, "Count", IDisplay::kOptCenter);
     g.text(kSceneX, 59, kFont1, white, "Scene", IDisplay::kOptCenter);
     g.text(kRampX, 59, kFont1, white, "Ramp", IDisplay::kOptCenter);
@@ -789,6 +1000,14 @@ void SongScreen::draw(Gfx& g) {
         if (slotI == playing)       // ▶ while the song plays, the loop arrow while Shift+Play loops it
             g.icon(kListNumX - 26, cy - 6, loopInSong_ ? kIconLoop : kIconPlay, white);
         g.textf(kListNumX, cy, kFont1, c, IDisplay::kOptCenterY, "%d", num);
+        // [I] #121 the pattern's name ("Am i"), as stock, clipped before Count.
+        if (const char* nm = a.names.get(num); nm[0]) {
+            const int w = kCountX0 - 6 - kListNameX;
+            const bool clipIt = g.textWidth(kFont1, nm) > w;
+            if (clipIt) g.clip(kListNameX, cy - 13, w, 26);
+            g.text(kListNameX, cy, kFont1, c, nm, IDisplay::kOptCenterY);
+            if (clipIt) g.noClip();
+        }
         // [I] Count: the playing slot shows its pass; once is drawn dim.
         const int cnt = a.project.slotCount(slotI);
         if (slotI == playing && cnt > 1)

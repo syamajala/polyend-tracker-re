@@ -1,0 +1,433 @@
+// [I] #121 Song mode progressions (ui/progression.h).
+#include "ui/progression.h"
+
+#include <algorithm>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+
+#include "app/text_scratch.h"
+#include "formats/file_io.h"
+#include "ui/notes.h"
+
+namespace ot {
+namespace prog {
+
+namespace {
+
+constexpr uint8_t kMajorSteps[7] = {0, 2, 4, 5, 7, 9, 11};
+constexpr uint8_t kMinorSteps[7] = {0, 2, 3, 5, 7, 8, 10};
+// Each key's own chords per degree: triads and sevenths (natural minor).
+constexpr uint8_t kMajorTriads[7] = {kMaj, kMin, kMin, kMaj, kMaj, kMin, kDim};
+constexpr uint8_t kMajorSevenths[7] = {kMaj7, kMin7, kMin7, kMaj7, kDom7, kMin7, kHalfDim7};
+constexpr uint8_t kMinorTriads[7] = {kMin, kDim, kMaj, kMin, kMin, kMaj, kMaj};
+constexpr uint8_t kMinorSevenths[7] = {kMin7, kHalfDim7, kMaj7, kMin7, kMin7, kMaj7, kDom7};
+
+bool isSpace(char c) { return c == ' ' || c == '\t' || c == '\r'; }
+char lower(char c) { return (c >= 'A' && c <= 'Z') ? char(c + 32) : c; }
+
+// "I".."VII" in either case: 1..7, 0 if not a numeral.
+int numeralValue(const char* s, int n) {
+    static const char* const kNum[7] = {"i", "ii", "iii", "iv", "v", "vi", "vii"};
+    for (int v = 0; v < 7; ++v)
+        if (int(std::strlen(kNum[v])) == n) {
+            int k = 0;
+            while (k < n && lower(s[k]) == kNum[v][k]) ++k;
+            if (k == n) return v + 1;
+        }
+    return 0;
+}
+
+struct Token {
+    int accidental = 0;   // -1 b, +1 #
+    int value = 0;        // 1..7
+    bool upper = false;
+    uint8_t quality = kMaj;
+};
+
+bool parseToken(const char* s, int n, Token& t) {
+    int i = 0;
+    if (i < n && (s[i] == 'b' || s[i] == '#')) t.accidental = s[i++] == 'b' ? -1 : 1;
+    const int r0 = i;
+    while (i < n && (s[i] == 'I' || s[i] == 'V' || s[i] == 'i' || s[i] == 'v')) ++i;
+    if (i == r0) return false;
+    bool up = true, low = true;
+    for (int k = r0; k < i; ++k) (s[k] >= 'a' ? up : low) = false;
+    if (!up && !low) return false;   // mixed case ("Iv")
+    t.upper = up;
+    t.value = numeralValue(s + r0, i - r0);
+    if (!t.value) return false;
+    const char* suf = s + i;
+    const int sn = n - i;
+    auto is = [&](const char* x) { return int(std::strlen(x)) == sn && std::strncmp(suf, x, size_t(sn)) == 0; };
+    if (sn == 0) t.quality = up ? kMaj : kMin;
+    else if (is("7")) t.quality = up ? kDom7 : kMin7;
+    else if (is("maj7") && up) t.quality = kMaj7;
+    else if (is("m7")) t.quality = kMin7;
+    else if (is("dim")) t.quality = kDim;
+    else if (is("dim7")) t.quality = kDim7;
+    else if (is("m7b5")) t.quality = kHalfDim7;
+    else if (is("aug") || is("+")) t.quality = kAug;
+    else if (is("sus2")) t.quality = kSus2;
+    else if (is("sus4")) t.quality = kSus4;
+    else return false;
+    return true;
+}
+
+// In minor: vii dim / dim7 / m7b5 is the leading-tone chord (harmonic minor).
+bool leadingTone(const Token& t) {
+    return t.value == 7 && !t.accidental && (t.quality == kDim || t.quality == kDim7 || t.quality == kHalfDim7);
+}
+
+// The chord is one of the key's own (minor also takes V, V7 and the
+// leading-tone chords of harmonic minor).
+bool ownChord(const Token& t, bool minor) {
+    if (t.accidental) return false;
+    const int d = t.value - 1;
+    const uint8_t q = t.quality;
+    if (q == (minor ? kMinorTriads : kMajorTriads)[d] || q == (minor ? kMinorSevenths : kMajorSevenths)[d]) return true;
+    return minor && ((d == 4 && (q == kMaj || q == kDom7)) || leadingTone(t));
+}
+
+bool minorQuality(uint8_t q) { return q == kMin || q == kMin7 || q == kDim || q == kHalfDim7 || q == kDim7; }
+
+// "major:" / "minor:" at s (any case): 1 major, 2 minor, 0 none.
+int keyPrefix(const char* s) {
+    static const char* const kKey[2] = {"major:", "minor:"};
+    for (int k = 0; k < 2; ++k) {
+        int i = 0;
+        while (kKey[k][i] && lower(s[i]) == kKey[k][i]) ++i;
+        if (!kKey[k][i]) return k + 1;
+    }
+    return 0;
+}
+
+}  // namespace
+
+bool parse(const char* line, Progression& out) {
+    out = Progression{};
+    if (!line) return false;
+    const char* bar = std::strchr(line, '|');
+    const char* end = bar ? bar : line + std::strlen(line);
+    while (line < end && isSpace(*line)) ++line;
+    const int given = keyPrefix(line);
+    if (given) line += 6;
+    Token tok[kMaxChords];
+    int n = 0;
+    for (const char* p = line; p < end;) {
+        while (p < end && isSpace(*p)) ++p;
+        if (p >= end) break;
+        const char* q = p;
+        while (q < end && !isSpace(*q)) ++q;
+        if (n >= kMaxChords || q - p >= int(sizeof(Chord::numeral))) return false;
+        Token t;
+        if (!parseToken(p, int(q - p), t)) return false;
+        std::memcpy(out.chords[n].numeral, p, size_t(q - p));
+        out.chords[n].numeral[q - p] = 0;
+        tok[n++] = t;
+        p = q;
+    }
+    if (n == 0) return false;
+    if (given) {
+        out.minor = given == 2;
+        out.keyGiven = true;
+    } else {
+        // The key whose own chords the line uses most (iv V: minor, Dm E in
+        // A minor); a tie goes by the I / i chord, else major.
+        int major = 0, minor = 0, tonicMinor = -1;
+        for (int i = 0; i < n; ++i) {
+            major += ownChord(tok[i], false);
+            minor += ownChord(tok[i], true);
+            if (tonicMinor < 0 && tok[i].value == 1 && !tok[i].accidental) tonicMinor = minorQuality(tok[i].quality);
+        }
+        out.minor = minor > major || (minor == major && tonicMinor == 1);
+    }
+    const uint8_t* steps = out.minor ? kMinorSteps : kMajorSteps;
+    for (int i = 0; i < n; ++i) {
+        const int raise = out.minor && leadingTone(tok[i]) ? 1 : 0;   // G#dim in A minor
+        out.chords[i].degree = uint8_t((steps[tok[i].value - 1] + raise + tok[i].accidental + 12) % 12);
+        out.chords[i].step = uint8_t(tok[i].value - 1);
+        out.chords[i].quality = tok[i].quality;
+        out.chords[i].accidental = int8_t(tok[i].accidental);
+    }
+    out.count = uint8_t(n);
+    if (bar) {
+        const char* t = bar + 1;
+        while (isSpace(*t)) ++t;
+        size_t len = std::strlen(t);
+        while (len && (isSpace(t[len - 1]) || t[len - 1] == '\n')) --len;
+        if (len >= sizeof(out.title)) len = sizeof(out.title) - 1;
+        std::memcpy(out.title, t, len);
+        out.title[len] = 0;
+    }
+    return true;
+}
+
+bool scaleIsMinor(uint8_t scale) {
+    const uint16_t m = scaleMask(scale);
+    return ((m >> 3) & 1) && !((m >> 4) & 1);
+}
+
+Tonic tonic(const Progression& p, int root, uint8_t scale) {
+    // The project scale as its parallel major or minor key; a progression of
+    // the other kind plays in the relative key (minor 3rd up / down: A minor
+    // -> C, letter A -> C; C major -> A).
+    const bool keyMinor = scaleIsMinor(scale);
+    const int up = p.minor == keyMinor ? 0 : keyMinor ? 3 : 9;
+    const int letters = p.minor == keyMinor ? 0 : keyMinor ? 2 : 5;
+    Tonic t;
+    t.pc = (root % 12 + up) % 12;
+    if (noteSpellingAuto()) t.letter = (keyLetter(root, scale) + letters) % 7;
+    return t;
+}
+
+int intervals(uint8_t q, int out[kMaxNotes]) {
+    static const int8_t kIv[kQualityCount][kMaxNotes] = {
+        {0, 4, 7, -1},  {0, 3, 7, -1},  {0, 3, 6, -1}, {0, 4, 8, -1}, {0, 4, 7, 10}, {0, 4, 7, 11},
+        {0, 3, 7, 10},  {0, 3, 6, 10},  {0, 3, 6, 9},  {0, 2, 7, -1}, {0, 5, 7, -1},
+    };
+    if (q >= kQualityCount) q = kMaj;
+    int n = 0;
+    for (int i = 0; i < kMaxNotes && kIv[q][i] >= 0; ++i) out[n++] = kIv[q][i];
+    return n;
+}
+
+int chordRoot(const Progression& p, int i, const Tonic& t) { return (t.pc + p.chords[i].degree) % 12; }
+
+void chordName(const Progression& p, int i, const Tonic& t, char* out, int cap) {
+    static const char* const kSuffix[kQualityCount] = {"", "m", "dim", "aug", "7", "maj7", "m7", "m7b5", "dim7", "sus2", "sus4"};
+    const Chord& c = p.chords[i];
+    const int root = chordRoot(p, i, t);
+    // Auto: on the numeral's letter (a double sharp / flat falls back to the table).
+    const char* pc = t.letter >= 0 ? letterName(t.letter + c.step, root) : nullptr;
+    if (!pc) pc = pitchClassName(root);
+    std::snprintf(out, size_t(cap), "%s%s", pc, kSuffix[c.quality < kQualityCount ? c.quality : 0]);
+}
+
+// ---------------------------------------------------------------------------
+// Voicings
+
+const char* voicingName(uint8_t v) {
+    static const char* const kName[kVoicingCount] = {"Smooth", "Block", "Wide", "Bass"};
+    return kName[v < kVoicingCount ? v : 0];
+}
+
+const char* voicingWord(uint8_t v) { return v == kSmooth || v >= kVoicingCount ? "" : voicingName(v); }
+
+namespace {
+
+// How far a chord's notes move from the previous chord's: each note to the
+// nearest one of the other chord, both ways (so a triad and a 7th compare).
+int moveCost(const int* a, int na, const int* b, int nb) {
+    auto nearest = [](int x, const int* c, int n) {
+        int best = 128;
+        for (int j = 0; j < n; ++j) best = std::min(best, std::abs(x - c[j]));
+        return best;
+    };
+    int cost = 0;
+    for (int i = 0; i < na; ++i) cost += nearest(a[i], b, nb);
+    for (int i = 0; i < nb; ++i) cost += nearest(b[i], a, na);
+    return cost;
+}
+
+// Root position from `base`, or the inversion nearest `prev`, its lowest
+// note kept in G3..D5 so a long progression doesn't drift.
+int smooth(const int* iv, int n, int base, const int* prev, int prevCount, int* out) {
+    for (int j = 0; j < n; ++j) out[j] = base + iv[j];
+    if (prevCount <= 0) return n;
+    int best = -1;
+    for (int r = 0; r < n; ++r)
+        for (int o = -24; o <= 12; o += 12) {
+            int c[kMaxNotes];
+            for (int j = 0; j < n; ++j) c[j] = base + o + iv[(j + r) % n] + (j + r >= n ? 12 : 0);
+            if (c[0] < 43 || c[0] > 62) continue;
+            const int cost = moveCost(c, n, prev, prevCount);
+            if (best < 0 || cost < best) {
+                best = cost;
+                for (int j = 0; j < n; ++j) out[j] = c[j];
+            }
+        }
+    return n;
+}
+
+}  // namespace
+
+int voice(const Progression& p, int i, const Tonic& t, uint8_t v, const int* prev, int prevCount,
+          int out[kMaxVoiced]) {
+    int iv[kMaxNotes];
+    const int n = intervals(p.chords[i].quality, iv);
+    const int pc = chordRoot(p, i, t);
+    switch (v) {
+        case kWide: {
+            // Open: root, 5th (7th), then the 3rd an octave up (A3 E4 C5).
+            const int base = 36 + pc;
+            int k = 0;
+            out[k++] = base;
+            for (int j = 2; j < n; ++j) out[k++] = base + iv[j];
+            out[k++] = base + iv[1] + 12;
+            return k;
+        }
+        case kBass:
+            out[0] = 36 + pc;
+            return 1 + smooth(iv, n, 48 + pc, prevCount > 1 ? prev + 1 : nullptr, prevCount - 1, out + 1);
+        case kBlock: return smooth(iv, n, 48 + pc, nullptr, 0, out);
+        default: return smooth(iv, n, 48 + pc, prev, prevCount, out);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Files
+
+namespace {
+
+constexpr const char* kHeader =
+    "# One progression per line, chords as numbers in the key.\n"
+    "# Upper case = major, lower case = minor; after it 7, maj7, m7, dim,\n"
+    "# dim7, m7b5, aug, sus2 or sus4. b or # in front lowers or raises\n"
+    "# the root a semitone (bVII). major: or minor: in front sets the key\n"
+    "# (minor: iv V). Text after | is the title.\n";
+
+struct DefaultFile {
+    const char* name;
+    const char* body;
+};
+
+const DefaultFile kDefaults[] = {
+    {"DnB",
+     "i VI III VII\n"
+     "i VII VI V\n"
+     "i iv VI V\n"
+     "i7 iv7 VImaj7 V7 | Liquid\n"
+     "i bII | Dark two-chord\n"},
+    {"Hip-hop",
+     "i iv v i\n"
+     "i VI VII i\n"
+     "i7 iv7 | Two-chord loop\n"
+     "ii7 V7 Imaj7 vi7 | Soul turnaround\n"
+     "Imaj7 vi7 ii7 V7\n"},
+    {"Jazz",
+     "ii7 V7 Imaj7 | Two-five-one\n"
+     "ii7 V7 Imaj7 VI7\n"
+     "iim7b5 V7 i | Minor two-five-one\n"
+     "Imaj7 VI7 ii7 V7 | Turnaround\n"
+     "iii7 VI7 ii7 V7\n"},
+    {"Pop",
+     "I V vi IV\n"
+     "vi IV I V\n"
+     "I vi IV V | Fifties\n"
+     "I IV vi V\n"},
+};
+
+bool hasTxt(const char* name) {
+    const size_t n = std::strlen(name);
+    return n > 4 && lower(name[n - 4]) == '.' && lower(name[n - 3]) == 't' && lower(name[n - 2]) == 'x' &&
+           lower(name[n - 1]) == 't';
+}
+
+bool lessNoCase(const char* a, const char* b) {
+    for (; *a && *b; ++a, ++b)
+        if (lower(*a) != lower(*b)) return lower(*a) < lower(*b);
+    return *a == 0 && *b != 0;
+}
+
+struct Names {
+    int n = 0;
+    char name[kMaxGroups][kGroupMax + 5];
+};
+
+}  // namespace
+
+int defaultCount() { return int(sizeof(kDefaults) / sizeof(kDefaults[0])); }
+const char* defaultName(int i) { return i >= 0 && i < defaultCount() ? kDefaults[i].name : ""; }
+const char* defaultText(int i) { return i >= 0 && i < defaultCount() ? kDefaults[i].body : ""; }
+
+bool writeDefaults(IStorage& fs) {
+    if (!fs.mkdir(kDir)) return false;
+    char path[64];
+    char* text = textScratch();
+    for (int i = 0; i < defaultCount(); ++i) {
+        std::snprintf(path, sizeof(path), "%s/%s.txt", kDir, kDefaults[i].name);
+        if (fs.exists(path)) continue;   // never over a file of the user's
+        const int n = std::snprintf(text, kTextScratchBytes, "%s%s", kHeader, kDefaults[i].body);
+        if (n <= 0 || size_t(n) >= kTextScratchBytes) return false;
+        if (writeWholeFile(fs, path, reinterpret_cast<const uint8_t*>(text), uint32_t(n)) != FmtStatus::Ok) return false;
+    }
+    return true;
+}
+
+int addText(Library& lib, const char* group, const char* text, size_t len) {
+    if (lib.groups >= kMaxGroups) return 0;
+    const int g = lib.groups;
+    int skipped = 0, added = 0;
+    char line[160];
+    for (size_t i = 0; i < len;) {
+        size_t j = i;
+        while (j < len && text[j] != '\n') ++j;
+        size_t n = j - i;
+        if (n >= sizeof(line)) n = sizeof(line) - 1;
+        std::memcpy(line, text + i, n);
+        line[n] = 0;
+        i = j + 1;
+        const char* s = line;
+        while (isSpace(*s)) ++s;
+        if (!*s || (*s == '#' && !(s[1] == 'I' || s[1] == 'V' || s[1] == 'i' || s[1] == 'v'))) continue;
+        Progression p;
+        if (!parse(s, p) || std::strlen(s) > size_t(kLineMax) || lib.items >= kMaxItems) {
+            ++skipped;
+            continue;
+        }
+        std::memcpy(lib.line[lib.items], s, std::strlen(s) + 1);   // fits: checked above
+        lib.itemGroup[lib.items++] = uint8_t(g);
+        ++added;
+    }
+    if (added) {
+        std::snprintf(lib.group[g], sizeof(lib.group[0]), "%s", group);
+        lib.groups = g + 1;
+    }
+    return skipped;
+}
+
+bool load(IStorage& fs, Library& lib) {
+    lib.reset();
+    Names names;
+    auto list = [&]() {
+        names.n = 0;
+        fs.listDir(kDir, [](const IStorage::DirEntry& e, void* c) {
+            auto* nm = static_cast<Names*>(c);
+            if (e.isDir || e.name[0] == '.' || !hasTxt(e.name) || nm->n >= kMaxGroups) return true;
+            if (std::strlen(e.name) - 4 > size_t(kGroupMax)) return true;
+            std::snprintf(nm->name[nm->n++], sizeof(nm->name[0]), "%s", e.name);
+            return true;
+        }, &names);
+    };
+    list();
+    if (names.n == 0) {
+        if (!writeDefaults(fs)) return false;
+        list();
+    }
+    for (int i = 1; i < names.n; ++i)
+        for (int j = i; j > 0 && lessNoCase(names.name[j], names.name[j - 1]); --j) {
+            char t[sizeof(names.name[0])];
+            std::memcpy(t, names.name[j], sizeof(t));
+            std::memcpy(names.name[j], names.name[j - 1], sizeof(t));
+            std::memcpy(names.name[j - 1], t, sizeof(t));
+        }
+    char* buf = textScratch();   // one file at a time
+    for (int i = 0; i < names.n; ++i) {
+        char path[64];
+        std::snprintf(path, sizeof(path), "%s/%s", kDir, names.name[i]);
+        uint32_t got = 0;
+        if (readWholeFile(fs, path, reinterpret_cast<uint8_t*>(buf), kTextScratchBytes - 1, &got) != FmtStatus::Ok) {
+            ++lib.skipped;
+            continue;
+        }
+        buf[got] = 0;
+        char group[kGroupMax + 1];
+        std::snprintf(group, sizeof(group), "%.*s", int(std::strlen(names.name[i]) - 4), names.name[i]);
+        lib.skipped += addText(lib, group, buf, got);
+    }
+    return lib.items > 0;
+}
+
+}  // namespace prog
+}  // namespace ot

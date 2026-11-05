@@ -226,14 +226,14 @@ static std::vector<std::string> songHeaders(Harness& h) {
     for (auto& l : h.disp.last) {
         int x = 0, y = 0;
         char txt[64] = {};
-        if (std::sscanf(l.c_str(), "TEXT %d %d f%*u o%*u \"%63[^\"]\"", &x, &y, txt) == 3 && y < 92 && x < 490)
+        if (std::sscanf(l.c_str(), "TEXT %d %d f%*u o%*u \"%63[^\"]\"", &x, &y, txt) == 3 && y < 92 && x < 331)
             out.push_back(txt);
     }
     return out;
 }
 
-// 2.x (docs/M1_PLAN.md §4, spec gap 4): 12-column window over 16 tracks;
-// the first shown track is 0 or 4 and follows the grid cursor.
+// 2.x (docs/M1_PLAN.md §4, spec gap 4): the grid window over 16 tracks
+// follows the grid cursor. [I] 8 columns: pages 1-8 and 9-16.
 TEST(song_grid_window_follows_cursor_over_16_tracks) {
     Harness h;
     App& a = *h.app;
@@ -243,42 +243,42 @@ TEST(song_grid_window_follows_cursor_over_16_tracks) {
     a.ui.dirty();
     h.run(40);
     std::vector<std::string> hd = songHeaders(h);
-    CHECK(std::find(hd.begin(), hd.end(), "12") != hd.end());
-    CHECK(std::find(hd.begin(), hd.end(), "13") == hd.end());
+    CHECK(std::find(hd.begin(), hd.end(), "8") != hd.end());
+    CHECK(std::find(hd.begin(), hd.end(), "9") == hd.end());
     h.tap(btn::Rec);
-    h.tap(btn::Left);   // list -> grid: rightmost shown column (stock: track 12)
+    h.tap(btn::Left);   // list -> grid: rightmost shown column, track 8
     CHECK_EQ(s.focus, 0);
-    CHECK_EQ(s.selTrack0, 11);
+    CHECK_EQ(s.selTrack0, 7);
     CHECK_EQ(s.firstTrack, 0);
     h.tap(btn::Right);
-    CHECK_EQ(s.selTrack0, 12);
-    CHECK_EQ(s.firstTrack, 4);
+    CHECK_EQ(s.selTrack0, 8);
+    CHECK_EQ(s.firstTrack, 8);
     a.ui.dirty();
     h.run(40);
     hd = songHeaders(h);
     CHECK(std::find(hd.begin(), hd.end(), "16") != hd.end());
     CHECK(std::find(hd.begin(), hd.end(), "Midi") != hd.end());
-    CHECK(std::find(hd.begin(), hd.end(), "4") == hd.end());
-    CHECK(std::find(hd.begin(), hd.end(), "5") != hd.end());
-    for (int i = 0; i < 3; ++i) h.tap(btn::Right);
+    CHECK(std::find(hd.begin(), hd.end(), "8") == hd.end());
+    CHECK(std::find(hd.begin(), hd.end(), "9") != hd.end());
+    for (int i = 0; i < 7; ++i) h.tap(btn::Right);
     CHECK_EQ(s.selTrack0, 15);
     h.tap(btn::Right);  // past track 16: the list
     CHECK_EQ(s.focus, 1);
     h.tap(btn::Left);   // back on the rightmost shown column, track 16
     CHECK_EQ(s.selTrack0, 15);
-    CHECK_EQ(s.firstTrack, 4);
-    for (int i = 0; i < 11; ++i) h.tap(btn::Left);
-    CHECK_EQ(s.selTrack0, 4);
-    CHECK_EQ(s.firstTrack, 4);
+    CHECK_EQ(s.firstTrack, 8);
+    for (int i = 0; i < 7; ++i) h.tap(btn::Left);
+    CHECK_EQ(s.selTrack0, 8);
+    CHECK_EQ(s.firstTrack, 8);
     h.tap(btn::Left);
-    CHECK_EQ(s.selTrack0, 3);
+    CHECK_EQ(s.selTrack0, 7);
     CHECK_EQ(s.firstTrack, 0);
     // Shift+Right extends to 16 tracks; the window follows the moving edge.
     h.down(btn::Shift);
     for (int i = 0; i < 20; ++i) h.tap(btn::Right);
     h.up(btn::Shift);
-    CHECK_EQ(s.selTracks, kTrackCount - 3);
-    CHECK_EQ(s.firstTrack, 4);
+    CHECK_EQ(s.selTracks, kTrackCount - 7);
+    CHECK_EQ(s.firstTrack, 8);
 }
 
 // Copy / paste / delete of track ranges reach tracks 13..16 (ext-track pool).
@@ -297,8 +297,8 @@ TEST(song_copy_delete_over_16_tracks) {
     h.tap(btn::Rec);
     h.tap(btn::Up);
     h.tap(btn::Up);
-    h.tap(btn::Left);   // grid, slot 0, track 12
-    h.tap(btn::Right);  // track 13
+    h.tap(btn::Left);   // grid, slot 0, track 8
+    for (int i = 0; i < 5; ++i) h.tap(btn::Right);   // track 13
     CHECK_EQ(s.selTrack0, 12);
     h.down(btn::Shift);
     for (int i = 0; i < 3; ++i) h.tap(btn::Right);
