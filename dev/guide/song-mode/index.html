@@ -583,6 +583,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#one-pattern-to-resample" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One pattern to resample
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#the-progression-files" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1153,6 +1164,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#one-pattern-to-resample" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One pattern to resample
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#the-progression-files" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1297,7 +1319,8 @@ or change the voicing.</p>
 <li>The Pattern list shows each pattern's name, so the song reads as its chords.</li>
 <li>The list shows each progression's chords in the project key, with its numbers (or its
   title) on the right, under a heading per file. <strong>Up / Down</strong> or the encoder pick one,
-  <strong>F8</strong> or <strong>Insert</strong> adds it, <strong>F7</strong> or <strong>Left</strong> closes the list.</li>
+  <strong>F8</strong> or <strong>Insert</strong> adds it as a slot per chord, <strong>F5</strong> as one pattern (below), <strong>F7</strong> or
+  <strong>Left</strong> closes the list.</li>
 <li>A chord that already has a pattern named after it reuses that pattern (only the name's
   first word is checked, so a pattern you called <code>F</code> counts as F). A chord that comes twice
   in a progression gets one pattern.</li>
@@ -1355,6 +1378,25 @@ shows the first two chords' notes, for example <code>Smooth: Am A4 C5 E5 &gt; F 
 <li>A reused pattern keeps its notes: a chord that comes twice is one pattern, voiced the
   first time. To change a single chord's shape, open its pattern and move the notes.</li>
 </ul>
+<h3 id="one-pattern-to-resample">One pattern to resample<a class="headerlink" href="#one-pattern-to-resample" title="Permanent link">&para;</a></h3>
+<p><strong>F5 Insert Pattern</strong> adds the progression as a single pattern instead: one slot playing a
+pattern named after its chords (<code>Am F C G</code>), with a chord on the first step of each bar
+(16 steps in 4/4), so four chords make a 64-step pattern and eight fill 128. Voicing works
+the same (<code>Am F C G Wide</code>), and the same progression in the same voicing reuses its
+pattern.</p>
+<p><img alt="Insert Pattern: the four chords in one pattern, a bar each" src="../../images/song-progression-pattern.png" /></p>
+<p>That pattern is made to be resampled and chopped, the way a sampled record is flipped:</p>
+<ol>
+<li>Play it with the sound you want, then resample it from Master for as many bars as it
+   has chords (see <a href="../resampling/">Resampling</a>), with <strong>Slices: Step hits</strong>. The slices go
+   where a new sound starts, so a sound with a slow fade-in may not mark every chord
+   change; take it with a sharper sound (or a shorter attack) instead.</li>
+<li>The take is a Beat Slice instrument with a slice per chord: pad 1 plays the first chord,
+   pad 2 the second, each at its own pitch.</li>
+<li>Put the slices in a new order, cut them short, or play them with the Performance FX.</li>
+</ol>
+<p>To play one chord at other pitches instead (a chord stab), set the instrument to <strong>Slice</strong>,
+pick the chord with the Slice FX and play it from the pads.</p>
 <h3 id="the-progression-files">The progression files<a class="headerlink" href="#the-progression-files" title="Permanent link">&para;</a></h3>
 <p>The list comes from text files in <code>Progressions/</code> on the card, one heading per file
 (<code>Jazz.txt</code> shows as Jazz). The first time you open the list with no files there, the
