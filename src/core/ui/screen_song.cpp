@@ -228,6 +228,7 @@ void SongScreen::refreshBar() {
     BottomBar& b = ui_.bar;
     b.clear();
     if (progOpen) {   // [I] #121
+        b.set(5, "Voicing", prog::voicingName(progVoicing));
         b.set(6, "Cancel", nullptr);
         b.set(7, "Insert", nullptr);
         return;
@@ -462,6 +463,7 @@ void SongScreen::onButton(uint8_t id, uint8_t state) {
         switch (id) {
             case btn::Up: progMove(-1); break;
             case btn::Down: progMove(1); break;
+            case btn::F6: nextVoicing(); break;
             case btn::F8:
             case btn::Insert: insertSelectedProgression(); break;
             case btn::F7:
@@ -753,12 +755,43 @@ void SongScreen::progMove(int d) {
     progCursor = c;
 }
 
+// F6: the next voicing; the notice shows the first two chords of the
+// selected progression in it ("Smooth: Am A4 C5 E5 > F A4 C5 F5").
+void SongScreen::nextVoicing() {
+    progVoicing = uint8_t((progVoicing + 1) % prog::kVoicingCount);
+    char t[96];
+    int n = std::snprintf(t, sizeof(t), "%s:", prog::voicingName(progVoicing));
+    prog::Progression p;
+    if (progCursor >= 0 && progCursor < progRows && g_progRow[progCursor] >= 0 &&
+        prog::parse(g_progs.line[g_progRow[progCursor]], p)) {
+        uint8_t scale = app_.project.u8(pf::kScale);
+        if (scale >= kScaleCount) scale = 0;
+        const prog::Tonic tn = prog::tonic(p, app_.project.u8(pf::kRootNote), scale);
+        int prev[prog::kMaxVoiced], k = 0;
+        for (int i = 0; i < p.count && i < 2 && n < int(sizeof(t)); ++i) {
+            char nm[16];
+            prog::chordName(p, i, tn, nm, sizeof(nm));
+            n += std::snprintf(t + n, sizeof(t) - size_t(n), "%s %s", i ? " >" : "", nm);
+            int notes[prog::kMaxVoiced];
+            const int c = prog::voice(p, i, tn, progVoicing, prev, k, notes);
+            for (int j = 0; j < c && n < int(sizeof(t)); ++j) {
+                char nn[4];
+                noteName(int8_t(notes[j]), nn);
+                n += std::snprintf(t + n, sizeof(t) - size_t(n), " %s", nn);
+                prev[j] = notes[j];
+            }
+            k = c;
+        }
+    }
+    ui_.notify(t, 2500);
+}
+
 void SongScreen::insertSelectedProgression() {
     if (progCursor < 0 || progCursor >= progRows || g_progRow[progCursor] < 0) return;
     prog::Progression p;
     if (!prog::parse(g_progs.line[g_progRow[progCursor]], p)) return;
     const char* why = nullptr;
-    const int first = app_.insertProgression(p, cursor, &why);
+    const int first = app_.insertProgression(p, cursor, &why, progVoicing);
     if (first < 0) {
         ui_.notify(why ? why : "Progression not added");
         return;

@@ -86,6 +86,22 @@ int chordRoot(const Progression& p, int i, const Tonic& t);
 // Its name: "Am", "G7", "Bm7b5" (see Names above).
 void chordName(const Progression& p, int i, const Tonic& t, char* out, int cap);
 
+// How Insert stacks each chord's notes, one note per track:
+//   Smooth  each chord in the inversion that moves least from the one before
+//           (the first in root position, root C4..B4)
+//   Block   root position, root C4..B4
+//   Wide    root C3..B3, then the 5th (and 7th), the 3rd an octave up
+//   Bass    the root an octave below (C3..B3) on its own track, then Smooth
+enum Voicing : uint8_t { kSmooth, kBlock, kWide, kBass, kVoicingCount };
+constexpr int kMaxVoiced = kMaxNotes + 1;   // Bass: a 7th on 5 tracks
+const char* voicingName(uint8_t v);
+// The word a pattern name ends with ("Am i Wide"); "" for Smooth.
+const char* voicingWord(uint8_t v);
+// Chord i's notes (MIDI, low to high = track order) after the previous
+// chord's (prev, prevCount; 0 for the first); returns the note count.
+int voice(const Progression& p, int i, const Tonic& t, uint8_t v, const int* prev, int prevCount,
+          int out[kMaxVoiced]);
+
 // The list: every progression of every file, files sorted by name.
 struct Library {
     int groups = 0, items = 0, skipped = 0;

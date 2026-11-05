@@ -9,14 +9,21 @@
 namespace ot {
 
 namespace {
-// The chord part of a pattern name: its first word ("F" of "F VI").
-bool nameIsChord(const char* name, const char* chord) {
+// A pattern for this chord and voicing: the name's first word is the chord
+// ("F" of "F VI") and its last word the voicing's ("Wide"), or no voicing
+// word for Smooth ("F", "F VI").
+bool nameIsChord(const char* name, const char* chord, uint8_t voicing) {
     const size_t n = std::strlen(chord);
-    return std::strncmp(name, chord, n) == 0 && (name[n] == 0 || name[n] == ' ');
+    if (std::strncmp(name, chord, n) != 0 || (name[n] != 0 && name[n] != ' ')) return false;
+    const char* last = std::strrchr(name, ' ');
+    last = last && last >= name + n ? last + 1 : "";
+    for (uint8_t v = 1; v < prog::kVoicingCount; ++v)
+        if (std::strcmp(last, prog::voicingWord(v)) == 0) return v == voicing;
+    return voicing == prog::kSmooth;
 }
 }  // namespace
 
-int App::insertProgression(const prog::Progression& p, int after, const char** why) {
+int App::insertProgression(const prog::Progression& p, int after, const char** why, uint8_t voicing) {
     static const char* sink;
     if (!why) why = &sink;
     *why = nullptr;
@@ -46,7 +53,7 @@ int App::insertProgression(const prog::Progression& p, int after, const char** w
     for (int i = 0; i < p.count; ++i) {
         prog::chordName(p, i, tonic, name[i], sizeof(name[i]));
         for (int n = 1; n <= kPatternCount && !num[i]; ++n)
-            if (nameIsChord(names.get(n), name[i])) num[i] = uint8_t(n);
+            if (nameIsChord(names.get(n), name[i], voicing)) num[i] = uint8_t(n);
         bool dup = false;
         for (int j = 0; j < i && !num[i]; ++j) dup = dup || std::strcmp(name[j], name[i]) == 0;
         if (!num[i] && !dup) ++fresh;
@@ -68,29 +75,40 @@ int App::insertProgression(const prog::Progression& p, int after, const char** w
     uint8_t last[kStockTrackCount];
     for (int t = 0; t < kStockTrackCount; ++t) last[t] = storedStock(src).tracks[t].lastStep;
     const uint8_t ins = currentInstrument();
+    int prev[prog::kMaxVoiced], prevCount = 0;   // the previous chord's notes (Smooth)
     int next = 0;
     for (int i = 0; i < p.count; ++i) {
-        if (num[i]) continue;
         for (int j = 0; j < i && !num[i]; ++j)
             if (std::strcmp(name[j], name[i]) == 0) num[i] = num[j];
-        if (num[i]) continue;
+        if (num[i]) {
+            // A pattern already made: its notes are what plays before the next chord.
+            const PatternStock& st = storedStock(num[i]);
+            int k = 0;
+            while (k < prog::kMaxVoiced && st.tracks[k].steps[0].note >= 0) {
+                prev[k] = st.tracks[k].steps[0].note;
+                ++k;
+            }
+            if (k) prevCount = k;
+            continue;
+        }
         const int n = pool[next++];
         num[i] = uint8_t(n);
         defaultStored(n);
         PatternStock& st = storedStock(n);
         for (int t = 0; t < kStockTrackCount; ++t) st.tracks[t].lastStep = last[t];
-        int iv[prog::kMaxNotes];
-        const int notes = prog::intervals(p.chords[i].quality, iv);
-        const int root = 48 + prog::chordRoot(p, i, tonic);   // C4..B4
-        for (int k = 0; k < notes; ++k) {
-            Step& s = st.tracks[k].steps[0];
-            s.note = int8_t(root + iv[k]);
-            s.instrument = pops::mapInstrument(k, ins);
+        int notes[prog::kMaxVoiced];
+        const int k = prog::voice(p, i, tonic, voicing, prev, prevCount, notes);
+        for (int j = 0; j < k; ++j) {
+            Step& s = st.tracks[j].steps[0];
+            s.note = int8_t(notes[j]);
+            s.instrument = pops::mapInstrument(j, ins);
+            prev[j] = notes[j];
         }
+        prevCount = k;
         markPatternDirty(n);
-        char label[sizeof(name[0]) + sizeof(p.chords[0].numeral) + 1];   // fits kMaxLen
-        static_assert(sizeof(label) <= PatternNames::kMaxLen + 1, "a chord label fits a pattern name");
-        std::snprintf(label, sizeof(label), "%.15s %.9s", name[i], p.chords[i].numeral);
+        char label[PatternNames::kMaxLen + 1];
+        const char* word = prog::voicingWord(voicing);
+        std::snprintf(label, sizeof(label), "%s %s%s%s", name[i], p.chords[i].numeral, word[0] ? " " : "", word);
         names.set(n, label);
         if (n == patternNumber()) reloadCurrentFromStore();
     }

@@ -85,6 +85,31 @@ or change the voicing.
 - The numbers are worked out from the key when you add the progression. Changing the key
   later leaves the pattern names as they are.
 
+### Voicing
+
+The same chord can be stacked in different shapes: Am is A, C and E, close together or
+spread out. **F6 Voicing** in the list picks the shape before you press **F8**. Each press
+shows the first two chords' notes, for example `Smooth: Am A4 C5 E5 > F A4 C5 F5`.
+
+| Voicing | What it writes | Good for |
+|---|---|---|
+| **Smooth** | each chord in the shape closest to the one before, so the notes move little (A and C stay from Am to F) | pads and keys; the default |
+| **Block** | every chord in root position, root in the C4 octave | stabs, a plain chord sound |
+| **Wide** | the root an octave lower, then the 5th, the 3rd an octave up | big pads, strings |
+| **Bass** | the root an octave lower on its own track, the chord above it (Smooth) | giving the bass its own instrument afterwards; uses one more track |
+
+![Voicing on F6, with the first chords' notes](../images/song-progression-voicing.png)
+
+- A voicing other than Smooth adds its name to each pattern's name (`Am i Wide`), and
+  a chord is only reused from a pattern with the same voicing. So you can insert a verse
+  Smooth and a chorus Wide, and the chorus gets its own patterns:
+
+![The same progression Smooth, then Wide](../images/song-progression-wide.png)
+
+- The choice stays until the Tracker is switched off.
+- A reused pattern keeps its notes: a chord that comes twice is one pattern, voiced the
+  first time. To change a single chord's shape, open its pattern and move the notes.
+
 ### The progression files
 
 The list comes from text files in `Progressions/` on the card, one heading per file

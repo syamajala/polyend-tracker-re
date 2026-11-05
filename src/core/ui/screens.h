@@ -240,12 +240,14 @@ public:
     // list, the selected one, the first shown.
     bool progOpen = false;
     int progRows = 0, progCursor = 0, progTop = 0;
+    uint8_t progVoicing = 0;   // F6 (prog::Voicing), kept until power-off
     void openProgressions();
     void insertSelectedProgression();
 
 private:
     void refreshBar();
     void progMove(int d);
+    void nextVoicing();
     void drawProgressions(Gfx& g);
     void setPattern(int slot, int num);
     int passShown_ = -1;   // [I] playing slot * 32 + pass last drawn

@@ -1,7 +1,9 @@
 // [I] #121 Song mode progressions (ui/progression.h).
 #include "ui/progression.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 #include "app/text_scratch.h"
@@ -200,6 +202,77 @@ void chordName(const Progression& p, int i, const Tonic& t, char* out, int cap) 
     const char* pc = t.letter >= 0 ? letterName(t.letter + c.step, root) : nullptr;
     if (!pc) pc = pitchClassName(root);
     std::snprintf(out, size_t(cap), "%s%s", pc, kSuffix[c.quality < kQualityCount ? c.quality : 0]);
+}
+
+// ---------------------------------------------------------------------------
+// Voicings
+
+const char* voicingName(uint8_t v) {
+    static const char* const kName[kVoicingCount] = {"Smooth", "Block", "Wide", "Bass"};
+    return kName[v < kVoicingCount ? v : 0];
+}
+
+const char* voicingWord(uint8_t v) { return v == kSmooth || v >= kVoicingCount ? "" : voicingName(v); }
+
+namespace {
+
+// How far a chord's notes move from the previous chord's: each note to the
+// nearest one of the other chord, both ways (so a triad and a 7th compare).
+int moveCost(const int* a, int na, const int* b, int nb) {
+    auto nearest = [](int x, const int* c, int n) {
+        int best = 128;
+        for (int j = 0; j < n; ++j) best = std::min(best, std::abs(x - c[j]));
+        return best;
+    };
+    int cost = 0;
+    for (int i = 0; i < na; ++i) cost += nearest(a[i], b, nb);
+    for (int i = 0; i < nb; ++i) cost += nearest(b[i], a, na);
+    return cost;
+}
+
+// Root position from `base`, or the inversion nearest `prev`, its lowest
+// note kept in G3..D5 so a long progression doesn't drift.
+int smooth(const int* iv, int n, int base, const int* prev, int prevCount, int* out) {
+    for (int j = 0; j < n; ++j) out[j] = base + iv[j];
+    if (prevCount <= 0) return n;
+    int best = -1;
+    for (int r = 0; r < n; ++r)
+        for (int o = -24; o <= 12; o += 12) {
+            int c[kMaxNotes];
+            for (int j = 0; j < n; ++j) c[j] = base + o + iv[(j + r) % n] + (j + r >= n ? 12 : 0);
+            if (c[0] < 43 || c[0] > 62) continue;
+            const int cost = moveCost(c, n, prev, prevCount);
+            if (best < 0 || cost < best) {
+                best = cost;
+                for (int j = 0; j < n; ++j) out[j] = c[j];
+            }
+        }
+    return n;
+}
+
+}  // namespace
+
+int voice(const Progression& p, int i, const Tonic& t, uint8_t v, const int* prev, int prevCount,
+          int out[kMaxVoiced]) {
+    int iv[kMaxNotes];
+    const int n = intervals(p.chords[i].quality, iv);
+    const int pc = chordRoot(p, i, t);
+    switch (v) {
+        case kWide: {
+            // Open: root, 5th (7th), then the 3rd an octave up (A3 E4 C5).
+            const int base = 36 + pc;
+            int k = 0;
+            out[k++] = base;
+            for (int j = 2; j < n; ++j) out[k++] = base + iv[j];
+            out[k++] = base + iv[1] + 12;
+            return k;
+        }
+        case kBass:
+            out[0] = 36 + pc;
+            return 1 + smooth(iv, n, 48 + pc, prevCount > 1 ? prev + 1 : nullptr, prevCount - 1, out + 1);
+        case kBlock: return smooth(iv, n, 48 + pc, nullptr, 0, out);
+        default: return smooth(iv, n, 48 + pc, prev, prevCount, out);
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 // files with their built-in defaults, App::insertProgression and the Song
 // screen's Insert list.
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 
@@ -474,4 +475,111 @@ TEST(progression_song_screen_insert) {
     h.tap(btn::Down);
     h.run(50);
     CHECK(h.disp.lastHasText("F VI"));
+}
+
+namespace {
+// Chord i of p voiced after the previous chords, as "57 60 64".
+std::string voiced(const prog::Progression& p, int root, uint8_t scale, uint8_t v, int upto) {
+    const prog::Tonic t = prog::tonic(p, root, scale);
+    int prev[prog::kMaxVoiced], k = 0, notes[prog::kMaxVoiced];
+    std::string out;
+    for (int i = 0; i <= upto; ++i) {
+        const int c = prog::voice(p, i, t, v, prev, k, notes);
+        out.clear();
+        for (int j = 0; j < c; ++j) {
+            out += (j ? " " : "") + std::to_string(notes[j]);
+            prev[j] = notes[j];
+        }
+        k = c;
+    }
+    return out;
+}
+}  // namespace
+
+TEST(progression_voicings) {
+    setNoteSpelling(kSpellSharps, 0, 0);
+    prog::Progression p;
+    CHECK(prog::parse("i VI III VII", p));   // Am F C G in A minor
+    // Smooth: Am A4 C5 E5, F A4 C5 F5 (A, C stay), C G4 C5 E5, G G4 B4 D5.
+    CHECK(voiced(p, kRootA, kMinor, prog::kSmooth, 0) == "57 60 64");
+    CHECK(voiced(p, kRootA, kMinor, prog::kSmooth, 1) == "57 60 65");
+    CHECK(voiced(p, kRootA, kMinor, prog::kSmooth, 2) == "55 60 64");
+    CHECK(voiced(p, kRootA, kMinor, prog::kSmooth, 3) == "55 59 62");
+    // Block: root position, root C4..B4 (F4 A4 C5).
+    CHECK(voiced(p, kRootA, kMinor, prog::kBlock, 1) == "53 57 60");
+    // Wide: root C3..B3, 5th, 3rd an octave up (A3 E4 C5); a 7th adds it under the 3rd.
+    CHECK(voiced(p, kRootA, kMinor, prog::kWide, 0) == "45 52 60");
+    // Bass: the root on its own track, the chord above Smooth.
+    CHECK(voiced(p, kRootA, kMinor, prog::kBass, 0) == "45 57 60 64");
+    CHECK(voiced(p, kRootA, kMinor, prog::kBass, 1) == "41 57 60 65");
+    CHECK(prog::parse("ii7 V7 Imaj7", p));
+    CHECK(voiced(p, kRootC, kMajor, prog::kWide, 0) == "38 45 48 53");   // D3 A3 C4 F4
+    CHECK(voiced(p, kRootC, kMajor, prog::kBass, 2) == "36 52 55 59 60");   // C3, then Cmaj7 above
+    // Smooth stays in range over a long progression: lowest note G3..D5.
+    CHECK(prog::parse("I IV vii iii vi ii V I", p));
+    for (int i = 0; i < p.count; ++i) {
+        const std::string s = voiced(p, kRootC, kMajor, prog::kSmooth, i);
+        const int low = std::atoi(s.c_str());
+        CHECK(low >= 43 && low <= 62);
+    }
+    CHECK_STR(prog::voicingWord(prog::kSmooth), "");
+    CHECK_STR(prog::voicingWord(prog::kWide), "Wide");
+}
+
+TEST(progression_insert_voicing_names) {
+    Harness h;
+    App& a = *h.app;
+    setKey(a, kRootA, kMinor);
+    prog::Progression p;
+    CHECK(prog::parse("i VI III VII", p));
+    const char* why = nullptr;
+    CHECK_EQ(a.insertProgression(p, 0, &why), 0);   // Smooth: plain names
+    CHECK_STR(a.names.get(2), "F VI");
+    CHECK_EQ(a.storedStock(2).tracks[2].steps[0].note, 65);   // F5 on top: led from Am
+    // The same chords Wide: new patterns with the word, the Smooth ones untouched.
+    CHECK_EQ(a.insertProgression(p, 3, &why, prog::kWide), 4);
+    CHECK_EQ(a.project.playlist[4], 5);
+    CHECK_STR(a.names.get(5), "Am i Wide");
+    CHECK_STR(a.names.get(8), "G VII Wide");
+    CHECK_EQ(a.storedStock(5).tracks[0].steps[0].note, 45);
+    // Smooth again reuses the Smooth patterns, Wide again the Wide ones.
+    CHECK_EQ(a.insertProgression(p, 7, &why), 8);
+    CHECK_EQ(a.project.playlist[8], 1);
+    CHECK_EQ(a.project.playlist[11], 4);
+    CHECK_EQ(a.insertProgression(p, 11, &why, prog::kWide), 12);
+    CHECK_EQ(a.project.playlist[12], 5);
+    CHECK(!a.patternHasData(9));
+    // Bass: one more track; a user's pattern named "Dm" counts as Smooth only.
+    a.names.set(20, "Dm");
+    CHECK(prog::parse("iv V7", p));
+    CHECK_EQ(a.insertProgression(p, 15, &why, prog::kBass), 16);
+    CHECK(a.project.playlist[16] != 20);
+    CHECK_STR(a.names.get(a.project.playlist[17]), "E7 V7 Bass");
+    CHECK_EQ(a.storedStock(a.project.playlist[17]).tracks[0].steps[0].note, 40);   // E3
+    CHECK(a.storedStock(a.project.playlist[17]).tracks[4].steps[0].note >= 0);   // 5 tracks
+    CHECK_EQ(a.insertProgression(p, 17, &why), 18);
+    CHECK_EQ(a.project.playlist[18], 20);
+}
+
+TEST(progression_song_screen_voicing_key) {
+    Harness h;
+    App& a = *h.app;
+    setKey(a, kRootA, kMinor);
+    h.tap(btn::Song);
+    SongScreen& s = song(h);
+    h.tap(btn::Rec);
+    h.tap(btn::Insert);
+    h.run(50);
+    CHECK(h.disp.lastHasText("Smooth"));
+    h.tap(btn::F6);
+    CHECK_EQ(s.progVoicing, prog::kBlock);
+    h.tap(btn::F6);
+    h.run(50);
+    CHECK(h.disp.lastHasText("Wide"));
+    CHECK(h.disp.lastHasText("Wide: Am A3 E4 C5 > F F3 C4 A4"));
+    h.tap(btn::F8);
+    CHECK_STR(a.names.get(1), "Am i Wide");
+    // Kept for the next Insert.
+    h.tap(btn::Insert);
+    CHECK_EQ(s.progVoicing, prog::kWide);
 }

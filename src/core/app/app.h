@@ -537,13 +537,15 @@ public:
     bool loadPerfBank(const char* name, const perf::Source& src);
     // [I] #121 Song mode progressions: the progression's slots after song
     // slot `after` (or in place of it when that slot's pattern is empty and
-    // unnamed). Each chord plays a pattern named after it ("F VI"): one
-    // already named so (the chord part), else a new one: the next empty,
-    // unnamed pattern outside the song, the chord on step 1 of tracks 1..3
-    // (1..4 for a 7th) with the current instrument, the track lengths of
-    // slot `after`'s pattern. Returns the first slot written, -1 when the
-    // song or the patterns are full (*why says which; nothing changed).
-    int insertProgression(const prog::Progression& p, int after, const char** why);
+    // unnamed). Each chord plays a pattern named after it and the voicing
+    // ("F VI", "F VI Wide"; Smooth adds no word): one already named so (the
+    // chord part and the voicing word), else a new one: the next empty,
+    // unnamed pattern outside the song, the chord voiced on step 1 of
+    // tracks 1..n (prog::voice) with the current instrument, the track
+    // lengths of slot `after`'s pattern. Returns the first slot written, -1
+    // when the song or the patterns are full (*why says which; nothing changed).
+    int insertProgression(const prog::Progression& p, int after, const char** why,
+                          uint8_t voicing = 0);   // prog::Voicing, 0 = Smooth
     bool savePerfBank(const char* name, const perf::Source& src);
     // Load Patch popup preview (Tracker+ 1.0; docs/SYNTH_UX_MINI_VS_OT.md
     // row 24): Patches/<MODEL>/<name>.patch plays in slot s (its patch and
