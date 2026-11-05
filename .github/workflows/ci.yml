@@ -54,9 +54,17 @@ jobs:
     timeout-minutes: 20   # normally a few minutes; a stuck step (apt) otherwise holds the runner 6 h
     steps:
       - uses: actions/checkout@v5
+      - name: Cache apt packages
+        # The package lists and .debs (apt-install.sh APT_CACHE): a hit installs
+        # without the mirror, which has stalled jobs for their whole limit.
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-cache
+          key: apt-${{ runner.os }}-sim-${{ hashFiles('.github/scripts/apt-install.sh') }}
+          restore-keys: apt-${{ runner.os }}-sim-
       - name: Install GCC 14 and SDL2
         timeout-minutes: 12
-        run: .github/scripts/apt-install.sh g++-14 libsdl2-dev pkg-config
+        run: APT_CACHE="$HOME/apt-cache" .github/scripts/apt-install.sh g++-14 libsdl2-dev pkg-config
       - name: Simulator checks
         run: |
           set -o pipefail
@@ -93,12 +101,20 @@ jobs:
     timeout-minutes: 20   # normally a few minutes; a stuck step (apt) otherwise holds the runner 6 h
     steps:
       - uses: actions/checkout@v5
+      - name: Cache apt packages
+        # The package lists and .debs (apt-install.sh APT_CACHE): a hit installs
+        # without the mirror, which has stalled jobs for their whole limit.
+        uses: actions/cache@v4
+        with:
+          path: ~/apt-cache
+          key: apt-${{ runner.os }}-emu-${{ hashFiles('.github/scripts/apt-install.sh') }}
+          restore-keys: apt-${{ runner.os }}-emu-
       - name: Install GCC 14, SDL2, Wine and MinGW
         # Only what the replay needs: 64-bit Wine running a console program and
         # the x86-64 MinGW compiler (the script skips recommends: fonts,
         # GStreamer, GL; most of Wine's ~200 packages and ~8 min).
         timeout-minutes: 12
-        run: .github/scripts/apt-install.sh g++-14 libsdl2-dev pkg-config wine wine64 g++-mingw-w64-x86-64
+        run: APT_CACHE="$HOME/apt-cache" .github/scripts/apt-install.sh g++-14 libsdl2-dev pkg-config wine wine64 g++-mingw-w64-x86-64
       - name: Cache the emulator download
         uses: actions/cache@v4
         with:
