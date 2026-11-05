@@ -1184,6 +1184,18 @@ below are the 2026-10-23 audit and are kept for the comparison with upstream.</e
 </tbody>
 </table>
 <ul>
+<li><strong>Flash audit (#122, 2026-11-05):</strong> 790,528 → 774,144 B (the gate number,
+  which counts the 4 KB-aligned zero padding after <code>.data</code>).</li>
+<li><strong>No float printf (−12 KB):</strong> newlib's <code>%f</code> (dtoa, mprec and their soft-double
+    helpers) is no longer linked. <code>fm::fixed()</code> (<code>src/core/fmath.h</code>) prints the same
+    text as printf's <code>%.Nf</code>, and <code>tools/check_float_printf.py</code> fails the firmware
+    build on any <code>%f</code> / <code>%e</code> / <code>%g</code>: without the float printf it would print nothing
+    on the device while the simulator still shows the number.</li>
+<li><strong>DX7 sine table built at boot (−4 KB):</strong> <code>gDx7Sin</code> stays in SRAM but is no
+    longer copied from flash; <code>dx7::initSinTable()</code> runs msfa's integer recipe
+    (~60 µs) from <code>audio::initTables()</code>.</li>
+<li><strong>Looked at, left:</strong> ~36 KB of string literals (mostly Config help text),
+    fonts (already compressed), the play-mode tables (~1.3 KB if packed).</li>
 <li><strong>SRAM is tight again.</strong> USB audio is about half of the drop (~7 KB: its rings
   and buffers stay in SRAM because the USB interrupt and the audio block both
   touch them); the rest is spread over other features. Nothing moves from
