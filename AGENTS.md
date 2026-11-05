@@ -83,6 +83,7 @@ OpenTracker (one MIT exception below).
 - **No static constructors.** No namespace-scope object or pointer with a dynamic
   initializer (e.g. `T* const p = f();` with `f()` in another file). Use `constexpr`/
   `constinit`, an `extern` array in a header with `inline` helpers, or init in `start()`.
+  They run before SDRAM is up: `tools/check_ctors.py` fails the build if one touches SDRAM.
   Check: `arm-none-eabi-nm -C build/opentracker.elf | grep _GLOBAL__sub_I`, compared with `main`.
 - **Memory:** only per-block audio state goes in SRAM. Data, UI state and buffers go in
   SDRAM (`.sdram_bss`). New audio code starts in flash, not `OT_FASTRUN_FN`, unless

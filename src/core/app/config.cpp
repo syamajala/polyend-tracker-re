@@ -105,6 +105,7 @@ void Config::sanitize() {
     clampField<uint8_t>(radioRegion, 3, 0);
     clampField<uint8_t>(streamMode, 2, 0);
     clampField<uint8_t>(streamThreshold, 3, 1);
+    clampField<uint8_t>(radioStereo, 1, 0);
     clampField<uint8_t>(exportRate, 1, 1);
     clampField<uint8_t>(brightness, 2, 2);
     clampField<uint8_t>(theme, 2, 0);
@@ -174,7 +175,7 @@ void Config::toExt(uint8_t* out) const {
     out[6] = synthVoices;
     out[7] = streamMode;
     out[8] = streamThreshold;
-    out[9] = extKeep[0];
+    out[9] = radioStereo;
     out[10] = exportRate;
     std::memcpy(out + 11, themeFile, sizeof(themeFile));
     out[32] = padLayout;
@@ -199,7 +200,7 @@ bool Config::fromExt(const uint8_t* in, uint32_t len) {
     const Config d;
     streamMode = (n >= 3 && in[7] <= 2) ? in[7] : d.streamMode;
     streamThreshold = (n >= 4 && in[8] <= 3) ? in[8] : d.streamThreshold;
-    extKeep[0] = n >= 5 ? in[9] : d.extKeep[0];
+    radioStereo = (n >= 5 && in[9] <= 1) ? in[9] : d.radioStereo;
     exportRate = (n >= 6 && in[10] <= 1) ? in[10] : 1;
     std::memset(themeFile, 0, sizeof(themeFile));
     if (n >= 6 + sizeof(themeFile) && in[11 + sizeof(themeFile) - 1] == 0) {
@@ -232,7 +233,7 @@ bool Config::fromImage(const uint8_t* img) {
     c.streamThreshold = streamThreshold;
     c.exportRate = exportRate;
     std::memcpy(c.themeFile, themeFile, sizeof(themeFile));
-    std::memcpy(c.extKeep, extKeep, sizeof(extKeep));
+    c.radioStereo = radioStereo;
     c.noteNames = noteNames;
     c.padLayout = padLayout;
     std::memcpy(c.perfExt, perfExt, sizeof(perfExt));
@@ -255,7 +256,7 @@ bool Config::load(INvStore& nv) {
     streamThreshold = d.streamThreshold;
     exportRate = d.exportRate;
     themeFile[0] = 0;
-    std::memcpy(extKeep, d.extKeep, sizeof(extKeep));
+    radioStereo = d.radioStereo;
     noteNames = d.noteNames;
     padLayout = d.padLayout;
     std::memset(perfExt, 0, sizeof(perfExt));
@@ -280,7 +281,7 @@ bool Config::save(INvStore& nv) {
     const Config d;
     bool extDefault = cpuMeter == d.cpuMeter && synthVoices == d.synthVoices && streamMode == d.streamMode &&
                       streamThreshold == d.streamThreshold && exportRate == d.exportRate && themeFile[0] == 0 &&
-                      std::memcmp(extKeep, d.extKeep, sizeof(extKeep)) == 0 && noteNames == d.noteNames &&
+                      radioStereo == d.radioStereo && noteNames == d.noteNames &&
                       padLayout == d.padLayout;
     for (uint8_t t : perfExt) extDefault = extDefault && t == 0;
     for (uint8_t t : perfArg) extDefault = extDefault && t == 0;
@@ -313,7 +314,7 @@ bool Config::load(IStorage& fs) {
         streamThreshold = d.streamThreshold;
         exportRate = d.exportRate;
         themeFile[0] = 0;
-        std::memcpy(extKeep, d.extKeep, sizeof(extKeep));
+        radioStereo = d.radioStereo;
         noteNames = d.noteNames;
         padLayout = d.padLayout;
         std::memset(perfExt, 0, sizeof(perfExt));

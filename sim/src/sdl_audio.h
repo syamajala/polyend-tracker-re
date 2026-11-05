@@ -67,6 +67,12 @@ public:
     }
     // Queue one sent block (128 interleaved frames) on that device; audio thread.
     void usbOut(const int16_t* block);
+    // Device buffer in frames (before start(); default 256) and output device
+    // name (SDL_GetAudioDeviceName; empty = the system default).
+    void setBufferFrames(int frames) { bufferFrames_ = frames; }
+    void setDeviceName(const std::string& name) { deviceName_ = name; }
+    int bufferFrames() const { return bufferFrames_; }
+    int obtainedFrames() const { return obtainedFrames_; }
     // Latest captured block (128 interleaved frames) or nullptr; audio thread only.
     const int16_t* lineIn() const { return line_.valid ? line_.block : nullptr; }
     const int16_t* usbIn() const { return usb_.valid ? usb_.block : nullptr; }
@@ -94,6 +100,8 @@ private:
     FillFn fn_ = nullptr;
     void* ctx_ = nullptr;
     SDL_AudioDeviceID dev_ = 0;
+    int bufferFrames_ = 256, obtainedFrames_ = 0;
+    std::string deviceName_;
     int16_t block_[kBlockFrames * kChannels] = {};
     uint32_t blockPos_ = kBlockFrames;
     Capture line_, usb_;
