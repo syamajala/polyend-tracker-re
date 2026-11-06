@@ -11,6 +11,9 @@ Checks an Intel HEX image for:
   * Only record types 00 (data), 01 (EOF) and 02 (segment address) are used, like stock.
   * The image ends on a 4 KB sector boundary and its last sector holds only zeros: the
     update bootloader can leave that sector unwritten (src/hal/opentracker.ld .flashpad).
+  * [I] No holes: every byte from 0 to the end is in the file. An image with a 4-byte hole
+    (a section's load address aligned up, 2026-11-05) did not boot after the update
+    bootloader wrote it; stock and every working image are contiguous.
 Usage: check_image.py <image.hex>
 """
 import sys
@@ -63,6 +66,10 @@ if top > STOCK_END:
     errors.append(f"image end 0x{top:x} beyond stock extent 0x{STOCK_END:x}")
 if top % SECTOR or any(byte(a) for a in range(top - SECTOR, top)):
     errors.append(f"image end 0x{top:x}: last {SECTOR}-byte sector is not all padding (zeros)")
+holes = [a for a in range(0, top) if a not in mem]
+if holes:
+    errors.append(f"{len(holes)} byte(s) missing from the image, first at 0x{holes[0]:x} "
+                  "(pad the section before it: the update bootloader expects a contiguous image)")
 if min(mem) < 0:
     errors.append("negative address")
 if types - ALLOWED_RECORDS:
