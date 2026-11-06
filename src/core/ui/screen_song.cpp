@@ -8,7 +8,6 @@
 #include "ui/progression.h"
 #include "ui/screens.h"
 #include "ui/widgets.h"
-#include "fmath.h"
 
 namespace ot {
 
@@ -250,9 +249,9 @@ void SongScreen::refreshBar() {
     char t[24];
     if (app_.cfg.clockIn) {
         if (app_.seq.externalClockLost()) std::snprintf(t, sizeof(t), "NO CLK");
-        else std::snprintf(t, sizeof(t), "%s BPM", fm::fixed(double(app_.seq.externalTempo()), 0).s);
+        else std::snprintf(t, sizeof(t), "%.0f BPM", double(app_.seq.externalTempo()));
     } else {
-        std::snprintf(t, sizeof(t), "%s BPM", fm::fixed(double(app_.project.tempo()), 1).s);
+        std::snprintf(t, sizeof(t), "%.1f BPM", double(app_.project.tempo()));
     }
     char top[24];
     if (tapShown && tapCount >= 2) std::snprintf(top, sizeof(top), "TAP %d/4", tapCount);

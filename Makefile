@@ -112,7 +112,7 @@ CXXFLAGS  := $(COMMON) -std=gnu++17 -fno-exceptions -fno-rtti -felide-constructo
 # Own linker script: the Teensy one + the uncached `.dma` section (src/hal/opentracker.ld).
 LDSCRIPT  := src/hal/opentracker.ld
 LDFLAGS   := $(CPUFLAGS) -O2 -Wl,--gc-sections,--defsym=__rtc_localtime=0,--no-warn-rwx-segments -T$(LDSCRIPT) \
-             --specs=nano.specs
+             --specs=nano.specs -u _printf_float
 LIBS      := -lm -lstdc++
 
 CORE_C    := $(wildcard $(CORE)/*.c)
@@ -206,8 +206,6 @@ $(BUILD)/%.cpp.o: %.cpp
 $(BUILD)/opentracker.elf: $(OBJS) $(LDSCRIPT)
 	$(CXX) $(LDFLAGS) $(OBJS) -L$(CORE) $(LIBS) -o $@ -Wl,-Map=$(BUILD)/opentracker.map
 	$(SIZE) $@
-	@# No float printf is linked (#122): "%f" would print nothing; use fm::fixed.
-	python3 -I tools/check_float_printf.py || { rm -f $@; exit 1; }
 	@# No static constructor may touch SDRAM (it is not running before main()).
 	python3 -I tools/check_ctors.py $(CROSS)objdump $@ || { rm -f $@; exit 1; }
 

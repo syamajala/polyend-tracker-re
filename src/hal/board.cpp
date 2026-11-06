@@ -21,7 +21,6 @@
 #include "telemetry.h"
 #include "app/project_io.h"
 #include "audio/cpu_meter.h"
-#include "fmath.h"
 
 static_assert(F_CPU == ot::board::kCoreHz && F_BUS == ot::board::kBusHz, "spec 01 §1 clocks");
 static_assert(ot::hal::hw::sdramRefreshCount(ot::board::kFlexBusHz, 15625) ==
@@ -640,7 +639,7 @@ void inputDiagLog() {
     const uint16_t st = r.reg(0x0A), pcfg = r.reg(0x02), s2 = r.reg(0x05);
     diagLogf("input: src %d ok %d | rx peak L %d R %d (%lu blocks) RCSR 0x%08lX (FEF %d) restarts %lu stale %lu | codec%s ANA_CTRL 0x%04X SSS_CTRL 0x%04X "
              "ANA_POWER 0x%04X ADCDAC_CTRL 0x%04X ANA_ADC_CTRL 0x%04X | switch PTE26 %d | radio state %u "
-             "pwr %d DEVID 0x%04X POWERCFG 0x%04X (DMUTE %d DSMUTE %d) VOL %u READCHAN %u %s MHz "
+             "pwr %d DEVID 0x%04X POWERCFG 0x%04X (DMUTE %d DSMUTE %d) VOL %u READCHAN %u %.1f MHz "
              "RSSI %u STC %u ST %u busy %d err %lu tunes ok %lu failed %lu",
              int(gInputSource), int(gInputOk), pl, pr, static_cast<unsigned long>(blocks),
              static_cast<unsigned long>(Sgtl5000Audio::rxStatus()), int((Sgtl5000Audio::rxStatus() >> 18) & 1),
@@ -649,7 +648,7 @@ void inputDiagLog() {
              unsigned(ana), unsigned(sss), unsigned(pwr), unsigned(adcdac), unsigned(adc),
              int(digitalReadFast(board::kTeensyRadioSwitch)), unsigned(r.stateCode()), int(r.powered()),
              unsigned(r.deviceId()), unsigned(pcfg), int((pcfg & 0x4000) != 0), int((pcfg & 0x8000) != 0),
-             unsigned(s2 & 0x0F), unsigned(r.reg(0x0B) & 0x3FF), fm::fixed(double(r.frequency()), 1).s, unsigned(st & 0xFF),
+             unsigned(s2 & 0x0F), unsigned(r.reg(0x0B) & 0x3FF), double(r.frequency()), unsigned(st & 0xFF),
              unsigned((st & 0x4000) != 0), unsigned((st & 0x0100) != 0), int(r.busy()),
              static_cast<unsigned long>(r.errorCount()), static_cast<unsigned long>(r.tunesDone()),
              static_cast<unsigned long>(r.tuneFailures()));

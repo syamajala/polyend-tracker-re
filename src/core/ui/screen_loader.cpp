@@ -9,7 +9,6 @@
 #include "sdram_bss.h"
 #include "ui/notes.h"
 #include "ui/screens.h"
-#include "fmath.h"
 
 namespace ot {
 
@@ -585,12 +584,12 @@ void LoaderScreen::refreshBar() {
         static const char* const kEveryText[ms::kEveryCount] = {"note", "2nd", "3rd", "4th", "6th", "12th"};
         b.set(2, "Every", kEveryText[multiOpt.every % ms::kEveryCount]);
         const uint16_t ml = ms::kLengthMs[multiOpt.length % ms::kLengthCount];
-        if (ml) std::snprintf(v, sizeof(v), "%s s", fm::fixed(double(ml) / 1000.0, 1).s);
+        if (ml) std::snprintf(v, sizeof(v), "%.1f s", double(ml) / 1000.0);
         else std::snprintf(v, sizeof(v), "Full");
         b.set(3, "Max length", v);
         ms::Plan p;
         multiPlan(p);
-        std::snprintf(v, sizeof(v), "%s MB", fm::fixed(double(p.totalFrames) * 2.0 / 1048576.0, 1).s);
+        std::snprintf(v, sizeof(v), "%.1f MB", double(p.totalFrames) * 2.0 / 1048576.0);
         b.set(4, "Size", v);
         b.set(5, "Cancel");
         b.set(7, "Load", nullptr, multiFits());
@@ -598,12 +597,12 @@ void LoaderScreen::refreshBar() {
         return;
     }
     if (trim) {
-        if (trimPlaying_) std::snprintf(v, sizeof(v), "%ss", fm::fixed(double(trimElapsed_) / 1000.0, 3).s);
+        if (trimPlaying_) std::snprintf(v, sizeof(v), "%.3fs", double(trimElapsed_) / 1000.0);
         else std::snprintf(v, sizeof(v), "-");
         b.set(0, "Preview", v);
-        std::snprintf(v, sizeof(v), "%ss", fm::fixed(double(trimStart) / 65535.0 * double(trimLen_ / 44100.0), 3).s);
+        std::snprintf(v, sizeof(v), "%.3fs", double(trimStart) / 65535.0 * double(trimLen_ / 44100.0));
         b.set(1, "Start", v);
-        std::snprintf(v, sizeof(v), "%ss", fm::fixed(double(trimEnd) / 65535.0 * double(trimLen_ / 44100.0), 3).s);
+        std::snprintf(v, sizeof(v), "%.3fs", double(trimEnd) / 65535.0 * double(trimLen_ / 44100.0));
         b.set(2, "End", v);
         b.set(5, "Cancel");
         b.setName(6, "Import", "low quality", importAllowed(true));
@@ -626,7 +625,7 @@ void LoaderScreen::refreshBar() {
     b.setName(5, "Delete", "unused", focus == 1);
     const float g = audio::trkGain(a.cfg.previewVolume);
     if (g <= 0) std::snprintf(v, sizeof(v), "-inf dB");
-    else std::snprintf(v, sizeof(v), "%s dB", fm::fixed(double(20.0f * std::log10(g)), 2).s);
+    else std::snprintf(v, sizeof(v), "%.2f dB", double(20.0f * std::log10(g)));
     b.set(6, "Preview Vol", v);
     const unsigned pct = unsigned(uint64_t(shown_) * 100 / (a.bank.capacityBytes() ? a.bank.capacityBytes() : 1));
     if (const int n = a.streamedCount()) std::snprintf(v, sizeof(v), "%u%% +%d", pct, n);   // + samples streamed
@@ -1361,7 +1360,7 @@ void LoaderScreen::draw(Gfx& g) {
         g.text(20, 160, kFontText, th.text, line);
         const double mb = double(p.totalFrames) * 2.0 / 1048576.0;
         const double fr = double(a.multisampleFreeFrames(insCursor)) * 2.0 / 1048576.0;
-        std::snprintf(line, sizeof(line), "%s MB of %s MB free", fm::fixed(mb, 1).s, fm::fixed(fr, 1).s);
+        std::snprintf(line, sizeof(line), "%.1f MB of %.1f MB free", mb, fr);
         g.text(20, 190, kFontText, multiFits() ? th.text : th.alert, line);
         if (p.tooMany) g.text(20, 220, kFontText, th.alert, "More than 48 notes: pick a smaller range or space them out");
         g.text(20, 390, kFontText, th.dim, "Each key plays the nearest note, repitched. Mono, one-shot.");

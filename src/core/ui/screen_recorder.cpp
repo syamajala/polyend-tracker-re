@@ -20,7 +20,6 @@
 
 #include "app/app.h"
 #include "ui/screens.h"
-#include "fmath.h"
 
 namespace ot {
 
@@ -220,7 +219,7 @@ void RecorderScreen::refreshBar() {
         const int src = a.cfg.recSource;
         b.set(0, "Source", sourceOk ? sourceName(src) : "n/a");
         if (src == 1) {
-            std::snprintf(v, sizeof(v), "%sMHz", fm::fixed(double(a.cfg.radioFreq10) / 10.0, 1).s);
+            std::snprintf(v, sizeof(v), "%.1fMHz", double(a.cfg.radioFreq10) / 10.0);
             b.set(1, "Radio Freq", v, sourceOk);
             // Seek up / down: blank labels drawn as arrow cells (appendix
             // C §2.3), "◀◀" on F3 and "▶▶" on F4 [S snap 005].
@@ -247,11 +246,11 @@ void RecorderScreen::refreshBar() {
         uint32_t s0, s1;
         selection(&s0, &s1);
         b.set(0, "Preview", "-");
-        std::snprintf(v, sizeof(v), "%s s", fm::fixed(double(s0) / 44100.0, 3).s);
+        std::snprintf(v, sizeof(v), "%.3f s", double(s0) / 44100.0);
         b.set(1, "Start Point", v);
-        std::snprintf(v, sizeof(v), "%s s", fm::fixed(double(s1) / 44100.0, 3).s);
+        std::snprintf(v, sizeof(v), "%.3f s", double(s1) / 44100.0);
         b.set(2, "End Point", v);
-        std::snprintf(v, sizeof(v), "%s", fm::fixed(double(view.zoom()), 2).s);
+        std::snprintf(v, sizeof(v), "%.2f", double(view.zoom()));
         b.set(3, "Zoom", v);
         b.set(4, "Crop", nullptr, startM > 0 || endM < 65535);
         b.set(5, "Undo", nullptr, undoDepth > 0);
@@ -805,12 +804,12 @@ void RecorderScreen::draw(Gfx& g) {
         if (a.capture.state() == Capture::kCountIn) {
             g.text(400, 80, kFontLarge, th.yellow, "Counting in...", IDisplay::kOptCenter);
         } else {
-            g.textf(400, 80, kFontLarge, th.alert, IDisplay::kOptCenter, a.capture.stereo() ? "Recording ST  %s s"
-                                                                                          : "Recording  %s s",
-                    fm::fixed(double(l) / 44100.0, 1).s);
+            g.textf(400, 80, kFontLarge, th.alert, IDisplay::kOptCenter, a.capture.stereo() ? "Recording ST  %.1f s"
+                                                                                          : "Recording  %.1f s",
+                    double(l) / 44100.0);
         }
-        g.textf(400, 370, kFontSmall, th.dim, IDisplay::kOptCenter, "Memory: %s s left",
-                fm::fixed(double(a.capture.capacity() - l) / 44100.0, 1).s);
+        g.textf(400, 370, kFontSmall, th.dim, IDisplay::kOptCenter, "Memory: %.1f s left",
+                double(a.capture.capacity() - l) / 44100.0);
         return;
     }
     if (state == 0) {
@@ -831,8 +830,8 @@ void RecorderScreen::draw(Gfx& g) {
         // the blank double panel, which stays blank above it as on stock.
         const bool st2 = a.capture.stereo();
         const double freeS = double(a.bank.freeSamples()) / (st2 ? 2.0 : 1.0) / 44100.0;
-        g.textf(kColX0 + 200 + wg::columnW(2) / 2, 407, kFontSmall, th.dim, IDisplay::kOptCenter, "Free %s s %s",
-                fm::fixed(freeS, 1).s, st2 ? "stereo" : "mono");
+        g.textf(kColX0 + 200 + wg::columnW(2) / 2, 407, kFontSmall, th.dim, IDisplay::kOptCenter, "Free %.1f s %s",
+                freeS, st2 ? "stereo" : "mono");
         // Level meter (appendix C §2.3 obj+0x68, §2.6): a green bar, the
         // 61..70 / 71..84 bands and the clip window in their colours. 2.x
         // stereo: L and R as two half-width bars side by side in the column.
@@ -890,7 +889,7 @@ void RecorderScreen::draw(Gfx& g) {
     if (xe >= kWaveX && xe <= last) waveMarker(g, th, xe, sel == 2 ? th.accent : wave, -1, true, false, 108, 334);
     headX_ = playheadX();
     if (headX_ >= 0) g.vline(headX_, kWaveY, kWaveH, th.good);
-    g.textf(400, 80, kFontText, th.text, IDisplay::kOptCenter, "Recorded %s s   crop levels %d/%d", fm::fixed(double(len) / 44100.0, 2).s,
+    g.textf(400, 80, kFontText, th.text, IDisplay::kOptCenter, "Recorded %.2f s   crop levels %d/%d", double(len) / 44100.0,
             undoDepth, kUndoLevels);
 }
 
