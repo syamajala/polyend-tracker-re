@@ -103,7 +103,7 @@ $(OUT)/snapshots:
 	mkdir -p $@
 run: $(TEST_RUNS)
 $(TEST_RUNS): %.run: % | $(OUT)/snapshots
-	@OT_SNAPSHOT_DIR=$(abspath $(OUT))/snapshots OT_FIXTURES=$(CURDIR)/fixtures OT_VENDOR_FIXTURES=$(OT_VENDOR_FIXTURES) $<
+	@OT_SNAPSHOT_DIR=$(abspath $(OUT))/snapshots OT_OTM_DIR=$(abspath ../build/$(PROFILE)/otm) OT_FIXTURES=$(CURDIR)/fixtures OT_VENDOR_FIXTURES=$(OT_VENDOR_FIXTURES) $<
 
 # Audio render benchmark (tests/audio_bench.cpp): -O2, no sanitizers.
 BENCH_OUT := ../build/$(PROFILE)/bench
