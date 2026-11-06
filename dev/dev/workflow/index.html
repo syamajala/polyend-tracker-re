@@ -1093,6 +1093,11 @@
 <ul>
 <li><strong><code>main</code></strong> is the fork's integration branch: what gets flashed and released. It's never
   rebased; upstream releases are merged into it.</li>
+<li><strong><code>main-v3</code></strong> is <code>main</code> merged with upstream's 3.x (synth and FX modules, build
+  profiles), kept in parallel. Work happens on <code>main</code>. <code>main-v3</code> is brought up to date by
+  merging <code>main</code> and <code>upstream/v3</code> into it, never by rebasing. Upstream's first v3 snapshot
+  rolled back some 2.2.x work, so check every v3 merge for deletions
+  (<code>git diff upstream/v2 upstream/v3</code>).</li>
 <li><strong><code>v2</code></strong> mirrors upstream's <code>v2</code> (<code>sandlbn/polyend-tracker-re</code>) and is fast-forwarded
   when upstream moves.</li>
 <li><strong>Feature branches</strong> come into <code>main</code> through pull requests on the fork, with CI. A
