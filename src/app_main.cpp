@@ -13,6 +13,7 @@
 #include "hal/hal.h"
 #include "hal/i2c_bus.h"
 #include "hal/midi_ports.h"
+#include "hal/module_pool.h"
 #include "hal/input.h"
 #include "hal/nvstore_eeprom.h"
 #include "hal/pad_leds.h"
@@ -150,6 +151,16 @@ void dlOverflow(const char* screen, uint32_t words, uint32_t dropped, bool lowDe
     ot::hal::diagLogf("ui: display list over budget on %s: cut at %lu words, %lu primitives dropped%s", screen,
                       static_cast<unsigned long>(words), static_cast<unsigned long>(dropped),
                       lowDetail ? " (low detail)" : "; low detail from the next frame");
+}
+
+// [I] #21: what happened to each Modules/*.otm (diag log; the pool's use).
+void logModuleLoad(const ot::mod::OtmLoadReport& r) {
+    for (int i = 0; i < r.n; ++i)
+        ot::hal::diagLogf("modules: %s %s", r.items[i].file,
+                          r.items[i].refused ? "refused (id taken, api or attach)"
+                                             : ot::mod::otmErrorText(r.items[i].error));
+    if (r.n) ot::hal::diagLogf("modules: pool %lu of %lu B used", static_cast<unsigned long>(r.used),
+                              static_cast<unsigned long>(ot::hal::modulePool()->cap));
 }
 
 // Headphone-amp level (spec 01 §5.1 volume(v)); the stock boot value is not
@@ -520,7 +531,9 @@ void otAppMain(ot::hal::HalSet& hal) {
     refs.remote = gRemote;   // 2.x USB Storage mode (null in an OT_USB_MSC=0 image)
     static hal::SdStreamReader sStreamReader(hal::storage());
     refs.streamReader = &sStreamReader;   // SD streaming (raw sectors through the cluster map)   // 2.x USB Storage mode (null in an OT_USB_MSC=0 image)
+    refs.modulePool = hal::modulePool();   // [I] #21: Modules/*.otm from the card
     if (!gApp.init(refs, mem)) return;   // falls back to the selftest
+    logModuleLoad(gApp.moduleLoadReport());
     hal::setPowerOffHook(&powerOffHook);
     gApp.ui.platform.devStats = &devStats;         // Config /.develop overlay (spec 06 §7.2)
     gApp.ui.platform.devStatsReset = &devStatsReset;
@@ -532,6 +545,15 @@ void otAppMain(ot::hal::HalSet& hal) {
     // Stack guard: an overflow resets the Tracker; say so on screen, not
     // only in the USB diag log, so it never looks like a random reboot. With
     // the guard off (ot_noguard.txt) a lockup is some other double fault.
+    // [I] #21: a module on the card that didn't load says so (the first one).
+    for (int i = 0; i < gApp.moduleLoadReport().n; ++i) {
+        const ot::mod::OtmLoadReport::Item& it = gApp.moduleLoadReport().items[i];
+        if (it.error == ot::mod::OtmError::None && !it.refused) continue;
+        char t[64];
+        snprintf(t, sizeof(t), "Module %s: %s", it.file, it.refused ? "refused" : ot::mod::otmErrorText(it.error));
+        gApp.ui.notify(t, 6000);
+        break;
+    }
     if (hal::lastResetWasLockup())
         gApp.ui.notify(hal::stackGuardArmed() ? "Restarted after a crash (stack overflow)"
                                               : "Restarted after a crash", 8000);

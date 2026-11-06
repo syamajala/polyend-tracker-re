@@ -95,8 +95,10 @@ FLASH_WARN = 720000
 # guard (src/hal/stack_guard.h) it also holds the 4 KB heap reserve and the 8 KB guard, so
 # the stack itself gets at least 63 KiB. Measured on the device (telemetry "stack peak"):
 # 10,852 B over playback, synths + chords, Sample Editor effects, open / save / Open Recent,
-# export and import, resample, USB storage; the heap ~0.2 KB. Was 90 KiB.
-STACK_MIN = 75 * 1024
+# export and import, resample, USB storage; the heap ~0.2 KB. Was 90 KiB, then 75 KiB.
+# [I] 60 KiB since fork #21 (2026-11-05): the module pool (src/hal/module_pool.cpp) takes
+# 12 KB of SRAM_L; the stack peak over a full device check that day was 7,860 B.
+STACK_MIN = 60 * 1024
 # newlib double-precision libm entry points / kernels (the float ones end in f).
 DOUBLE_LIBM = {"__ieee754_pow", "__ieee754_exp", "__ieee754_log", "__ieee754_log10", "__ieee754_sqrt",
                "__ieee754_rem_pio2", "__kernel_rem_pio2", "__kernel_sin", "__kernel_cos", "pow", "exp", "log",
