@@ -103,6 +103,9 @@ OpenTracker (one MIT exception below).
 ## Branches and PRs
 
 - `main` is the integration branch and is never rebased. Upstream releases are merged into it.
+- `main-v3` runs in parallel: `main` merged with upstream 3.x (modules, profiles). Work
+  goes on `main`; build on `main-v3` only when asked. Keep it current by merging `main`
+  and `upstream/v3` into it, never by rebasing.
 - A change meant for upstream (`sandlbn/polyend-tracker-re`) branches from `upstream/v2`;
   fork-only work can branch from `main`. Upstream PRs go one at a time, and upstream
   squash-merges, so rebase stacked branches after each merge.

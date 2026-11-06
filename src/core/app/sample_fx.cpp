@@ -302,21 +302,21 @@ void formatParam(int fx, int i, float v, char* out, int cap) {
     const ParamDesc& d = e.p[i];
     switch (d.fmt) {
         case kFmtInt: std::snprintf(out, c, "%d", int(std::lround(v))); break;
-        case kFmtFloat2: std::snprintf(out, c, "%s", fm::fixed(double(v), 2).s); break;
-        case kFmtFloat1: std::snprintf(out, c, "%s", fm::fixed(double(v), 1).s); break;
+        case kFmtFloat2: std::snprintf(out, c, "%.2f", double(v)); break;
+        case kFmtFloat1: std::snprintf(out, c, "%.1f", double(v)); break;
         case kFmtPercent: std::snprintf(out, c, "%d%%", int(std::lround(v))); break;
         case kFmtX100: std::snprintf(out, c, "%d%%", int(std::lround(v * 100.0f))); break;
         case kFmtMs: std::snprintf(out, c, "%d ms", int(std::lround(v))); break;
-        case kFmtMsF: std::snprintf(out, c, "%s ms", fm::fixed(double(v), 1).s); break;
+        case kFmtMsF: std::snprintf(out, c, "%.1f ms", double(v)); break;
         case kFmtHz: std::snprintf(out, c, "%d Hz", int(std::lround(v))); break;
-        case kFmtHzF: std::snprintf(out, c, "%s Hz", fm::fixed(double(v), 1).s); break;
+        case kFmtHzF: std::snprintf(out, c, "%.1f Hz", double(v)); break;
         // EQ gains step 0.05 dB: two decimals; thresholds step 1 dB (manual
         // p.213, MANUAL_AUDIT_2026-10-23 #15).
         case kFmtDb: std::snprintf(out, c, "%d dB", int(std::lround(v))); break;
-        case kFmtDb2: std::snprintf(out, c, "%s dB", fm::fixed(double(v), 2).s); break;
-        case kFmtSamplesMs: std::snprintf(out, c, "%s ms", fm::fixed(double(v * 1000.0f / kRate), 1).s); break;
-        case kFmtQuarter: std::snprintf(out, c, "%s", fm::fixed(double(v * 0.25f), 2).s); break;
-        case kFmtSeconds: std::snprintf(out, c, "%s s", fm::fixed(double(v), 2).s); break;
+        case kFmtDb2: std::snprintf(out, c, "%.2f dB", double(v)); break;
+        case kFmtSamplesMs: std::snprintf(out, c, "%.1f ms", double(v * 1000.0f / kRate)); break;
+        case kFmtQuarter: std::snprintf(out, c, "%.2f", double(v * 0.25f)); break;
+        case kFmtSeconds: std::snprintf(out, c, "%.2f s", double(v)); break;
         case kFmtBpm: std::snprintf(out, c, "%d BPM", int(std::lround(v))); break;
         case kFmtLabel: {
             const int k = int(std::lround(v));

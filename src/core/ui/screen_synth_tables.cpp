@@ -15,7 +15,6 @@
 #include "modules/module.h"
 #include "ui/notes.h"
 #include "ui/screens.h"
-#include "fmath.h"
 
 namespace ot {
 namespace synthui {
@@ -116,18 +115,18 @@ void formatValue(int32_t engine, int index, float v, char* out, int cap) {
     const ParamUi* u = paramUi(engine, index);
     const size_t c = size_t(cap);
     if (!u) {
-        std::snprintf(out, c, "%s", fm::fixed(double(v), 2).s);
+        std::snprintf(out, c, "%.2f", double(v));
         return;
     }
     switch (u->fmt) {
         case kFmtPct: std::snprintf(out, c, "%d %%", roundi(v * 100.0f)); break;
         case kFmtVal100: std::snprintf(out, c, "%d", roundi(v * 100.0f)); break;
-        case kFmtSec: std::snprintf(out, c, "%s s", fm::fixed(double(v), 2).s); break;
+        case kFmtSec: std::snprintf(out, c, "%.2f s", double(v)); break;
         case kFmtHz:
-            if (v >= 1000.0f) std::snprintf(out, c, "%s kHz", fm::fixed(double(v) / 1000.0, 2).s);
+            if (v >= 1000.0f) std::snprintf(out, c, "%.2f kHz", double(v) / 1000.0);
             else std::snprintf(out, c, "%d Hz", roundi(v));
             break;
-        case kFmtLfoHz: std::snprintf(out, c, "%s Hz", fm::fixed(double(v), 2).s); break;
+        case kFmtLfoHz: std::snprintf(out, c, "%.2f Hz", double(v)); break;
         case kFmtEnum: {
             const int i = roundi(v);
             if (u->names && i >= 0 && i < u->nameCount) std::snprintf(out, c, "%s", u->names[i]);
@@ -140,11 +139,11 @@ void formatValue(int32_t engine, int index, float v, char* out, int cap) {
         case kFmtInt: std::snprintf(out, c, "%d", roundi(v)); break;
         case kFmtRatio: {   // index 0..47 -> (i + 1) / 4
             const int i = roundi(v);
-            std::snprintf(out, c, "%s", fm::fixed(0.25 * double((i < 0 ? 0 : (i > 47 ? 47 : i)) + 1), 2).s);
+            std::snprintf(out, c, "%.2f", 0.25 * double((i < 0 ? 0 : (i > 47 ? 47 : i)) + 1));
             break;
         }
-        case kFmtMs: std::snprintf(out, c, "%s ms", fm::fixed(double(v), 1).s); break;
-        case kFmtDb: std::snprintf(out, c, "%s dB", fm::fixed(double(v), 1).s); break;
+        case kFmtMs: std::snprintf(out, c, "%.1f ms", double(v)); break;
+        case kFmtDb: std::snprintf(out, c, "%.1f dB", double(v)); break;
         case kFmtNote: {
             char n[4];
             noteName(int8_t(clampf(std::floor(v + 0.5f), 0, 127)), n);
@@ -158,7 +157,7 @@ void formatValue(int32_t engine, int index, float v, char* out, int cap) {
             break;
         }
         case kFmtPctMax: std::snprintf(out, c, "%d %%", roundi(v / pctScale(engine, index) * 100.0f)); break;
-        case kFmtMs10: std::snprintf(out, c, "%s ms", fm::fixed(double(v) * 0.1, 2).s); break;
+        case kFmtMs10: std::snprintf(out, c, "%.2f ms", double(v) * 0.1); break;
         case kFmtPercNote: {
             // Manual p.166: 12..119 = C0..B8 (kick C4 = 60).
             const int n = int(clampf(std::floor(v + 0.5f), 12.0f, 127.0f));
@@ -172,7 +171,7 @@ void formatValue(int32_t engine, int index, float v, char* out, int cap) {
             else std::snprintf(out, c, "%d", i);
             break;
         }
-        default: std::snprintf(out, c, "%s", fm::fixed(double(v), 2).s); break;
+        default: std::snprintf(out, c, "%.2f", double(v)); break;
     }
 }
 
@@ -292,14 +291,14 @@ int targetChoiceIndex(int32_t engine, int param) {
 
 void gainText(float db, char* out, int cap) {
     if (!(db > -96.0f)) std::snprintf(out, size_t(cap), "-inf dB");
-    else std::snprintf(out, size_t(cap), "%s dB", fm::fixed(double(db), 2).s);
+    else std::snprintf(out, size_t(cap), "%.2f dB", double(db));
 }
 
 void sendText(float v, char* out, int cap) {
     // SEND law (audio_tables.h): 0 -> silent, i -> -40 + 0.4 i dB.
     const int i = int(std::lround(v));
     if (i <= 0) std::snprintf(out, size_t(cap), "-inf dB");
-    else std::snprintf(out, size_t(cap), "%s dB", fm::fixed(-40.0 + 0.4 * double(i > 100 ? 100 : i), 2).s);
+    else std::snprintf(out, size_t(cap), "%.2f dB", -40.0 + 0.4 * double(i > 100 ? 100 : i));
 }
 
 }  // namespace synthui

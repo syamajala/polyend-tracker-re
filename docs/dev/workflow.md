@@ -4,6 +4,11 @@
 
 - **`main`** is the fork's integration branch: what gets flashed and released. It's never
   rebased; upstream releases are merged into it.
+- **`main-v3`** is `main` merged with upstream's 3.x (synth and FX modules, build
+  profiles), kept in parallel. Work happens on `main`. `main-v3` is brought up to date by
+  merging `main` and `upstream/v3` into it, never by rebasing. Upstream's first v3 snapshot
+  rolled back some 2.2.x work, so check every v3 merge for deletions
+  (`git diff upstream/v2 upstream/v3`).
 - **`v2`** mirrors upstream's `v2` (`sandlbn/polyend-tracker-re`) and is fast-forwarded
   when upstream moves.
 - **Feature branches** come into `main` through pull requests on the fork, with CI. A

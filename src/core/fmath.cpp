@@ -154,51 +154,5 @@ const double kNoteRatio[128] = {
     0x1.428a2f98d728ap+5, 0x1.55b8108f0ec5fp+5, 0x1.6a09e667f3bcdp+5, 0x1.7f910d768cfafp+5
 };
 
-Fixed fixed(double v, int decimals) {
-    Fixed f{};
-    char* o = f.s;
-    uint64_t bits;
-    std::memcpy(&bits, &v, sizeof bits);
-    if (bits >> 63) *o++ = '-';   // printf keeps the sign of -0.0 and of -0.04 -> "-0.0"
-    const int e = int((bits >> 52) & 0x7ff);
-    uint64_t m = bits & ((uint64_t(1) << 52) - 1);
-    if (e == 0x7ff) {
-        std::memcpy(o, m ? "nan" : "inf", 4);
-        return f;
-    }
-    if (decimals < 0) decimals = 0;
-    if (decimals > 3) decimals = 3;
-    uint64_t p10 = 1;
-    for (int i = 0; i < decimals; ++i) p10 *= 10;
-    // v = m * 2^-s; q = round(m * p10 * 2^-s), exact in 64 bits (m < 2^53, p10 <= 1000).
-    int s = 1075 - e;
-    if (e) m |= uint64_t(1) << 52;
-    else s = 1074;
-    uint64_t q;
-    if (s <= 0) {
-        q = ~uint64_t(0);               // |v| >= 2^53: clamped below
-    } else if (s >= 64) {
-        q = 0;                          // below 2^-11 times the last digit: rounds to 0
-    } else {
-        const uint64_t n = m * p10;
-        q = n >> s;
-        const uint64_t r = n & ((uint64_t(1) << s) - 1), half = uint64_t(1) << (s - 1);
-        if (r > half || (r == half && (q & 1))) ++q;
-    }
-    const uint64_t qMax = 1000000000 * p10 - 1;
-    if (q > qMax) q = qMax;
-    char d[24];
-    int k = 0;
-    do {
-        d[k++] = char('0' + q % 10);
-        q /= 10;
-    } while (q || k <= decimals);
-    while (k > decimals) *o++ = d[--k];
-    if (decimals) *o++ = '.';
-    while (k) *o++ = d[--k];
-    *o = 0;
-    return f;
-}
-
 }  // namespace fm
 }  // namespace ot

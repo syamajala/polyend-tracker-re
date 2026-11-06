@@ -2,7 +2,6 @@
 // Register names and bits from the public Si4702/03-C19 datasheet and Silicon
 // Labs AN230. Platform independent: the device glue is radio_si4703_port.cpp.
 #include "radio_si4703.h"
-#include "fmath.h"
 
 namespace ot {
 namespace hal {
@@ -220,11 +219,11 @@ void Si4703Radio::logDone(const char* what, uint32_t now) {
     if (!port_.log) return;
     const uint16_t st = regs_[STATUSRSSI];
     port_.log("radio: %s %s after %lu ms: POWERCFG 0x%04X CHANNEL 0x%04X SYSCONFIG1 0x%04X SYSCONFIG2 0x%04X "
-              "READCHAN 0x%04X (chan %u = %s MHz) STATUSRSSI 0x%04X (RSSI %u ST %u SF/BL %u STC %u)",
+              "READCHAN 0x%04X (chan %u = %.1f MHz) STATUSRSSI 0x%04X (RSSI %u ST %u SF/BL %u STC %u)",
               what, timedOut_ ? "FAILED (no STC)" : "done", static_cast<unsigned long>(now - t0_),
               unsigned(regs_[POWERCFG]), unsigned(regs_[CHANNEL]), unsigned(regs_[SYSCONFIG1]),
               unsigned(regs_[SYSCONFIG2]), unsigned(regs_[READCHAN]), unsigned(regs_[READCHAN] & 0x3FF),
-              fm::fixed(double(freq_), 1).s, unsigned(st), unsigned(st & 0xFF), unsigned((st & ST_ST) != 0),
+              double(freq_), unsigned(st), unsigned(st & 0xFF), unsigned((st & ST_ST) != 0),
               unsigned((st & ST_SFBL) != 0), unsigned((st & ST_STC) != 0));
 }
 

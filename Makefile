@@ -130,11 +130,12 @@ OBJS      += $(MOD_OBJS)
 #    the audio block on a pattern switch), the Teensy core (USB / DMA ISRs);
 #  - app.cpp (App::preBlock, ISequencerHost callbacks), capture.cpp (recorder
 #    tap in the audio block), render.cpp (offline engine render loop);
+#  - float_format.cpp (printf %f, #122) builds with -Os too: UI text only.
 #  - hal: ft81x.cpp (display SPI/DMA), sdhc.cpp (SD transfers), sdram_cache.cpp,
 #    audio_sgtl5000.cpp (I2S DMA ISRs), diag.cpp (USB drain / fault handler ISR),
 #    board.cpp (PORTC ISR), usb_storage.cpp (USB interrupt hook, SD block I/O for the computer).
 OS_DIRS   := src/core/ui/% src/core/app/% src/hal/% src/core/formats/% src/core/remote/% \
-             third_party/fatfs/%
+             third_party/fatfs/% src/core/float_format.cpp
 O2_KEEP   := src/core/app/app.cpp src/core/app/capture.cpp src/core/app/render.cpp \
              src/hal/ft81x.cpp src/hal/sdhc.cpp src/hal/sdram_cache.cpp src/hal/audio_sgtl5000.cpp \
              src/hal/diag.cpp src/hal/board.cpp src/hal/usb_storage.cpp src/hal/usb_audio.cpp
@@ -203,8 +204,9 @@ $(BUILD)/mod/%.cpp.o: %.cpp
 $(BUILD)/opentracker.elf: $(OBJS) $(LDSCRIPT)
 	$(CXX) $(LDFLAGS) $(OBJS) -L$(CORE) $(LIBS) -o $@ -Wl,-Map=$(BUILD)/opentracker.map
 	$(SIZE) $@
-	@# No float printf is linked (#122): "%f" would print nothing; use fm::fixed.
-	python3 -I tools/check_float_printf.py || { rm -f $@; exit 1; }
+	@# [I] printf %f / %e / %g go through our _printf_float (src/hal/printf_float.cpp,
+	@# #122), not newlib's (dtoa, ~12 KB): without either, "%f" would print nothing.
+	$(CROSS)nm $@ | grep -q ' T _printf_float$$' || { echo "_printf_float missing: %f would print nothing"; rm -f $@; exit 1; }
 	@# No static constructor may touch SDRAM (it is not running before main()).
 	python3 -I tools/check_ctors.py $(CROSS)objdump $@ || { rm -f $@; exit 1; }
 
@@ -223,6 +225,10 @@ HOST_JOBS ?= $(shell nproc 2>/dev/null || echo 4)
 host-test:
 	python3 -I tools/fonts/pack_fonts.py --check src/core/ui/fonts
 	$(MAKE) -C tests -j$(HOST_JOBS) -Otarget
+	@# [I] The device's printf %f (newlib-nano + our hook) against glibc under QEMU.
+	@if command -v qemu-system-arm >/dev/null 2>&1 && command -v $(CROSS)g++ >/dev/null 2>&1; then \
+	    $(MAKE) -s -C tests printf-m4 CROSS=$(CROSS); \
+	else echo "host-test: qemu-system-arm or $(CROSS)g++ missing -- printf-m4 SKIPPED"; fi
 
 clean:
 	rm -rf $(BUILD)

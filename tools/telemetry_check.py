@@ -97,8 +97,9 @@ FLASH_WARN = 720000
 # 10,852 B over playback, synths + chords, Sample Editor effects, open / save / Open Recent,
 # export and import, resample, USB storage; the heap ~0.2 KB. Was 90 KiB.
 STACK_MIN = 75 * 1024
-# newlib double-precision libm entry points / kernels (the float ones end in f).
-DOUBLE_LIBM = {"__ieee754_pow", "__ieee754_exp", "__ieee754_log", "__ieee754_log10", "__ieee754_sqrt",
+# newlib double-precision libm entry points / kernels (the float ones end in f),
+# and _dtoa_r: newlib's own float printf (ours is src/hal/printf_float.cpp).
+DOUBLE_LIBM = {"_dtoa_r", "__ieee754_pow", "__ieee754_exp", "__ieee754_log", "__ieee754_log10", "__ieee754_sqrt",
                "__ieee754_rem_pio2", "__kernel_rem_pio2", "__kernel_sin", "__kernel_cos", "pow", "exp", "log",
                "log10", "sin", "cos", "tan", "sqrt", "floor", "ceil", "lround", "round", "trunc", "fmod"}
 
@@ -597,6 +598,8 @@ def selftest():
     ok, head = check_symbols(nm, quiet=True)
     assert ok and head == 0x19000, head
     ok, _ = check_symbols(nm + ["0006b500 T __ieee754_pow"], quiet=True)
+    assert not ok
+    ok, _ = check_symbols(nm + ["0006b600 T _dtoa_r"], quiet=True)
     assert not ok
     ok, head = check_symbols(["20030000 B _estack", "20023820 B _ebss"], quiet=True)
     assert not ok and head == 51168

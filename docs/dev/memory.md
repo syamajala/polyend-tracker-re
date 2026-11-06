@@ -22,12 +22,20 @@ below are the 2026-10-23 audit and are kept for the comparison with upstream.*
 | **`.sdram_bss` free** | **60,592 B** | **22,208 B** |
 
 - **Flash audit (#122, 2026-11-05):** 790,528 → 774,144 B (the gate number,
-  which counts the 4 KB-aligned zero padding after `.data`).
-  - **No float printf (−12 KB):** newlib's `%f` (dtoa, mprec and their soft-double
-    helpers) is no longer linked. `fm::fixed()` (`src/core/fmath.h`) prints the same
-    text as printf's `%.Nf`, and `tools/check_float_printf.py` fails the firmware
-    build on any `%f` / `%e` / `%g`: without the float printf it would print nothing
-    on the device while the simulator still shows the number.
+  which counts the 4 KB-aligned zero padding after `.data`); 778,240 B once our
+  own float printf came back (2026-11-06).
+  - **Our own float printf (−12 KB, +1.3 KB):** newlib's `%f` (dtoa, mprec and
+    their soft-double helpers) is no longer linked. newlib-nano calls a weak
+    `_printf_float` for every float conversion; `src/hal/printf_float.cpp`
+    defines it with `fm::formatFloat()` (`src/core/float_format.h`), which prints
+    glibc's digits from 64-bit integers: exact for |v| < 1e9 with up to 9
+    decimals, `%e` / `%g` as `%f`. So `%f` works on the device, in our code and
+    in modules, and the call sites read as upstream's (#131's `fm::fixed` is
+    reverted). The firmware link fails without the hook (`%f` would print
+    nothing), and `telemetry_check.py size` fails if newlib's `_dtoa_r` comes
+    back. `make host-test` also runs `make -C tests printf-m4`: the toolchain's
+    own `snprintf` with the hook under QEMU, diffed against glibc, so a newlib
+    that changes the hook's arguments fails there.
   - **DX7 sine table built at boot (−4 KB):** `gDx7Sin` stays in SRAM but is no
     longer copied from flash; `dx7::initSinTable()` runs msfa's integer recipe
     (~60 µs) from `audio::initTables()`.
