@@ -168,6 +168,31 @@ sfx-bench: $(BENCH_OUT)/sfx_bench
 	$<
 .PHONY: sfx-bench sfx-bench-m4
 
+# [I] printf float on the device (bench_m4/printf_float_check.cpp): the
+# toolchain's newlib-nano snprintf with our _printf_float hook under QEMU,
+# diffed against the same cases through glibc. No -u _printf_float: newlib's
+# own float printf must stay out, as in the firmware.
+PF_SRCS := $(SRC)/core/float_format.cpp $(SRC)/hal/printf_float.cpp
+PF_DEPS := bench_m4/printf_float_check.cpp float_format_cases.h $(SRC)/core/float_format.h $(PF_SRCS)
+$(BENCH_OUT)/printf_float_m4.elf: $(PF_DEPS) bench_m4/startup.c bench_m4/mps2.ld
+	@mkdir -p $(dir $@)
+	$(M4_CC) $(M4_FLAGS) -c bench_m4/startup.c -o $(BENCH_OUT)/startup_m4.o
+	$(M4_CXX) $(M4_FLAGS) -std=gnu++17 -fno-exceptions -fno-rtti -I$(SRC)/core -I$(SRC) -I. \
+	    bench_m4/printf_float_check.cpp $(PF_SRCS) $(BENCH_OUT)/startup_m4.o -T bench_m4/mps2.ld -nostartfiles \
+	    --specs=nano.specs --specs=rdimon.specs -Wl,--gc-sections -o $@
+	@if $(CROSS)nm $@ | grep -q ' _dtoa_r$$'; then echo "printf-m4: newlib's float printf got linked"; rm -f $@; exit 1; fi
+$(BENCH_OUT)/printf_float_host: $(PF_DEPS)
+	@mkdir -p $(dir $@)
+	$(CXX) -std=c++17 -O1 -I$(SRC)/core -I$(SRC) -I. bench_m4/printf_float_check.cpp -o $@
+printf-m4: $(BENCH_OUT)/printf_float_m4.elf $(BENCH_OUT)/printf_float_host
+	qemu-system-arm -M mps2-an386 -nographic -semihosting-config enable=on,target=native \
+	    -kernel $< > $(BENCH_OUT)/printf_float_m4.txt
+	$(BENCH_OUT)/printf_float_host > $(BENCH_OUT)/printf_float_host.txt
+	diff $(BENCH_OUT)/printf_float_host.txt $(BENCH_OUT)/printf_float_m4.txt > $(BENCH_OUT)/printf_float.diff \
+	    || { head -20 $(BENCH_OUT)/printf_float.diff; echo "printf-m4: device printf differs from glibc"; exit 1; }
+	@echo "printf-m4: $$(wc -l < $(BENCH_OUT)/printf_float_host.txt) lines match glibc"
+.PHONY: printf-m4
+
 # Listening test (sfx_render.cpp): old vs new effects to WAV, before / after and
 # blind A / B with key.txt. SFX_RENDER_OUT, SFX_RENDER_IN: output folder, extra WAVs.
 SFX_RENDER_OUT ?= $(BENCH_OUT)/sfx_listen

@@ -45,17 +45,5 @@ double sqrtD(double x);           // x >= 0
 // pow(2.0, (note - 60) / 12.0) for every note.
 extern const double kNoteRatio[128];
 
-// [I] #122 printf("%.*f", decimals, v) for decimals 0..3 and |v| < 1e9, without
-// newlib's float printf (dtoa + mprec, ~11 KB of flash): the exact binary
-// value, rounded half to even, as newlib and glibc print it
-// (tests/fmath_test.cpp). Larger values print as 999999999 (.999).
-// Use it with "%s": snprintf(out, n, "%s dB", fm::fixed(db, 2).s). The
-// firmware links no float printf, so "%f" would print nothing
-// (tools/check_float_printf.py rejects it).
-struct Fixed {
-    char s[16];   // "-999999999.999"
-};
-Fixed fixed(double v, int decimals);
-
 }  // namespace fm
 }  // namespace ot
