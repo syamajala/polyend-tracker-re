@@ -60,33 +60,6 @@ bool patchOpaqueBytes(const SynthPatch& p, uint32_t field, const uint8_t** data,
 // False when the opaque area would overflow (p unchanged).
 bool patchSetOpaqueBytes(SynthPatch& p, uint32_t field, const uint8_t* data, size_t len);
 
-// ---- DX7 voice (OpenTracker engine kSynthEngineDx7, issue #20) --------------
-// A DX7 patch keeps its 155-byte single voice (VCED, audio/engines/dx7.h) in
-// top-level field 100, past every Tracker Mini field (a Mini, which has no
-// DX7 model, would skip it). The params are the engine's own controls on top
-// of the voice (kDx7*).
-constexpr uint32_t kPatchFieldDx7Voice = 100;
-constexpr int kDx7VoiceBytes = 155;
-extern const uint8_t kDx7InitVoice[kDx7VoiceBytes];   // the DX7 "INIT VOICE"
-// The patch's voice into out; false (out = the init voice) when it has none.
-bool patchDx7Voice(const SynthPatch& p, uint8_t out[kDx7VoiceBytes]);
-bool patchSetDx7Voice(SynthPatch& p, const uint8_t v[kDx7VoiceBytes]);
-// DX7 parameters (indices into the patch's params; new ones are appended).
-// All but Volume act on top of the voice without changing its data
-// (audio/engines/dx7.cpp); the Init patch puts M1-M6 on Brightness ..
-// Detune.
-enum Dx7Param : int {
-    kDx7Volume = 0,
-    kDx7Mono,         // polyphony 1: 0 Retrigger (each note restarts), 1 Legato
-    kDx7Brightness,   // -1..1: modulator levels -/+ 2 doublings (12 dB)
-    kDx7Feedback,     // -7..7: added to the voice's feedback (0..7)
-    kDx7Attack,       // -1..1: EG rate 1 of every operator, + = slower
-    kDx7Release,      // -1..1: EG rate 4 of every operator, + = longer
-    kDx7LfoDepth,     // 0..2: x the voice's PMD and AMD
-    kDx7Detune,       // 0..1: extra detune spread across the operators
-    kDx7ParamCount
-};
-
 // ---- engine tables and validation (spec 21 §8 + MINI_PLAN corrections) ----
 
 // Parameter table of a known engine, or nullptr (count 0).
@@ -94,15 +67,13 @@ const PatchParamRange* patchEngineParams(int32_t engine, int* count);
 // [OT] Extension parameter table of an engine (Width; FAT also Stereo), or
 // nullptr (count 0). Extension parameter k has index (Mini count + k).
 const PatchParamRange* patchEngineExtParams(int32_t engine, int* count);
-const char* patchEngineName(int32_t engine);  // "ACD".."PERC", "DX7", or nullptr
+const char* patchEngineName(int32_t engine);  // "ACD".."PERC", a module engine's name, or nullptr
 int patchVolumeParam(int32_t engine);         // Volume index, -1 for PERC/unknown
 
 // Build the engine's Init patch: every parameter present at its default
 // (WTFM 6/7 absent, as in every factory WTFM patch), M1-6 "Macro n" empty,
 // M7 "Velocity" -> Volume +1 (none for PERC), M8 "Pressure" empty (U15).
-// DX7: plus the init voice, M1-M6 named after and aimed at Brightness,
-// Feedback, Attack, Release, LFO Depth and Detune (bipolar but Detune), and
-// M7 empty: velocity acts through the voice's own sensitivities.
+// [I] Then the engine descriptor's initPatch (DX7: its voice and macros).
 // Unused targets are {0, 0} like the factory files. False for an unknown engine.
 bool patchInit(int32_t engine, SynthPatch* out);
 

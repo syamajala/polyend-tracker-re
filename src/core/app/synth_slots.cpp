@@ -10,11 +10,12 @@
 #include <cstring>
 
 #include "app/app.h"
-#include "audio/engines/dx7.h"
 #include "modules/synth_models.h"
 #include "audio/synth_params.h"
 #include "formats/file_io.h"
 #include "formats/patch_pb.h"
+#include "modules/module.h"
+#include "modules/synth_descriptor.h"
 #include "sdram_bss.h"
 
 namespace ot {
@@ -25,11 +26,6 @@ namespace {
 constexpr uint32_t kFileOff = 0;
 constexpr uint32_t kPatchTmpOff = 0x8000;
 static_assert(kPatchMaxFileSize + 1 <= kPatchTmpOff, "patch file fits below the decode slot");
-// A DX7 bank's voices, parsed from the file at 0 (openDx7Bank).
-constexpr uint32_t kDx7VoicesOff = 0x2400;
-static_assert(kPatchMaxFileSize + 1 <= kDx7VoicesOff, "bank file fits below its voices");
-static_assert(kDx7VoicesOff + audio::dx7::kBankVoices * audio::dx7::kVoiceBytes <= kPatchTmpOff,
-              "bank voices fit below the decode slot");
 
 void setName(SynthSlotRecord& r, const char* name) {
     std::snprintf(r.patchName, sizeof(r.patchName), "%s", name ? name : "");
@@ -50,11 +46,19 @@ bool libraryPath(char* out, size_t cap, int32_t engineId, const char* name) {
 // at a time; main loop only).
 OT_SDRAM_BSS SynthPatch g_previewSaved;
 
-// The open DX7 bank's file name (openDx7Bank; main loop only). Its voices
-// live in the scratch, which jobs share: every preview / load reads the
-// file again.
-char g_dx7BankFile[64];
-int g_dx7BankCount = 0;
+// [I] The open import file (openPatchImport; main loop only): its name, the
+// engine whose folder and format it is, its patch count and length. Its
+// bytes live in the scratch, which jobs share: every preview / load reads
+// the file again.
+char g_importFile[64];
+int32_t g_importEngine = 0;
+int g_importCount = 0;
+uint32_t g_importLen = 0;
+
+const mod::PatchImport* importOf(int32_t engine) {
+    const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(engine);
+    return d ? d->import : nullptr;
+}
 }  // namespace
 
 // Patches/<model>/<name>.patch decoded into the scratch decode slot; nullptr
@@ -173,69 +177,72 @@ void App::loadSynthPatch(int s, const SynthPatch& p, const char* name) {
     markSynthPatchDirty(s);
 }
 
-int App::openDx7Bank(const char* file) {
-    std::snprintf(g_dx7BankFile, sizeof(g_dx7BankFile), "%s", file ? file : "");
-    return readDx7Bank();
+int App::openPatchImport(int s, const char* file) {
+    std::snprintf(g_importFile, sizeof(g_importFile), "%s", file ? file : "");
+    g_importEngine = s >= 0 && s < kSynthSlotCount ? slotEngineId(s) : 0;
+    return readPatchImport();
 }
 
-// g_dx7BankFile's voices into the scratch (kDx7VoicesOff); their count.
-int App::readDx7Bank() {
-    g_dx7BankCount = 0;
-    const char* file = g_dx7BankFile;
+// g_importFile into the scratch (kFileOff); its patch count.
+int App::readPatchImport() {
+    g_importCount = 0;
+    g_importLen = 0;
+    const char* file = g_importFile;
+    const mod::PatchImport* im = importOf(g_importEngine);
+    if (!im || im->maxBytes > kPatchMaxFileSize) return 0;
     if (!mem_.scratch || mem_.scratchBytes < kPatchTmpOff + sizeof(SynthPatch)) return 0;
     if (!file[0] || std::strchr(file, '/')) return 0;
     if (jobBusy()) finishJob();   // the job shares the scratch
     char path[96];
-    std::snprintf(path, sizeof(path), "Patches/%s/%s", synthModelName(SynthModel::DX7), file);
+    std::snprintf(path, sizeof(path), "Patches/%s/%s", synthEngineFolder(g_importEngine), file);
     uint32_t got = 0;
-    // A bank dump is 4104 bytes; anything past 8 KB is no DX7 voice dump.
-    if (readWholeFile(fs(), path, mem_.scratch + kFileOff, kPatchMaxFileSize + 1, &got) != FmtStatus::Ok ||
-        got > kPatchMaxFileSize)
+    if (readWholeFile(fs(), path, mem_.scratch + kFileOff, im->maxBytes + 1, &got) != FmtStatus::Ok ||
+        got > im->maxBytes)
         return 0;
-    auto* voices = reinterpret_cast<uint8_t(*)[audio::dx7::kVoiceBytes]>(mem_.scratch + kDx7VoicesOff);
-    g_dx7BankCount = audio::dx7::parseSysex(mem_.scratch + kFileOff, got, voices, audio::dx7::kBankVoices);
-    return g_dx7BankCount;
+    const int n = im->count(mem_.scratch + kFileOff, got);
+    g_importCount = n > 0 ? n : 0;
+    g_importLen = got;
+    return g_importCount;
 }
 
-void App::dx7BankVoiceName(int k, char* out, int cap) const {
+void App::importPatchName(int k, char* out, int cap) const {
     if (cap <= 0) return;
     out[0] = 0;
-    if (k < 0 || k >= g_dx7BankCount || !mem_.scratch) return;
-    const uint8_t* nm = mem_.scratch + kDx7VoicesOff + uint32_t(k) * audio::dx7::kVoiceBytes + audio::dx7::kVoiceBytes -
-                        audio::dx7::kNameLen;
+    const mod::PatchImport* im = importOf(g_importEngine);
+    if (!im || k < 0 || k >= g_importCount || !mem_.scratch) return;
+    im->name(mem_.scratch + kFileOff, g_importLen, k, out, cap);
+    out[cap - 1] = 0;
     int n = 0;
-    for (int i = 0; i < audio::dx7::kNameLen && n < cap - 1; ++i) {
-        const char c = char(nm[i]);
+    for (; out[n]; ++n) {
+        const char c = out[n];
         // Printable ASCII; path separators would make a bad file name on Save.
-        out[n++] = (c < 0x20 || c > 0x7E || c == '/' || c == '\\') ? '_' : c;
+        if (c < 0x20 || c > 0x7E || c == '/' || c == '\\') out[n] = '_';
     }
-    while (n > 0 && out[n - 1] == ' ') --n;
-    out[n] = 0;
     if (!n) std::snprintf(out, size_t(cap), "Voice %d", k + 1);
 }
 
-const SynthPatch* App::dx7BankPatch(int s, int k) {
+const SynthPatch* App::importPatch(int s, int k) {
     if (s < 0 || s >= kSynthSlotCount || k < 0) return nullptr;
-    if (slotEngineId(s) != kSynthEngineDx7) return nullptr;
-    if (k >= readDx7Bank()) return nullptr;   // the scratch may have been used since the bank opened
+    const int32_t eng = slotEngineId(s);
+    const mod::PatchImport* im = importOf(eng);
+    if (!im || eng != g_importEngine) return nullptr;
+    if (k >= readPatchImport()) return nullptr;   // the scratch may have been used since the file opened
     auto* tmp = reinterpret_cast<SynthPatch*>(mem_.scratch + kPatchTmpOff);
-    if (!patchInit(kSynthEngineDx7, tmp) ||
-        !patchSetDx7Voice(*tmp, mem_.scratch + kDx7VoicesOff + uint32_t(k) * audio::dx7::kVoiceBytes))
-        return nullptr;
+    if (!patchInit(eng, tmp) || !im->toPatch(mem_.scratch + kFileOff, g_importLen, k, *tmp)) return nullptr;
     return tmp;
 }
 
-bool App::previewDx7BankVoice(int s, int k) {
-    const SynthPatch* p = dx7BankPatch(s, k);
+bool App::previewImportPatch(int s, int k) {
+    const SynthPatch* p = importPatch(s, k);
     return p && previewSynthPatch(s, *p);
 }
 
-bool App::loadDx7BankVoice(int s, int k) {
+bool App::loadImportPatch(int s, int k) {
     if (previewSlot_ == s) endSynthPreview();
-    const SynthPatch* p = dx7BankPatch(s, k);
+    const SynthPatch* p = importPatch(s, k);
     if (!p) return false;
-    char name[audio::dx7::kNameLen + 8];
-    dx7BankVoiceName(k, name, sizeof(name));   // before the load: it reads the scratch
+    char name[40];
+    importPatchName(k, name, sizeof(name));   // before the load: it reads the scratch
     loadSynthPatch(s, *p, name);
     return true;
 }

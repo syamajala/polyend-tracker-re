@@ -21,30 +21,6 @@ namespace synthui {
 
 namespace {
 
-#define E(n) kFmtEnum, n, uint8_t(sizeof(n) / sizeof(n[0]))
-#define F(f) f, nullptr, 0
-
-// --- DX7 (8) [OT] -------------------------------------------------------------
-// Controls on top of the loaded voice (formats/patch_pb.h kDx7*).
-const char* const kDx7MonoNames[2] = {"Retrigger", "Legato"};
-const ParamUi kDx7[kDx7ParamCount] = {
-    {"Volume", F(kFmtPct)},      {"Mono", E(kDx7MonoNames)},   {"Brightness", F(kFmtPct)}, {"Feedback", F(kFmtInt)},
-    {"Attack", F(kFmtPct)},      {"Release", F(kFmtPct)}, {"LFO Depth", F(kFmtPct)},  {"Detune", F(kFmtPct)},
-};
-const uint8_t kDx7Voice[] = {kDx7Volume, kDx7Mono};
-const uint8_t kDx7Tone[] = {kDx7Brightness, kDx7Feedback, kDx7Attack, kDx7Release, kDx7LfoDepth, kDx7Detune};
-#undef E
-#undef F
-
-#define S(name, longName, arr) {name, longName, arr, uint8_t(sizeof(arr)), -1}
-#define MACROS                                                                                      \
-    {"M1", "Macro 1", nullptr, 0, 0}, {"M2", "Macro 2", nullptr, 0, 1}, {"M3", "Macro 3", nullptr, 0, 2}, \
-        {"M4", "Macro 4", nullptr, 0, 3}, {"M5", "Macro 5", nullptr, 0, 4}, {"M6", "Macro 6", nullptr, 0, 5}, \
-        {"M7", "Macro 7", nullptr, 0, 6}
-const Section kDx7Sec[] = {S("Voice", "Voice", kDx7Voice), S("Tone", "Tone", kDx7Tone), MACROS};
-#undef S
-#undef MACROS
-
 template <class T, int N>
 constexpr int countOf(const T (&)[N]) { return N; }
 
@@ -52,10 +28,6 @@ constexpr int countOf(const T (&)[N]) { return N; }
 const mod::SynthDescriptor* desc(int32_t engine) { return mod::ModuleHost::instance().synthDescriptor(engine); }
 
 const ParamUi* table(int32_t engine, int* n) {
-    if (engine == kSynthEngineDx7) {   // [I] DX7 is a core engine, not a module
-        *n = countOf(kDx7);
-        return kDx7;
-    }
     const mod::SynthDescriptor* d = desc(engine);
     *n = d ? int(d->paramCount) + int(d->extCount) : 0;   // [OT] extension rows after the Mini's
     return d ? d->ui : nullptr;
@@ -81,10 +53,6 @@ const ParamUi* paramUi(int32_t engine, int index) {
 }
 
 int sections(int32_t engine, const Section** out) {
-    if (engine == kSynthEngineDx7) {   // [I]
-        *out = kDx7Sec;
-        return countOf(kDx7Sec);
-    }
     const mod::SynthDescriptor* d = desc(engine);
     *out = d ? d->sections : nullptr;
     return d ? int(d->sectionCount) : 0;

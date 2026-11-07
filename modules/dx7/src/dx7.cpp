@@ -21,13 +21,13 @@
 // x linear gain (full output level: 2^25). Envelopes, the pitch envelope, the
 // LFO and the pitch run per kN = 64 frames (msfa's N; two per block); gains
 // ramp linearly across each 64 frames.
-#include "audio/engines/dx7.h"
+#include "dx7.h"
 
 #include <cmath>
 #include <cstring>
 
-#include "audio/engines/dx7_tables.h"
-#include "formats/patch_pb.h"
+#include "dx7_patch.h"
+#include "dx7_tables.h"
 
 namespace ot {
 namespace audio {
@@ -215,7 +215,7 @@ int32_t opPitch(const uint8_t* op) {
     return lf + (detune > 7 ? 13457 * (detune - 7) : 0);
 }
 
-// Engine controls on top of the voice (kDx7*, formats/patch_pb.h).
+// Engine controls on top of the voice (kDx7*, dx7_patch.h).
 constexpr float kBrightDoublings = 2.0f;   // Brightness +-1: modulators +-12 dB
 constexpr int32_t kLevelMax = 16 << 24;    // envelope level cap (exp2Lookup: <= 4x full gain)
 constexpr float kRateRange = 50.0f;        // Attack / Release +-1: EG rate -+50 steps (of 0..99)
@@ -809,6 +809,22 @@ int parseSysex(const uint8_t* d, size_t len, uint8_t out[][kVoiceBytes], int max
     return 0;
 }
 
+int sysexVoiceCount(const uint8_t* d, size_t len) {
+    if (len < 6 || d[0] != 0xF0 || d[1] != 0x43 || (d[2] & 0xF0) != 0) return 0;
+    if (d[3] == 0x00 && d[4] == 0x01 && d[5] == 0x1B && len >= 6 + kVoiceBytes + 2) return 1;
+    if (d[3] == 0x09 && d[4] == 0x20 && d[5] == 0x00 && len >= 6 + 4096 + 2) return kBankVoices;
+    return 0;
+}
+
+bool sysexVoice(const uint8_t* d, size_t len, int k, uint8_t out[kVoiceBytes]) {
+    const int n = sysexVoiceCount(d, len);
+    if (k < 0 || k >= n) return false;
+    if (n == 1) std::memcpy(out, d + 6, kVoiceBytes);
+    else unpackVoice(d + 6 + k * kPackedBytes, out);
+    sanitizeVoice(out);
+    return true;
+}
+
 void setVoice(SynthSlotScratch& slot, const uint8_t v[kVoiceBytes]) {
     static_assert(sizeof(Slot) <= kSynthSlotScratchBytes, "DX7 slot state too large");
     Slot& s = slot.as<Slot>();
@@ -853,7 +869,7 @@ void setVoice(SynthSlotScratch& slot, const uint8_t v[kVoiceBytes]) {
 }
 
 ISynthEngine* engine() {
-    initSinTable();   // normally done by audio::initTables(); direct users (tests) too
+    initSinTable();   // normally done by the module's attach(); direct users (tests) too
     return &gEngine;
 }
 

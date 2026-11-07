@@ -18,4 +18,7 @@ modules = [
     { id = "CHOR", path = "../opentracker-fx/modules/chorus" },
     { id = "BBDC", path = "../opentracker-fx/modules/bbd" },
     { id = "TAPE", path = "../opentracker-fx/modules/tape" },
+    # [I] Card modules (fork #21): not in the image; make card builds them for the
+    # card's Modules/ folder, host builds (tests, sim) compile them in.
+    { id = "DX7S", path = "modules/dx7", in_tree = true, card = true },
 ]

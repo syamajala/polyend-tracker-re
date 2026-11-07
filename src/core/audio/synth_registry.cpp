@@ -4,7 +4,6 @@
 // ones are compiled in; an engine id no module serves is "not available".
 #include <cmath>
 
-#include "audio/engines/dx7.h"
 #include "audio/synth_engine.h"
 #include "modules/module.h"
 
@@ -25,7 +24,6 @@ void synthEngineHide(int32_t engineId, bool hide) {
 ISynthEngine* synthEngineFor(int32_t engineId) {
     if (gHidden && engineId >= 0 && engineId < 32 && (gHidden & (1u << engineId))) return nullptr;
     if (engineId == kSynthEngineTest) return synthTestEngine();
-    if (engineId == kSynthEngineDx7) return dx7::engine();   // [I] a core engine, not a module
     return mod::ModuleHost::instance().synthEngine(engineId);
 }
 

@@ -86,7 +86,8 @@ DEVICE_CPI = 1.94
 # "<name> <value> ... limit <N>" lines of the engines, pswitch, the SD stream
 # and the module benches ("<module>.unit...", tests/bench_api.h).
 LIMIT_RE = re.compile(r"^\s+((?:acd|vap|fat|wtfm|perc|dx7|pswitch|stream)[\w.]*|[a-z][a-z0-9]*\.unit[\w.]*)\s+(\d+(?:\.\d+)?)\s.*\blimit (\d+)\b")
-# [I] The fork's DX7, remote control and Performance mode add ~53 KB over upstream:
+# [I] The fork's remote control and Performance mode add flash over upstream (DX7
+# left the image for the card in #21):
 # upstream's fail line (720,000 B) is the fork's warning. The hard ceiling is
 # check_image.py's STOCK_END (877,664 B), past which the update bootloader's data lies.
 FLASH_FAIL = 800000

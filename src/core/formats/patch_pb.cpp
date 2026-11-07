@@ -268,19 +268,6 @@ PatchStatus rawFieldLen(const uint8_t* d, size_t n, uint32_t* field, size_t* len
     return PatchStatus::kOk;
 }
 
-// DX7 (OpenTracker): the engine's controls on top of the voice. New controls
-// are appended (a shorter stored list reads the rest as defaults).
-const PatchParamRange kDx7[kDx7ParamCount] = {
-    {1, 0, 2},     // 0 Volume
-    {0, 0, 1},     // 1 Mono: Retrigger / Legato
-    {0, -1, 1},    // 2 Brightness
-    {0, -7, 7},    // 3 Feedback
-    {0, -1, 1},    // 4 Attack
-    {0, -1, 1},    // 5 Release
-    {1, 0, 2},     // 6 LFO Depth
-    {0, 0, 1},     // 7 Detune
-};
-
 // Nearest IEEE half-precision value (round to nearest even): the device keeps
 // each min/max as a half pair (§8.1), so bounds compare at half precision.
 float toHalfPrecision(float f) {
@@ -295,19 +282,6 @@ float toHalfPrecision(float f) {
 }
 
 }  // namespace
-
-// DX7 "INIT VOICE" (VCED, operators 6..1): algorithm 1, only operator 1 sounds
-// (a sine at full output level), every envelope at rate 99 / level 99 99 99 0.
-const uint8_t kDx7InitVoice[kDx7VoiceBytes] = {
-#define OP(out) 99, 99, 99, 99, 99, 99, 99, 0, 39, 0, 0, 0, 0, 0, 0, 0, out, 0, 1, 0, 7
-    OP(0), OP(0), OP(0), OP(0), OP(0), OP(99),
-#undef OP
-    99, 99, 99, 99, 50, 50, 50, 50,      // pitch EG rates, levels
-    0, 0, 1,                             // algorithm 1, feedback 0, key sync on
-    35, 0, 0, 0, 1, 0, 3,                // LFO speed, delay, PMD, AMD, sync, wave, PMS
-    24,                                  // transpose (C3)
-    'I', 'N', 'I', 'T', ' ', 'V', 'O', 'I', 'C', 'E',
-};
 
 bool patchFieldSpan(const uint8_t* data, size_t len, uint32_t field, size_t* beg, size_t* end) {
     size_t pos = 0;
@@ -357,21 +331,6 @@ bool patchSetOpaqueBytes(SynthPatch& p, uint32_t field, const uint8_t* data, siz
     return true;
 }
 
-bool patchDx7Voice(const SynthPatch& p, uint8_t out[kDx7VoiceBytes]) {
-    const uint8_t* d = nullptr;
-    size_t n = 0;
-    if (patchOpaqueBytes(p, kPatchFieldDx7Voice, &d, &n) && n == size_t(kDx7VoiceBytes)) {
-        std::memcpy(out, d, n);
-        return true;
-    }
-    std::memcpy(out, kDx7InitVoice, kDx7VoiceBytes);
-    return false;
-}
-
-bool patchSetDx7Voice(SynthPatch& p, const uint8_t v[kDx7VoiceBytes]) {
-    return patchSetOpaqueBytes(p, kPatchFieldDx7Voice, v, kDx7VoiceBytes);
-}
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -409,6 +368,8 @@ PatchStatus decodePatch(const uint8_t* data, size_t len, SynthPatch* out) {
             case 1:
                 PB_EXPECT_WT(wt, kWtVarint);
                 PB_TRY(readInt32(r, &out->engine));
+                // [I] DX7 patches from before it became a module (fork #21).
+                if (out->engine == kSynthEngineDx7Legacy) out->engine = kSynthEngineDx7;
                 break;
             case 6: {
                 PB_EXPECT_WT(wt, kWtLen);
@@ -609,10 +570,6 @@ PatchStatus encodePatch(const SynthPatch& pt, uint8_t* out, size_t cap, size_t* 
 // Engine tables come from the synth modules (modules/synth_descriptor.h); the
 // Tracker Mini engine names are format constants (folder names) and stay here.
 const PatchParamRange* patchEngineParams(int32_t engine, int* count) {
-    if (engine == kSynthEngineDx7) {   // [I] DX7 is a core engine, not a module
-        if (count) *count = kDx7ParamCount;
-        return kDx7;
-    }
     const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(engine);
     if (count) *count = d ? int(d->paramCount) : 0;
     return d ? d->params : nullptr;
@@ -631,6 +588,7 @@ const char* patchEngineName(int32_t engine) {
         case kSynthEngineVap: return "VAP";
         case kSynthEngineWtfm: return "WTFM";
         case kSynthEnginePerc: return "PERC";
+        // [I] Named without its card module too: "Synth 1 (DX7) not available".
         case kSynthEngineDx7: return "DX7";
         default: break;
     }
@@ -639,7 +597,6 @@ const char* patchEngineName(int32_t engine) {
 }
 
 int patchVolumeParam(int32_t engine) {
-    if (engine == kSynthEngineDx7) return 0;   // [I]
     const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(engine);
     return d ? int(d->volumeParam) : -1;
 }
@@ -675,32 +632,9 @@ bool patchInit(int32_t engine, SynthPatch* out) {
         m.targets[0].amountBits = patchFloatToBits(1.0f);
     }
     out->extraPresent = true;
-    if (engine == kSynthEngineDx7) {
-        patchSetDx7Voice(*out, kDx7InitVoice);
-        // No operator editor: the macros come aimed at the engine's controls.
-        // Amount 0.5 x the parameter's span = its full range for a bipolar
-        // macro (-1..1); 1 for the unipolar Detune (0..1).
-        struct M { const char* name; int param; bool bipolar; float amount; };
-        // Names fit the Synth Macros F-key cells with their "Mn " prefix
-        // (12 characters: "M1 Brightness" was cut).
-        static const M kM[6] = {{"Bright", kDx7Brightness, true, 0.5f}, {"Feedback", kDx7Feedback, true, 0.5f},
-                                {"Attack", kDx7Attack, true, 0.5f},         {"Release", kDx7Release, true, 0.5f},
-                                {"LFO Depth", kDx7LfoDepth, true, 0.5f},    {"Detune", kDx7Detune, false, 1.0f}};
-        for (int k = 0; k < 6; ++k) {
-            PatchMacro& m = out->macros[k];
-            setName(m, kM[k].name);
-            m.bipolar = kM[k].bipolar;
-            m.count = 1;
-            m.targets[0].param = kM[k].param;
-            m.targets[0].amountBits = patchFloatToBits(kM[k].amount);
-        }
-        // Velocity works as on a DX7: only through each operator's velocity
-        // sensitivity (the engine gets the note velocity). M7 -> Volume on
-        // top counted it twice (-22 dB instead of -16 dB at Volume FX 50 on
-        // a sensitivity-7 voice). M7 stays named "Velocity", unassigned.
-        out->macros[kPatchMacroVelocity].count = 0;
-        out->macros[kPatchMacroVelocity].targets[0] = PatchTarget{0, 0u};
-    }
+    // [I] The engine's own additions (DX7: the voice, macro presets).
+    const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(engine);
+    if (d && d->initPatch) d->initPatch(*out);
     return true;
 }
 

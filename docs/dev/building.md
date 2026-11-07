@@ -20,8 +20,14 @@ found next to `opentracker-synths`.
 
 A **build profile** (`profiles/<name>.toml`, `PROFILE=`, default `full`) picks the modules
 compiled into the image: `full` has ACD, FAT, VAP, PERC, WTFM and the master chorus, BBD
-chorus and tape inserts; `core` has none. DX7 is part of the fork's core, in every profile.
-Each profile builds into `build/<profile>/`.
+chorus and tape inserts; `core` has none. Each profile builds into `build/<profile>/`.
+
+**Card modules** (fork #21): a profile entry with `card = true` stays out of the image.
+`make card` builds it as `build/<profile>/otm/<name>.otm` for the card's `Modules/` folder,
+and the host builds (`make host-test`, the simulator, the tools) compile it in, as a device
+with the card's modules would have it. `in_tree = true` takes the module's path from this
+repository instead of `MODULES_DIR`. DX7 is one (`modules/dx7`, `card = true` in `full`):
+no image has it built in.
 
 `VERSION` defaults to the Makefile's value, which follows the last upstream merge, so leave
 it unset unless you need a different one. This writes `build/full/opentracker.elf`,
@@ -52,7 +58,7 @@ python3 tools/telemetry_check.py frames build/full
 make budget   # the profile's module flash budgets
 ```
 
-- **Flash** (`.text + .data`): fails above 800,000 B, warns above 720,000 B (upstream fails at 720,000 B; the fork's DX7, remote control and Performance mode need more). The image itself may not pass 877,664 B, the stock 1.9.2 extent (`tools/check_image.py`).
+- **Flash** (`.text + .data`): fails above 800,000 B, warns above 720,000 B (upstream fails at 720,000 B; the fork's remote control and Performance mode need more). The image itself may not pass 877,664 B, the stock 1.9.2 extent (`tools/check_image.py`).
 - **Stack headroom** (`_estack − _ebss`): fails below 75 KiB.
 - **libm**: fails if double-precision math functions get linked.
 - **Frames**: fails if any single function's stack frame is as large as the stack guard

@@ -565,16 +565,17 @@ public:
     // (slot unchanged) when the file is missing, damaged or another engine's.
     bool previewSynthLibraryPatch(int s, const char* name);
     void endSynthPreview();
-    // DX7 banks (OpenTracker, issue #20): Patches/DX7/<file> (.syx), a single
-    // voice (163 B) or 32-voice bank (4104 B) SysEx dump, one bank at a time.
-    // Returns the voices read, 0 when the file is missing or no DX7 dump.
-    // The names are valid right after (the voices sit in the job scratch).
-    // Voice k plays / loads into a DX7 slot as the built-in Init patch with
-    // that voice, named after the voice (the file is read again).
-    int openDx7Bank(const char* file);
-    void dx7BankVoiceName(int k, char* out, int cap) const;   // trimmed, "" past the end
-    bool previewDx7BankVoice(int s, int k);   // like previewSynthLibraryPatch
-    bool loadDx7BankVoice(int s, int k);      // like loadSynthLibraryPatch
+    // [I] Patch files of another format (modules/synth_descriptor.h
+    // PatchImport; DX7 .syx banks, issue #20): Patches/<engine>/<file> of slot
+    // s's engine, one file at a time. Returns its patches, 0 when the file is
+    // missing, too large or not the engine's format. The names are valid
+    // right after (the file sits in the job scratch). Patch k plays / loads
+    // into the slot as the engine's Init patch with the file's patch k, named
+    // after it (the file is read again).
+    int openPatchImport(int s, const char* file);
+    void importPatchName(int k, char* out, int cap) const;   // printable, "" past the end
+    bool previewImportPatch(int s, int k);   // like previewSynthLibraryPatch
+    bool loadImportPatch(int s, int k);      // like loadSynthLibraryPatch
     int synthPreviewSlot() const { return previewSlot_; }
     // The load notice of a project whose slot has no engine in this build
     // ("Synth k (WTFM) not available", the first such slot; MINI_PLAN §3).
@@ -933,8 +934,8 @@ private:
     PatchSource previewSrc_ = PatchSource::None;
     bool previewSynthPatch(int s, const SynthPatch& p);
     void loadSynthPatch(int s, const SynthPatch& p, const char* name);
-    const SynthPatch* dx7BankPatch(int s, int k);   // into the scratch decode slot
-    int readDx7Bank();
+    const SynthPatch* importPatch(int s, int k);   // into the scratch decode slot
+    int readPatchImport();
     bool previewDirty_ = false;
     const SynthPatch* readSynthLibraryPatch(int s, const char* name);
     // previewOn voice holding the synth audition track (kNoSynthAudition: none).

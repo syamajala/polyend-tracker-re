@@ -18,6 +18,7 @@
 #include "formats/patch_pb.h"
 #include "sdram_bss.h"
 #include "modules/module.h"
+#include "modules/synth_descriptor.h"
 #include "modules/synth_models.h"
 #include "ui/screens.h"
 
@@ -121,8 +122,6 @@ int setMacroTarget(PatchMacro& mc, int k, int np, uint32_t newAmountBits) {
 // memory (screens.h): Edit Patch is never on screen with the patch browser,
 // and every browser rebuilds its list when it opens. Main loop only.
 static_assert(sizeof(SynthPatch) <= kBrowserListBytes && alignof(SynthPatch) <= kBrowserListAlign, "the Init patch fits the browser lists");
-
-constexpr uint32_t kDx7BankBytes = 6 + 4096 + 2;   // F0 43 0n 09 20 00, 32 x 128, sum, F7
 
 bool sortName(const char* a, const char* b) {
     for (;; ++a, ++b) {
@@ -309,7 +308,7 @@ void SynthScreen::refreshBar() {
         case View::Browser:
             // Tracker+ 1.0 Load Patch popup: F5-F6 Preview, F7 Cancel, F8 Confirm.
             for (int i = 0; i < 4; ++i) b.label[i].hidden = true;
-            // DX7: a highlighted .syx bank shows Open, nothing to preview.
+            // [I] A highlighted bank (DX7 .syx) shows Open, nothing to preview.
             const bool onBank = browserSel >= 0 && browserSel < browserCount && browserKind[browserSel] == Entry::Bank;
             b.setWide(4, "Preview", nullptr, browserCount > 0 && !ro && !onBank);
             b.set(6, "Cancel");
@@ -577,8 +576,9 @@ void SynthScreen::listBrowser() {
     std::snprintf(dir, sizeof(dir), "Patches/%s", synthEngineFolder(eng));
     struct Ctx {
         SynthScreen* s;
-        bool banks;   // [I] DX7: .syx banks and single voices too
-    } ctx{this, eng == kSynthEngineDx7};
+        const mod::PatchImport* im;   // [I] the engine's other patch files (DX7 .syx), or nullptr
+    } ctx{this, nullptr};
+    if (const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(eng)) ctx.im = d->import;
     app_.fs().listDir(dir, [](const IStorage::DirEntry& e, void* c) {
         auto* x = static_cast<Ctx*>(c);
         SynthScreen* s = x->s;
@@ -593,10 +593,10 @@ void SynthScreen::listBrowser() {
         size_t len = 0;
         Entry kind = Entry::Patch;
         if (hasExt(".patch", 6) && n - 6 <= size_t(kBrowserNameMax)) len = 6;
-        else if (x->banks && hasExt(".syx", 4) && n <= size_t(kBrowserEntryMax))
-            // Whole name. A 32-voice dump is 4104 bytes; anything shorter can
-            // only be a single voice (163 bytes).
-            kind = e.size >= kDx7BankBytes ? Entry::Bank : Entry::Single;
+        else if (x->im && hasExt(x->im->ext, std::strlen(x->im->ext)) && n <= size_t(kBrowserEntryMax))
+            // Whole name; a file of a bank's size lists as a bank (DX7: a
+            // 32-voice dump is 4104 bytes, a single voice 163).
+            kind = e.size >= x->im->bankBytes ? Entry::Bank : Entry::Single;
         else return true;
         std::memcpy(s->browser[s->browserCount], e.name, n - len);
         s->browser[s->browserCount][n - len] = 0;
@@ -626,7 +626,7 @@ void SynthScreen::listBrowser() {
 bool SynthScreen::openBank(const char* file) {
     char nm[kBrowserEntryMax + 1];   // a copy: the list is refilled below
     std::snprintf(nm, sizeof(nm), "%s", file);
-    const int n = app_.openDx7Bank(nm);
+    const int n = app_.openPatchImport(slot, nm);
     if (n <= 0) return false;
     audition(false, 0);
     previewSel_ = -1;   // list indices change: the next preview reads again
@@ -635,7 +635,7 @@ bool SynthScreen::openBank(const char* file) {
     browserSel = 0;
     const SynthSlotRecord r = app_.synthSlot(slot);
     for (int k = 0; k < browserCount; ++k) {
-        app_.dx7BankVoiceName(k, browser[k], kBrowserEntryMax + 1);
+        app_.importPatchName(k, browser[k], kBrowserEntryMax + 1);
         browserKind[k] = Entry::Voice;
     }
     for (int k = browserCount - 1; k >= 0; --k)
@@ -699,8 +699,10 @@ bool SynthScreen::previewHighlighted() {
     audition(false, 0);
     bool ok;
     switch (browserKind[browserSel]) {
-        case Entry::Voice: ok = app_.previewDx7BankVoice(slot, browserSel); break;
-        case Entry::Single: ok = app_.openDx7Bank(browser[browserSel]) > 0 && app_.previewDx7BankVoice(slot, 0); break;
+        case Entry::Voice: ok = app_.previewImportPatch(slot, browserSel); break;
+        case Entry::Single:
+            ok = app_.openPatchImport(slot, browser[browserSel]) > 0 && app_.previewImportPatch(slot, 0);
+            break;
         default: ok = app_.previewSynthLibraryPatch(slot, browser[browserSel]); break;
     }
     if (!ok) {
@@ -716,7 +718,7 @@ bool SynthScreen::previewHighlighted() {
 bool SynthScreen::loadSelected() {
     if (!available() || browserSel < 0 || browserSel >= browserCount) return false;
     if (browserKind[browserSel] == Entry::Bank) {   // Confirm on a bank opens it
-        if (!openBank(browser[browserSel])) ui_.notify("Not a DX7 bank");
+        if (!openBank(browser[browserSel])) ui_.notify("Not a patch bank");
         return false;
     }
     if (edited_[slot]) {   // unsaved patch edits: ask first (2x-05 §6.3)
@@ -739,8 +741,8 @@ bool SynthScreen::loadSelectedNow() {
     previewSel_ = -1;
     bool ok;
     switch (browserKind[browserSel]) {
-        case Entry::Voice: ok = app_.loadDx7BankVoice(slot, browserSel); break;
-        case Entry::Single: ok = app_.openDx7Bank(browser[browserSel]) > 0 && app_.loadDx7BankVoice(slot, 0); break;
+        case Entry::Voice: ok = app_.loadImportPatch(slot, browserSel); break;
+        case Entry::Single: ok = app_.openPatchImport(slot, browser[browserSel]) > 0 && app_.loadImportPatch(slot, 0); break;
         default: ok = app_.loadSynthLibraryPatch(slot, browser[browserSel]); break;
     }
     if (ok) {
@@ -977,7 +979,7 @@ void SynthScreen::onButton(uint8_t id, uint8_t state) {
             } else if (id == btn::Up || id == btn::Down) {
                 browserSel = clampi(browserSel + (id == btn::Down ? 1 : -1), 0, browserCount > 0 ? browserCount - 1 : 0);
             } else if (id == btn::Left) {
-                if (bank[0]) closeBank();   // out of a DX7 bank
+                if (bank[0]) closeBank();   // out of a bank (DX7 .syx)
             } else if (id == btn::Right) {
                 if (!ro && browserSel < browserCount && browserKind[browserSel] == Entry::Bank) loadSelected();
             } else if (!btn::isFKey(id)) {

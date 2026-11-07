@@ -4,7 +4,7 @@
 // msfa's sin.cc / exp2.cc / freqlut.cc (Copyright 2012 Google Inc., Apache
 // License 2.0, third_party/LICENSES/msfa.txt), precomputed into flash.
 // kDx7FreqLut is for a 44117.647 Hz sample rate.
-#include "audio/engines/dx7_tables.h"
+#include "dx7_tables.h"
 
 namespace ot {
 namespace audio {

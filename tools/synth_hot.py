@@ -61,8 +61,8 @@ def owners(elf, addrs, modules_dir):
             mods[a] = rest[1] if len(rest) > 2 and rest[0] == "modules" else "?"
             if len(rest) > 2 and rest[2] == "bench":
                 mods[a] = "bench"
-        elif "/audio/engines/dx7" in f:
-            mods[a] = "dx7"   # core engine for now (the DX7 module plan moves it out)
+        elif "/modules/dx7/" in f:
+            mods[a] = "dx7"   # [I] the in-tree DX7 module (profiles: in_tree = true)
         elif "/tests/" in f:
             mods[a] = "bench"
         else:

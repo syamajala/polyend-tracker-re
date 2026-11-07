@@ -64,6 +64,13 @@ jobs:
         run: make -j"$(nproc)" VERSION=${{ steps.ver.outputs.version }}
       - name: Flash, stack headroom and libm checks
         run: python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size build/full/opentracker.elf
+      # [I] #21 the card modules (DX7), as the card folder Modules/.
+      - name: Card modules zip
+        run: |
+          make card VERSION=${{ steps.ver.outputs.version }}
+          mkdir -p build/card/Modules
+          cp build/full/otm/*.otm build/card/Modules/
+          (cd build/card && zip -r ../Modules.zip Modules)
       # [I] #13 the example MIDI presets, as the card folder MidiPresets/.
       - name: MIDI presets zip
         run: |
@@ -74,5 +81,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" build/full/*.ptf build/MidiPresets.zip \
+          gh release create "${GITHUB_REF_NAME}" build/full/*.ptf build/MidiPresets.zip build/Modules.zip \
             --title "OpenTracker ${GITHUB_REF_NAME}" --generate-notes

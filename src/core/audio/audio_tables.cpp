@@ -1,6 +1,5 @@
 // Audio mappings and tables (spec 04 §7 summary; individual sections cited).
 #include "audio/audio_tables.h"
-#include "audio/engines/dx7_tables.h"
 
 #include <cmath>
 #include <cstring>
@@ -94,7 +93,6 @@ bool constTablesMatch() {
 
 void initTables() {
     if (gBuilt) return;
-    dx7::initSinTable();   // [I] #122 built here, not copied from flash
     // spec 04 §2.4: rate[i] = 2^((i-60)/12) * 0.9996.
     for (int i = 0; i < kPitchTableSize; ++i) gPitch[i] = std::exp2(float(i - kUnityNote) / 12.0f) * 0.9996f;
 #if !OT_CONST_AUDIO_TABLES
