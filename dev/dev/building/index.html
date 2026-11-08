@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -1168,18 +1168,72 @@
 
 <h1 id="building">Building<a class="headerlink" href="#building" title="Permanent link">&para;</a></h1>
 <h2 id="firmware">Firmware<a class="headerlink" href="#firmware" title="Permanent link">&para;</a></h2>
-<p>Needs the <strong>Arm GNU toolchain</strong> (<code>arm-none-eabi-gcc</code>; CI uses 14.2.Rel1) and Python 3.</p>
-<div class="highlight"><pre><span></span><code>make<span class="w"> </span>clean
-make<span class="w"> </span>-j
+<p>Needs the <strong>Arm GNU toolchain</strong> (<code>arm-none-eabi-gcc</code>; CI uses 14.2.Rel1), Python 3 with
+<a href="https://pypi.org/project/pyelftools/">pyelftools</a> (<code>tools/make_otm.py</code>, the card modules) and the
+two module repositories from upstream 3.x: the synth engines
+(<a href="https://github.com/opentracker-fw/opentracker-synths">opentracker-synths</a>) and the effects
+(<a href="https://github.com/opentracker-fw/opentracker-fx">opentracker-fx</a>), side by side.</p>
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/opentracker-fw/opentracker-synths
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/opentracker-fw/opentracker-fx
+make<span class="w"> </span>clean
+make<span class="w"> </span>-j<span class="w"> </span><span class="nv">MODULES_DIR</span><span class="o">=</span><span class="nv">$PWD</span>/../opentracker-synths
 </code></pre></div>
+<p><code>MODULES_DIR</code> defaults to <code>../../opentracker-synths</code> (two levels up, where CI puts it);
+set it, or export it once, if the repositories sit next to this one. <code>opentracker-fx</code> is
+found next to <code>opentracker-synths</code>.</p>
+<p>A <strong>build profile</strong> (<code>profiles/&lt;name&gt;.toml</code>, <code>PROFILE=</code>, default <code>full</code>) picks the modules
+compiled into the image: <code>full</code> has ACD, FAT, VAP, PERC, WTFM and the master chorus, BBD
+chorus and tape inserts; <code>core</code> has none. Each profile builds into <code>build/&lt;profile&gt;/</code>.</p>
+<p><strong>Card modules</strong> (fork #21): a profile entry with <code>card = true</code> stays out of the image.
+<code>make card</code> builds it as <code>build/&lt;profile&gt;/otm/&lt;name&gt;.otm</code> for the card's <code>Modules/</code> folder,
+and the host builds (<code>make host-test</code>, the simulator, the tools) compile it in, as a device
+with the card's modules would have it. <code>in_tree = true</code> takes the module's path from this
+repository instead of <code>MODULES_DIR</code>. <code>full</code> builds in the five Mini synths (ACD, FAT,
+VAP, PERC, WTFM); its other synths are card modules: DX7 (<code>modules/dx7</code>, in this
+repository), FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type and ARC. No
+image has those built in.</p>
+<p>At boot the firmware looks at every <code>Modules/*.otm</code> (<code>src/core/modules/module_files.h</code>):
+a module without synth engines (an effect) loads into the card pool for good; a synth
+module is only listed, so its engines show in the Model list. The card synths in the pool
+are the ones the project's synth slots use: Open loads them before the slots' patches,
+and a Model change loads the new one once the choice has rested for 1/4 s, while stopped
+(while playing the slot says "Loads at Stop"). Every load starts the synth voices over
+(<code>SynthBank::holdEngines</code>), and the slots' synths share the fast block again. A synth that
+doesn't fit the pool (32 KB) stays unloaded, with "Card memory full" on its slot;
+the first slot gets the room first. Two slots on one engine load it once.</p>
+<p>A synth module's <code>.otm</code> carries its <strong>hot row</strong>: the functions that do most of its work,
+hottest first, from <code>tools/hot_rows/&lt;module&gt;.hot</code>. When the image has a fast block in
+SRAM_L, the loader shares it between the loaded synths and copies as much of each row
+there as its share holds; the rest runs from the slower pool. The rows come from every mode
+of every synth under the QEMU bench (<code>profiles/allsynths.toml</code>): run <code>make hot-rows</code>
+after changing a synth's DSP code, and commit the new rows. A row function the module
+build no longer has is reported by <code>make card</code> and simply stays in the slower pool.</p>
+<p><strong>Shared fast pool</strong> (the default when the profile compiles in a synth with a hot
+row): the built-in synths join in. Each built-in synth with a hot row
+keeps one section per function (<code>OT_FASTRUN_ROW=1</code>), and its row runs from flash,
+laid out back to back (<code>tools/hot_pool.py layout</code>). The SRAM_L block that the
+synths' <code>.fastrun</code> code used to take (13,696 B) is the fast block. All the
+project's synths take turns for it, built in or from the card, in slot order. A
+built-in row moves into its share when the slots change (Open, or a Model change
+while stopped). Its calls back into flash go through stubs, and its tables and
+vtable pointer follow it (<code>src/core/modules/hot_rows.h</code>). A row with no room
+keeps running from flash: slower, never wrong. The image links twice with
+<code>--emit-relocs</code>. <code>tools/hot_pool.py table</code> writes the move tables from the first
+link, and the second link must give the same ones. The table step lists what
+still reaches a row from flash only. That code runs the flash copy (for example
+PERC's snare path). On the device, the pool cut card synths' cost per voice by
+22-29 % and the built-in synths' by 1-7 %, with 160 B more stack headroom (#21).
+Changing a synth while stopped re-shares the block, which cuts synth notes still
+ringing.</p>
 <p><code>VERSION</code> defaults to the Makefile's value, which follows the last upstream merge, so leave
-it unset unless you need a different one. This writes <code>build/opentracker.elf</code>,
-<code>build/opentracker.hex</code> and the flashable image <code>build/PolyendTrackerOTv&lt;digits&gt;.ptf</code>
-(e.g. <code>PolyendTrackerOTv223.ptf</code> for 2.2.3).</p>
+it unset unless you need a different one. This writes <code>build/full/opentracker.elf</code>,
+<code>build/full/opentracker.hex</code> and the flashable image <code>build/full/PolyendTrackerOTv&lt;digits&gt;.ptf</code>
+(e.g. <code>PolyendTrackerOTv300.ptf</code> for 3.0.0; the letter after <code>OT</code> is the profile's variant,
+<code>v</code> for <code>full</code>).</p>
 <div class="admonition warning">
 <p class="admonition-title">Change VERSION? Run <code>make clean</code> first</p>
 <p>Objects aren't rebuilt when only <code>VERSION</code> changes, so the image would report the old
-version. Check with <code>strings build/opentracker.elf | grep -x &lt;version&gt;</code>.</p>
+version. Check with <code>strings build/full/opentracker.elf | grep -x &lt;version&gt;</code>.</p>
 </div>
 <p>The image name must be exactly 24 characters (the update bootloader rejects other
 lengths), so it carries the version digits only.</p>
@@ -1193,12 +1247,12 @@ lengths), so it carries the version digits only.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>OT_GAMES=1</code></td>
-<td>an image with Games (off by default in this fork: it frees 5.8 KB of SRAM and ~49 KB of flash); build dir <code>build/games</code></td>
+<td><code>OT_STACK_GUARD_TEST=1</code></td>
+<td>a stack guard test image: with <code>/Firmware/ot_guardtest.txt</code> on the card it overflows the stack once on purpose, and the next boot logs PASSED / FAILED; build dir <code>build/full/guardtest</code></td>
 </tr>
 <tr>
-<td><code>OT_STACK_GUARD_TEST=1</code></td>
-<td>a stack guard test image: with <code>/Firmware/ot_guardtest.txt</code> on the card it overflows the stack once on purpose, and the next boot logs PASSED / FAILED; build dir <code>build/guardtest</code></td>
+<td><code>OT_HOT_POOL=0</code></td>
+<td>the old layout without the shared fast pool: each built-in synth's <code>.fastrun</code> code in SRAM_L, card synths in the slower pool (see above); build dir <code>build/&lt;profile&gt;/nopool</code>. The fallback image when testing a boot-layout change</td>
 </tr>
 <tr>
 <td><code>SELFTEST=1</code></td>
@@ -1211,11 +1265,12 @@ lengths), so it carries the version digits only.</p>
 </tbody>
 </table>
 <h3 id="size-checks">Size checks<a class="headerlink" href="#size-checks" title="Permanent link">&para;</a></h3>
-<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>tools/telemetry_check.py<span class="w"> </span>size<span class="w"> </span>--size-tool<span class="w"> </span>arm-none-eabi-size<span class="w"> </span>build/opentracker.elf
-python3<span class="w"> </span>tools/telemetry_check.py<span class="w"> </span>frames<span class="w"> </span>build
+<div class="highlight"><pre><span></span><code>python3<span class="w"> </span>tools/telemetry_check.py<span class="w"> </span>size<span class="w"> </span>--size-tool<span class="w"> </span>arm-none-eabi-size<span class="w"> </span>build/full/opentracker.elf
+python3<span class="w"> </span>tools/telemetry_check.py<span class="w"> </span>frames<span class="w"> </span>build/full
+make<span class="w"> </span>budget<span class="w">   </span><span class="c1"># the profile's module flash budgets</span>
 </code></pre></div>
 <ul>
-<li><strong>Flash</strong> (<code>.text + .data</code>): fails above 800,000 B, warns above 720,000 B (upstream fails at 720,000 B; the fork's DX7, remote control and Performance mode need more). The image itself may not pass 877,664 B, the stock 1.9.2 extent (<code>tools/check_image.py</code>).</li>
+<li><strong>Flash</strong> (<code>.text + .data</code>): fails above 800,000 B, warns above 720,000 B (upstream fails at 720,000 B; the fork's remote control and Performance mode need more). The image itself may not pass 877,664 B, the stock 1.9.2 extent (<code>tools/check_image.py</code>).</li>
 <li><strong>Stack headroom</strong> (<code>_estack − _ebss</code>): fails below 75 KiB.</li>
 <li><strong>libm</strong>: fails if double-precision math functions get linked.</li>
 <li><strong>Frames</strong>: fails if any single function's stack frame is as large as the stack guard
@@ -1233,7 +1288,7 @@ can miss warnings that GCC 14 reports (CI builds with <code>-Werror</code>); to 
 <code>make -C tests CXX="g++ -D_FORTIFY_SOURCE=2"</code>.</p>
 <h2 id="simulator">Simulator<a class="headerlink" href="#simulator" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>make<span class="w"> </span>-C<span class="w"> </span>sim
-build/sim/opentracker-sim
+build/full/sim/opentracker-sim
 </code></pre></div>
 <p>Needs SDL2 (and ALSA for MIDI). See <a href="../simulator/">Simulator</a>.</p>
 <h2 id="test-songs">Test songs<a class="headerlink" href="#test-songs" title="Permanent link">&para;</a></h2>
@@ -1347,7 +1402,7 @@ path.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "navigation.footer", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
