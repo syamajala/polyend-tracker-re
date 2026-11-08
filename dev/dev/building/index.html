@@ -1168,11 +1168,18 @@
 
 <h1 id="building">Building<a class="headerlink" href="#building" title="Permanent link">&para;</a></h1>
 <h2 id="firmware">Firmware<a class="headerlink" href="#firmware" title="Permanent link">&para;</a></h2>
-<p>Needs the <strong>Arm GNU toolchain</strong> (<code>arm-none-eabi-gcc</code>; CI uses 14.2.Rel1), Python 3 with
+<p>Needs the <strong>Arm GNU toolchain</strong> (<code>arm-none-eabi-gcc</code>; CI uses 14.2.Rel1, use the same one:
+a newer gcc builds a few KB bigger, so the flash gate disagrees with CI), Python 3 with
 <a href="https://pypi.org/project/pyelftools/">pyelftools</a> (<code>tools/make_otm.py</code>, the card modules) and the
 two module repositories from upstream 3.x: the synth engines
 (<a href="https://github.com/opentracker-fw/opentracker-synths">opentracker-synths</a>) and the effects
 (<a href="https://github.com/opentracker-fw/opentracker-fx">opentracker-fx</a>), side by side.</p>
+<p>The Makefile picks up Arm's toolchain by itself from <code>/Applications/ArmGNUToolchain/</code> (macOS)
+or <code>~/opt/arm-gnu-toolchain-*-arm-none-eabi/</code> (Linux: unpack
+<code>arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi.tar.xz</code> from
+<a href="https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads">Arm's downloads</a> there);
+otherwise it uses <code>arm-none-eabi-</code> on the <code>PATH</code>, or <code>CROSS=/path/to/arm-none-eabi-</code>.
+Run <code>make clean</code> after switching compilers.</p>
 <div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/opentracker-fw/opentracker-synths
 git<span class="w"> </span>clone<span class="w"> </span>https://github.com/opentracker-fw/opentracker-fx
 make<span class="w"> </span>clean
