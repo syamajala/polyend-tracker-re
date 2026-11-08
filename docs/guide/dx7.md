@@ -11,7 +11,8 @@ other features:
 
 1. Copy **`dx7.otm`** (in `Modules.zip` on the release page) into **`Modules/`** on the
    SD card.
-2. Restart the Tracker. DX7 now shows in the **Model** list. It loads when a project
+2. Restart the Tracker, or if you copied the file in USB storage mode, just leave USB
+   storage mode. DX7 now shows in the **Model** list. It loads when a project
    uses it: pick it as the Model and it's ready a moment later (while the song plays,
    it loads when you press Stop).
 
