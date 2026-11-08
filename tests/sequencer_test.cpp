@@ -15,7 +15,7 @@ using namespace ot;
 namespace {
 
 struct Ev {
-    enum Kind { NoteOn, NoteOff, ApplyFx, ResetFx, Click, Midi } kind;
+    enum Kind { NoteOn, NoteOff, ApplyFx, ResetFx, Click, Midi, SynthOn, SynthOff, SynthPreset } kind;
     int track;
     int a, b, c;          // NoteOn: note, instr, volume; NoteOff: mode; ApplyFx: slot,type,value; Midi: bytes
     int len;
@@ -56,6 +56,23 @@ struct FakeSink : ISequencerSink {
         e.a = slot; e.b = type; e.c = value;
         ev.push_back(e);
     }
+    void synthNoteOn(uint8_t track, const SynthNoteOn& n) override {
+        Ev e = base(Ev::SynthOn, track);
+        e.a = n.note; e.b = n.slot;
+        ev.push_back(e);
+    }
+    void synthNoteOff(uint8_t track, NoteOffMode mode) override {
+        Ev e = base(Ev::SynthOff, track);
+        e.a = int(mode);
+        ev.push_back(e);
+    }
+    void synthPreset(uint8_t slot, uint8_t n) override {
+        Ev e = base(Ev::SynthPreset, -1);
+        e.a = slot; e.b = n;
+        ev.push_back(e);
+    }
+    int transportStops = 0;
+    void synthTransportStop() override { ++transportStops; }
     void resetAllVoiceFx() override { ev.push_back(base(Ev::ResetFx, -1)); }
     void engineBlockUpdate(float bpm) override { ++blockUpdates; lastTempo = bpm; }
     void metronomeClick(bool accent, uint8_t vel) override {
@@ -114,6 +131,8 @@ struct FakeHost : ISequencerHost {
     void onPatternAdvanced() override { ++patternAdvances; }
     void markPatternDirty() override { ++dirty; }
     bool songScreenActive() override { return songScreen; }
+    uint8_t arpGate[3] = {100, 100, 100};
+    uint8_t synthArpGate(uint8_t slot) override { return arpGate[slot]; }
 };
 
 struct Rig {
@@ -324,6 +343,240 @@ TEST(arp_down_and_needs_chord) {
     const int expect[] = {60, 67, 64, 60};
     for (size_t i = 0; i < on.size() && i < 4; ++i) CHECK_EQ(on[i].a, expect[i]);
     CHECK_EQ(r.sink.of(Ev::NoteOn, 1).size(), 1u);
+}
+
+TEST(stop_cancels_a_queued_pattern) {
+    // User report: a pattern queued while playing kept F1 blinking after Stop,
+    // with no way to clear it. Stop drops it, and the next play stays put.
+    Rig r(120.0f);
+    r.seq.play(0);
+    r.blocks(4);
+    const int num = r.seq.currentPatternNumber();
+    r.seq.queuePattern(+1);
+    CHECK(r.seq.queuedPattern() != 0);
+    r.seq.stop();
+    CHECK_EQ(r.seq.queuedPattern(), 0);
+    r.seq.play(0);
+    r.runUntil([&] { return r.host.patternEnds >= 1; });
+    CHECK_EQ(r.seq.queuedPattern(), 0);
+    CHECK_EQ(r.seq.currentPatternNumber(), num);
+}
+
+// --- [3.x] synth slot Arp Gate ------------------------------------------------
+
+namespace {
+constexpr uint64_t kTicksPerMicro = 12;
+
+// Track t step 0: note 60 on synth slot `slot`, Chord 0 4 7, Arp up at `arpValue`.
+void arpStep(Rig& r, int t, int slot, int arpValue) {
+    r.setNote(t, 0, 60, 64 + slot);
+    r.fxB(t, 0, 14, 5);
+    r.fxA(t, 0, 21, arpValue);
+}
+void runNotes(Rig& r, int t, size_t ons) {
+    r.runUntil([&] { return r.sink.of(Ev::SynthOn, t).size() >= ons; }, 20000);
+}
+}  // namespace
+
+TEST(arp_gate_100_is_the_note_off_at_the_next_note) {
+    // Today's behaviour, event for event: the off in the tick of the next on.
+    Rig r(120.0f);
+    arpStep(r, 0, 0, 9);          // period 12 microsteps
+    r.seq.play(0);
+    runNotes(r, 0, 6);
+    auto on = r.sink.of(Ev::SynthOn, 0), off = r.sink.of(Ev::SynthOff, 0);
+    CHECK(off.size() >= 5u);
+    if (off.size() < 5u) return;
+    for (int i = 0; i < 5; ++i) {
+        CHECK_EQ(off[size_t(i)].tick, on[size_t(i) + 1].tick);
+        CHECK_EQ(off[size_t(i)].a, int(NoteOffMode::Off));
+        CHECK_EQ(on[size_t(i) + 1].tick - on[size_t(i)].tick, 12 * kTicksPerMicro);
+    }
+    // Off, then on, in that order.
+    Ev::Kind last = Ev::SynthOff;
+    for (const Ev& e : r.sink.ev) {
+        if (e.kind != Ev::SynthOn && e.kind != Ev::SynthOff) continue;
+        CHECK(e.kind != last);
+        last = e.kind;
+    }
+}
+
+TEST(arp_gate_releases_inside_the_period) {
+    // gate %, period (Arp value): the note lasts round(period x gate / 100) microsteps.
+    const struct { int gate, value, period, on; } kCases[] = {
+        {50, 9, 12, 6}, {25, 9, 12, 3}, {75, 6, 48, 36}, {50, 6, 48, 24}, {10, 7, 24, 2},
+    };
+    for (const auto& c : kCases) {
+        for (float bpm : {60.0f, 120.0f, 174.0f, 300.0f}) {
+            Rig r(bpm);
+            r.host.arpGate[0] = uint8_t(c.gate);
+            arpStep(r, 0, 0, c.value);
+            r.seq.play(0);
+            runNotes(r, 0, 6);
+            auto on = r.sink.of(Ev::SynthOn, 0), off = r.sink.of(Ev::SynthOff, 0);
+            CHECK(off.size() >= 5u);
+            if (off.size() < 5u) continue;
+            for (int i = 0; i < 5; ++i) {
+                // The first note (the step's own) too; exact to the microstep at every tempo.
+                CHECK_EQ(off[size_t(i)].tick - on[size_t(i)].tick, uint64_t(c.on) * kTicksPerMicro);
+                CHECK_EQ(on[size_t(i) + 1].tick - on[size_t(i)].tick, uint64_t(c.period) * kTicksPerMicro);
+            }
+            // One note-off per note: none again at the next note.
+            CHECK_EQ(off.size(), on.size() - 1);
+        }
+    }
+}
+
+TEST(arp_gate_stays_inside_the_period_at_its_limits) {
+    // The fastest arp (6 microsteps): 99 % is still off before the next note,
+    // 1 % still lasts a microstep.
+    const struct { int gate, on; } kCases[] = {{99, 5}, {1, 1}};
+    for (const auto& c : kCases) {
+        Rig r(120.0f);
+        r.host.arpGate[0] = uint8_t(c.gate);
+        arpStep(r, 0, 0, 11);
+        r.seq.play(0);
+        runNotes(r, 0, 5);
+        auto on = r.sink.of(Ev::SynthOn, 0), off = r.sink.of(Ev::SynthOff, 0);
+        CHECK(off.size() >= 4u);
+        if (off.size() < 4u) continue;
+        for (int i = 0; i < 4; ++i) CHECK_EQ(off[size_t(i)].tick - on[size_t(i)].tick, uint64_t(c.on) * kTicksPerMicro);
+    }
+}
+
+TEST(arp_gate_keeps_the_notes_and_their_order) {
+    Rig r(120.0f);
+    r.host.arpGate[0] = 40;
+    arpStep(r, 0, 0, 9);
+    r.seq.play(0);
+    runNotes(r, 0, 5);
+    auto on = r.sink.of(Ev::SynthOn, 0);
+    const int expect[] = {60, 64, 67, 60, 64};
+    for (int i = 0; i < 5; ++i) CHECK_EQ(on[size_t(i)].a, expect[i]);
+}
+
+TEST(arp_gate_is_per_slot) {
+    Rig r(120.0f);
+    r.host.arpGate[1] = 50;
+    arpStep(r, 0, 0, 9);          // slot 0 at 100
+    arpStep(r, 1, 1, 9);          // slot 1 at 50
+    r.seq.play(0);
+    runNotes(r, 0, 3);
+    auto on0 = r.sink.of(Ev::SynthOn, 0), off0 = r.sink.of(Ev::SynthOff, 0);
+    auto on1 = r.sink.of(Ev::SynthOn, 1), off1 = r.sink.of(Ev::SynthOff, 1);
+    CHECK(off0.size() >= 1u && off1.size() >= 1u);
+    if (off0.empty() || off1.empty()) return;
+    CHECK_EQ(off0[0].tick - on0[0].tick, 12 * kTicksPerMicro);
+    CHECK_EQ(off1[0].tick - on1[0].tick, 6 * kTicksPerMicro);
+}
+
+TEST(arp_gate_changes_take_effect_at_the_next_note) {
+    Rig r(120.0f);
+    r.host.arpGate[0] = 50;
+    arpStep(r, 0, 0, 9);
+    r.seq.play(0);
+    runNotes(r, 0, 2);
+    r.host.arpGate[0] = 100;     // back: the next notes run on to the following note
+    runNotes(r, 0, 5);
+    auto on = r.sink.of(Ev::SynthOn, 0), off = r.sink.of(Ev::SynthOff, 0);
+    CHECK(off.size() >= 4u);
+    if (off.size() < 4u) return;
+    CHECK_EQ(off[3].tick, on[4].tick);
+    CHECK_EQ(off.size(), on.size() - 1);   // the switch back sends no second note-off
+}
+
+TEST(arp_gate_arp_stopped_by_an_off_or_a_failed_chance) {
+    // The note playing runs out at its gate, with one note-off, and no arp note follows.
+    for (int kind : {1, 4}) {
+        Rig r(120.0f);
+        r.host.arpGate[0] = 50;
+        arpStep(r, 0, 0, 6);          // a note per step
+        r.fxA(0, 1, kind, 0);         // Off / Chance 0 on the next step, in the arp's column
+        r.seq.play(0);
+        r.runUntil([&] { return r.seq.step(0) == 4; });
+        auto on = r.sink.of(Ev::SynthOn, 0), off = r.sink.of(Ev::SynthOff, 0);
+        CHECK_EQ(on.size(), 1u);
+        CHECK_EQ(off.size(), 1u);
+        if (!off.empty()) CHECK_EQ(off[0].tick - on[0].tick, 24 * kTicksPerMicro);
+    }
+}
+
+TEST(arp_gate_does_not_outlive_the_arp) {
+    // After an Off ended the arp, Performance repeats of the note are not cut at the arp's gate.
+    Rig r(120.0f);
+    r.host.arpGate[0] = 25;
+    arpStep(r, 0, 0, 6);
+    r.fxA(0, 1, 1, 0);
+    r.seq.setPerformanceMode(true);
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 2; });
+    const size_t ons = r.sink.of(Ev::SynthOn, 0).size();
+    r.seq.setPerfRepeat(0, 8);    // every 24 microsteps; the arp's gate was 12
+    r.runUntil([&] { return r.sink.of(Ev::SynthOn, 0).size() >= ons + 4; }, 2000);
+    auto on = r.sink.of(Ev::SynthOn, 0), off = r.sink.of(Ev::SynthOff, 0);
+    CHECK(on.size() >= ons + 4);
+    for (size_t k = ons; k + 1 < on.size(); ++k)
+        for (const Ev& e : off) CHECK(!(e.tick > on[k].tick && e.tick < on[k + 1].tick));
+}
+
+TEST(arp_gate_resumes_after_a_mute) {
+    // Muted: note-off once, no notes. Unmuted: gated notes again, one off for each.
+    Rig r(120.0f);
+    r.host.arpGate[0] = 50;
+    arpStep(r, 0, 0, 9);
+    r.seq.play(0);
+    runNotes(r, 0, 3);
+    r.project.setTrackMuted(0, true);
+    const size_t ons = r.sink.of(Ev::SynthOn, 0).size();
+    r.blocks(60);
+    CHECK_EQ(r.sink.of(Ev::SynthOn, 0).size(), ons);
+    r.project.setTrackMuted(0, false);
+    runNotes(r, 0, ons + 4);
+    auto on = r.sink.of(Ev::SynthOn, 0), off = r.sink.of(Ev::SynthOff, 0);
+    CHECK(on.size() >= ons + 4);
+    for (size_t k = ons + 1; k + 1 < on.size(); ++k) {
+        int between = 0;
+        for (const Ev& e : off) between += e.tick > on[k].tick && e.tick <= on[k + 1].tick;
+        CHECK_EQ(between, 1);
+        CHECK_EQ(on[k + 1].tick - on[k].tick, 12 * kTicksPerMicro);
+    }
+}
+
+TEST(arp_gate_only_acts_on_synth_notes) {
+    // A sample and a MIDI arp stay as they were.
+    Rig r(120.0f);
+    r.host.arpGate[0] = r.host.arpGate[1] = r.host.arpGate[2] = 10;
+    r.setNote(0, 0, 60, 0);
+    r.fxB(0, 0, 14, 5);
+    r.fxA(0, 0, 21, 9);
+    r.setNote(1, 0, 60, 48);
+    r.fxB(1, 0, 14, 5);
+    r.fxA(1, 0, 21, 9);
+    r.seq.play(0);
+    r.runUntil([&] { return r.sink.of(Ev::NoteOn, 0).size() >= 4u; });
+    auto on = r.sink.of(Ev::NoteOn, 0), off = r.sink.of(Ev::NoteOff, 0);
+    CHECK(off.size() >= 3u);
+    if (off.size() >= 3u)
+        for (int i = 0; i < 3; ++i) CHECK_EQ(off[size_t(i)].tick, on[size_t(i) + 1].tick);
+    auto mOn = r.sink.midiNoteOns(), mOff = r.sink.midiStatus(0x80 | (mOn.empty() ? 0 : (mOn[0].a & 0x0F)));
+    CHECK(mOff.size() >= 2u);
+    if (mOff.size() >= 2u) CHECK_EQ(mOff[0].tick, mOn[1].tick);
+}
+
+TEST(arp_gate_ends_with_the_arp) {
+    // The step's next note starts clean: it is not cut by the arp's gate.
+    Rig r(120.0f);
+    r.host.arpGate[0] = 25;
+    arpStep(r, 0, 0, 9);
+    r.setNote(0, 2, 72, 64);
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 3 && r.seq.microStep(0) > 40; });
+    auto on = r.sink.of(Ev::SynthOn, 0), off = r.sink.of(Ev::SynthOff, 0);
+    CHECK(!on.empty());
+    if (on.empty()) return;
+    CHECK_EQ(on.back().a, 72);
+    // No arp note after it, no note-off for it within its two steps.
+    for (const Ev& e : off) CHECK(e.tick <= on.back().tick);
 }
 
 TEST(chance_probability) {
@@ -1666,4 +1919,139 @@ TEST(midi_lfo_output_budget_round_robin) {
     q.seq.play(0);
     q.blocks(500);
     for (const auto& e : q.sink.ev) CHECK(!(e.kind == Ev::Midi && ((e.a & 0xF0) == 0xB0 || (e.a & 0xF0) == 0xE0)));
+}
+
+// --- [3.x] Z, the synth preset command ------------------------------------------
+
+namespace {
+void zA(Rig& r, int t, int s, int n) { r.fxA(t, s, 0, kFxPresetCmdBase + n); }
+void zB(Rig& r, int t, int s, int n) { r.fxB(t, s, 0, kFxPresetCmdBase + n); }
+}  // namespace
+
+TEST(preset_fx_fires_before_the_note_of_its_step) {
+    for (int col = 0; col < 2; ++col) {
+        Rig r(120.0f);
+        r.setNote(0, 0, 60, 65);   // Synth 2
+        if (col) zA(r, 0, 0, 3);
+        else zB(r, 0, 0, 3);
+        r.seq.play(0);
+        runNotes(r, 0, 1);
+        int preset = -1, on = -1;
+        for (size_t i = 0; i < r.sink.ev.size(); ++i) {
+            if (r.sink.ev[i].kind == Ev::SynthPreset && preset < 0) preset = int(i);
+            if (r.sink.ev[i].kind == Ev::SynthOn && on < 0) on = int(i);
+        }
+        CHECK(preset >= 0 && on > preset);
+        if (preset >= 0) {
+            CHECK_EQ(r.sink.ev[size_t(preset)].a, 1);
+            CHECK_EQ(r.sink.ev[size_t(preset)].b, 3);
+            CHECK_EQ(r.sink.ev[size_t(preset)].tick, r.sink.ev[size_t(on)].tick);
+        }
+    }
+}
+
+TEST(preset_fx_on_an_empty_step_targets_the_tracks_last_synth) {
+    Rig r(120.0f);
+    r.setNote(0, 0, 60, 66);   // Synth 3
+    zA(r, 0, 1, 4);            // no note
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 2; });
+    auto z = r.sink.of(Ev::SynthPreset);
+    CHECK_EQ(z.size(), 1u);
+    if (!z.empty()) {
+        CHECK_EQ(z[0].a, 2);
+        CHECK_EQ(z[0].b, 4);
+    }
+    // No synth played yet on that track: nothing to switch.
+    Rig e(120.0f);
+    zA(e, 0, 0, 4);
+    e.seq.play(0);
+    e.runUntil([&] { return e.seq.step(0) == 2; });
+    CHECK(e.sink.of(Ev::SynthPreset).empty());
+}
+
+TEST(preset_fx_on_a_sample_or_midi_step_is_a_noop) {
+    for (int instr : {0, 48}) {
+        Rig r(120.0f);
+        r.setNote(0, 0, 60, instr);
+        zA(r, 0, 0, 2);
+        r.seq.play(0);
+        r.runUntil([&] { return r.seq.step(0) == 2; });
+        CHECK(r.sink.of(Ev::SynthPreset).empty());
+    }
+}
+
+TEST(preset_fx_a_wins_over_b) {
+    Rig r(120.0f);
+    r.setNote(0, 0, 60, 64);
+    zB(r, 0, 0, 1);
+    zA(r, 0, 0, 2);
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 2; });
+    auto z = r.sink.of(Ev::SynthPreset);
+    CHECK(!z.empty());
+    if (!z.empty()) CHECK_EQ(z.back().b, 2);
+}
+
+TEST(preset_fx_skipped_by_failed_chance_and_muted_track) {
+    {
+        Rig r(120.0f);
+        r.setNote(0, 0, 60, 64);
+        r.fxB(0, 0, 4, 0);   // Chance 0
+        zA(r, 0, 0, 2);
+        r.seq.play(0);
+        r.runUntil([&] { return r.seq.step(0) == 2; });
+        CHECK(r.sink.of(Ev::SynthPreset).empty());
+    }
+    {
+        Rig r(120.0f);
+        r.setNote(0, 0, 60, 64);
+        zA(r, 0, 0, 2);
+        r.project.setTrackMuted(0, true);
+        r.seq.play(0);
+        r.runUntil([&] { return r.seq.step(0) == 2; });
+        CHECK(r.sink.of(Ev::SynthPreset).empty());
+    }
+}
+
+TEST(preset_fx_is_never_forwarded_as_apply_fx) {
+    Rig r(120.0f);
+    r.setNote(0, 0, 60, 64);
+    zA(r, 0, 0, 2);
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 2; });
+    CHECK(r.sink.of(Ev::ApplyFx, 0).empty());
+    CHECK_EQ(r.sink.of(Ev::SynthPreset).size(), 1u);
+}
+
+TEST(perf_injection_does_not_overwrite_a_preset_cmd) {
+    Rig r(120.0f);
+    r.setNote(0, 0, 60, 64);
+    zB(r, 0, 0, 2);   // the first column the injection would take
+    r.seq.setPerfInjectedFx(0, uint8_t(FxId::Volume), 50);
+    r.seq.play(0);
+    r.runUntil([&] { return r.seq.step(0) == 2; });
+    CHECK_EQ(r.sink.of(Ev::SynthPreset).size(), 1u);
+}
+
+TEST(preset_fx_only_stop_ends_it) {
+    // Nothing tells the synth to go back at a pattern's end: only Stop does.
+    Rig r(120.0f);
+    r.setNote(0, 0, 60, 64);
+    zA(r, 0, 0, 2);
+    r.seq.play(0);
+    r.runUntil([&] { return r.host.patternEnds >= 2; });
+    CHECK_EQ(r.sink.transportStops, 0);
+    r.seq.stop();
+    CHECK_EQ(r.sink.transportStops, 1);
+}
+
+TEST(recording_leaves_a_z_only_step_alone) {
+    Rig r(40.0f);
+    zA(r, 0, 2, 3);   // track 1, step 3 holds only a Z: not free, like a step with any FX
+    r.seq.record();
+    r.runUntil([&] { return r.seq.step(0) == 2 && r.seq.microStep(0) >= 10; });
+    CHECK_EQ(r.seq.liveNoteOn(60, 127, 0, 3), 1);   // the next free track
+    CHECK(isPresetCmd(r.step(0, 2).fx[1].type, r.step(0, 2).fx[1].value));
+    CHECK_EQ(int(r.step(0, 2).note), int(kNoteEmpty));
 }

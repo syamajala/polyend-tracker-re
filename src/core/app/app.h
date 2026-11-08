@@ -335,7 +335,9 @@ public:
     bool redoEdit();
 
     // Clipboard (spec 06 §1.4 Copy / §1.11).
-    void copyToClipboard(const SelRect& r);
+    // col: the cursor's column at the copy (Pattern screen, 2 / 3 = FX 1 / 2), -1 none.
+    void copyToClipboard(const SelRect& r, int col = -1);
+    int clipColumn() const { return clipCol_; }
     bool clipboardValid() const { return clipValid_; }
     const SelRect& clipRect() const { return clipRect_; }
     const Pattern& clipboard() const { return *mem_.clipboard; }
@@ -500,6 +502,14 @@ public:
     SynthPatch& synthPatch(int s) { return patches_[s < 0 || s >= kSynthSlotCount ? 0 : s]; }
     const SynthPatch& synthPatch(int s) const { return patches_[s < 0 || s >= kSynthSlotCount ? 0 : s]; }
     PatchSource synthPatchSource(int s) const { return s >= 0 && s < kSynthSlotCount ? patchSrc_[s] : PatchSource::None; }
+    // [3.x] The project's synth presets (app/synth_presets.cpp), n = 1..8.
+    const SynthPatch& synthPreset(int n) const;
+    bool synthPresetUsed(int n) const;
+    bool synthPresetDirty() const;
+    int synthPresetActive(int s) const;       // what Z left slot s on, 0 = its own patch
+    void storeSynthPreset(int n, int s);      // slot s's patch into preset n
+    bool loadSynthPreset(int s, int n);       // preset n into slot s, its engine too
+    void clearSynthPreset(int n);
     void markSynthPatchDirty(int s) {
         if (s < 0 || s >= kSynthSlotCount) return;
         patchDirty_[s] = true;
@@ -599,6 +609,10 @@ public:
     int32_t slotEngineId(int s) const;
     // Record a module engine for slot s (0 = back to the Mini record's model).
     void setSlotEngine(int s, int32_t engineId);
+    // [3.x] Synth slot s's Arp Gate, 1..100 (100 = each step FX Arp note lasts
+    // until the next). Saved in project.ot3x.
+    uint8_t slotArpGate(int s) const { return s >= 0 && s < kSynthSlotCount ? slotArpGate_[s] : 100; }
+    void setSlotArpGate(int s, int gate);
 #if OT_SLOT_INSERTS
     // [3.x] Synth slot s's insert: the effect by id (nullptr / "" = none) at
     // its defaults, one setting, and what is set. An id this build lacks is
@@ -723,6 +737,7 @@ public:
     uint32_t patternEndCount() const { return patternEnds_; }
     bool noteInScale(uint8_t note) override;
     uint8_t instrumentVolume(uint8_t instrument) override;
+    uint8_t synthArpGate(uint8_t slot) override { return slotArpGate(slot); }
     uint8_t recordVolume(uint8_t instrument) const;   // live-record IV, 0..127
     void markPatternDirty() override {
         patternEditedFromSeq_ = true;
@@ -860,6 +875,9 @@ private:
     bool loadPatternBytes(int num, const uint8_t* file, uint32_t len, uint8_t* out, bool* upgrade);
     bool savePatternUnit(int num);
     void loadPatchUnit(int s, uint32_t& cost);
+    void loadPresetUnit(int n, uint32_t& cost);
+    void leaveSynthPreset(int n);
+    void resetSynthPresets();
     bool resolvePatch(int s, const uint8_t* buf, uint32_t len, bool haveFile);
     uint32_t patchCrc(int s);
     bool patchKeptOriginal(int s);
@@ -910,6 +928,7 @@ private:
     // docs/specs/3x-01-ot3-format.md): module engine per synth slot (0 = the
     // Mini record's model), module sections, foreign module chunks kept.
     int32_t slotEngine_[kSynthSlotCount] = {};
+    uint8_t slotArpGate_[kSynthSlotCount] = {100, 100, 100};
 #if OT_SLOT_INSERTS
     struct SlotInsertCfg {
         char id[4];                  // all zero = none
@@ -952,6 +971,7 @@ private:
     bool unsaved_ = false, neverSaved_ = true;
     bool clipValid_ = false;
     SelRect clipRect_;
+    int8_t clipCol_ = -1;
     uint32_t lastAutosave_ = 0;
     uint32_t lastConfigSave_ = 0;
     volatile bool rendering_ = false;
