@@ -161,4 +161,6 @@ Instruction counts of the audio engine on an emulated Cortex-M4 (QEMU) against
 `tests/perf_baseline.txt` (+5 % max) and per-engine limits, the flash and stack checks,
 a host benchmark, and, with `LOG=`, the telemetry thresholds of a device log. Needs
 `qemu-system-arm` for the M4 part (skipped otherwise). Run it for anything on the audio
-path.
+path. CI runs it too (the `perf-gate` job, with QEMU and Arm's 14.2.Rel1). The baseline
+is recorded with that compiler: another gcc counts a few percent differently, so record a
+new baseline only from a 14.2.Rel1 build.
