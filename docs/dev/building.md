@@ -26,8 +26,10 @@ chorus and tape inserts; `core` has none. Each profile builds into `build/<profi
 `make card` builds it as `build/<profile>/otm/<name>.otm` for the card's `Modules/` folder,
 and the host builds (`make host-test`, the simulator, the tools) compile it in, as a device
 with the card's modules would have it. `in_tree = true` takes the module's path from this
-repository instead of `MODULES_DIR`. DX7 is one (`modules/dx7`, `card = true` in `full`):
-no image has it built in.
+repository instead of `MODULES_DIR`. `full` builds in the five Mini synths (ACD, FAT,
+VAP, PERC, WTFM); its other synths are card modules: DX7 (`modules/dx7`, in this
+repository), FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type and ARC. No
+image has those built in.
 
 A synth module's `.otm` carries its **hot row**: the functions that do most of its work,
 hottest first, from `tools/hot_rows/<module>.hot`. When the image has a fast block in
