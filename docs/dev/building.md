@@ -2,7 +2,8 @@
 
 ## Firmware
 
-Needs the **Arm GNU toolchain** (`arm-none-eabi-gcc`; CI uses 14.2.Rel1), Python 3 and the
+Needs the **Arm GNU toolchain** (`arm-none-eabi-gcc`; CI uses 14.2.Rel1), Python 3 with
+[pyelftools](https://pypi.org/project/pyelftools/) (`tools/make_otm.py`, the card modules) and the
 two module repositories from upstream 3.x: the synth engines
 ([opentracker-synths](https://github.com/opentracker-fw/opentracker-synths)) and the effects
 ([opentracker-fx](https://github.com/opentracker-fw/opentracker-fx)), side by side.
