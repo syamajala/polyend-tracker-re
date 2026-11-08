@@ -1314,7 +1314,9 @@ build/full/sim/opentracker-sim
 <code>tests/perf_baseline.txt</code> (+5 % max) and per-engine limits, the flash and stack checks,
 a host benchmark, and, with <code>LOG=</code>, the telemetry thresholds of a device log. Needs
 <code>qemu-system-arm</code> for the M4 part (skipped otherwise). Run it for anything on the audio
-path.</p>
+path. CI runs it too (the <code>perf-gate</code> job, with QEMU and Arm's 14.2.Rel1). The baseline
+is recorded with that compiler: another gcc counts a few percent differently, so record a
+new baseline only from a 14.2.Rel1 build.</p>
 
 
 
