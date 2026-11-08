@@ -2,11 +2,19 @@
 
 ## Firmware
 
-Needs the **Arm GNU toolchain** (`arm-none-eabi-gcc`; CI uses 14.2.Rel1), Python 3 with
+Needs the **Arm GNU toolchain** (`arm-none-eabi-gcc`; CI uses 14.2.Rel1, use the same one:
+a newer gcc builds a few KB bigger, so the flash gate disagrees with CI), Python 3 with
 [pyelftools](https://pypi.org/project/pyelftools/) (`tools/make_otm.py`, the card modules) and the
 two module repositories from upstream 3.x: the synth engines
 ([opentracker-synths](https://github.com/opentracker-fw/opentracker-synths)) and the effects
 ([opentracker-fx](https://github.com/opentracker-fw/opentracker-fx)), side by side.
+
+The Makefile picks up Arm's toolchain by itself from `/Applications/ArmGNUToolchain/` (macOS)
+or `~/opt/arm-gnu-toolchain-*-arm-none-eabi/` (Linux: unpack
+`arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi.tar.xz` from
+[Arm's downloads](https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads) there);
+otherwise it uses `arm-none-eabi-` on the `PATH`, or `CROSS=/path/to/arm-none-eabi-`.
+Run `make clean` after switching compilers.
 
 ```sh
 git clone https://github.com/opentracker-fw/opentracker-synths
