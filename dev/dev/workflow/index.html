@@ -922,10 +922,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#merging-an-upstream-release" class="md-nav__link">
+  <a href="#merging-upstream" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Merging an upstream release
+        Merging upstream
       
     </span>
   </a>
@@ -1036,10 +1036,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#merging-an-upstream-release" class="md-nav__link">
+  <a href="#merging-upstream" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Merging an upstream release
+        Merging upstream
       
     </span>
   </a>
@@ -1091,27 +1091,29 @@
 <h1 id="workflow-and-file-formats">Workflow and file formats<a class="headerlink" href="#workflow-and-file-formats" title="Permanent link">&para;</a></h1>
 <h2 id="branches">Branches<a class="headerlink" href="#branches" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong><code>main</code></strong> is the fork's integration branch: what gets flashed and released. It's never
-  rebased; upstream releases are merged into it.</li>
-<li><strong><code>main-v3</code></strong> is <code>main</code> merged with upstream's 3.x (synth and FX modules, build
-  profiles), kept in parallel. Work happens on <code>main</code>. <code>main-v3</code> is brought up to date by
-  merging <code>main</code> and <code>upstream/v3</code> into it, never by rebasing. Upstream's first v3 snapshot
-  rolled back some 2.2.x work, so check every v3 merge for deletions
-  (<code>git diff upstream/v2 upstream/v3</code>).</li>
+<li><strong><code>main</code></strong> is the fork's integration branch: what gets flashed and released. It's on
+  upstream's 3.x (synth and FX modules, build profiles) and never rebased; upstream's
+  <code>v3</code> is merged into it.</li>
+<li><strong><code>main-v2</code></strong> is the fork on upstream 2.x, as it was when <code>main</code> moved to 3.x
+  (2026-11-08). It's kept for reference and gets no upstream merges.</li>
 <li><strong><code>v2</code></strong> mirrors upstream's <code>v2</code> (<code>sandlbn/polyend-tracker-re</code>) and is fast-forwarded
   when upstream moves.</li>
 <li><strong>Feature branches</strong> come into <code>main</code> through pull requests on the fork, with CI. A
-  change meant for upstream starts from <code>upstream/v2</code>, so it can be offered upstream as it
-  is; fork-only work (the DX7 engine, song scenes …) can start from <code>main</code>.</li>
+  change meant for upstream starts from <code>upstream/v3</code> (or <code>upstream/v2</code> for a 2.x fix), so
+  it can be offered upstream as it is; fork-only work (card modules, song scenes …) starts
+  from <code>main</code>.</li>
 <li><strong>Upstream pull requests</strong> are opened one at a time. Upstream squash-merges, so a
   branch stacked on another is rebased after the first one lands.</li>
 </ul>
-<h2 id="merging-an-upstream-release">Merging an upstream release<a class="headerlink" href="#merging-an-upstream-release" title="Permanent link">&para;</a></h2>
+<h2 id="merging-upstream">Merging upstream<a class="headerlink" href="#merging-upstream" title="Permanent link">&para;</a></h2>
 <ol>
-<li>Fast-forward the mirror: <code>git push origin upstream/v2:v2</code>.</li>
-<li>Merge <code>upstream/v2</code> into a branch off <code>main</code>, resolve, then build with <code>make clean</code>
-   and the new <code>VERSION</code>, run the host tests, <code>make -C sim check</code> and
-   <code>tools/sim_remote_check.sh</code>.</li>
+<li>Update the module repositories (<code>opentracker-synths</code>, <code>opentracker-fx</code>) to upstream's
+   <code>main</code>, since upstream v3 can depend on module changes.</li>
+<li>Merge <code>upstream/v3</code> into a branch off <code>main</code>, resolve, then build with <code>make clean</code>,
+   run the host tests, <code>make -C sim check</code> and <code>tools/sim_remote_check.sh</code>. Upstream
+   merges its <code>v2</code> fixes into <code>v3</code>, so they arrive this way too. Check a v3 merge for
+   deletions of fork work (<code>git diff main &lt;merge&gt;</code>): upstream's first v3 snapshot rolled
+   back some 2.2.x work.</li>
 <li>Open a pull request into <code>main</code>; flash it together with whatever else waits for a
    device test.</li>
 </ol>
