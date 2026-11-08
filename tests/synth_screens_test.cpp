@@ -570,9 +570,10 @@ TEST(macro_section_editing) {
 TEST(not_available_is_read_only) {
     Harness h;
     App& a = *h.app;
-    // A New Project's Synth 1 is ACD in 2.0. Every Mini model has an engine
-    // since 2.2: WTFM is hidden here to test the "not available" path.
+    // Every Mini model has an engine since 2.2: WTFM is hidden here to test
+    // the "not available" path (Synth 1 from ACD to WTFM).
     audio::synthEngineHide(kSynthEngineWtfm, true);
+    a.setSynthModel(0, int(SynthModel::ACD));
     CHECK(a.synthSlot(0).model == uint32_t(SynthModel::ACD));
     a.setSynthModel(0, int(SynthModel::WTFM));
     CHECK(a.synthSlot(0).model == uint32_t(SynthModel::WTFM));
@@ -918,6 +919,7 @@ TEST(unavailable_slot_notice_on_open) {
     a.ui.platform.notified = &onNote;
     CHECK(a.saveProjectAs("AllPlay"));
     a.setSynthModel(1, int(SynthModel::FAT));   // plays since 2.1: not named
+    a.setSynthModel(0, int(SynthModel::ACD));   // only Synth 3 on WTFM
     a.setSynthModel(2, int(SynthModel::WTFM));
     CHECK(a.saveProjectAs("Dead"));
     CHECK(a.newProject());

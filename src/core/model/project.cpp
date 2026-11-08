@@ -40,15 +40,9 @@ void Project::setDefault() {
     setU16(mt::kU16_5FE, 20000); // delay filter, Hz
     // Tracker Mini (spec 21 §3.2, §3.3): three default synth slots. The
     // "Midi 9".."Midi 16" names come from the load pre-fill.
+    // [I] WTFM / ACD / VAP, as the Mini (SynthSlotRecord::defaults): upstream
+    // 2.0 started Synth 1 on ACD while WTFM had no engine.
     for (int s = 0; s < kSynthSlotCount; ++s) resetSynthSlot(s);
-    // Owner decision for 2.0: WTFM has no engine yet, so a New Project starts
-    // Synth 1 on ACD instead of the Mini's WTFM (a dead slot otherwise).
-    // Synth 2 / 3 keep the Mini defaults (ACD / VAP), and the load sanitiser
-    // keeps SynthSlotRecord::defaults (WTFM / ACD / VAP, spec 21 §3.3).
-    // 2.1: back to WTFM
-    SynthSlotRecord s0 = synthSlot(0);
-    s0.model = uint32_t(SynthModel::ACD);
-    setSynthSlot(0, s0);
 }
 
 void Project::setLoadPrefill() {

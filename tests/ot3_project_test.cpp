@@ -88,7 +88,7 @@ TEST(sidecar_absent_until_needed) {
     CHECK(h.fs.files.count(kWsSidecar) == 0);
     CHECK(a.saveProjectAs("Plain"));
     CHECK(h.fs.files.count("Projects/Plain/project.ot3x") == 0);
-    CHECK_EQ(a.slotEngineId(0), int32_t(kSynthEngineAcd));   // the Mini record
+    CHECK_EQ(a.slotEngineId(0), int32_t(kSynthEngineWtfm));   // the Mini record (WTFM / ACD / VAP)
 }
 
 TEST(sidecar_section_and_slot_engine_round_trip) {
