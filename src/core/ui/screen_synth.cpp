@@ -210,6 +210,7 @@ void SynthScreen::start(int opt) {
 void SynthScreen::stop() {
     audition(false, 0);
     if (view == View::Browser) closeBrowser();   // leaving the screen cancels the popup
+    if (view == View::Presets && previewKey_ >= 0) endPresetPreview();
 }
 
 void SynthScreen::audition(bool on, uint8_t note) {
@@ -270,16 +271,19 @@ void SynthScreen::refreshBar() {
         }
         case View::Macros: {
             const SynthPatch& p = app_.synthPatch(slot);
+            const audio::SynthSlotView sv = app_.engine.synth().slotView(slot);
             for (int k = 0; k < audio::kSynthSeqMacros; ++k) {
                 char top[24];
                 std::snprintf(top, sizeof(top), "M%d %s", k + 1, shown(p.macros[k].name));
                 fit(top, kFont3, 92);
-                const int val = r.macros[k];
+                const int val = sv.overridden[k] ? sv.macro[k] : r.macros[k];   // as the bar: an FX CC override
                 if (p.macros[k].bipolar) std::snprintf(v, sizeof(v), "%d", val - 63);
                 else std::snprintf(v, sizeof(v), "%d", val);
                 b.set(k, top, v, !ro);
             }
-            b.label[6].hidden = b.label[7].hidden = true;
+            std::snprintf(v, sizeof(v), "%d%%", int(app_.slotArpGate(slot)));
+            b.set(kArpGateColumn, "Arp Gate", v, !ro);
+            b.set(7, "Presets");
             b.highlight(macro, !ro);
             break;
         }
@@ -306,6 +310,16 @@ void SynthScreen::refreshBar() {
             insertBar();
 #endif
             break;
+        case View::Presets: {
+            const bool used = app_.synthPresetUsed(row + 1);
+            b.set(0, "Store", nullptr, !ro);
+            b.set(1, "Load", nullptr, used);
+            b.set(2, "Clear", nullptr, used);
+            b.label[3].hidden = b.label[6].hidden = true;
+            b.setWide(4, "Preview", nullptr, used && !ro);
+            b.set(7, "Back");
+            break;
+        }
         case View::Browser:
             // Tracker+ 1.0 Load Patch popup: F5-F6 Preview, F7 Cancel, F8 Confirm.
             for (int i = 0; i < 4; ++i) b.label[i].hidden = true;
@@ -386,6 +400,12 @@ void SynthScreen::resetSelected() {
             default: return;
         }
     } else if (view == View::Macros) {
+        if (macro == kArpGateColumn) {
+            app_.setSlotArpGate(slot, 100);
+            refreshBar();
+            ui_.dirty();
+            return;
+        }
         const int k = clampi(macro, 0, audio::kSynthSeqMacros - 1);
         r.macros[k] = audio::synthMacroDefault(app_.synthPatch(slot).macros[k].bipolar);
         app_.engine.synth().releaseMacro(slot, k);   // the hand edit wins over an FX CC
@@ -451,6 +471,12 @@ void SynthScreen::resetEditRow() {
 
 void SynthScreen::macroChange(int d) {
     if (!available()) return;
+    if (macro == kArpGateColumn) {
+        app_.setSlotArpGate(slot, int(app_.slotArpGate(slot)) + d);
+        refreshBar();
+        ui_.dirty();
+        return;
+    }
     SynthSlotRecord r = app_.synthSlot(slot);
     const int k = clampi(macro, 0, audio::kSynthSeqMacros - 1);
     r.macros[k] = uint8_t(clampi(int(r.macros[k]) + d, 0, 127));
@@ -858,6 +884,7 @@ void SynthScreen::onButton(uint8_t id, uint8_t state) {
     if (ui_.picker.isOpen()) return;
     if (id == btn::InstrParams) {
         if (state != kPress) return;
+        if (view == View::Presets && previewKey_ >= 0) endPresetPreview();
         audition(false, 0);
         if (view == View::Browser) closeBrowser();   // Cancel, back to page 1/2
 #if OT_SLOT_INSERTS
@@ -881,6 +908,10 @@ void SynthScreen::onButton(uint8_t id, uint8_t state) {
         } else if (state == kRelease) {
             app_.engine.synth().auditionOff();   // its own note; held pads play on
         }
+        return;
+    }
+    if (view == View::Presets && (id == btn::F5 || id == btn::F6) && state == kRelease) {
+        if (previewKey_ == int(id)) endPresetPreview();
         return;
     }
     if (view == View::Browser && (id == btn::F5 || id == btn::F6) && state == kRelease) {
@@ -924,11 +955,17 @@ void SynthScreen::onButton(uint8_t id, uint8_t state) {
             }
             break;
         case View::Macros:
-            if (id <= btn::F6) macro = id;
+            if (id <= btn::F7) macro = id;
             else if (id == btn::Up || id == btn::Down) macroChange(id == btn::Up ? 1 : -1);
             else if (id == btn::Delete) resetSelected();
-            else if (id == btn::Left || id == btn::Right) macro = clampi(macro + (id == btn::Right ? 1 : -1), 0, 5);
-            else if (id != btn::F7 && id != btn::F8) Screen::onButton(id, state);
+            else if (id == btn::Left || id == btn::Right) macro = clampi(macro + (id == btn::Right ? 1 : -1), 0, kArpGateColumn);
+            else if (id == btn::F8) {
+                view = View::Presets;
+                row = 0;
+            } else if (id != btn::F7) Screen::onButton(id, state);
+            break;
+        case View::Presets:
+            presetKey(id);
             break;
         case View::Edit: {
             const synthui::Section* sec = nullptr;
@@ -1019,6 +1056,7 @@ void SynthScreen::onEncoder(int d) {
         case View::Params: paramsChange(param == 0 ? (d > 0 ? 1 : -1) : d); break;
         case View::Macros: macroChange(d); break;
         case View::Edit: editChange(d); break;
+        case View::Presets: row = clampi(row + d, 0, kSynthPresetCount - 1); break;
         case View::Insert:
 #if OT_SLOT_INSERTS
             insertChange(d);
@@ -1083,7 +1121,9 @@ void SynthScreen::title(Gfx& g, const char* text) {
     const int32_t id = app_.slotEngineId(slot);
     const char* m = synthEngineDisplayName(id);
     if (available()) {
-        std::snprintf(right, sizeof(right), "Synth %d (%s)", slot + 1, m);
+        const int z = app_.synthPresetActive(slot);
+        if (z) std::snprintf(right, sizeof(right), "Synth %d (%s) P%d", slot + 1, m, z);   // why it sounds different
+        else std::snprintf(right, sizeof(right), "Synth %d (%s)", slot + 1, m);
         ui_.drawTitle(g, text, right);
     } else {
         // The longer header needs the status group's room (hidden). A model
@@ -1156,13 +1196,7 @@ void SynthScreen::insertKey(uint8_t id) {
     audio::IEffect* fx = app_.slotInsertEffect(slot);
     const int np = fx ? std::min(fx->paramCount(), audio::kEffectMaxParams) : 0;
     const bool list = insFocus == 0 || (fx && fx->param(insFocus - 1).names);
-    if (id == btn::F1) {
-        if (insFocus == 0) {   // pressed again: the next insert, wrapping (like Model)
-            const char* items[kInsertListMax];
-            const int n = insertList(items);
-            const int k = (std::max(insertIndex(app_, slot), 0) + 1) % n;
-            app_.setSlotInsertKind(slot, k ? mod::ModuleHost::instance().effectAt(k - 1)->id() : nullptr);
-        }
+    if (id == btn::F1) {   // focuses the list only: the wheel / arrows pick (no effect switched on by accident)
         insFocus = 0;
     } else if (id >= btn::F2 && id <= btn::F7) {
         if (int(id) <= np) insFocus = id;
@@ -1266,7 +1300,8 @@ void SynthScreen::drawMacros(Gfx& g) {
         // An FX CC override (sequencer) shows in yellow until Stop or a hand edit.
         barColumn(g, th, k, v, bi, !ro, kMacroBarH, sv.overridden[k] ? th.slot(slot::kYellow) : wg::kThemeColour);
     }
-    wg::panel(g, th, wg::columnX(6), wg::kPanelY, wg::columnW(2), kMacroBarH);
+    barColumn(g, th, kArpGateColumn, float(app_.slotArpGate(slot)) / 100.0f, false, !ro, kMacroBarH);
+    wg::panel(g, th, wg::columnX(7), wg::kPanelY, wg::columnW(), kMacroBarH);
     if (!ro) wg::focusFrame(g, th, wg::columnX(macro), 31, wg::columnX(macro) + wg::columnW(), wg::kPanelY + kMacroBarH - 1);
     // Legend (manual p.149): "Macro k   <name>" in two columns.
     wg::panel(g, th, 1, kLegendY, 797, wg::kPanelY + wg::kPanelH - kLegendY);
@@ -1373,6 +1408,125 @@ void SynthScreen::drawEdit(Gfx& g) {
 // Load Patch popup (Tracker+ 1.0 frames, V1 3:10-3:22): Synth Parameters 1/2
 // dimmed under it, the list at x 600..799 under the "Load Patch" header band
 // (Ui, kRightBar), the loaded patch marked.
+void SynthScreen::drawPresets(Gfx& g) {
+    const Theme& th = ui_.th();
+    wg::ListView v;
+    title(g, "Synth Presets");
+    v.x = 0;
+    v.y = wg::kPanelFillTop;
+    v.w = kScreenW;
+    v.h = wg::kPanelH;
+    v.count = kSynthPresetCount;
+    v.sel = row;
+    v.selStyle = wg::ListSel::kWhite;
+    v.item = [](void* c, int i, char* out, int cap) {
+        auto* s = static_cast<SynthScreen*>(c);
+        const int n = i + 1;
+        const char* mark = s->app_.synthPresetActive(s->slot) == n ? "* " : "";
+        if (!s->app_.synthPresetUsed(n)) {
+            std::snprintf(out, size_t(cap), "%sP%d  -", mark, n);
+            return;
+        }
+        const int32_t e = s->app_.synthPreset(n).engine;
+        std::snprintf(out, size_t(cap), "%sP%d  %s", mark, n,
+                      audio::synthEngineFor(e) ? synthEngineDisplayName(e) : "not available");
+    };
+    v.ctx = this;
+    wg::list(g, th, v);
+}
+
+// Back to what the slot played before the held preview, unless a Z or Stop
+// has moved it since.
+void SynthScreen::endPresetPreview() {
+    previewKey_ = -1;
+    app_.engine.synth().auditionOff();
+    if (app_.synthPresetActive(slot) == row + 1) app_.engine.synth().presetSelect(slot, previewPrev_);
+}
+
+void SynthScreen::loadPresetNow() {
+    if (!app_.loadSynthPreset(slot, row + 1)) {
+        ui_.notify("Engine not available");
+        return;
+    }
+    edited_[slot] = false;
+    section = 0;
+    ui_.notify("Preset loaded");
+}
+
+void SynthScreen::presetKey(uint8_t id) {
+    // A held preview: only leaving the page counts (a question would swallow the release).
+    if (previewKey_ >= 0) {
+        if (id != btn::F8) return;
+        endPresetPreview();
+    }
+    const int n = row + 1;
+    const bool used = app_.synthPresetUsed(n);
+    switch (id) {
+        case btn::F1:
+            if (!available()) break;
+            if (!used) {
+                app_.storeSynthPreset(n, slot);
+                ui_.notify("Preset stored");
+                break;
+            }
+            ui_.ask("Store Preset", "Replace this preset?", nullptr, "No", "Yes",
+                    [](void* c, int key) {
+                        auto* s = static_cast<SynthScreen*>(c);
+                        if (key != btn::F8) return;
+                        s->app_.storeSynthPreset(s->row + 1, s->slot);
+                        s->ui_.notify("Preset stored");
+                        s->refreshBar();
+                    },
+                    this);
+            break;
+        case btn::F2: {
+            if (!used) break;
+            if (!edited_[slot]) {
+                loadPresetNow();
+                break;
+            }
+            ui_.ask("Load Preset", "Discard patch edits?", nullptr, "No", "Yes",
+                    [](void* c, int key) {
+                        auto* s = static_cast<SynthScreen*>(c);
+                        if (key != btn::F8) return;
+                        s->loadPresetNow();
+                        s->refreshBar();
+                    },
+                    this);
+            break;
+        }
+        case btn::F3:
+            if (!used) break;
+            ui_.ask("Clear Preset", "Clear this preset?", nullptr, "No", "Yes",
+                    [](void* c, int key) {
+                        auto* s = static_cast<SynthScreen*>(c);
+                        if (key != btn::F8) return;
+                        s->app_.clearSynthPreset(s->row + 1);
+                        s->refreshBar();
+                    },
+                    this);
+            break;
+        case btn::F5:
+        case btn::F6:
+            if (!used || !available()) break;
+            previewPrev_ = uint8_t(app_.synthPresetActive(slot));
+            previewKey_ = id;
+            app_.engine.synth().presetSelect(slot, uint8_t(n));
+            audition(true, id == btn::F5 ? 48 : 72);
+            break;
+        case btn::F8:
+            view = View::Macros;
+            break;
+        case btn::Up:
+        case btn::Down:
+            row = clampi(row + (id == btn::Down ? 1 : -1), 0, kSynthPresetCount - 1);
+            break;
+        default:
+            if (!btn::isFKey(id) && id != btn::Left && id != btn::Right) Screen::onButton(id, kPress);
+            break;
+    }
+}
+
 void SynthScreen::drawBrowser(Gfx& g) {
     const Theme& th = ui_.th();
     drawParams(g);
@@ -1406,6 +1560,28 @@ void SynthScreen::drawBrowser(Gfx& g) {
     if (!browserCount) g.text(wg::kRightPopupX + 100, 60, kFont3, th.slot(slot::kBottomLabel), "No patches", IDisplay::kOptCenter);
 }
 
+void SynthScreen::update(uint32_t now) {
+    Screen::update(now);
+    if (view == View::Presets) {   // a Z in the pattern moves the marker
+        const uint32_t z = uint32_t(app_.synthPresetActive(slot));
+        if (z != shownMacros_) {
+            shownMacros_ = z;
+            ui_.dirty();
+        }
+        return;
+    }
+    if (view != View::Macros) return;
+    const SynthSlotRecord r = app_.synthSlot(slot);
+    const audio::SynthSlotView sv = app_.engine.synth().slotView(slot);
+    uint32_t shown = 0;
+    for (int k = 0; k < audio::kSynthSeqMacros; ++k)
+        shown = shown * 257u + (sv.overridden[k] ? 128u + sv.macro[k] : r.macros[k]);
+    if (shown != shownMacros_) {
+        shownMacros_ = shown;
+        ui_.dirty();
+    }
+}
+
 void SynthScreen::draw(Gfx& g) {
     refreshBar();   // FX CC overrides and the governor cap change from outside
     switch (view) {
@@ -1413,6 +1589,7 @@ void SynthScreen::draw(Gfx& g) {
         case View::Macros: drawMacros(g); break;
         case View::Edit: drawEdit(g); break;
         case View::Browser: drawBrowser(g); break;
+        case View::Presets: drawPresets(g); break;
         case View::Insert:
 #if OT_SLOT_INSERTS
             drawInsert(g);

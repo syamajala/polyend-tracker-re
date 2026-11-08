@@ -414,7 +414,10 @@ void Sequencer::processTrack(int t) {
     // (2) gate; MIDI notes on muted tracks are released.
     if (tr.sounding) {
         ++tr.gate;
-        if (tr.gateLimit != -1 && tr.gate >= tr.gateLimit) noteOffTrack(t, NoteOffMode::Off);
+        if (tr.gateLimit != -1 && tr.gate >= tr.gateLimit) {
+            noteOffTrack(t, NoteOffMode::Off);
+            if (!tr.arpActive) endArpGate(tr);   // the arp stopped: its last note is out
+        }
     }
     if (muted && (tr.midiCount || (tr.sounding && isSynth(tr.last.instr)))) noteOffTrack(t, NoteOffMode::Off);
     // (3) track 0 duties.
@@ -483,7 +486,7 @@ void Sequencer::stepStart(int t) {
     // (2) performance FX injection into the first empty column.
     if (tr.inject.type != 0) {
         for (int c = 0; c < 2; ++c) {
-            if (col[c]->type == 0) { *col[c] = tr.inject; break; }
+            if (!col[c]->used()) { *col[c] = tr.inject; break; }
         }
         // Table modes set or clear the injection every step (spec 12 §D).
         if (!(perfTrack(t) && isTableMode(tr.playMode))) tr.inject = StepFx{};
@@ -531,6 +534,12 @@ void Sequencer::stepStart(int t) {
     for (int c = 0; c < 2; ++c) {
         const uint8_t type = col[c]->type;
         const uint8_t v = col[c]->value;
+        if (isPresetCmd(type, v)) {  // Z: an FX-only step uses the synth the track plays
+            uint8_t in = p.rec.instr;
+            if (!isSynth(in) && p.rec.note < 0 && isSynth(tr.last.instr)) in = tr.last.instr;
+            if (isSynth(in) && sink_) sink_->synthPreset(uint8_t(synthSlotOf(in)), presetCmdIndex(v));
+            continue;
+        }
         switch (type) {
             case 1:  // Off
                 if (tr.rollActive && tr.rollCol == c) clearRoll(tr);
@@ -678,6 +687,7 @@ void Sequencer::handleNote(int t, Pending& p) {
         }
         triggerNote(t, rec, p.chord && !p.arpSetup, p.chordValue);
         tr.gateLimit = p.gateLimit;
+        tr.arpGated = false;
         tr.gate = 0;
         tr.sinceTrigger = 1;
         tr.last = rec;
@@ -690,6 +700,7 @@ void Sequencer::handleNote(int t, Pending& p) {
             tr.arpBase = uint8_t(rec.note);
             tr.arpPos = 0;
             tr.arpCounter = 0;
+            setArpGate(tr, arpGateLimit(tr, rec.instr));
         }
     } else if (isNoteOffSentinel(rec.note)) {
         noteOffTrack(t, NoteOffMode(rec.note));
@@ -852,6 +863,27 @@ void Sequencer::rollRetrigger(int t) {
     tr.gate = 0;
 }
 
+// [3.x] The microsteps an arp note of a synth slot stays on: its Arp Gate of
+// the arp period, always shorter than the period; -1 = until the next note.
+int Sequencer::arpGateLimit(const TrackState& tr, uint8_t instr) const {
+    if (!host_ || !isSynth(instr)) return -1;
+    const int gate = host_->synthArpGate(uint8_t(synthSlotOf(instr)));
+    if (gate >= 100) return -1;
+    return clampi((int(tr.arpPeriod) * gate + 50) / 100, 1, int(tr.arpPeriod) - 1);
+}
+
+void Sequencer::endArpGate(TrackState& tr) {
+    if (!tr.arpGated) return;
+    tr.gateLimit = -1;
+    tr.arpGated = false;
+}
+
+void Sequencer::setArpGate(TrackState& tr, int limit) {
+    if (limit >= 0) tr.gateLimit = int16_t(limit);
+    else if (tr.arpGated) tr.gateLimit = -1;
+    tr.arpGated = limit >= 0;
+}
+
 void Sequencer::arpNext(int t) {
     TrackState& tr = tracks_[t];
     if (!tr.arpMask) return;
@@ -876,8 +908,10 @@ void Sequencer::arpNext(int t) {
     tr.arpPos = uint8_t(np);
     NoteRec rec = tr.last;
     rec.note = int8_t(clampi(tr.arpBase + np, 0, 127));
-    noteOffTrack(t, NoteOffMode::Off);
+    const int limit = arpGateLimit(tr, rec.instr);
+    if (tr.sounding || !(limit >= 0 || tr.arpGated)) noteOffTrack(t, NoteOffMode::Off);   // a gated note is already off
     triggerNote(t, rec, false, 0);
+    setArpGate(tr, limit);
     tr.last = rec;
 }
 
@@ -1195,6 +1229,8 @@ void Sequencer::stop() {
     armed_ = false;
     breakPending_ = breakPreloadDone_ = false;
     selection_ = false;
+    queueActive_ = queueReady_ = false;   // a queued pattern change ends with the playback
+    queued_ = 0;
     dropPreload();
     resetPositions(0);
     if (sink_) sink_->synthTransportStop();   // macro overrides -> page values
@@ -1388,7 +1424,7 @@ void Sequencer::sendPitchBendFx(uint8_t instr, uint8_t value) {
 // ---------------------------------------------------------------------------
 
 bool Sequencer::cellFree(const Step& s) {
-    return (s.note == kNoteEmpty || s.note <= -5) && s.fx[0].type == 0 && s.fx[1].type == 0;
+    return (s.note == kNoteEmpty || s.note <= -5) && !s.fx[0].used() && !s.fx[1].used();
 }
 
 bool Sequencer::liveTargetStep(int t, int& target) const {

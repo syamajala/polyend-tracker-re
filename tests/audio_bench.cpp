@@ -26,6 +26,7 @@
 //             saturation, side-chain limiter, line-in with sends
 //   synth4    2.x synth framework: 4 voices of the internal test engine
 //   synth4w   synth4 with Width 1 (stereo S2 slot widener)
+//   synth4s   synth4 with Spread 1 (a stereo place per voice)
 //   synth4i   synth4 with the image's first effect as Synth 1's slot insert
 //             (images with slot inserts); synth.ins = synth4i - synth4, one
 //             insert incl. its SDRAM line copies
@@ -715,6 +716,53 @@ void switchBench() {
 #else
     std::printf("  (pswitch: switch block - steady %+.2f us, legacy copy in the block %+.2f us)\n", dStaged, dLegacy);
 #endif
+}
+
+// preset / presetx: a Z in the audio block, 4 voices sounding. The same engine
+// ramps every parameter; another engine fades the voices and restarts. SDRAM
+// accesses: the reload reads each of the patch's parameters from SDRAM.
+SynthPatch gBenchPresets[2];
+void presetBench() {
+    for (int cross = 0; cross < 2; ++cross) {
+        Rig r;
+        r.synth(4);
+        SynthSlotRecord rc = SynthSlotRecord::defaults(0);
+        rc.model = uint32_t(SynthModel::ACD);
+        rc.polyphony = 4;
+        r.eng->synth().setSlotRecord(0, rc);
+        gBenchPresets[0] = gSynthPatch;
+        gBenchPresets[1] = gSynthPatch;
+        if (cross) gBenchPresets[0].engine = kSynthEngineTest;
+        r.eng->synth().bindPresets(gBenchPresets);
+        for (int k = 0; k < 4; ++k) r.synthNote(uint8_t(8 + k), 0, uint8_t(48 + 7 * k));
+        int16_t out[kBlock * 2];
+        for (int b = 0; b < 20; ++b) r.eng->renderLive(out);
+        const int n = 32 / (kScale > 4 ? 4 : kScale);
+        double steady = 0.0, sw = 0.0;
+        const double acc = 2.0 * synthParamTotal(kSynthEngineAcd);
+        for (int k = 0; k < n; ++k) {
+            double t0 = nowUnits();
+            r.eng->renderLive(out);
+            steady += nowUnits() - t0;
+            r.eng->synth().presetSelect(0, 1);
+            t0 = nowUnits();
+            r.eng->renderLive(out);
+            sw += nowUnits() - t0;
+            gSink = out[k & 255];
+            r.eng->synth().presetSelect(0, 0);   // back, outside the timing
+            r.eng->renderLive(out);
+            if (cross)
+                for (int v = 0; v < 4; ++v) r.synthNote(uint8_t(8 + v), 0, uint8_t(48 + 7 * v));
+        }
+        r.eng->synth().bindPresets(nullptr);
+        const double d = (sw - steady) / n + acc * kSdramCycles;
+#ifdef OT_BENCH_M4
+        std::printf("    %s  %8.1f  (Z block - steady block, est. cycles, limit %d)\n", cross ? "presetx.d" : "preset.d", d,
+                    cross ? 12000 : 16000);
+#else
+        std::printf("  (%s: Z block - steady %+.2f us)\n", cross ? "presetx" : "preset", d);
+#endif
+    }
 }
 
 // peak: song 5 replayed from its trace (tests/peak_trace.cpp, make -C tests
@@ -1433,6 +1481,19 @@ int main(int argc, char** argv) {
         for (int k = 0; k < 4; ++k) r.synthNote(uint8_t(8 + k), 0, uint8_t(48 + 7 * k));
         report("synth4w", timeBlocks(r, 2000, lineNoise));
     }
+    {   // synth4s: synth4 with the slot's [3.x] Spread at 1 (a place per voice)
+        Rig r;
+        r.synth(4);
+        SynthSlotRecord rc = SynthSlotRecord::defaults(0);
+        rc.model = uint32_t(SynthModel::ACD);
+        rc.polyphony = 4;
+        rc.reverbSend = 40.0f;
+        synthParamSet(gSynthPatch, synthSpreadParam(kSynthEngineAcd), 1.0f);
+        r.eng->synth().setSlotRecord(0, rc);
+        r.eng->synth().patchChanged(0);
+        for (int k = 0; k < 4; ++k) r.synthNote(uint8_t(8 + k), 0, uint8_t(48 + 7 * k));
+        report("synth4s", timeBlocks(r, 2000, lineNoise));
+    }
 #endif
     for (int i = 0; i < kBlock * 2; ++i) gLineNoise[i] = lineNoise[i];
 #ifdef OT_BENCH_SYNTH_PACK
@@ -1443,6 +1504,7 @@ int main(int argc, char** argv) {
     mixBench(4, "mixwtfm", kSynthEngineWtfm);
 #endif
     switchBench();
+    presetBench();
 #ifdef OT_BENCH_M4
     peakBench(OT_BENCH_TRACE, 8100);   // song positions 0-2 (intro, groove, sixteen-track chords)
 #else
