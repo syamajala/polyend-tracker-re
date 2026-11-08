@@ -298,19 +298,14 @@ TEST(mini_slot_defaults_match_tracker_lib_template) {
     }
     Project p;   // New Project
     encodeProject(p, g_buf);
-    // 2.0 owner decision: a New Project's Synth 1 is ACD (WTFM has no engine
-    // until 2.1); everything else in the slot area is the template's.
-    SynthSlotRecord s0 = SynthSlotRecord::defaults(0);
-    s0.model = uint32_t(SynthModel::ACD);
-    s0.encode(rec);
-    CHECK(std::memcmp(g_buf + mt::synthSlotOff(0), rec, mt::kSynthSlotSize) == 0);
-    CHECK(std::memcmp(g_buf + mt::synthSlotOff(1), tpl.data() + mt::synthSlotOff(1), 0x80C - mt::synthSlotOff(1)) == 0);
+    // [I] The whole slot area is the template's (Synth 1 WTFM, as the Mini).
+    CHECK(std::memcmp(g_buf + mt::synthSlotOff(0), tpl.data() + mt::synthSlotOff(0), 0x80C - mt::synthSlotOff(0)) == 0);
     // Names 9..16 as the Mini init (0x603..0x642).
     CHECK(std::memcmp(g_buf + 0x603, tpl.data() + 0x603, 0x40) == 0);
     SynthSlotRecord r = p.synthSlot(0);
     CHECK_NEAR(r.gainDb, -9.0, 0);
     CHECK_EQ(r.polyphony, 1u);
-    CHECK_EQ(r.model, uint32_t(SynthModel::ACD));   // 2.1: back to WTFM
+    CHECK_EQ(r.model, uint32_t(SynthModel::WTFM));
     CHECK_STR(r.patchName, "Init");
     CHECK_EQ(SynthSlotRecord::defaults(0).model, uint32_t(SynthModel::WTFM));   // load sanitiser: Mini
     CHECK_EQ(p.synthSlot(1).model, uint32_t(SynthModel::ACD));
@@ -366,10 +361,11 @@ TEST(mini_slot_sanitiser) {
         float f;
     };
     const float nan = std::nanf("");
-    // Model 5 is DX7 (OpenTracker): 6 is the first bad model.
+    // Model 5 is the first bad model (stock; the fork's DX7 is a module engine
+    // since #21, in project.ot3x).
     const Bad bad[] = {
         {0x00, 0, true, 12.01f},  {0x00, 0, true, -96.5f}, {0x00, 0, true, nan},
-        {0x04, 9, false, 0},      {0x08, 6, false, 0},      {0x08, 0xFFFFFFFFu, false, 0},
+        {0x04, 9, false, 0},      {0x08, 5, false, 0},      {0x08, 0xFFFFFFFFu, false, 0},
         {0x0C, 0, true, 100.5f},  {0x0C, 0, true, -101.0f}, {0x30, 0, true, -0.5f},
         {0x30, 0, true, 101.0f},  {0x34, 0, true, nan},     {0x34, 0, true, 100.01f},
         {0x38, 0x80, false, 0},   {0x3D, 0xFF, false, 0},

@@ -13,7 +13,10 @@
 #include <vector>
 
 #include "audio/engine.h"
-#include "audio/engines/dx7.h"
+#if defined(OT_MOD_DX7S)   // [I] the DX7 card module (host builds compile it in)
+#include "dx7.h"
+#include "dx7_patch.h"
+#endif
 #include "acd.h"
 #include "perc.h"
 #include "audio/synth_bank.h"
@@ -520,20 +523,20 @@ TEST(synth_stop_resets_macro_overrides) {
     CHECK_EQ(r.bank.slotView(1).macro[0], 0);
 }
 
-// DX7 (OpenTracker model 5): the slot plays the voice in its patch (field
-// 100, ISynthEngine::loadPatch), and a voice edit reaches the next note.
+#if defined(OT_MOD_DX7S)
+// DX7 (the DX7S module, engine 0xF0, fork #21): the slot plays the voice in
+// its patch (field 100, ISynthEngine::loadPatch), and a voice edit reaches
+// the next note.
 TEST(synth_dx7_voice_from_patch) {
     CHECK(synthEngineFor(kSynthEngineDx7) == dx7::engine());
-    CHECK_EQ(int(synthEngineId(SynthModel::DX7)), int(kSynthEngineDx7));
-    CHECK_STR(synthModelName(SynthModel::DX7), "DX7");
-    CHECK(rec(SynthModel::DX7, 4).valid());
     BankRig r;
     r.bank.setEngineOverride(nullptr);
+    r.bank.setSlotEngine(0, kSynthEngineDx7);
     CHECK(patchInit(kSynthEngineDx7, &r.patch[0]));
     // The macro values at their neutral points, as the app sets them on a
     // patch load (synth_slots.cpp resetMacros): the DX7 Init patch's M1-M5
     // are bipolar (63 = no change).
-    SynthSlotRecord rc = rec(SynthModel::DX7, 4);
+    SynthSlotRecord rc = rec(SynthModel::ACD, 4);   // a module engine keeps a Mini model
     for (int k = 0; k < kSynthSeqMacros; ++k) rc.macros[k] = synthMacroDefault(r.patch[0].macros[k].bipolar);
     r.bank.setSlotRecord(0, rc);
     r.block();
@@ -590,12 +593,13 @@ TEST(synth_dx7_velocity_counts_once) {
     auto level = [](int sens, int vol) {
         BankRig r;
         r.bank.setEngineOverride(nullptr);
+        r.bank.setSlotEngine(0, kSynthEngineDx7);
         CHECK(patchInit(kSynthEngineDx7, &r.patch[0]));
         uint8_t v[kDx7VoiceBytes];
         std::memcpy(v, kDx7InitVoice, sizeof v);
         v[5 * 21 + 15] = uint8_t(sens);   // operator 1 velocity sensitivity
         CHECK(patchSetDx7Voice(r.patch[0], v));
-        SynthSlotRecord rc = rec(SynthModel::DX7, 4);
+        SynthSlotRecord rc = rec(SynthModel::ACD, 4);
         for (int k = 0; k < kSynthSeqMacros; ++k) rc.macros[k] = synthMacroDefault(r.patch[0].macros[k].bipolar);
         r.bank.setSlotRecord(0, rc);
         r.block();
@@ -614,6 +618,7 @@ TEST(synth_dx7_velocity_counts_once) {
     const double db = 10.0 * std::log10(level(7, 50) / level(7, 100));
     CHECK(db < -14.0 && db > -18.0);
 }
+#endif
 
 TEST(synth_macro_release_hands_back_to_the_page_value) {
     // A hand edit of a macro on the Synth Macros page takes over from an FX

@@ -20,9 +20,10 @@
 #include <string>
 #include <vector>
 
-#include "audio/engines/dx7.h"
-#include "audio/engines/dx7_tables.h"
 #include "audio/synth_engine.h"
+#include "dx7.h"
+#include "dx7_patch.h"
+#include "dx7_tables.h"
 #include "formats/patch_pb.h"
 
 using namespace ot;

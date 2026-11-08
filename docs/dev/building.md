@@ -2,7 +2,8 @@
 
 ## Firmware
 
-Needs the **Arm GNU toolchain** (`arm-none-eabi-gcc`; CI uses 14.2.Rel1), Python 3 and the
+Needs the **Arm GNU toolchain** (`arm-none-eabi-gcc`; CI uses 14.2.Rel1), Python 3 with
+[pyelftools](https://pypi.org/project/pyelftools/) (`tools/make_otm.py`, the card modules) and the
 two module repositories from upstream 3.x: the synth engines
 ([opentracker-synths](https://github.com/opentracker-fw/opentracker-synths)) and the effects
 ([opentracker-fx](https://github.com/opentracker-fw/opentracker-fx)), side by side.
@@ -20,8 +21,34 @@ found next to `opentracker-synths`.
 
 A **build profile** (`profiles/<name>.toml`, `PROFILE=`, default `full`) picks the modules
 compiled into the image: `full` has ACD, FAT, VAP, PERC, WTFM and the master chorus, BBD
-chorus and tape inserts; `core` has none. DX7 is part of the fork's core, in every profile.
-Each profile builds into `build/<profile>/`.
+chorus and tape inserts; `core` has none. Each profile builds into `build/<profile>/`.
+
+**Card modules** (fork #21): a profile entry with `card = true` stays out of the image.
+`make card` builds it as `build/<profile>/otm/<name>.otm` for the card's `Modules/` folder,
+and the host builds (`make host-test`, the simulator, the tools) compile it in, as a device
+with the card's modules would have it. `in_tree = true` takes the module's path from this
+repository instead of `MODULES_DIR`. `full` builds in the five Mini synths (ACD, FAT,
+VAP, PERC, WTFM); its other synths are card modules: DX7 (`modules/dx7`, in this
+repository), FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type and ARC. No
+image has those built in.
+
+At boot the firmware looks at every `Modules/*.otm` (`src/core/modules/module_files.h`):
+a module without synth engines (an effect) loads into the card pool for good; a synth
+module is only listed, so its engines show in the Model list. The card synths in the pool
+are the ones the project's synth slots use: Open loads them before the slots' patches,
+and a Model change loads the new one once the choice has rested for 1/4 s, while stopped
+(while playing the slot says "Loads at Stop"). Every load starts the synth voices over
+(`SynthBank::holdEngines`), and the slots' synths share the fast block again. A synth that
+doesn't fit the pool (32 KB) stays unloaded, with "Card memory full" on its slot;
+the first slot gets the room first. Two slots on one engine load it once.
+
+A synth module's `.otm` carries its **hot row**: the functions that do most of its work,
+hottest first, from `tools/hot_rows/<module>.hot`. When the image has a fast block in
+SRAM_L, the loader shares it between the loaded synths and copies as much of each row
+there as its share holds; the rest runs from the slower pool. The rows come from every mode
+of every synth under the QEMU bench (`profiles/allsynths.toml`): run `make hot-rows`
+after changing a synth's DSP code, and commit the new rows. A row function the module
+build no longer has is reported by `make card` and simply stays in the slower pool.
 
 `VERSION` defaults to the Makefile's value, which follows the last upstream merge, so leave
 it unset unless you need a different one. This writes `build/full/opentracker.elf`,
@@ -52,7 +79,7 @@ python3 tools/telemetry_check.py frames build/full
 make budget   # the profile's module flash budgets
 ```
 
-- **Flash** (`.text + .data`): fails above 800,000 B, warns above 720,000 B (upstream fails at 720,000 B; the fork's DX7, remote control and Performance mode need more). The image itself may not pass 877,664 B, the stock 1.9.2 extent (`tools/check_image.py`).
+- **Flash** (`.text + .data`): fails above 800,000 B, warns above 720,000 B (upstream fails at 720,000 B; the fork's remote control and Performance mode need more). The image itself may not pass 877,664 B, the stock 1.9.2 extent (`tools/check_image.py`).
 - **Stack headroom** (`_estack − _ebss`): fails below 75 KiB.
 - **libm**: fails if double-precision math functions get linked.
 - **Frames**: fails if any single function's stack frame is as large as the stack guard

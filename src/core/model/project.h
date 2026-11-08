@@ -87,12 +87,12 @@ constexpr uint32_t synthSlotOff(int s) { return kSynthSlots + kSynthSlotSize * u
 }  // namespace mt
 
 // Slot model index (spec 21 §3.3 +0x08) and its patch engine id (§7, §8).
-// DX7 is not a Tracker Mini model (OpenTracker, issue #20): a Mini resets
-// a slot record with model 5 (out of its range).
-enum class SynthModel : uint8_t { ACD = 0, FAT = 1, VAP = 2, WTFM = 3, PERC = 4, DX7 = 5 };
-constexpr int kSynthModelCount = 6;
+// Module engines (DX7 too, fork #21) keep a Mini model here and their engine
+// id in project.ot3x (App::slotEngineId).
+enum class SynthModel : uint8_t { ACD = 0, FAT = 1, VAP = 2, WTFM = 3, PERC = 4 };
+constexpr int kSynthModelCount = 5;
 inline uint8_t synthEngineId(SynthModel m) {
-    static const uint8_t kIds[kSynthModelCount] = {1, 2, 4, 5, 6, 0x40};
+    static const uint8_t kIds[kSynthModelCount] = {1, 2, 4, 5, 6};
     return uint8_t(m) < kSynthModelCount ? kIds[uint8_t(m)] : 0;
 }
 // Folder name under Patches/ (spec 21 §2); "" for an invalid model.

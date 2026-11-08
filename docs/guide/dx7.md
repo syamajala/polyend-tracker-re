@@ -1,8 +1,22 @@
 # DX7 synth
 
-A **6-operator FM engine that plays Yamaha DX7 voices**, available as a sixth synth model
-next to ACD, FAT, VAP, WTFM and PERC. Thousands of free DX7 voices exist as SysEx
-(`.syx`) files; the Tracker plays them directly.
+A **6-operator FM engine that plays Yamaha DX7 voices**, a synth model next to ACD, FAT,
+VAP, WTFM and PERC. Thousands of free DX7 voices exist as SysEx (`.syx`) files; the
+Tracker plays them directly.
+
+## Install it
+
+DX7 comes as a file on the SD card rather than in the firmware, which leaves room for
+other features:
+
+1. Copy **`dx7.otm`** (in `Modules.zip` on the release page) into **`Modules/`** on the
+   SD card.
+2. Restart the Tracker. DX7 now shows in the **Model** list. It loads when a project
+   uses it: pick it as the Model and it's ready a moment later (while the song plays,
+   it loads when you press Stop).
+
+Without the file, a project that uses DX7 still opens, with the notice
+"Synth 1 (DX7) not available"; put the file back to play it.
 
 ![Synth Parameters with the DX7 model](../images/dx7-params.png)
 
@@ -13,7 +27,7 @@ next to ACD, FAT, VAP, WTFM and PERC. Thousands of free DX7 voices exist as SysE
     - **single-voice dumps** (163 bytes).
 2. Select a synth instrument (S1–S3): hold **Instrument** and turn the encoder.
 3. Press **Instrument Params**. On **Synth Parameters**, set **Model** to **DX7**
-   (it's the last entry in the list).
+   (after the built-in models in the list).
 4. Press **Load Patch** (F7).
 
 ![Load Patch: banks are listed first](../images/dx7-load.png)

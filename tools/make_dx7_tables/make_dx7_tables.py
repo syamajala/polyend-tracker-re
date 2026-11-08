@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate src/core/audio/engines/dx7_tables.cpp (DX7 engine lookup tables).
+"""Generate modules/dx7/src/dx7_tables.cpp (DX7 engine lookup tables).
 
 The tables follow the integer recipes of Google's Music Synthesizer for
 Android (msfa, Apache 2.0: sin.cc, exp2.cc, freqlut.cc), computed here
@@ -8,7 +8,7 @@ sine table is the exception: it is read from SRAM, so initSinTable() builds it
 there at boot from two constants, with the same integer steps as sin_table()
 (#122: no 4 KB flash copy of it).
 The frequency table depends on the audio sample rate (kSampleRate,
-audio_tables.h). Usage: make_dx7_tables.py > src/core/audio/engines/dx7_tables.cpp
+audio_tables.h). Usage: make_dx7_tables.py > modules/dx7/src/dx7_tables.cpp
 """
 import math
 
@@ -77,7 +77,7 @@ def main():
     print("// msfa's sin.cc / exp2.cc / freqlut.cc (Copyright 2012 Google Inc., Apache")
     print("// License 2.0, third_party/LICENSES/msfa.txt), precomputed into flash.")
     print(f"// kDx7FreqLut is for a {SAMPLE_RATE} Hz sample rate.")
-    print('#include "audio/engines/dx7_tables.h"')
+    print('#include "dx7_tables.h"')
     print()
     print("namespace ot {")
     print("namespace audio {")

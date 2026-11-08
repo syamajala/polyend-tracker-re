@@ -19,7 +19,7 @@ using namespace ot;
 
 namespace {
 
-constexpr int32_t kTestEng = 0xF0;   // a test-only id (0x80 FM4S, 0x81 JU6S are real modules)
+constexpr int32_t kTestEng = 0xFE;   // a test-only id (0x80.. upstream modules, 0xF0 DX7)
 const PatchParamRange kParams[3] = {{0.5f, 0, 1}, {1000, 20, 20000}, {1, 0, 2}};
 const synthui::ParamUi kUi[3] = {{"Chorus", synthui::kFmtPct, nullptr, 0},
                                  {"Cutoff", synthui::kFmtHz, nullptr, 0},
@@ -42,7 +42,7 @@ public:
 EngineModule g_mod;
 
 // A second test engine with a display name ('-' and lower case: not a folder name).
-constexpr int32_t kDisp = 0xF2;
+constexpr int32_t kDisp = 0xFF;
 const mod::SynthDescriptor kDispDesc = {kDisp, "TDISP", 0, 2, 3, kParams, kUi, kSections, 8, 0, nullptr, "T-Disp"};
 class DispModule final : public mod::IModule {
 public:

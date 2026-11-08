@@ -36,9 +36,10 @@ below are the 2026-10-23 audit and are kept for the comparison with upstream.*
     back. `make host-test` also runs `make -C tests printf-m4`: the toolchain's
     own `snprintf` with the hook under QEMU, diffed against glibc, so a newlib
     that changes the hook's arguments fails there.
-  - **DX7 sine table built at boot (−4 KB):** `gDx7Sin` stays in SRAM but is no
-    longer copied from flash; `dx7::initSinTable()` runs msfa's integer recipe
-    (~60 µs) from `audio::initTables()`.
+  - **DX7 sine table built at boot (−4 KB):** `gDx7Sin` is no longer copied from
+    flash; `dx7::initSinTable()` runs msfa's integer recipe (~60 µs). Since #21
+    DX7 is a card module (`modules/dx7`): its code (~18 KB) left the image and
+    the table (4.1 KB) is the module's bss in the card pool, built in `attach()`.
   - **Looked at, left:** ~36 KB of string literals (mostly Config help text),
     fonts (already compressed), the play-mode tables (~1.3 KB if packed).
 - **SRAM is tight again.** USB audio is about half of the drop (~7 KB: its rings

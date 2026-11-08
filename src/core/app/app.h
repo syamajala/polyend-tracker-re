@@ -23,6 +23,7 @@
 #include "model/pattern_store.h"
 #include "model/project.h"
 #include "model/synth_patch.h"
+#include "modules/module_files.h"
 #include "sequencer/sequencer.h"
 #include "ui/notes.h"
 #include "ui/ui.h"
@@ -86,6 +87,9 @@ struct HalRefs {
         bool playing;
     };
     void (*usbOutStats)(UsbOutStats* out) = nullptr;
+    // [I] Modules from the card (fork #21, modules/module_files.h): the block
+    // they load into. Null: no loading (simulator, host tests).
+    const mod::OtmPool* modulePool = nullptr;
     // Recorder input routing (spec 05 appendix C §2.4/§2.5): source 0 line
     // in, 1 radio, 2 mic low gain, 3 mic high gain; gain 0..100. Returns
     // false when the source is not available. Null: only line in (no
@@ -571,21 +575,34 @@ public:
     // (slot unchanged) when the file is missing, damaged or another engine's.
     bool previewSynthLibraryPatch(int s, const char* name);
     void endSynthPreview();
-    // DX7 banks (OpenTracker, issue #20): Patches/DX7/<file> (.syx), a single
-    // voice (163 B) or 32-voice bank (4104 B) SysEx dump, one bank at a time.
-    // Returns the voices read, 0 when the file is missing or no DX7 dump.
-    // The names are valid right after (the voices sit in the job scratch).
-    // Voice k plays / loads into a DX7 slot as the built-in Init patch with
-    // that voice, named after the voice (the file is read again).
-    int openDx7Bank(const char* file);
-    void dx7BankVoiceName(int k, char* out, int cap) const;   // trimmed, "" past the end
-    bool previewDx7BankVoice(int s, int k);   // like previewSynthLibraryPatch
-    bool loadDx7BankVoice(int s, int k);      // like loadSynthLibraryPatch
+    // [I] Patch files of another format (modules/synth_descriptor.h
+    // PatchImport; DX7 .syx banks, issue #20): Patches/<engine>/<file> of slot
+    // s's engine, one file at a time. Returns its patches, 0 when the file is
+    // missing, too large or not the engine's format. The names are valid
+    // right after (the file sits in the job scratch). Patch k plays / loads
+    // into the slot as the engine's Init patch with the file's patch k, named
+    // after it (the file is read again).
+    int openPatchImport(int s, const char* file);
+    void importPatchName(int k, char* out, int cap) const;   // printable, "" past the end
+    bool previewImportPatch(int s, int k);   // like previewSynthLibraryPatch
+    bool loadImportPatch(int s, int k);      // like loadSynthLibraryPatch
     int synthPreviewSlot() const { return previewSlot_; }
     // The load notice of a project whose slot has no engine in this build
     // ("Synth k (WTFM) not available", the first such slot; MINI_PLAN §3).
     // False (out untouched) when every slot is available.
     bool synthUnavailableNotice(char* out, size_t cap) const;
+    // [I] #21: what happened to each Modules/*.otm (boot, then every card synth load).
+    const mod::OtmLoadReport& moduleLoadReport() const { return moduleLoad_; }
+    // [I] #21 card synths (modules/module_files.h): the card synths loaded
+    // are the ones the slots name. Project open loads them before the
+    // patches; a model change loads kCardSettleMs after the choice rests,
+    // while stopped (serviceCardSynths), then gives the slot its Init patch.
+    static constexpr uint32_t kCardSettleMs = 250;
+    void serviceCardSynths(uint32_t now);
+    bool syncCardSynths(bool initPatches);
+    // Why slot s's card engine isn't loaded ("Loads at Stop", "Loading",
+    // "No room for it", ...); nullptr = not a card engine, or loaded.
+    const char* cardSlotState(int s) const;
 
     // ---- project operations (project_io.cpp) ------------------------------
     // The blocking calls below run the same background job as the start*()
@@ -929,6 +946,11 @@ private:
     // Mini record's model), module sections, foreign module chunks kept.
     int32_t slotEngine_[kSynthSlotCount] = {};
     uint8_t slotArpGate_[kSynthSlotCount] = {100, 100, 100};
+    // [I] #21: the slot engines a card synth load last tried (it isn't
+    // retried for the same set) and since when the current set waits.
+    int32_t cardTried_[kSynthSlotCount] = {};
+    int32_t cardWaiting_[kSynthSlotCount] = {};
+    uint32_t cardSince_ = 0;
 #if OT_SLOT_INSERTS
     struct SlotInsertCfg {
         char id[4];                  // all zero = none
@@ -946,8 +968,8 @@ private:
     PatchSource previewSrc_ = PatchSource::None;
     bool previewSynthPatch(int s, const SynthPatch& p);
     void loadSynthPatch(int s, const SynthPatch& p, const char* name);
-    const SynthPatch* dx7BankPatch(int s, int k);   // into the scratch decode slot
-    int readDx7Bank();
+    const SynthPatch* importPatch(int s, int k);   // into the scratch decode slot
+    int readPatchImport();
     bool previewDirty_ = false;
     const SynthPatch* readSynthLibraryPatch(int s, const char* name);
     // previewOn voice holding the synth audition track (kNoSynthAudition: none).
@@ -961,6 +983,7 @@ private:
     uint8_t synthLiveNext_ = 0;
     float liveBend_ = 0.0f;         // last MIDI input pitch bend (semitones)
     char loadNotice_[64] = {};      // first problem of the last load (one notice)
+    OT_APP_SDRAM_MEMBER(mod::OtmLoadReport, moduleLoad_);  // [I] #21: Modules/*.otm at boot
     uint8_t patDirty_[32] = {};
     bool projectDirty_ = false, namesDirty_ = false, configDirty_ = false, configForce_ = false;
     uint8_t recShadow_[12] = {};                  // project bytes 0x134..0x13F last synced

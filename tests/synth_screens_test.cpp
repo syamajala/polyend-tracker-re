@@ -16,6 +16,9 @@
 #include "audio/synth_params.h"
 #include "formats/patch_pb.h"
 #include "ui/screens.h"
+#if defined(OT_MOD_DX7S)   // [I] the DX7 card module (host builds compile it in)
+#include "dx7_patch.h"
+#endif
 
 using namespace ot;
 
@@ -37,6 +40,15 @@ bool frameHas(Harness& h, const char* s) {
 void openSlot(Harness& h, int s, SynthModel model = SynthModel::ACD) {
     App& a = *h.app;
     if (a.synthSlot(s).model != uint32_t(model)) a.setSynthModel(s, int(model));
+    a.setCurrentInstrument(kFirstSynthInstrument + s);
+    h.tap(btn::Pattern);
+    h.tap(btn::InstrParams);
+}
+
+// A slot with a module engine (Synth page model list after the Mini models).
+void openEngineSlot(Harness& h, int s, int32_t engineId) {
+    App& a = *h.app;
+    if (a.slotEngineId(s) != engineId) a.setSynthEngine(s, engineId);
     a.setCurrentInstrument(kFirstSynthInstrument + s);
     h.tap(btn::Pattern);
     h.tap(btn::InstrParams);
@@ -295,7 +307,7 @@ TEST(model_change_loads_init) {
     CHECK(a.synthSlot(1).model == uint32_t(SynthModel::VAP));
     CHECK(a.synthPatch(1).engine == kSynthEngineVap);
     // The Model key cycles and wraps (manual p.147): VAP, WTFM, PERC, then
-    // DX7 (OpenTracker), ACD.
+    // the module engines (DX7 too), ACD.
     h.tap(btn::F1);
     h.tap(btn::F1);
     CHECK(a.synthSlot(1).model == uint32_t(SynthModel::PERC));
@@ -304,9 +316,6 @@ TEST(model_change_loads_init) {
         h.tap(btn::F1);
         CHECK_EQ(a.slotEngineId(1), synthModelListEngine(k));
     }
-    h.tap(btn::F1);
-    CHECK(a.synthSlot(1).model == uint32_t(SynthModel::DX7));
-    CHECK(a.synthPatch(1).engine == kSynthEngineDx7);
     h.tap(btn::F1);
     CHECK(a.synthSlot(1).model == uint32_t(SynthModel::ACD));
     CHECK_EQ(a.slotEngineId(1), int32_t(kSynthEngineAcd));
@@ -633,9 +642,10 @@ TEST(macro_section_editing) {
 TEST(not_available_is_read_only) {
     Harness h;
     App& a = *h.app;
-    // A New Project's Synth 1 is ACD in 2.0. Every Mini model has an engine
-    // since 2.2: WTFM is hidden here to test the "not available" path.
+    // Every Mini model has an engine since 2.2: WTFM is hidden here to test
+    // the "not available" path (Synth 1 from ACD to WTFM).
     audio::synthEngineHide(kSynthEngineWtfm, true);
+    a.setSynthModel(0, int(SynthModel::ACD));
     CHECK(a.synthSlot(0).model == uint32_t(SynthModel::ACD));
     a.setSynthModel(0, int(SynthModel::WTFM));
     CHECK(a.synthSlot(0).model == uint32_t(SynthModel::WTFM));
@@ -981,6 +991,7 @@ TEST(unavailable_slot_notice_on_open) {
     a.ui.platform.notified = &onNote;
     CHECK(a.saveProjectAs("AllPlay"));
     a.setSynthModel(1, int(SynthModel::FAT));   // plays since 2.1: not named
+    a.setSynthModel(0, int(SynthModel::ACD));   // only Synth 3 on WTFM
     a.setSynthModel(2, int(SynthModel::WTFM));
     CHECK(a.saveProjectAs("Dead"));
     CHECK(a.newProject());
@@ -1564,7 +1575,9 @@ TEST(synth_edit_wheel_hint_lists_and_values) {
     CHECK(values >= 2);
 }
 
-// DX7 (OpenTracker, issue #20): Load Patch also lists Patches/DX7/*.syx.
+#if defined(OT_MOD_DX7S)
+// DX7 (issue #20; its module's PatchImport, fork #21): Load Patch also lists
+// Patches/DX7/*.syx.
 // 32-voice banks come first and open like folders (their voices preview and
 // load, Left goes back); a single-voice file sits with the patches and
 // previews / loads at once. A voice loads as the Init patch with that voice,
@@ -1605,7 +1618,7 @@ TEST(dx7_syx_bank_browser) {
     h.fs.files["Patches/ACD/other.syx"] = bk;   // other models list no .syx
     h.app->boot();
     App& a = *h.app;
-    openSlot(h, 1, SynthModel::DX7);
+    openEngineSlot(h, 1, kSynthEngineDx7);
     SynthScreen& s = synth(a);
     CHECK(s.available());
     h.tap(btn::F7);
@@ -1725,6 +1738,7 @@ TEST(dx7_syx_bank_browser) {
     h.tap(btn::F7);
     for (int i = 0; i < s.browserCount; ++i) CHECK(s.browserKind[i] == SynthScreen::Entry::Patch);
 }
+#endif
 
 // Tester report (3.0 preview, 2026-11-02): the wheel scrolled the wrong
 // way on every On / Off row (Sync, Reset, Oversampling, ...) and on a

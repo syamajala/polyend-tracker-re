@@ -15,6 +15,10 @@
 # make testsongs  -> build/testsongs/Projects/<name>/ (2.x hardware-test projects, TESTSONGS.md)
 # make patches    -> build/patches/Patches/<MODEL>/ (synth preset pack, tools/make_patches/PRESETS.md)
 # make budget     -> the profile's declared module budgets (flash, SRAM) and their limits
+# make card          -> [I] the profile's card modules as build/<profile>/otm/<name>.otm (fork #21)
+# make hot-rows      -> [I] tools/hot_rows/*.hot, the synths' hot code for the fast block (fork #21)
+# make otm OTM_MODULE=<path> -> [I] build/<profile>/otm/<name>.otm, a module loadable from the card
+#                    (fork #21; <path> as in a profile, relative to MODULES_DIR; tools/make_otm.py)
 # make fonts      -> regenerate the committed UI font image (src/core/ui/fonts/font_data.*,
 #                    the firmware's packed font_data_z.inc / font_adv.inc,
 #                    sim/third_party/rom_fonts.inc); needs python3 + Pillow
@@ -63,6 +67,15 @@ OT_REMOTE_REGS ?= 0
 ifeq ($(OT_REMOTE_REGS),1)
 BUILD     := $(BUILD)/regs
 endif
+# [I] #21 shared-pool measurement images (profiles/pooltest.toml): 1 = a 12 KB
+# SRAM_L block for card modules' fast parts, card modules replace built-ins
+# with the same id, stack floor 15 KB, pool cap 48 KB, module log every 10 s.
+# Never for releases.
+OT_POOL_TEST ?= 0
+OTM_FAST_BYTES := $(if $(filter 1,$(OT_POOL_TEST)),12288,0)
+ifeq ($(OT_POOL_TEST),1)
+BUILD     := $(BUILD)/pooltest
+endif
 # USB Storage mode (docs/PLAN_2X.md, Tracker Mini manual §13.10): 1 = the USB
 # device adds a mass-storage interface (third_party/teensy3/usb_msc.h) next to
 # MIDI + Serial; 0 = the old MIDI + Serial descriptors exactly (fallback image).
@@ -100,14 +113,14 @@ CPUFLAGS  := -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16
 DEFS      := -D__MK66FX1M0__ -DF_CPU=180000000 -DUSB_MIDI_SERIAL -DLAYOUT_US_ENGLISH \
              -DF_BUS=90000000 -DSERIAL5_TX_BUFFER_SIZE=512 -DSERIAL5_RX_BUFFER_SIZE=512 \
              -DTEENSYDUINO=159 -DARDUINO=10819 -DOT_VERSION=\"$(VERSION)\" -DOT_TARGET_DEVICE=1 \
-             -DOT_SDRAM_CACHE=$(OT_SDRAM_CACHE) -DOT_FASTRUN=$(OT_FASTRUN) -DOT_USB_MSC=$(OT_USB_MSC) -DOT_USB_AUDIO=$(OT_USB_AUDIO) -DOT_STACK_GUARD_TEST=$(OT_STACK_GUARD_TEST) -DOT_REMOTE_REGS=$(OT_REMOTE_REGS) -DOT_FONTS_COMPRESSED=1 $(USB_ID) $(DEFS_EXTRA) $(MOD_DEFS)
-INCS      := -I$(CORE) -Isrc -Isrc/core -Isrc/hal -Ithird_party/fatfs $(MOD_INCS)
+             -DOT_SDRAM_CACHE=$(OT_SDRAM_CACHE) -DOT_FASTRUN=$(OT_FASTRUN) -DOT_USB_MSC=$(OT_USB_MSC) -DOT_USB_AUDIO=$(OT_USB_AUDIO) -DOT_STACK_GUARD_TEST=$(OT_STACK_GUARD_TEST) -DOT_REMOTE_REGS=$(OT_REMOTE_REGS) -DOT_POOL_TEST=$(OT_POOL_TEST) -DOT_FONTS_COMPRESSED=1 $(USB_ID) $(DEFS_EXTRA) $(MOD_DEFS)
+INCS      := -I$(CORE) -Isrc -Isrc/core -Isrc/hal -Ithird_party/fatfs $(MOD_INCS) -I$(BUILD)/otm-gen
 COMMON    := $(CPUFLAGS) $(DEFS) $(INCS) -O2 -g -ffunction-sections -fdata-sections -Wall -MMD -fstack-usage
 CFLAGS    := $(COMMON) -std=gnu11
 CXXFLAGS  := $(COMMON) -std=gnu++17 -fno-exceptions -fno-rtti -felide-constructors -Wno-psabi
 # Own linker script: the Teensy one + the uncached `.dma` section (src/hal/opentracker.ld).
 LDSCRIPT  := src/hal/opentracker.ld
-LDFLAGS   := $(CPUFLAGS) -O2 -Wl,--gc-sections,--defsym=__rtc_localtime=0,--no-warn-rwx-segments -T$(LDSCRIPT) \
+LDFLAGS   := $(CPUFLAGS) -O2 -Wl,--gc-sections,--defsym=__rtc_localtime=0,--defsym=__otm_fast_bytes=$(OTM_FAST_BYTES),--no-warn-rwx-segments -T$(LDSCRIPT) \
              --specs=nano.specs
 LIBS      := -lm -lstdc++
 
@@ -122,6 +135,18 @@ OBJS      := $(patsubst %,$(BUILD)/%.o,$(CORE_C) $(CORE_CXX) $(APP_C) $(APP_CXX)
 # src/hal/opentracker.ld match these objects by file name.
 MOD_OBJS  := $(patsubst %.cpp,$(BUILD)/mod/%.cpp.o,$(MOD_SRCS))
 OBJS      += $(MOD_OBJS)
+
+# [I] Modules from the card (fork #21, tools/make_otm.py): the core's export table and
+# the versions a loadable module must match, generated for src/hal/module_pool.cpp.
+.DEFAULT_GOAL := all
+OTM_GEN   := $(BUILD)/otm-gen
+OTM_EXPORTS := src/core/modules/module_exports.txt
+$(OTM_GEN)/otm_core.h: tools/make_otm.py $(OTM_EXPORTS) $(wildcard src/core/modules/*.h src/core/audio/*.h) src/core/fastrun.h
+	python3 -I tools/make_otm.py abi-header --cxx $(CXX) --cxxflags '$(CXXFLAGS)' --out $@
+$(OTM_GEN)/otm_exports.cpp: tools/make_otm.py $(OTM_EXPORTS)
+	python3 -I tools/make_otm.py exports-cpp --out $@
+$(BUILD)/src/hal/module_pool.cpp.o: $(OTM_GEN)/otm_core.h
+OBJS      += $(BUILD)/$(OTM_GEN)/otm_exports.cpp.o
 
 # Size optimization per directory (docs/OPTIMIZATION_2X.md OP-4): UI, app,
 # HAL, formats, remote control and FatFs build with -Os; everything on the audio /
@@ -304,6 +329,45 @@ testsongs:
 budget:
 	python3 -I tools/profile.py budget --profile profiles/$(PROFILE).toml --modules-dir $(MODULES_DIR)
 .PHONY: budget
+
+# [I] A module as a file loadable from the card (fork #21, tools/make_otm.py), compiled
+# with the firmware's flags. OTM_REF=<base> also writes <name>.ref.bin, the image
+# otmLoad must produce at that base (tests/module_loader_test.cpp). OTM_HOT=<file>:
+# the row's functions, hottest first (tools/synth_hot.py --emit-hot); OTM_REF_FAST=<base>
+# and OTM_REF_CUT=<bytes> the reference's fast base and cut; OTM_SUFFIX names a variant
+# (<name><suffix>.otm).
+OTM_NAME = $(notdir $(OTM_MODULE))
+otm:
+	@test -n "$(OTM_MODULE)" || { echo "make otm OTM_MODULE=<module path, e.g. ../opentracker-fx/modules/tape>"; exit 1; }
+	@mkdir -p $(BUILD)/otm
+	python3 -I tools/make_otm.py build --module $(MODULES_DIR)/$(OTM_MODULE) --obj-dir $(BUILD)/otm/obj/$(OTM_NAME) \
+	    --out $(BUILD)/otm/$(OTM_NAME)$(OTM_SUFFIX).otm --cxx $(CXX) --cxxflags '$(CXXFLAGS)' \
+	    $(if $(OTM_HOT),--hot $(OTM_HOT)) \
+	    $(if $(OTM_REF),--reference $(OTM_REF) --ref-out $(BUILD)/otm/$(OTM_NAME)$(OTM_SUFFIX).ref.bin) \
+	    $(if $(OTM_REF_FAST),--ref-fast $(OTM_REF_FAST) --ref-fast-out $(BUILD)/otm/$(OTM_NAME)$(OTM_SUFFIX).ref-fast.bin) \
+	    $(if $(OTM_REF_CUT),--ref-cut $(OTM_REF_CUT))
+.PHONY: otm
+
+# [I] The profile's card modules (profiles/*.toml card = true, fork #21), each as
+# build/<profile>/otm/<name>.otm for the card's Modules/ folder, with its hot row
+# from tools/hot_rows/<name>.hot when there is one (make hot-rows).
+HOT_ROWS := tools/hot_rows
+card:
+	@mkdir -p $(BUILD)/otm
+	@$(if $(MOD_CARD_DIRS),,echo "profile $(PROFILE) has no card modules")
+	$(foreach d,$(MOD_CARD_DIRS),python3 -I tools/make_otm.py build --module $(d) --obj-dir $(BUILD)/otm/obj/$(notdir $(d)) \
+	    --out $(BUILD)/otm/$(notdir $(d)).otm --cxx $(CXX) --cxxflags '$(CXXFLAGS)' \
+	    $(if $(wildcard $(HOT_ROWS)/$(notdir $(d)).hot),--hot $(HOT_ROWS)/$(notdir $(d)).hot) &&) true
+.PHONY: card
+
+# [I] The synths' hot rows (fork #21): every mode of every synth under the QEMU bench
+# (profiles/allsynths.toml), folded into tools/hot_rows/<module>.hot by tools/synth_hot.py.
+# Rerun after a synth's DSP code changes; the rows are checked in.
+hot-rows:
+	$(MAKE) -C tests bench-m4-synth-modes PROFILE=allsynths
+	python3 -I tools/synth_hot.py build/allsynths/bench/audio_bench_m4_modes.elf build/allsynths/bench/synth_modes_hot.txt \
+	    --modes build/allsynths/bench/synth_modes.txt --emit-hot $(HOT_ROWS)
+.PHONY: hot-rows
 
 # Synth preset pack (tools/make_patches/PRESETS.md): build/patches/Patches/<MODEL>/.
 patches:

@@ -20,6 +20,9 @@
 //
 // Engine contract (audio/synth_engine.h): Volume is never applied here;
 // output is mono (L = R).
+//
+// [I] A card module (modules/dx7, fork #21): engine id kEngineId, in no
+// device image; host builds compile it in (tools/profile.py).
 #pragma once
 
 #include <cstddef>
@@ -31,6 +34,7 @@ namespace ot {
 namespace audio {
 namespace dx7 {
 
+constexpr int32_t kEngineId = kSynthEngineDx7;   // 0xF0 (model/synth_patch.h)
 constexpr int kVoiceBytes = 155;      // VCED single voice
 constexpr int kPackedBytes = 128;     // VMEM bank entry
 constexpr int kBankVoices = 32;
@@ -44,6 +48,12 @@ void unpackVoice(const uint8_t packed[kPackedBytes], uint8_t out[kVoiceBytes]);
 // Returns the number of voices written to out (0: not a DX7 dump).
 int parseSysex(const uint8_t* data, size_t len, uint8_t out[][kVoiceBytes], int maxVoices,
                bool* checksumOk = nullptr);
+
+// The same files, one voice at a time (the Load Patch browser): the voices in
+// the file (1, 32, or 0: not a DX7 dump), and voice k (unpacked, sanitized)
+// into out (false past the end).
+int sysexVoiceCount(const uint8_t* data, size_t len);
+bool sysexVoice(const uint8_t* data, size_t len, int k, uint8_t out[kVoiceBytes]);
 
 // Out-of-range values clamped to the DX7 ranges (in place). Returns how many
 // were changed.

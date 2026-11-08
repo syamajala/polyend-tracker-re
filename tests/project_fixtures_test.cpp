@@ -595,7 +595,7 @@ TEST(mini_new_project_patterns_and_patches) {
         CHECK(a.synthPatchSource(k) == App::PatchSource::Init);
         CHECK(h.fs.files[p] == encoded(a.synthPatch(k)));
     }
-    CHECK_EQ(a.synthPatch(0).engine, int32_t(kSynthEngineAcd));   // 2.0: Synth 1 ACD (Mini: WTFM)
+    CHECK_EQ(a.synthPatch(0).engine, int32_t(kSynthEngineWtfm));   // as the Mini
     CHECK_EQ(a.synthPatch(1).engine, int32_t(kSynthEngineAcd));
     CHECK_EQ(a.synthPatch(2).engine, int32_t(kSynthEngineVap));
     a.pattern().tracks[0].steps[0].note = 60;

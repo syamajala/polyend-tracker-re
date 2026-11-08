@@ -112,7 +112,9 @@ extern const ModuleFactory kModuleFactories[];
 
 class ModuleHost {
 public:
-    static constexpr int kMaxModules = 16;
+    // [I] 32 (stock 3.x: 16): the profile's modules plus the card's (fork #21:
+    // host builds compile every card module in).
+    static constexpr int kMaxModules = 32;
     static ModuleHost& instance();
     // Walks kModuleFactories: API check, duplicate-id check, attach().
     // Idempotent; main loop only (not audio-safe on the first call).
@@ -124,7 +126,7 @@ public:
     audio::ISynthEngine* synthEngine(int32_t engineId);
     // Engine descriptors of the profile's modules (registered at init; a module
     // whose descriptor repeats an engine id or has too many parameters is refused).
-    static constexpr int kMaxEngines = 16;
+    static constexpr int kMaxEngines = 32;   // [I] 32 (stock 3.x: 16), as kMaxModules
     const SynthDescriptor* synthDescriptor(int32_t engineId);
     int engineCount();
     const SynthDescriptor* engineAt(int k);
@@ -142,6 +144,15 @@ public:
     audio::IEffect* effectById(const char* id);
     // Host builds (tests): register one more module after init().
     bool addForTest(IModule& m);
+    // [I] A module loaded from the card (modules/module_files.h, fork #21),
+    // after init(): the same checks as init(); false = refused (refused()
+    // names it). onDemand: a card synth, which may leave again
+    // (removeLoaded); it gets no SDRAM (sdram() returns nullptr in its
+    // attach(): a block is never freed).
+    bool addLoaded(IModule& m, bool onDemand = false);
+    // [I] Takes a module addLoaded(m, true) registered out again (its engines
+    // with it). Main loop, while the audio block runs none of its code.
+    void removeLoaded(IModule& m);
     // Id of the last module refused at init ("" = none).
     const char* refused() const { return refused_; }
     // [3.x] Module memory in the SDRAM (docs/PLAN_TECHNO.md E1): `bytes` from
@@ -179,6 +190,7 @@ private:
     char refused_[5] = {};
     SdramArena sdram_ = {nullptr, 0, 0};   // the profile's block from init() (constant-initialised)
     void* insertLines_ = nullptr;
+    bool noSdram_ = false;   // [I] an on-demand module's attach() runs
     static SdramArena profileSdram();
 };
 

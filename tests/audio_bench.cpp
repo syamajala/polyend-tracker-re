@@ -94,7 +94,9 @@
 #include "audio/export_resampler.h"
 #include "audio/stream_source.h"
 #include "audio/synth_params.h"
-#include "audio/engines/dx7.h"
+#if defined(OT_MOD_DX7S)   // [I] the DX7 card module (host builds compile it in)
+#include "dx7.h"
+#endif
 #include "modules/module.h"
 #include "ot_profile.h"
 // The engine scenarios need the synth pack modules (opentracker-synths); a
@@ -402,6 +404,7 @@ double fatVoice(bool worst, bool stereo = false) {
     return (nowUnits() - t0) / blocks;
 }
 
+#if defined(OT_MOD_DX7S)
 // DX7 bench voice (synthetic, not a Yamaha voice): six operators held at
 // sustain, ratio 1..6, carriers at 99, modulators at 85. alg = algorithm
 // 0..31; worst adds feedback 7, amplitude modulation on every operator, a
@@ -464,6 +467,7 @@ double dx7Voice(int alg, bool worst) {
     }
     return (nowUnits() - t0) / blocks;
 }
+#endif
 
 // WTFM's costliest settings (spec 2x-08 §7): Oversampling, both operators
 // Wilder, FM, the three feedback paths, LP OB 24 with resonance, both LFOs
@@ -1227,6 +1231,10 @@ bool memCheck() {
 
 }  // namespace
 
+#ifdef OT_BENCH_SYNTH_MODES
+void synthModesBench();   // bench_m4/synth_modes.cpp
+#endif
+
 int main(int argc, char** argv) {
     (void)argc;
     (void)argv;
@@ -1239,6 +1247,31 @@ int main(int argc, char** argv) {
     }
     std::setvbuf(stdout, nullptr, _IONBF, 0);
     clockStart();
+#ifdef OT_BENCH_SYNTH_MODES
+    // [I] make -C tests bench-m4-synth-modes: every mode of every synth, one
+    // phase each (bench_m4/synth_modes.cpp, #21 shared SRAM_L pool).
+    synthModesBench();
+    return 0;
+#endif
+#ifdef OT_BENCH_SYNTHS_ONLY
+    // [I] make -C tests bench-m4-synth-hot: the component benches alone (the
+    // synth pack engines + every module's bench), profiled per translation
+    // block by tests/bench_m4/hot_plugin.c (#21 shared SRAM_L pool).
+    reportVoice("vapinit", vapVoice(false), 12000);
+    reportVoice("vapworst", vapVoice(true), 18000);
+    reportVoice("fatinit", fatVoice(false), 12000);
+    reportVoice("fatworst", fatVoice(true), 22000);
+    reportVoice("wtfminit", wtfmVoice(false), 12000);
+    reportVoice("wtfmworst", wtfmVoice(true), 32000);
+#if defined(OT_MOD_DX7S)
+    reportVoice("dx7.a1", dx7Voice(0, false), 18000);
+    reportVoice("dx7.a32", dx7Voice(31, false), 18000);
+    reportVoice("dx7.a4w", dx7Voice(3, true), 22000);
+    reportVoice("dx7.max", dx7Voice(0, true), 18000);
+#endif
+    components();
+    return 0;
+#endif
 #ifdef OT_BENCH_PEAK_ONLY
     // make -C tests bench-m4-hot: the song 5 replay alone, profiled per
     // translation block by tests/bench_m4/hot_plugin.c.
@@ -1515,10 +1548,12 @@ int main(int argc, char** argv) {
     reportVoice("vapworst", vapVoice(true), 18000);
     reportVoice("fatinit", fatVoice(false), 12000);
     reportVoice("fatworst", fatVoice(true), 22000);
+#if defined(OT_MOD_DX7S)
     reportVoice("dx7.a1", dx7Voice(0, false), 18000);    // algorithm 1 (one stack + pair)
     reportVoice("dx7.a32", dx7Voice(31, false), 18000);  // algorithm 32 (six carriers)
     reportVoice("dx7.a4w", dx7Voice(3, true), 22000);    // algorithm 4 feedback chain, AM, PM (FAT worst budget)
     reportVoice("dx7.max", dx7Voice(0, true), 18000);    // algorithm 1, AM, PM, feedback 7
+#endif
     reportVoice("fatstereo", fatVoice(true, true), 34000);
     reportVoice("wtfminit", wtfmVoice(false), 12000);
     reportVoice("wtfmworst", wtfmVoice(true), 32000);

@@ -20,8 +20,12 @@ enum SynthEngineId : int32_t {
     kSynthEngineVap = 4,
     kSynthEngineWtfm = 5,
     kSynthEnginePerc = 6,
-    // Not a Tracker Mini model: the DX7 FM engine (OpenTracker only, issue #20).
-    kSynthEngineDx7 = 0x40,
+    // [I] Not a Tracker Mini model: the DX7 FM engine (issue #20), a card
+    // module (modules/dx7, fork #21) in the fork's engine range 0xF0..0xFF
+    // (upstream's modules count up from 0x80). Its patches and projects from
+    // before the module used 0x40: read as 0xF0.
+    kSynthEngineDx7 = 0xF0,
+    kSynthEngineDx7Legacy = 0x40,
 };
 
 constexpr int kPatchMaxParams = 84;      // PERC has the most (spec 21 §8.1)
