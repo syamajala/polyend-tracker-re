@@ -119,7 +119,10 @@ endif
 # before any public release.
 USB_ID    := -DOT_USB_VID=0x1209 -DOT_USB_PID=0x0001
 CORE      := third_party/teensy3
-ARM_GCC   := $(lastword $(sort $(wildcard /Applications/ArmGNUToolchain/*/arm-none-eabi/bin/arm-none-eabi-gcc)))
+# Arm's toolchain when installed (macOS package; on Linux the tarball unpacked in
+# ~/opt, the release CI uses), else arm-none-eabi- on the PATH.
+ARM_GCC   := $(lastword $(sort $(wildcard /Applications/ArmGNUToolchain/*/arm-none-eabi/bin/arm-none-eabi-gcc \
+                 $(HOME)/opt/arm-gnu-toolchain-*-arm-none-eabi/bin/arm-none-eabi-gcc)))
 CROSS     ?= $(if $(ARM_GCC),$(patsubst %gcc,%,$(ARM_GCC)),arm-none-eabi-)
 CC        := $(CROSS)gcc
 CXX       := $(CROSS)g++
