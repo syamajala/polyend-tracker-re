@@ -75,6 +75,9 @@ public:
     // FX CC a..f (macro 0..5) on a synth step: override of the slot's page
     // value until Stop.
     virtual void synthMacroFx(uint8_t slot, uint8_t macro, uint8_t value) { (void)slot; (void)macro; (void)value; }
+    // [3.x] Z: slot plays preset n (1..8) or its own patch (0) until the next
+    // Z or Stop. Runs before the same step's synthNoteOn.
+    virtual void synthPreset(uint8_t slot, uint8_t n) { (void)slot; (void)n; }
     // Transport stop: macro overrides return to the page values.
     virtual void synthTransportStop() {}
 };
@@ -117,6 +120,9 @@ public:
     virtual bool noteInScale(uint8_t note) { (void)note; return true; }
     // Default instrument volume 0..100 (roll volume ramp base, spec 03 §3.5).
     virtual uint8_t instrumentVolume(uint8_t instrument) { (void)instrument; return 100; }
+    // [3.x] Synth slot's Arp Gate, 1..100: how much of the arp period a step FX
+    // Arp note stays on. 100 = until the next arp note. Read at each arp note.
+    virtual uint8_t synthArpGate(uint8_t slot) { (void)slot; return 100; }
     // Pattern edited by step entry / live recording (spec 03 §5).
     virtual void markPatternDirty() {}
     // External Start chooses song play when the Song screen is active (spec 03 §4.3).

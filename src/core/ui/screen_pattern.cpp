@@ -698,13 +698,19 @@ void PatternScreen::onButton(uint8_t id, uint8_t state) {
                 const SelRect t = target();
                 const SelRect& src = a.clipRect();
                 const ColMode m = heldColMode(false);
-                pops::paste(a.pattern(), a.clipboard(), src, t.s0, t.t0, m, a.currentInstrument());
+                // Copied on one FX column, pasted on the other: only that FX crosses over.
+                const int from = a.clipColumn();
+                if ((from == 2 || from == 3) && (col == 2 || col == 3) && from != col &&
+                    (m == ColMode::All || m == ColMode::Fx1 || m == ColMode::Fx2))
+                    pops::pasteFxColumn(a.pattern(), a.clipboard(), src, t.s0, t.t0, from - 2, col - 2);
+                else
+                    pops::paste(a.pattern(), a.clipboard(), src, t.s0, t.t0, m, a.currentInstrument());
                 a.patternEdited();
                 step = t.s0;
                 track = t.t0;
                 if (m != ColMode::Pattern) advance(src.rows() - 1);
             } else {
-                a.copyToClipboard(target());
+                a.copyToClipboard(target(), col);
                 ui_.notify("Copied");
             }
             break;
@@ -1153,7 +1159,8 @@ void PatternScreen::editEncoder(int d) {
         if (typeMode) {
             pops::stepFxType(a.pattern(), r, col, d);
             const StepFx& f = a.pattern().tracks[r.t0].steps[r.s0].fx[fxSlotForColumn(col)];
-            a.project.setU8(pf::kLastFxType, uint8_t(pops::fxOrderIndex(f.type)));
+            const int order = pops::fxOrderIndex(fxLogicalType(f.type, f.value));
+            if (order < kFxCount) a.project.setU8(pf::kLastFxType, uint8_t(order));   // other firmware reads it
         } else {
             pops::stepFxValue(a.pattern(), r, col, d);
         }
@@ -1309,11 +1316,12 @@ void PatternScreen::writeFxPad(const SelRect& r, int pad) {
     App& a = app_;
     const int slot = fxSlotForColumn(col);
     if (ui_.isDown(col == 2 ? btn::Fx1 : btn::Fx2)) {
-        const uint8_t type = kFxMenuOrder[pad < kFxCount ? pad : kFxCount - 1];
-        pops::writeFxType(a.pattern(), r, col, type);
-        a.project.setU8(pf::kLastFxType, uint8_t(pad < kFxCount ? pad : kFxCount - 1));
+        const int order = pad < kFxListCount ? pad : kFxListCount - 1;
+        pops::writeFxType(a.pattern(), r, col, kFxMenuOrder[order]);
+        if (order < kFxCount) a.project.setU8(pf::kLastFxType, uint8_t(order));   // other firmware reads it
     } else {
-        const uint8_t type = a.pattern().tracks[r.t0].steps[r.s0].fx[slot].type;
+        const StepFx& cur = a.pattern().tracks[r.t0].steps[r.s0].fx[slot];
+        const uint8_t type = fxLogicalType(cur.type, cur.value);
         pops::writeFxValue(a.pattern(), r, col, pops::fxValueFromPad(type, pad));
     }
 }
@@ -1348,8 +1356,8 @@ void PatternScreen::openPicker(int which) {
         }
     } else {
         const int slot = fxSlotForColumn(which);
-        pop_.open(3, "FX", kFxCount, pops::fxOrderIndex(st.fx[slot].type), fxItem, nullptr);
-        pop_.setDescription([](void*, int i) { return fxHelpText(kFxMenuOrder[i < kFxCount ? i : 0]); });
+        pop_.open(3, "FX", kFxListCount, pops::fxOrderIndex(fxLogicalType(st.fx[slot].type, st.fx[slot].value)), fxItem, nullptr);
+        pop_.setDescription([](void*, int i) { return fxHelpText(kFxMenuOrder[i < kFxListCount ? i : 0]); });
     }
     // Stock popup header band over the title bar (Ui; Part 2 §7.2).
     ui_.openPopupHeader(which == 0 ? "Notes" : (which == 1 ? "Instruments" : "Fx"),
@@ -1432,7 +1440,7 @@ void PatternScreen::commitPicker() {
             a.patternEdited();
         }
     } else if (kind == 3) {
-        a.project.setU8(pf::kLastFxType, uint8_t(v));
+        if (v < kFxCount) a.project.setU8(pf::kLastFxType, uint8_t(v));   // other firmware reads it
         a.markProjectDirty();
         if (edit()) {
             SelRect r;
@@ -1733,15 +1741,16 @@ void PatternScreen::padLeds(uint8_t* lv) {
         } else {
             const StepFx& f = st.fx[fxSlotForColumn(col)];
             if (ui_.isDown(col == 2 ? btn::Fx1 : btn::Fx2)) {
-                const int i = pops::fxOrderIndex(f.type);
+                const int i = pops::fxOrderIndex(fxLogicalType(f.type, f.value));
                 if (i < 48) lv[i] = full;
             } else {
                 // The first pad that enters the current value.
+                const uint8_t ft = fxLogicalType(f.type, f.value), fv = fxLogicalValue(f.type, f.value);
                 int lit = -1;
                 for (int p = 0; p < 48 && lit < 0; ++p)
-                    if (pops::fxValueFromPad(f.type, p) == f.value) lit = p;
-                const int lo = seq::fxMin(f.type), hi = seq::fxMax(f.type);
-                if (lit < 0 && hi > lo) lit = clampi((f.value - lo) * 47 / (hi - lo), 0, 47);
+                    if (pops::fxValueFromPad(ft, p) == fv) lit = p;
+                const int lo = seq::fxMin(ft), hi = seq::fxMax(ft);
+                if (lit < 0 && hi > lo) lit = clampi((fv - lo) * 47 / (hi - lo), 0, 47);
                 if (lit >= 0) lv[lit] = full;
             }
         }
@@ -1894,7 +1903,7 @@ void PatternScreen::drawGridHorizontal(Gfx& g) {
                 }
                 const bool empty = c == 0 ? st.note == kNoteEmpty
                                  : c == 1 ? st.note == kNoteEmpty
-                                          : st.fx[c - 2].type == 0;
+                                          : !st.fx[c - 2].used();
                 const int chars = c == 0 ? 3 : (c == 1 ? 2 : kFxCellChars);
                 if (empty && !cur) {
                     if (nEmpty < kMaxEmpty) {
@@ -2048,7 +2057,7 @@ void PatternScreen::drawTitleBar(Gfx& g, bool popupRight) {
             std::snprintf(sub, sizeof(sub), "%d. MIDI Channel %d", ci + 1, ci - kFirstMidiInstrument + 1);
     } else {
         const StepFx& f = a.pattern().tracks[track].steps[step].fx[fxSlotForColumn(col)];
-        std::snprintf(sub, sizeof(sub), "%s", fxShortName(f.type));
+        std::snprintf(sub, sizeof(sub), "%s", fxShortName(fxLogicalType(f.type, f.value)));
     }
     // spec 06 §1.2, spec 20 §1.6: while the sequencer waits for a recording
     // to start (external clock, count-in) "REC" blinks with a 500 ms period
