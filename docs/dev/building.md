@@ -31,6 +31,16 @@ VAP, PERC, WTFM); its other synths are card modules: DX7 (`modules/dx7`, in this
 repository), FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type and ARC. No
 image has those built in.
 
+At boot the firmware looks at every `Modules/*.otm` (`src/core/modules/module_files.h`):
+a module without synth engines (an effect) loads into the card pool for good; a synth
+module is only listed, so its engines show in the Model list. The card synths in the pool
+are the ones the project's synth slots use: Open loads them before the slots' patches,
+and a Model change loads the new one once the choice has rested for 1/4 s, while stopped
+(while playing the slot says "Loads at Stop"). Every load starts the synth voices over
+(`SynthBank::holdEngines`), and the slots' synths share the fast block again. A synth that
+doesn't fit the pool (32 KB) stays unloaded, with "Card memory full" on its slot;
+the first slot gets the room first. Two slots on one engine load it once.
+
 A synth module's `.otm` carries its **hot row**: the functions that do most of its work,
 hottest first, from `tools/hot_rows/<module>.hot`. When the image has a fast block in
 SRAM_L, the loader shares it between the loaded synths and copies as much of each row

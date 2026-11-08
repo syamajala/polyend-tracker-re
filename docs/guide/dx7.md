@@ -11,7 +11,9 @@ other features:
 
 1. Copy **`dx7.otm`** (in `Modules.zip` on the release page) into **`Modules/`** on the
    SD card.
-2. Restart the Tracker. DX7 now shows in the **Model** list.
+2. Restart the Tracker. DX7 now shows in the **Model** list. It loads when a project
+   uses it: pick it as the Model and it's ready a moment later (while the song plays,
+   it loads when you press Stop).
 
 Without the file, a project that uses DX7 still opens, with the notice
 "Synth 1 (DX7) not available"; put the file back to play it.
