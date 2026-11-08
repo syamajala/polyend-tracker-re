@@ -332,8 +332,9 @@ budget:
 # [I] A module as a file loadable from the card (fork #21, tools/make_otm.py), compiled
 # with the firmware's flags. OTM_REF=<base> also writes <name>.ref.bin, the image
 # otmLoad must produce at that base (tests/module_loader_test.cpp). OTM_HOT=<file>:
-# the fast part's functions (tools/synth_hot.py --emit-hot), OTM_REF_FAST=<base> its
-# reference base; OTM_SUFFIX names a variant (<name><suffix>.otm).
+# the row's functions, hottest first (tools/synth_hot.py --emit-hot); OTM_REF_FAST=<base>
+# and OTM_REF_CUT=<bytes> the reference's fast base and cut; OTM_SUFFIX names a variant
+# (<name><suffix>.otm).
 OTM_NAME = $(notdir $(OTM_MODULE))
 otm:
 	@test -n "$(OTM_MODULE)" || { echo "make otm OTM_MODULE=<module path, e.g. ../opentracker-fx/modules/tape>"; exit 1; }
@@ -342,7 +343,8 @@ otm:
 	    --out $(BUILD)/otm/$(OTM_NAME)$(OTM_SUFFIX).otm --cxx $(CXX) --cxxflags '$(CXXFLAGS)' \
 	    $(if $(OTM_HOT),--hot $(OTM_HOT)) \
 	    $(if $(OTM_REF),--reference $(OTM_REF) --ref-out $(BUILD)/otm/$(OTM_NAME)$(OTM_SUFFIX).ref.bin) \
-	    $(if $(OTM_REF_FAST),--ref-fast $(OTM_REF_FAST) --ref-fast-out $(BUILD)/otm/$(OTM_NAME)$(OTM_SUFFIX).ref-fast.bin)
+	    $(if $(OTM_REF_FAST),--ref-fast $(OTM_REF_FAST) --ref-fast-out $(BUILD)/otm/$(OTM_NAME)$(OTM_SUFFIX).ref-fast.bin) \
+	    $(if $(OTM_REF_CUT),--ref-cut $(OTM_REF_CUT))
 .PHONY: otm
 
 # [I] The profile's card modules (profiles/*.toml card = true, fork #21), each as
