@@ -589,6 +589,7 @@ public:
     // while stopped (serviceCardSynths), then gives the slot its Init patch.
     static constexpr uint32_t kCardSettleMs = 250;
     void serviceCardSynths(uint32_t now);
+    void slotEngines(int32_t* out) const;   // slotEngineId of every slot
     bool syncCardSynths(bool initPatches);
     // Why slot s's card engine isn't loaded ("Loads at Stop", "Loading",
     // "No room for it", ...); nullptr = not a card engine, or loaded.

@@ -8,6 +8,7 @@
 
 #include <cstdint>
 
+#include "modules/hot_rows.h"
 #include "modules/module_loader.h"
 
 namespace ot {
@@ -35,6 +36,10 @@ struct OtmPool {
     uint8_t* fastMem = nullptr;
     uint32_t fastBase = 0;
     uint32_t fastCap = 0;
+    // Optional: the compiled-in synths' hot rows (modules/hot_rows.h). The
+    // project's synths take turns for the fast block, built in or from the
+    // card alike; a built-in synth without room runs from flash.
+    const HotRows* hotRows = nullptr;
 };
 
 // What happened to each Modules/*.otm: filled at boot, updated by every
@@ -56,6 +61,10 @@ struct OtmLoadReport {
     uint32_t fastUsed = 0;  // fast block bytes in use
     bool noRoom = false;    // the pool could not grow (the stack floor): not loaded
     uint32_t serial = 0;    // +1 on every change
+    // [I] Bytes of each compiled-in hot row (OtmPool::hotRows order) in the
+    // fast block now: its code up to the cut (0 = it runs from flash).
+    static constexpr int kMaxHot = 8;
+    uint32_t hotCut[kMaxHot] = {};
 };
 
 // A card synth engine (the boot scan lists them, loaded or not).
@@ -99,13 +108,17 @@ bool cardEngineLoaded(int32_t engineId);
 // The card synth modules serving engines[0 .. n) are loaded, every other
 // card synth leaves (ids that are not card engines are skipped). The modules
 // are loaded in the order their engines come, so the first ones get the room
-// when not all fit; their rows share what the boot modules left of the fast
-// block. Nothing changes when the same set is loaded already. The audio block
-// must not run a card engine meanwhile (SynthBank::holdEngines). Main loop;
+// when not all fit. [I] The synths serving engines[0 .. n), card or compiled
+// in with a hot row (OtmPool::hotRows), share what the boot modules left of
+// the fast block, by turns in that order; the other rows run from flash.
+// Nothing changes when the same set is loaded already. The audio block must
+// not run a synth engine meanwhile (SynthBank::holdEngines). Main loop;
 // scratch holds one file at a time. Returns false when a wanted module
-// didn't load (no room, a damaged file: the report says).
+// didn't load (no room, a damaged file: the report says); a built-in row
+// without room is not a failure.
 bool loadCardSynths(IStorage& fs, const int32_t* engines, int n, uint8_t* scratch, uint32_t scratchCap);
-// True when loadCardSynths(engines, n) would change what's loaded.
+// True when loadCardSynths(engines, n) would change what's loaded or how the
+// fast block is shared.
 bool cardSynthsDiffer(const int32_t* engines, int n);
 
 }  // namespace mod
