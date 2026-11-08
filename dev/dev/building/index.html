@@ -1201,6 +1201,10 @@ and a Model change loads the new one once the choice has rested for 1/4 s, while
 (<code>SynthBank::holdEngines</code>), and the slots' synths share the fast block again. A synth that
 doesn't fit the pool (32 KB) stays unloaded, with "Card memory full" on its slot;
 the first slot gets the room first. Two slots on one engine load it once.</p>
+<p>Leaving USB storage mode lists <code>Modules/</code> again (<code>rescanCardSynths</code>) before the Workspace
+reopens: card synths that were added, replaced or removed take effect without a restart.
+Modules without synth engines stay as the boot loaded them (their SDRAM is never given
+back), so a changed effect module still needs a restart.</p>
 <p>A synth module's <code>.otm</code> carries its <strong>hot row</strong>: the functions that do most of its work,
 hottest first, from <code>tools/hot_rows/&lt;module&gt;.hot</code>. When the image has a fast block in
 SRAM_L, the loader shares it between the loaded synths and copies as much of each row
