@@ -1174,7 +1174,7 @@ private:
 // UI). One screen with four views over slot `slot` (instruments 64..66):
 //   Synth Parameters 1/2: F1 Model, F2 Polyphony, F3 Gain, F4 Panning,
 //     F5 Reverb Send, F6 Delay Send, F7 Load Patch, F8 Edit Patch;
-//   Synth Macros 2/2: F1..F6 macro M1..M6 page values, legend below;
+//   Synth Macros 2/2: F1..F6 macro M1..M6 page values, F7 Arp Gate, legend below;
 //   Edit Patch: sections (pads / Left, Right), parameters (Up / Down),
 //     value (encoder); F1 Init, F2 Save, F3 Save As, F7 section, F8 Back;
 //   Load Patch: a popup list of Patches/<MODEL>/ at x 600..799 over the
@@ -1260,6 +1260,7 @@ public:
     const char* name() const override { return "Synth"; }
     void start(int opt) override;   // opt 1..3 = slot (0: keep)
     void stop() override;
+    void update(uint32_t now) override;   // Macros page: an FX CC moved a value
     void draw(Gfx& g) override;
     void onButton(uint8_t id, uint8_t state) override;
     void onPad(uint8_t pad, uint8_t state) override;
@@ -1278,12 +1279,14 @@ public:
 
     // Insert: [3.x] the slot's insert effect (Shift + Instrument Params; builds
     // with OT_SLOT_INSERTS).
-    enum class View : uint8_t { Params, Macros, Edit, Browser, Insert };
+    enum class View : uint8_t { Params, Macros, Edit, Browser, Insert, Presets };
     View view = View::Params;
     int insFocus = 0;       // Insert: 0 the insert list (F1), 1..6 its settings (F2..F7)
     int slot = 0;           // 0..2
     int param = 0;          // Params page: F1..F6 (0 model .. 5 delay send)
-    int macro = 0;          // Macros page: M1..M6
+    uint32_t shownMacros_ = 0;   // a hash of what the Macros page shows
+    int macro = 0;          // Macros page: M1..M6, kArpGateColumn = Arp Gate
+    static constexpr int kArpGateColumn = 6;
     int section = 0;        // Edit: section index
     int row = 0;            // Edit: row in the section
     // Browser (Patches/<MODEL>/*.patch, sorted). [I] An engine with patch
@@ -1340,6 +1343,11 @@ private:
     void drawMacros(Gfx& g);
     void drawEdit(Gfx& g);
     void drawBrowser(Gfx& g);
+    void drawPresets(Gfx& g);
+    void presetKey(uint8_t id);
+    void endPresetPreview();
+    void loadPresetNow();
+    uint8_t previewPrev_ = 0;   // Presets: what the slot played before the held preview
 #if OT_SLOT_INSERTS
     void drawInsert(Gfx& g);
     void insertKey(uint8_t id);

@@ -24,6 +24,29 @@ OT_SDRAM_BSS uint8_t g_opaque[kOpaqueMax];
 uint32_t g_opaqueLen = 0;
 bool g_opaqueLost = false;   // a foreign chunk did not fit: not kept
 
+#if OT_SLOT_INSERTS
+// Each slot's settings and Off of the inserts it had before, so picking one
+// again brings them back (not saved; a new or loaded project starts clean).
+// A ninth kind takes the last entry.
+struct InsertMemo {
+    char id[4];   // all zero = free
+    audio::EffectSettings set;
+    bool off;
+};
+constexpr int kInsertMemoMax = 8;
+OT_SDRAM_BSS InsertMemo g_insertMemo[kSynthSlotCount][kInsertMemoMax];
+
+InsertMemo* insertMemo(int s, const char* id, bool make) {
+    static const char kFree[4] = {};
+    for (InsertMemo& m : g_insertMemo[s])
+        if (std::memcmp(m.id, id, 4) == 0) return &m;
+    if (!make) return nullptr;
+    for (InsertMemo& m : g_insertMemo[s])
+        if (std::memcmp(m.id, kFree, 4) == 0) return &m;
+    return &g_insertMemo[s][kInsertMemoMax - 1];
+}
+#endif
+
 constexpr uint8_t kWriter[4] = {3, 0, 0, 0};
 
 bool isModuleTag(uint16_t t) { return t >= ot3::kTagModuleFirst && t <= ot3::kTagModuleLast; }
@@ -50,6 +73,14 @@ void App::setSlotEngine(int s, int32_t engineId) {
         sidecarDirty_ = true;
     }
     engine.synth().setSlotEngine(s, v);
+}
+
+void App::setSlotArpGate(int s, int gate) {
+    if (s < 0 || s >= kSynthSlotCount) return;
+    const uint8_t g = uint8_t(gate < 1 ? 1 : (gate > 100 ? 100 : gate));
+    if (slotArpGate_[s] == g) return;
+    slotArpGate_[s] = g;
+    sidecarDirty_ = true;
 }
 
 #if OT_SLOT_INSERTS
@@ -83,10 +114,21 @@ void App::setSlotInsertOff(int s, bool off) {
 
 void App::setSlotInsertKind(int s, const char* effectId) {
     if (s < 0 || s >= kSynthSlotCount) return;
+    if (const char* cur = slotInsertId(s)) {   // keep the one we leave
+        InsertMemo* m = insertMemo(s, cur, true);
+        std::memcpy(m->id, cur, 4);
+        m->set = slotInsert_[s].set;
+        m->off = slotInsert_[s].off;
+    }
     SlotInsertCfg c = {};
     if (effectId && effectId[0]) {
         std::memcpy(c.id, effectId, 4);
-        if (audio::IEffect* fx = mod::ModuleHost::instance().effectById(c.id)) c.set = audio::effectDefaults(*fx);
+        if (const InsertMemo* m = insertMemo(s, c.id, false)) {
+            c.set = m->set;
+            c.off = m->off;
+        } else if (audio::IEffect* fx = mod::ModuleHost::instance().effectById(c.id)) {
+            c.set = audio::effectDefaults(*fx);
+        }
     }
     if (std::memcmp(&c, &slotInsert_[s], sizeof c) != 0) sidecarDirty_ = true;
     slotInsert_[s] = c;
@@ -119,11 +161,15 @@ void App::resetSidecar() {
     for (int s = 0; s < kSynthSlotCount; ++s) {
         slotEngine_[s] = 0;
         engine.synth().setSlotEngine(s, 0);
+        slotArpGate_[s] = 100;
 #if OT_SLOT_INSERTS
         slotInsert_[s] = SlotInsertCfg{};
         applySlotInsert(s);
 #endif
     }
+#if OT_SLOT_INSERTS
+    std::memset(g_insertMemo, 0, sizeof(g_insertMemo));
+#endif
     mod::ModuleHost& h = mod::ModuleHost::instance();
     for (int i = 0; i < h.count(); ++i)
         if (mod::IProjectSection* sec = h.at(i)->section()) sec->reset();
@@ -159,6 +205,12 @@ bool App::encodeSidecar(uint8_t* out, uint32_t cap, uint32_t* len) {
                 se.moduleVersion = h.at(i)->info().version;
             }
         w.chunk(ot3::kTagSlotEngine, 0, &se, sizeof se);
+        any = true;
+    }
+    for (int s = 0; s < kSynthSlotCount; ++s) {
+        if (slotArpGate_[s] >= 100) continue;
+        const ot3::SlotArp sa = {uint8_t(s), slotArpGate_[s], {0, 0}};
+        w.chunk(ot3::kTagSlotArp, 0, &sa, sizeof sa);
         any = true;
     }
 #if OT_SLOT_INSERTS
@@ -241,6 +293,11 @@ bool App::decodeSidecar(const uint8_t* p, uint32_t len) {
                 slotEngine_[se.slot] = se.engineId;
                 engine.synth().setSlotEngine(se.slot, se.engineId);
             }
+            continue;
+        }
+        if (c.tag == ot3::kTagSlotArp && c.len >= 2) {
+            if (c.payload[0] < kSynthSlotCount && c.payload[1] >= 1 && c.payload[1] <= 100)
+                slotArpGate_[c.payload[0]] = c.payload[1];
             continue;
         }
 #if OT_SLOT_INSERTS
