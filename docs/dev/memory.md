@@ -40,6 +40,18 @@ below are the 2026-10-23 audit and are kept for the comparison with upstream.*
     flash; `dx7::initSinTable()` runs msfa's integer recipe (~60 µs). Since #21
     DX7 is a card module (`modules/dx7`): its code (~18 KB) left the image and
     the table (4.1 KB) is the module's bss in the card pool, built in `attach()`.
+  - **Our own float sin / cos / tan (−3.7 KB, 2026-11-08):** `src/hal/libm_trig.cpp`
+    defines `sinf` / `cosf` / `tanf` with `fm::sinF` / `cosF` / `tanF`
+    (`src/core/fmath.h`): a three-part pi/2 reduction and a Taylor polynomial,
+    every step an `fmaf`, so host and device agree bit for bit. newlib's exact
+    reduction of huge arguments (`__kernel_rem_pio2f` and its 2/pi table) is no
+    longer linked; no caller needs it (the largest argument is ~640,
+    `buildClick`). Within 2 ulp of glibc below 2^17 (tan: 4), 1 ulp below 2
+    (checked on every float once; `tests/fmath_test.cpp` samples every 257th).
+    The firmware link fails if newlib's trig comes back. The M4 bench and
+    `make -C tests audio-tables` link the same file; the const tables came out
+    unchanged. Cost: +184 M4 instructions a block (two `tanf` calls in the
+    master DJ filter).
   - **Looked at, left:** ~36 KB of string literals (mostly Config help text),
     fonts (already compressed), the play-mode tables (~1.3 KB if packed).
 - **SRAM is tight again.** USB audio is about half of the drop (~7 KB: its rings

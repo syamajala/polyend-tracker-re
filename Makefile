@@ -281,6 +281,9 @@ endif
 	@# [I] printf %f / %e / %g go through our _printf_float (src/hal/printf_float.cpp,
 	@# #122), not newlib's (dtoa, ~12 KB): without either, "%f" would print nothing.
 	$(CROSS)nm $@ | grep -q ' T _printf_float$$' || { echo "_printf_float missing: %f would print nothing"; rm -f $@; exit 1; }
+	@# [I] sinf / cosf / tanf are ours (src/hal/libm_trig.cpp): newlib's huge-argument
+	@# reduction (~4.4 KB) must not come back.
+	! $(CROSS)nm $@ | grep -q ' __kernel_rem_pio2f$$' || { echo "newlib trig linked: sinf / cosf / tanf must come from src/hal/libm_trig.cpp"; rm -f $@; exit 1; }
 	@# No static constructor may touch SDRAM (it is not running before main()).
 	python3 -I tools/check_ctors.py $(CROSS)objdump $@ || { rm -f $@; exit 1; }
 

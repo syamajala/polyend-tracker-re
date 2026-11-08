@@ -41,6 +41,17 @@ double sinD(double x);            // |x| < 1e6
 double cosD(double x);
 double sqrtD(double x);           // x >= 0
 
+// [I] Single-precision sin / cos / tan for the device (src/hal/libm_trig.cpp
+// makes them sinf / cosf / tanf): range reduction by pi/2 in three parts, then
+// a Taylor polynomial on [-pi/4, pi/4], every step an fmaf (VFMA on the M4,
+// so host and device agree bit for bit). Within 2 ulp of glibc for |x| < 2^17
+// (tests/fmath_test.cpp; the callers stay under ~650). Beyond that the result
+// stays in [-1, 1] (tan: finite) but loses accuracy: newlib's exact reduction
+// for huge arguments (~4 KB of flash) is what this replaces. NaN / inf: NaN.
+float sinF(float x);
+float cosF(float x);
+float tanF(float x);
+
 // 2^((note - 60) / 12) for notes 0..127 (fmath.cpp): the correctly rounded
 // pow(2.0, (note - 60) / 12.0) for every note.
 extern const double kNoteRatio[128];

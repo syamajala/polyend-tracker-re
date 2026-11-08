@@ -149,8 +149,9 @@ M4_FLAGS := -mcpu=cortex-m4 -mthumb -mfloat-abi=hard -mfpu=fpv4-sp-d16 -O2 -ffun
 M4_SRCS := audio_bench.cpp $(wildcard $(SRC)/core/modules/*.cpp) $(wildcard $(SRC)/core/audio/*.cpp) $(wildcard $(SRC)/core/audio/engines/*.cpp) $(MOD_SRC_PATHS) $(MOD_BENCH_PATHS) \
            $(SRC)/core/formats/wav.cpp $(SRC)/core/formats/patch_pb.cpp \
            $(SRC)/core/formats/format_common.cpp $(SRC)/core/model/project.cpp $(SRC)/core/model/fx.cpp $(SRC)/core/model/multisample.cpp \
-           $(wildcard $(SRC)/core/sequencer/*.cpp)
-# The device's memcpy / memmove / memset (src/hal/fast_mem.c) replace newlib-nano's here too.
+           $(wildcard $(SRC)/core/sequencer/*.cpp) $(SRC)/core/fmath.cpp $(SRC)/hal/libm_trig.cpp
+# The device's memcpy / memmove / memset (src/hal/fast_mem.c) replace newlib-nano's here too,
+# and its sinf / cosf / tanf (src/hal/libm_trig.cpp).
 $(BENCH_OUT)/audio_bench_m4.elf: $(M4_SRCS) $(M4_HDRS) peak_trace.h bench_m4/startup.c bench_m4/mps2.ld $(SRC)/hal/fast_mem.c
 	@mkdir -p $(dir $@)
 	$(M4_CC) $(M4_FLAGS) -c bench_m4/startup.c -o $(BENCH_OUT)/startup_m4.o
@@ -160,12 +161,14 @@ $(BENCH_OUT)/audio_bench_m4.elf: $(M4_SRCS) $(M4_HDRS) peak_trace.h bench_m4/sta
 	    -Wl,--gc-sections -lm -o $@
 
 # Regenerate the ARM const audio tables (src/core/audio/audio_tables_arm.inc,
-# see audio/audio_tables.h) with the device toolchain's libm under QEMU.
+# see audio/audio_tables.h) with the device toolchain's libm (and the device's
+# sinf, src/hal/libm_trig.cpp) under QEMU.
 audio-tables:
 	@mkdir -p $(BENCH_OUT)
 	$(M4_CC) $(M4_FLAGS) -c bench_m4/startup.c -o $(BENCH_OUT)/startup_m4.o
 	$(M4_CXX) $(M4_FLAGS) -std=gnu++17 -fno-exceptions -fno-rtti -DOT_TABLES_RUNTIME -I$(SRC)/core -I$(SRC) \
-	    bench_m4/gen_tables.cpp $(SRC)/core/audio/audio_tables.cpp $(BENCH_OUT)/startup_m4.o -T bench_m4/mps2.ld \
+	    bench_m4/gen_tables.cpp $(SRC)/core/audio/audio_tables.cpp $(SRC)/core/fmath.cpp $(SRC)/hal/libm_trig.cpp \
+	    $(BENCH_OUT)/startup_m4.o -T bench_m4/mps2.ld \
 	    -nostartfiles --specs=nano.specs --specs=rdimon.specs -Wl,--gc-sections -lm -o $(BENCH_OUT)/gen_tables.elf
 	qemu-system-arm -M mps2-an386 -nographic -icount shift=0 -semihosting-config enable=on,target=native \
 	    -kernel $(BENCH_OUT)/gen_tables.elf | python3 -I bench_m4/tables_inc.py > $(BENCH_OUT)/audio_tables_arm.inc

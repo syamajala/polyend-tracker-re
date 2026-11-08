@@ -154,5 +154,93 @@ const double kNoteRatio[128] = {
     0x1.428a2f98d728ap+5, 0x1.55b8108f0ec5fp+5, 0x1.6a09e667f3bcdp+5, 0x1.7f910d768cfafp+5
 };
 
+// ---- single precision (sinF / cosF / tanF) --------------------------------
+
+namespace {
+
+// pi/2 = kPio2a + kPio2b + kPio2c (each the float nearest the rest).
+constexpr float kPio2a = 0x1.921fb6p+0f;
+constexpr float kPio2b = -0x1.777a5cp-25f;
+constexpr float kPio2c = -0x1.ee59dap-50f;
+constexpr float kTwoOverPiF = 0x1.45f306p-1f;
+constexpr float kPio4 = 0x1.921fb6p-1f;
+
+// x = r + q * pi/2 with |r| <= ~pi/4 (q mod 4). One pass for |x| < 2^17; a
+// larger x takes up to a few more (each shrinks r by ~2^-24).
+float reduceF(float x, int& q) {
+    q = 0;
+    float r = x;
+    for (int pass = 0; pass < 8 && !(r >= -kPio4 && r <= kPio4); ++pass) {
+        const float t = r * kTwoOverPiF;
+        // Nearest integer (a float of 2^23 or more is one already).
+        const float k = !(t > -8388608.0f && t < 8388608.0f) ? t
+                        : t >= 0.0f                          ? float(int32_t(t + 0.5f))
+                                                             : -float(int32_t(0.5f - t));
+        r = __builtin_fmaf(-k, kPio2a, r);
+        r = __builtin_fmaf(-k, kPio2b, r);
+        r = __builtin_fmaf(-k, kPio2c, r);
+        // k mod 4: a k of 2^26 or more is a multiple of 4.
+        if (k > -67108864.0f && k < 67108864.0f) q += int(int32_t(k)) & 3;
+    }
+    q &= 3;
+    return r;
+}
+
+// Taylor series to r^9 / r^10: under 0.1 ulp of truncation on [-pi/4, pi/4].
+float sinPolyF(float r) {
+    const float z = r * r;
+    float p = 1.0f / 362880.0f;
+    p = __builtin_fmaf(p, z, -1.0f / 5040.0f);
+    p = __builtin_fmaf(p, z, 1.0f / 120.0f);
+    p = __builtin_fmaf(p, z, -1.0f / 6.0f);
+    return __builtin_fmaf(p * z, r, r);
+}
+
+float cosPolyF(float r) {
+    const float z = r * r;
+    float p = -1.0f / 3628800.0f;
+    p = __builtin_fmaf(p, z, 1.0f / 40320.0f);
+    p = __builtin_fmaf(p, z, -1.0f / 720.0f);
+    p = __builtin_fmaf(p, z, 1.0f / 24.0f);
+    p = __builtin_fmaf(p, z, -0.5f);
+    return __builtin_fmaf(p, z, 1.0f);
+}
+
+}  // namespace
+
+float sinF(float x) {
+    if (!(x - x == 0.0f)) return x - x;   // NaN / inf
+    if (__builtin_fabsf(x) < 0x1p-12f) return x;   // sin x = x to the last bit (and -0.0 stays -0.0)
+    int q;
+    const float r = reduceF(x, q);
+    switch (q) {
+        case 0: return sinPolyF(r);
+        case 1: return cosPolyF(r);
+        case 2: return -sinPolyF(r);
+        default: return -cosPolyF(r);
+    }
+}
+
+float cosF(float x) {
+    if (!(x - x == 0.0f)) return x - x;
+    int q;
+    const float r = reduceF(x, q);
+    switch (q) {
+        case 0: return cosPolyF(r);
+        case 1: return -sinPolyF(r);
+        case 2: return -cosPolyF(r);
+        default: return sinPolyF(r);
+    }
+}
+
+float tanF(float x) {
+    if (!(x - x == 0.0f)) return x - x;
+    if (__builtin_fabsf(x) < 0x1p-12f) return x;   // tan x = x within 1/3 ulp
+    int q;
+    const float r = reduceF(x, q);
+    const float s = sinPolyF(r), c = cosPolyF(r);
+    return q & 1 ? -c / s : s / c;
+}
+
 }  // namespace fm
 }  // namespace ot

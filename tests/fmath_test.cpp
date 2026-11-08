@@ -4,10 +4,13 @@
 // effects that moved off the libm against the former libm formulas. Those
 // effects now run their per-sample loops in float (the M4 has no double FPU),
 // so they match within the LSB tolerances of tests/sample_fx_speed_test.cpp
-// (EQ 3, Limiter 2, Overdrive 1) instead of on every sample.
+// (EQ 3, Limiter 2, Overdrive 1) instead of on every sample. Also the device's
+// float sin / cos / tan (fm::sinF ...) against glibc.
 #include <cmath>
 #include <cstdio>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <vector>
 
 #include "test.h"
@@ -176,6 +179,52 @@ TEST(fmath_transcendentals_within_4_ulp) {
     CHECK(worst[4] <= 1.0);
     CHECK(fm::sqrtD(0.0) == 0.0);
     CHECK(fm::pow10D(0.0) == 1.0);   // EQ bypass test (lin != 1.0)
+}
+
+namespace {
+// Distance in float steps (the ordering of the bit patterns).
+int64_t floatSteps(float a, float b) {
+    auto ord = [](float f) {
+        int32_t i;
+        std::memcpy(&i, &f, sizeof(i));
+        return i < 0 ? int64_t(INT32_MIN) - i : int64_t(i);
+    };
+    const int64_t d = ord(a) - ord(b);
+    return d < 0 ? -d : d;
+}
+}  // namespace
+
+// [I] The device's sinf / cosf / tanf (src/hal/libm_trig.cpp) against glibc:
+// every 257th float below 2^17 here (all of them were checked once, the same
+// bounds); in range beyond.
+TEST(fmath_float_trig_within_2_ulp) {
+    int64_t worst[3] = {}, worstSmall = 0;
+    long checked = 0;
+    for (uint64_t u = 0; u <= 0xFFFFFFFFull; u += 257) {
+        const uint32_t b = uint32_t(u);
+        float x;
+        std::memcpy(&x, &b, sizeof(x));
+        if (!std::isfinite(x)) continue;
+        const float s = fm::sinF(x), c = fm::cosF(x), t = fm::tanF(x);
+        if (std::fabs(x) >= 131072.0f) {
+            CHECK(std::fabs(s) <= 1.0f && std::fabs(c) <= 1.0f && std::isfinite(t));
+            continue;
+        }
+        const int64_t d[3] = {floatSteps(s, sinf(x)), floatSteps(c, cosf(x)), floatSteps(t, tanf(x))};
+        for (int k = 0; k < 3; ++k) worst[k] = d[k] > worst[k] ? d[k] : worst[k];
+        if (std::fabs(x) < 2.0f && d[0] > worstSmall) worstSmall = d[0];
+        ++checked;
+    }
+    CHECK(checked > 7000000);
+    CHECK(worst[0] <= 2);
+    CHECK(worst[1] <= 2);
+    CHECK(worst[2] <= 4);
+    CHECK(worstSmall <= 1);
+    CHECK(std::isnan(fm::sinF(INFINITY)) && std::isnan(fm::cosF(NAN)) && std::isnan(fm::tanF(-INFINITY)));
+    CHECK(fm::sinF(0.0f) == 0.0f && std::signbit(fm::sinF(-0.0f)) && std::signbit(fm::tanF(-0.0f)));
+    CHECK(fm::cosF(0.0f) == 1.0f);
+    // The callers' largest argument (buildClick, engine.cpp).
+    CHECK(floatSteps(fm::sinF(6.2831853f * 639.0f / 2.5f), sinf(6.2831853f * 639.0f / 2.5f)) <= 2);
 }
 
 TEST(fmath_note_ratio_table_is_pow) {
