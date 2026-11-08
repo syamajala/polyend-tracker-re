@@ -16,6 +16,7 @@
 # make patches    -> build/patches/Patches/<MODEL>/ (synth preset pack, tools/make_patches/PRESETS.md)
 # make budget     -> the profile's declared module budgets (flash, SRAM) and their limits
 # make card          -> [I] the profile's card modules as build/<profile>/otm/<name>.otm (fork #21)
+# make hot-rows      -> [I] tools/hot_rows/*.hot, the synths' hot code for the fast block (fork #21)
 # make otm OTM_MODULE=<path> -> [I] build/<profile>/otm/<name>.otm, a module loadable from the card
 #                    (fork #21; <path> as in a profile, relative to MODULES_DIR; tools/make_otm.py)
 # make fonts      -> regenerate the committed UI font image (src/core/ui/fonts/font_data.*,
@@ -348,13 +349,25 @@ otm:
 .PHONY: otm
 
 # [I] The profile's card modules (profiles/*.toml card = true, fork #21), each as
-# build/<profile>/otm/<name>.otm for the card's Modules/ folder.
+# build/<profile>/otm/<name>.otm for the card's Modules/ folder, with its hot row
+# from tools/hot_rows/<name>.hot when there is one (make hot-rows).
+HOT_ROWS := tools/hot_rows
 card:
 	@mkdir -p $(BUILD)/otm
 	@$(if $(MOD_CARD_DIRS),,echo "profile $(PROFILE) has no card modules")
 	$(foreach d,$(MOD_CARD_DIRS),python3 -I tools/make_otm.py build --module $(d) --obj-dir $(BUILD)/otm/obj/$(notdir $(d)) \
-	    --out $(BUILD)/otm/$(notdir $(d)).otm --cxx $(CXX) --cxxflags '$(CXXFLAGS)' &&) true
+	    --out $(BUILD)/otm/$(notdir $(d)).otm --cxx $(CXX) --cxxflags '$(CXXFLAGS)' \
+	    $(if $(wildcard $(HOT_ROWS)/$(notdir $(d)).hot),--hot $(HOT_ROWS)/$(notdir $(d)).hot) &&) true
 .PHONY: card
+
+# [I] The synths' hot rows (fork #21): every mode of every synth under the QEMU bench
+# (profiles/allsynths.toml), folded into tools/hot_rows/<module>.hot by tools/synth_hot.py.
+# Rerun after a synth's DSP code changes; the rows are checked in.
+hot-rows:
+	$(MAKE) -C tests bench-m4-synth-modes PROFILE=allsynths
+	python3 -I tools/synth_hot.py build/allsynths/bench/audio_bench_m4_modes.elf build/allsynths/bench/synth_modes_hot.txt \
+	    --modes build/allsynths/bench/synth_modes.txt --emit-hot $(HOT_ROWS)
+.PHONY: hot-rows
 
 # Synth preset pack (tools/make_patches/PRESETS.md): build/patches/Patches/<MODEL>/.
 patches:

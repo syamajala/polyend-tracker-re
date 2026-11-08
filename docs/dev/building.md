@@ -29,6 +29,14 @@ with the card's modules would have it. `in_tree = true` takes the module's path 
 repository instead of `MODULES_DIR`. DX7 is one (`modules/dx7`, `card = true` in `full`):
 no image has it built in.
 
+A synth module's `.otm` carries its **hot row**: the functions that do most of its work,
+hottest first, from `tools/hot_rows/<module>.hot`. When the image has a fast block in
+SRAM_L, the loader shares it between the loaded synths and copies as much of each row
+there as its share holds; the rest runs from the slower pool. The rows come from every mode
+of every synth under the QEMU bench (`profiles/allsynths.toml`): run `make hot-rows`
+after changing a synth's DSP code, and commit the new rows. A row function the module
+build no longer has is reported by `make card` and simply stays in the slower pool.
+
 `VERSION` defaults to the Makefile's value, which follows the last upstream merge, so leave
 it unset unless you need a different one. This writes `build/full/opentracker.elf`,
 `build/full/opentracker.hex` and the flashable image `build/full/PolyendTrackerOTv<digits>.ptf`
