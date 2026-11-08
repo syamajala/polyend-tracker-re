@@ -49,6 +49,21 @@ of every synth under the QEMU bench (`profiles/allsynths.toml`): run `make hot-r
 after changing a synth's DSP code, and commit the new rows. A row function the module
 build no longer has is reported by `make card` and simply stays in the slower pool.
 
+**Shared fast pool** (`make OT_HOT_POOL=1`, test images for now; build dir
+`build/full/hotpool`): the built-in synths join in. Each built-in synth with a hot row
+keeps one section per function (`OT_FASTRUN_ROW=1`), and its row runs from flash,
+laid out back to back (`tools/hot_pool.py layout`). The SRAM_L block that the
+synths' `.fastrun` code used to take (13,696 B) becomes the fast block. All the
+project's synths take turns for it, built in or from the card, in slot order. A
+built-in row moves into its share when the slots change (Open, or a Model change
+while stopped). Its calls back into flash go through stubs, and its tables and
+vtable pointer follow it (`src/core/modules/hot_rows.h`). A row with no room
+keeps running from flash: slower, never wrong. The image links twice with
+`--emit-relocs`. `tools/hot_pool.py table` writes the move tables from the first
+link, and the second link must give the same ones. The table step lists what
+still reaches a row from flash only. That code runs the flash copy (for example
+PERC's snare path).
+
 `VERSION` defaults to the Makefile's value, which follows the last upstream merge, so leave
 it unset unless you need a different one. This writes `build/full/opentracker.elf`,
 `build/full/opentracker.hex` and the flashable image `build/full/PolyendTrackerOTv<digits>.ptf`
@@ -67,6 +82,7 @@ lengths), so it carries the version digits only.
 | Option | Builds |
 |---|---|
 | `OT_STACK_GUARD_TEST=1` | a stack guard test image: with `/Firmware/ot_guardtest.txt` on the card it overflows the stack once on purpose, and the next boot logs PASSED / FAILED; build dir `build/full/guardtest` |
+| `OT_HOT_POOL=1` | the shared fast pool: built-in synths' hot code runs from flash or from its share of the SRAM_L block (see above); build dir `build/full/hotpool`. A boot-layout change: keep a fallback image on the card |
 | `SELFTEST=1` | a hardware bring-up image that always runs the selftest |
 | `OT_SDRAM_CACHE=0`, `OT_FASTRUN=0`, `OT_USB_MSC=0` | diagnostic variants (no SDRAM cache, all audio code in flash, no USB mass storage) |
 
