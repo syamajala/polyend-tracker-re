@@ -2,27 +2,29 @@
 
 ## Branches
 
-- **`main`** is the fork's integration branch: what gets flashed and released. It's never
-  rebased; upstream releases are merged into it.
-- **`main-v3`** is `main` merged with upstream's 3.x (synth and FX modules, build
-  profiles), kept in parallel. Work happens on `main`. `main-v3` is brought up to date by
-  merging `main` and `upstream/v3` into it, never by rebasing. Upstream's first v3 snapshot
-  rolled back some 2.2.x work, so check every v3 merge for deletions
-  (`git diff upstream/v2 upstream/v3`).
+- **`main`** is the fork's integration branch: what gets flashed and released. It's on
+  upstream's 3.x (synth and FX modules, build profiles) and never rebased; upstream's
+  `v3` is merged into it.
+- **`main-v2`** is the fork on upstream 2.x, as it was when `main` moved to 3.x
+  (2026-11-08). It's kept for reference and gets no upstream merges.
 - **`v2`** mirrors upstream's `v2` (`sandlbn/polyend-tracker-re`) and is fast-forwarded
   when upstream moves.
 - **Feature branches** come into `main` through pull requests on the fork, with CI. A
-  change meant for upstream starts from `upstream/v2`, so it can be offered upstream as it
-  is; fork-only work (the DX7 engine, song scenes …) can start from `main`.
+  change meant for upstream starts from `upstream/v3` (or `upstream/v2` for a 2.x fix), so
+  it can be offered upstream as it is; fork-only work (card modules, song scenes …) starts
+  from `main`.
 - **Upstream pull requests** are opened one at a time. Upstream squash-merges, so a
   branch stacked on another is rebased after the first one lands.
 
-## Merging an upstream release
+## Merging upstream
 
-1. Fast-forward the mirror: `git push origin upstream/v2:v2`.
-2. Merge `upstream/v2` into a branch off `main`, resolve, then build with `make clean`
-   and the new `VERSION`, run the host tests, `make -C sim check` and
-   `tools/sim_remote_check.sh`.
+1. Update the module repositories (`opentracker-synths`, `opentracker-fx`) to upstream's
+   `main`, since upstream v3 can depend on module changes.
+2. Merge `upstream/v3` into a branch off `main`, resolve, then build with `make clean`,
+   run the host tests, `make -C sim check` and `tools/sim_remote_check.sh`. Upstream
+   merges its `v2` fixes into `v3`, so they arrive this way too. Check a v3 merge for
+   deletions of fork work (`git diff main <merge>`): upstream's first v3 snapshot rolled
+   back some 2.2.x work.
 3. Open a pull request into `main`; flash it together with whatever else waits for a
    device test.
 

@@ -102,15 +102,15 @@ OpenTracker (one MIT exception below).
 
 ## Branches and PRs
 
-- `main` is the integration branch and is never rebased. Upstream releases are merged into it.
-- `main-v3` runs in parallel: `main` merged with upstream 3.x (modules, profiles). Work
-  goes on `main`; build on `main-v3` only when asked. Keep it current by merging `main`
-  and `upstream/v3` into it, never by rebasing.
-- A change meant for upstream (`sandlbn/polyend-tracker-re`) branches from `upstream/v2`;
-  fork-only work can branch from `main`. Upstream PRs go one at a time, and upstream
-  squash-merges, so rebase stacked branches after each merge.
+- `main` is the integration branch, on upstream 3.x (modules, profiles), and is never
+  rebased. Upstream v3 is merged into it (`upstream/v3`).
+- `main-v2` is the fork as it was on upstream 2.x, kept for reference. It no longer gets
+  upstream merges; work only goes there when asked.
+- A change meant for upstream (`sandlbn/polyend-tracker-re`) branches from `upstream/v3`
+  (or `upstream/v2` for a 2.x fix); fork-only work branches from `main`. Upstream PRs go
+  one at a time, and upstream squash-merges, so rebase stacked branches after each merge.
 - Docs change with features: update `docs/guide` / `docs/dev` in the same PR.
-- Rebasing onto `upstream/v2`: git rerere can replay a fork-only resolution (e.g. the
+- Rebasing onto an upstream branch: git rerere can replay a fork-only resolution (e.g. the
   fork's SDRAM layout) onto an upstream branch. Check every rerere resolution there.
 
 ## Before opening a PR
