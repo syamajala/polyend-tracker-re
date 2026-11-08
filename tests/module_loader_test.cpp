@@ -471,7 +471,7 @@ TEST(card_modules_without_a_pool_or_folder) {
 }
 
 TEST(fast_block_shared_by_turns) {
-    uint32_t cuts[3][kOtmMaxShareCuts] = {{1000, 2000, 3000, 9000}, {500, 4000}, {200, 400, 600}};
+    OtmShareCut cuts[3][kOtmMaxShareCuts] = {{1000, 2000, 3000, 9000}, {500, 4000}, {200, 400, 600}};
     const uint32_t n[3] = {4, 2, 3};
     uint32_t share[3];
     // Turns: 1000 + 500 + 200, then 2000 + 4000 + 400, then 3000 + 600 = 7600;
