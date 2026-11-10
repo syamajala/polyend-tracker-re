@@ -1152,6 +1152,10 @@ screen, and takes screenshots. The Tracker's own controls keep working.</p>
 <li>Scripts use the <a href="../../dev/simulator/#scripts">simulator's script language</a> plus
   checks (<code>expect-text</code>, <code>expect-sound</code>, <code>wait-for slot == 2</code> …). Ready-made ones are
   in <code>tools/remote_scripts/</code>; the same files run on the simulator in CI.</li>
+<li><code>open</code>, <code>play</code> and <code>stop</code> call the Tracker directly instead of pressing keys, so a
+  script doesn't depend on screen layouts: <code>open Projects/Bench/OT Pool 1 - ACD</code> opens
+  that project and waits until it's loaded. It refuses while there are unsaved changes;
+  <code>open -f …</code> drops them. The status shows the open project as <code>proj=</code>.</li>
 <li><code>--log</code> keeps everything the Tracker sends, including its telemetry lines. Check them
   with <code>tools/telemetry_check.py log tracker.log</code>.</li>
 </ul>

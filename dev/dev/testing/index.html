@@ -1193,6 +1193,9 @@ on both the simulator and a Tracker:</p>
   so a script works at any tempo.</li>
 <li>A script's card starts with <code>SCRIPT.sd/</code> (copy it to a Tracker's card too) and, in the
   simulator only, <code>SCRIPT.sim-sd/</code>.</li>
+<li>Open projects with <code>open FOLDER/NAME</code> (<code>@RC DO OPEN</code>, <code>src/core/remote/remote.h</code>), not
+  with File screen keys (<code>remote_calls.txt</code> shows it). <code>tools/pool_bench.sh</code> uses it to
+  play the 16 pool songs on a Tracker with no hands on it.</li>
 </ul>
 <p>On a device:</p>
 <div class="highlight"><pre><span></span><code>tools/tracker_remote.py<span class="w"> </span>/dev/ttyACM0<span class="w"> </span>tools/remote_scripts/song_scene.txt<span class="w"> </span>--log<span class="w"> </span>tracker.log
