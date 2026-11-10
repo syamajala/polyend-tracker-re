@@ -1,0 +1,24 @@
+# [I] App calls (@RC DO, core/remote/remote.h): open a project, play and
+# stop without the File screen's keys. Runs on the simulator (opentracker-sim
+# --serve) and on a Tracker with remote control on; copy remote_calls.sd/ to
+# the card first (Projects/Remote/OT Pool 1 - ACD, made by make testsongs).
+#   tools/tracker_remote.py PORT tools/remote_scripts/remote_calls.txt
+open -f Projects/Remote/OT Pool 1 - ACD
+expect proj ~ Projects/Remote/OT
+expect-screen Pattern
+expect-notice opened
+play
+expect-playing
+wait-for step >= 2 3000
+play                 # already playing: nothing changes
+expect-playing
+stop
+expect-stopped
+stop
+expect-stopped
+# Open again while playing: the call stops playback first.
+play
+expect-playing
+open Projects/Remote/OT Pool 1 - ACD
+expect-stopped
+expect proj ~ Projects/Remote/OT

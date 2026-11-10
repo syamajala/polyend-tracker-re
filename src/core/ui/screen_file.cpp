@@ -37,14 +37,8 @@ App* g_app = nullptr;   // the File screen's App (static keyboard callbacks)
 // Pattern editor is shown, like the stock boot / open flow.
 void openDone(void* ctx, bool ok) {
     auto* s = static_cast<FileScreen*>(ctx);
-    App& a = *g_app;
-    if (!ok) {
-        a.ui.notify("Cannot open project");
-        return;
-    }
-    a.ui.notify(a.lastJobErrors() ? "Opened; some files could not be read" : "Project opened");
-    s->state = 0;
-    a.ui.switchTo(kModPattern);
+    if (ok) s->state = 0;
+    g_app->showOpened(ok);
 }
 
 bool recentPath(App& a, int index, char* folder, int fcap, char* name, int ncap) {

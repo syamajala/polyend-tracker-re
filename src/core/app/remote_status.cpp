@@ -4,6 +4,7 @@
 #include <cstring>
 
 #include "app/app.h"
+#include "app/project_io.h"
 #include "build_id.h"
 #include "remote/display_tap.h"
 #include "remote/remote.h"
@@ -84,10 +85,55 @@ int App::remoteStatus(char* out, int cap) {
     // A confirm dialog is open (Ui::ask: "Unsaved changes", "This will stop
     // the pattern", ...), so scripts answer it without matching its wording.
     fieldInt(out, cap, n, "ask", ui.askOpen() ? 1 : 0);
+    {   // [I] the open project, <folder>/<name> (spaces as '_')
+        char p[mt::kFolderMax + mt::kNameMax + 2];
+        projectPath(p, sizeof p);
+        field(out, cap, n, "proj", p[0] ? p : "-");
+    }
     // The git commit of this image (#60), so logs trace back to the code.
     field(out, cap, n, "build", kBuildHash);
     field(out, cap, n, "note", ui.notice()[0] ? ui.notice() : "-");
     return n;
+}
+
+namespace {
+// "@RC DO OK <word>", or "@RC DO FAIL <word> <why>" when there is a reason.
+void callAnswer(App& a, const char* word, const char* why = nullptr) {
+    remote::DeviceBridge* r = a.remoteBridge();
+    if (!r) return;
+    char line[40];
+    std::snprintf(line, sizeof line, why ? "@RC DO FAIL %s %s" : "@RC DO OK %s", word, why);
+    r->sendLine(line);
+}
+}  // namespace
+
+// [I] The calls a test script would otherwise make with key taps (File >
+// Open in a browser, the PLAY key), so a script needs no screen layout.
+void App::remoteCall(const char* cmd) {
+    const bool play = !std::strcmp(cmd, "PLAY");
+    if (play || !std::strcmp(cmd, "STOP")) {
+        // The PLAY key's own path (song mode, the count-in ...), only when it changes something.
+        if (seq.isPlaying() != play) togglePlay(false);
+        return callAnswer(*this, play ? "PLAY" : "STOP");
+    }
+    if (std::strncmp(cmd, "OPEN ", 5)) return callAnswer(*this, "-", "unknown");
+    const char* path = cmd + 5;
+    const bool force = !std::strncmp(path, "-f ", 3);
+    if (force) path += 3;
+    char folder[mt::kFolderMax + 1], name[mt::kNameMax + 1];
+    if (!splitProjectPath(path, folder, sizeof folder, name, sizeof name)) return callAnswer(*this, "OPEN", "path");
+    // What File > Open would ask about first: never answered for the user. A
+    // running job (an autosave) finishes first, as for File > Open.
+    if (rendering_ || usbActive_) return callAnswer(*this, "OPEN", "busy");
+    if (ui.askOpen()) return callAnswer(*this, "OPEN", "dialog");
+    if (unsavedChanges() && !force) return callAnswer(*this, "OPEN", "unsaved");
+    // The open job stops playback itself.
+    const auto done = [](void* ctx, bool ok) {
+        App& a = *static_cast<App*>(ctx);
+        a.showOpened(ok);   // as File > Open
+        callAnswer(a, "OPEN", ok ? nullptr : "load");
+    };
+    if (!startOpenProject(folder, name, done, this)) callAnswer(*this, "OPEN", "missing");
 }
 
 void App::serviceRemote() {
@@ -115,8 +161,14 @@ void App::serviceRemote() {
         }
     }
     if (r->takeRedraw()) ui.dirty();
+    {
+        char call[remote::kLineMax + 1];
+        if (r->takeCall(call, sizeof call)) remoteCall(call);
+    }
     if (r->takeQuery()) {
-        char s[remote::kLineMax + 352];   // status fields (~340 B with build= and usb*) + a notice of up to 63 chars
+        // status fields (~340 B with build= and usb*), a notice of up to 63
+        // chars and proj= (a longer path is cut short)
+        char s[remote::kLineMax + 480];
         remoteStatus(s, sizeof s);
         r->sendLine(s);
     }

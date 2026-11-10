@@ -35,6 +35,10 @@ tools/tracker_remote.py /dev/ttyACM0 -c "tap PERFORMANCE; wait 300; expect-scree
 - Scripts use the [simulator's script language](../dev/simulator.md#scripts) plus
   checks (`expect-text`, `expect-sound`, `wait-for slot == 2` …). Ready-made ones are
   in `tools/remote_scripts/`; the same files run on the simulator in CI.
+- `open`, `play` and `stop` call the Tracker directly instead of pressing keys, so a
+  script doesn't depend on screen layouts: `open Projects/Bench/OT Pool 1 - ACD` opens
+  that project and waits until it's loaded. It refuses while there are unsaved changes;
+  `open -f …` drops them. The status shows the open project as `proj=`.
 - `--log` keeps everything the Tracker sends, including its telemetry lines. Check them
   with `tools/telemetry_check.py log tracker.log`.
 

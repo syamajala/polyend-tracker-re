@@ -19,6 +19,9 @@
 //                                           (redrawn at once; display_tap.h)
 //                    "@RC MIRROR 1" / "@RC MIRROR 0"  every frame the link has room for,
 //                                           or no more (a frame already recorded is still sent)
+//                    "@RC DO <command>"     an App call instead of key taps (App::remoteCall):
+//                                           OPEN [-f] <folder>/<name> (a project; -f drops
+//                                           unsaved changes), PLAY, STOP
 //   device -> host   "@RC DRIVING"          drive mode entered
 //                    "@RC S key=value ..."  status (App::remoteStatus)
 //                    "@RC SHOT <w> <h>", then "@RC D <base64>" lines, then
@@ -28,6 +31,9 @@
 //                    "@RC F END <bytes> <crc32 hex>": a frame's command stream
 //                    (display_tap.h); cut = 1: the frame overflowed the buffer.
 //                    A screenshot and a frame never interleave.
+//                    "@RC DO OK <word>" / "@RC DO FAIL <word> <reason>": a call's
+//                    answer (OPEN answers once the project has opened); <word>
+//                    is "-" for an unknown call or one sent before the last was taken
 //
 // Drive mode register commands (hardware probes without a special image;
 // only images built with OT_REMOTE_REGS=1 answer anything but FAIL). Hex
@@ -167,6 +173,9 @@ public:
     void sendLine(const char* line) {
         if (io_.send) io_.send(io_.ctx, line);
     }
+    // "@RC DO <command>": the command text (after "DO "), once. One at a time:
+    // a second one before the App took the first is answered "busy".
+    bool takeCall(char* out, int cap);
     void setDisplay(IDisplay* d) { display_ = d; }
     // Display command export (display_tap.h); null: "@RC FRAME" is refused.
     void setTap(DisplayTap* t) { tap_ = t; }
@@ -241,6 +250,7 @@ private:
     uint8_t injHead_ = 0, injTail_ = 0;
     uint64_t injButtons_ = 0, injPads_ = 0;
     bool query_ = false;
+    char call_[kLineMax + 1] = {};   // "@RC DO" command waiting for the App, "" = none
 
     // Screenshot streaming (drive mode): one row at a time from the display.
     IDisplay* display_ = nullptr;

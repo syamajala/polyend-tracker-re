@@ -409,6 +409,9 @@ public:
     // Main loop: answers the bridge's status query, meters while driven,
     // redraws when drive mode starts / ends (its title-bar marker).
     void serviceRemote();
+    // [I] "@RC DO <command>" (remote.h): an App call instead of key taps,
+    // answered "@RC DO OK <word>" / "@RC DO FAIL <word> <reason>". Main loop.
+    void remoteCall(const char* cmd);
     bool remoteDrivingShown_ = false;
     bool remoteCacheOff_ = false, remoteCacheWas_ = true;   // fragment cache off for a recorded frame
 
@@ -621,6 +624,9 @@ public:
     // runs from loop() once the job has finished.
     using JobDoneFn = void (*)(void* ctx, bool ok);
     bool startOpenProject(const char* folder, const char* name, JobDoneFn done = nullptr, void* ctx = nullptr);
+    // An Open job's end as File > Open shows it: the notice, then the Pattern
+    // editor (the File screen, "@RC DO OPEN").
+    void showOpened(bool ok);
     bool startSaveProjectAs(const char* nameOrPath, JobDoneFn done = nullptr, void* ctx = nullptr);
     bool startSaveProject(JobDoneFn done = nullptr, void* ctx = nullptr);
     bool startLoadWorkspace(JobDoneFn done = nullptr, void* ctx = nullptr);

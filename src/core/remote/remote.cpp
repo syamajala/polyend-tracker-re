@@ -228,7 +228,23 @@ void DeviceBridge::rx(const char* data, size_t n, uint32_t now) {
     reader_.feed(data, n, [](void* self, const char* l) { static_cast<DeviceBridge*>(self)->onLine(l); }, this);
 }
 
+bool DeviceBridge::takeCall(char* out, int cap) {
+    if (!call_[0] || cap <= 0) return false;
+    std::snprintf(out, size_t(cap), "%s", call_);
+    call_[0] = 0;
+    return true;
+}
+
 void DeviceBridge::onLine(const char* line) {
+    if (!std::strncmp(line, "@RC DO ", 7)) {   // an App call (takeCall), drive mode
+        if (mode_ != kDrive) return;
+        if (call_[0]) {   // the App has not taken the last one yet
+            sendLine("@RC DO FAIL - busy");
+            return;
+        }
+        std::snprintf(call_, sizeof call_, "%s", line + 7);
+        return;
+    }
     Msg m;
     if (!parse(line, m)) return;
     switch (m.kind) {
@@ -381,6 +397,7 @@ void DeviceBridge::setMode(Mode m) {
         }
         injButtons_ = injPads_ = 0;
         query_ = false;
+        call_[0] = 0;
         shotRow_ = -1;
         mirror_ = redraw_ = false;
         frameSent_ = -1;

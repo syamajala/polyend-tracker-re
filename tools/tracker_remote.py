@@ -29,6 +29,10 @@ Script lines (the simulator's headless language, sim/README.md, plus checks;
                                 default 10000), e.g. "wait-for pass == 2"
   expect-screen NAME            screen name (spaces allowed)
   expect-playing / expect-stopped
+  open [-f] FOLDER/NAME         open a project directly (no File screen keys), e.g.
+                                "open Projects/Bench/OT Pool 1 - ACD"; waits until it has
+                                opened (or fails: unsaved changes without -f, busy, missing)
+  play / stop                   start / stop playback as the PLAY key (only when it changes)
   expect-sound N                output peak since the last status query >= N
   sound-reset                   start a new peak window
   expect-notice TEXT            the on-screen notice contains TEXT
@@ -354,6 +358,18 @@ class Runner:
             raise Fail("refused: %r (image built without OT_REMOTE_REGS=1, or the address rules)" % line)
         return fields
 
+    def call(self, line, timeout=30.0):
+        """An App call ("@RC DO", remote.h): waits for its answer, a check
+        (refused: FAIL with the reason); Fail when there is no answer."""
+        word = line.split()[0]
+        start = self.link.mark()
+        self.link.send("@RC DO " + line)
+        got, _ = self.link.wait_for(lambda p: p.startswith(("DO OK " + word, "DO FAIL " + word, "DO FAIL - ")), timeout, start)
+        if got is None:
+            raise Fail("no answer to %r (an image without @RC DO?)" % line)
+        why = got.split(None, 3)[3] if got.startswith("DO FAIL") and len(got.split()) > 3 else ""
+        self.check(not got.startswith("DO FAIL"), line + (" (refused: %s)" % why if why else ""))
+
     def peek(self, addr, n=1):
         return [int(w, 16) for w in self.register("PEEK %X %X" % (addr, n), "PEEK")[1:]]
 
@@ -489,6 +505,11 @@ class Runner:
                 time.sleep(0.03)
                 have = self.status().get(key)
             self.check(compare(have, rel, want), "wait-for %s %s %s (is %s)" % (key, rel, want, have))
+        elif op == "open":
+            path = cmd.split(None, 1)[1].strip() if len(words) > 1 else ""
+            self.call("OPEN " + path)
+        elif op in ("play", "stop"):
+            self.call(op.upper())
         elif op == "expect-screen":
             want = " ".join(args)
             have = self.status().get("scr")
