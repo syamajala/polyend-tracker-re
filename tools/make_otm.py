@@ -39,9 +39,6 @@ import tempfile
 import tomllib
 import zlib
 
-from elftools.elf.elffile import ELFFile
-from elftools.elf.relocation import RelocationSection
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 EXPORTS = os.path.join(ROOT, "src/core/modules/module_exports.txt")
@@ -67,6 +64,17 @@ R_ARM_NONE, R_ARM_ABS32, R_ARM_THM_CALL, R_ARM_THM_JUMP24 = 0, 2, 10, 30
 def fail(msg):
     print(f"make_otm: {msg}", file=sys.stderr)
     sys.exit(1)
+
+
+def elftools():
+    """pyelftools, needed by build only (abi-header and exports-cpp run in every firmware build)."""
+    try:
+        from elftools.elf.elffile import ELFFile
+        from elftools.elf.relocation import RelocationSection
+    except ImportError:
+        fail("building a module needs pyelftools: python3 -m pip install pyelftools "
+             "(system-wide: make runs this tool with python3 -I, which skips the user site)")
+    return ELFFile, RelocationSection
 
 
 def run(cmd):
@@ -136,6 +144,7 @@ def compile_module(mdir, obj_dir, cxx, cxxflags):
 
 
 def undefined_symbols(ld, objs, entry, tmp):
+    ELFFile, _ = elftools()
     r = os.path.join(tmp, "partial.o")
     run([ld, "-r", "--gc-sections", "-e", entry, *objs, "-o", r])
     with open(r, "rb") as f:
@@ -209,6 +218,7 @@ def write_stubs(path, funcs):
 
 
 def build(args):
+    ELFFile, RelocationSection = elftools()
     exports = read_exports(args.exports)
     index = {s: k + 1 for k, s in enumerate(exports)}
     ld = tool(args.cxx, "ld")
@@ -288,7 +298,8 @@ def build(args):
                  lambda s: fake_export(index[s]), elfr, tail_base)
             with open(elfr, "rb") as f:
                 e = ELFFile(f)
-                img = e.get_section_by_name(".otm").data()
+                o = e.get_section_by_name(".otm")
+                img = o.data()
                 b = e.get_section_by_name(".otm_bss")
                 nb = b["sh_addr"] + b["sh_size"] - (base + len(img)) if b and b["sh_size"] else 0
                 fs = e.get_section_by_name(".otm_fast")
@@ -327,7 +338,7 @@ def link(ld, objs, entry, funcs, data_imports, fast_base, base, fast, tail, valu
         fast_sec = f"  .otm_fast {fast_base:#x} : {{ {row_body(fast)} }}\n" if fast else ""
         tail_sec = f"  .otm_tail {tail_base:#x} : {{ {row_body(tail, len(fast))} }}\n" if tail else ""
         f.write(f"""SECTIONS {{
-{fast_sec}{tail_sec}  .otm {base:#x} : {{ *(.text.otm_stubs) *(.text .text.* .fastrun .fastrun.*) *(.rodata .rodata.*) *(.data .data.*) }}
+{fast_sec}{tail_sec}  .otm {base:#x} : {{ *(.text.otm_stubs) *(.text .text.* .fastrun .fastrun.*) *(.rodata .rodata.*) *(.data .data.*) . = ALIGN(8); }}
   .otm_bss (NOLOAD) : ALIGN(8) {{ *(.bss .bss.* COMMON) }}
   /DISCARD/ : {{ *(.ARM.exidx* .ARM.extab* .comment .note*) }}
 }}
@@ -349,6 +360,7 @@ def branch_offset(img, off):
 def read_linked(path, entry, index, main_link):
     """(image, row bytes, cuts, bss bytes, align, entry offset, fixups, exports
     needed) of a link with the row at 0 and the main part at main_link."""
+    ELFFile, _ = elftools()
     with open(path, "rb") as f:
         elf = ELFFile(f)
         fs = elf.get_section_by_name(".otm_fast")
