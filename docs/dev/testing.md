@@ -40,6 +40,9 @@ on both the simulator and a Tracker:
   so a script works at any tempo.
 - A script's card starts with `SCRIPT.sd/` (copy it to a Tracker's card too) and, in the
   simulator only, `SCRIPT.sim-sd/`.
+- Open projects with `open FOLDER/NAME` (`@RC DO OPEN`, `src/core/remote/remote.h`), not
+  with File screen keys (`remote_calls.txt` shows it). `tools/pool_bench.sh` uses it to
+  play the 16 pool songs on a Tracker with no hands on it.
 
 On a device:
 

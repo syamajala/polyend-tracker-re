@@ -2544,6 +2544,15 @@ bool App::loadWorkspace() {
     return lastJobOk_;
 }
 
+void App::showOpened(bool ok) {
+    if (!ok) {
+        ui.notify("Cannot open project");
+        return;
+    }
+    ui.notify(lastJobErrors() ? "Opened; some files could not be read" : "Project opened");
+    ui.switchTo(kModPattern);
+}
+
 bool App::startOpenProject(const char* folder, const char* name, JobDoneFn done, void* ctx) {
     // spec 05 appendix E3 OPEN (0x1d2e0): name <= 32 and project.mt must exist.
     if (!name || !name[0] || std::strlen(name) > mt::kNameMax) return false;

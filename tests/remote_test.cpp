@@ -380,6 +380,26 @@ TEST(remote_drive_mode_injects_input) {
     CHECK(!r.bridge.enabled());
 }
 
+// [I] "@RC DO": an App call, handed over once, one at a time, drive mode only.
+TEST(remote_drive_mode_calls) {
+    Rig r;
+    char c[kLineMax + 1];
+    r.host("@RC DO PLAY");   // not driving: ignored
+    CHECK(!r.bridge.takeCall(c, sizeof c));
+    r.host("@RC DRIVE");
+    r.sent.clear();
+    r.host("@RC DO OPEN -f Projects/Bench/OT Pool 1 - ACD");
+    r.host("@RC DO STOP");   // the first one not taken yet: busy
+    CHECK(!r.sent.empty() && r.sent.back() == "@RC DO FAIL - busy");
+    CHECK(r.bridge.takeCall(c, sizeof c));
+    CHECK_STR(c, "OPEN -f Projects/Bench/OT Pool 1 - ACD");
+    CHECK(!r.bridge.takeCall(c, sizeof c));   // once
+    CHECK(r.app().empty());                    // no input for the app
+    r.host("@RC DO PLAY");
+    r.host("@RC BYE");   // leaving drops a call not taken
+    CHECK(!r.bridge.takeCall(c, sizeof c));
+}
+
 namespace {
 std::vector<uint8_t> unbase64(const std::string& s) {
     auto v = [](char c) -> int {
@@ -434,7 +454,7 @@ TEST(remote_drive_status_and_perf) {
     CHECK_EQ(host.sent.size(), 2u);
     const std::string st = host.sent.back();
     CHECK(st.rfind("@RC S scr=Pattern play=0 step=0 pat=1 ins=1 song=0 slot=1 pass=1 perf=0 scA=1 scB=2 fader=0 peak=0 ", 0) == 0);
-    for (const char* k : {" cpuA=", " cpuP=", " ovr=0", " gov=4", " govB=4", " cuts=0", " freeKB=", " ask=0", " build=dev", " note="})
+    for (const char* k : {" cpuA=", " cpuP=", " ovr=0", " gov=4", " govB=4", " cuts=0", " freeKB=", " ask=0", " proj=", " build=dev", " note="})
         CHECK(st.find(k) != std::string::npos);
     // ask=1 while a confirm dialog is open, 0 again once it is answered.
     a.ui.ask("Test", "Continue?", nullptr, "Cancel", "Yes", [](void*, int) {}, nullptr);
@@ -466,6 +486,45 @@ TEST(remote_drive_status_and_perf) {
     h.run(5);
     h.audio.pump(5);
     CHECK_EQ(a.engine.takeOutputPeak(), 0);
+}
+
+// [I] "@RC DO" App calls (App::remoteCall): PLAY / STOP as the PLAY key,
+// OPEN's refusals (tools/remote_scripts/remote_calls.txt opens a project).
+TEST(remote_drive_calls) {
+    Harness h;
+    App& a = *h.app;
+    FakePanel panel;
+    PadLedsFake leds;
+    HostSide host;
+    DeviceBridge b(panel, leds, HostSide::io(&host));
+    b.setEnabled(true);
+    a.setRemoteBridge(&b);
+    auto call = [&](const char* l) {
+        std::string s = std::string("@RC DO ") + l + "\n";
+        b.rx(s.data(), s.size(), 0);
+        h.run(5);
+        return host.sent.empty() ? std::string() : host.sent.back();
+    };
+    std::string s = "@RC DRIVE\n";
+    b.rx(s.data(), s.size(), 0);
+    h.run(5);
+    CHECK(call("PLAY") == "@RC DO OK PLAY");
+    CHECK(a.seq.isPlaying());
+    CHECK(call("PLAY") == "@RC DO OK PLAY");   // already playing: stays on
+    CHECK(a.seq.isPlaying());
+    CHECK(call("STOP") == "@RC DO OK STOP");
+    CHECK(!a.seq.isPlaying());
+    CHECK(call("STOP") == "@RC DO OK STOP");
+    CHECK(!a.seq.isPlaying());
+    CHECK(call("OPEN ") == "@RC DO FAIL OPEN path");
+    CHECK(call("OPEN -f Projects/Nowhere") == "@RC DO FAIL OPEN missing");
+    a.markProjectDirty();   // unsaved changes: only -f drops them
+    CHECK(call("OPEN Projects/Nowhere") == "@RC DO FAIL OPEN unsaved");
+    CHECK(call("OPEN -f Projects/Nowhere") == "@RC DO FAIL OPEN missing");
+    a.ui.ask("Test", "Continue?", nullptr, "Cancel", "Yes", [](void*, int) {}, nullptr);
+    CHECK(call("OPEN -f Projects/Nowhere") == "@RC DO FAIL OPEN dialog");
+    h.tap(btn::F7);   // Cancel
+    CHECK(call("NOPE") == "@RC DO FAIL - unknown");
 }
 
 // USB Storage mode runs its own loop (the computer owns the card): drive
