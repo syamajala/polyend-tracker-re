@@ -1,4 +1,4 @@
-// [I] Songs 23-31 "OT Pool N - <synth>" (#21 shared SRAM_L pool measurement,
+// [I] Songs 23-38 "OT Pool N - <synth>" (#21 shared SRAM_L pool measurement,
 // profiles/pooltest.toml). Included by testsongs.cpp inside its anonymous
 // namespace (it uses Gen from there).
 //
