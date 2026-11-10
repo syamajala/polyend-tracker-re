@@ -77,6 +77,41 @@ const SongInfo kSongs[kSongCount] = {
     {SongId::PoolVap, "OT Pool 7 - VAP", "M3 (synth engines)", kHasSynths},
     {SongId::PoolFat, "OT Pool 8 - FAT", "M3 (synth engines)", kHasSynths},
     {SongId::PoolWtfm, "OT Pool 9 - WTFM", "M3 (synth engines)", kHasSynths},
+#if defined(OT_MOD_JU6S)
+    {SongId::PoolJu6, "OT Pool 10 - JU6", "the JU6 module", kHasSynths},
+#else
+    {SongId::PoolJu6, "OT Pool 10 - JU6", "the JU6 module", false},
+#endif
+#if defined(OT_MOD_DTY1)
+    {SongId::PoolDType, "OT Pool 11 - D-Type", "the D-Type module", kHasSynths},
+#else
+    {SongId::PoolDType, "OT Pool 11 - D-Type", "the D-Type module", false},
+#endif
+#if defined(OT_MOD_ATY1)
+    {SongId::PoolAType, "OT Pool 12 - A-Type", "the A-Type module", kHasSynths},
+#else
+    {SongId::PoolAType, "OT Pool 12 - A-Type", "the A-Type module", false},
+#endif
+#if defined(OT_MOD_TTY1)
+    {SongId::PoolTType, "OT Pool 13 - T-Type", "the T-Type module", kHasSynths},
+#else
+    {SongId::PoolTType, "OT Pool 13 - T-Type", "the T-Type module", false},
+#endif
+#if defined(OT_MOD_HND1)
+    {SongId::PoolHand, "OT Pool 14 - Hand", "the Hand-Type module", kHasSynths},
+#else
+    {SongId::PoolHand, "OT Pool 14 - Hand", "the Hand-Type module", false},
+#endif
+#if defined(OT_MOD_BTY1)
+    {SongId::PoolBType, "OT Pool 15 - B-Type", "the B-Type module", kHasSynths},
+#else
+    {SongId::PoolBType, "OT Pool 15 - B-Type", "the B-Type module", false},
+#endif
+#if defined(OT_MOD_ARC1)
+    {SongId::PoolArc, "OT Pool 16 - ARC", "the Arc-Type module", kHasSynths},
+#else
+    {SongId::PoolArc, "OT Pool 16 - ARC", "the Arc-Type module", false},
+#endif
     {SongId::BgTitle, "BG Title", "M3 (synth engines) + M1", kHasSynths && kHas16Tracks},
     {SongId::BgWorld1, "BG World 1", "M3 (synth engines) + M1", kHasSynths && kHas16Tracks},
     {SongId::BgWorld4, "BG World 4", "M3 (synth engines) + M1", kHasSynths && kHas16Tracks},
@@ -1131,6 +1166,13 @@ bool generateSong(App& app, IStorage& fs, SongId id, const GenOptions& opt, std:
         case SongId::PoolVap: built = pooltest::poolSong(g, kSynthEngineVap); break;
         case SongId::PoolFat: built = pooltest::poolSong(g, kSynthEngineFat); break;
         case SongId::PoolWtfm: built = pooltest::poolSong(g, kSynthEngineWtfm); break;
+        case SongId::PoolJu6: built = pooltest::poolSong(g, 0x81); break;
+        case SongId::PoolDType: built = pooltest::poolSong(g, 0x82); break;
+        case SongId::PoolAType: built = pooltest::poolSong(g, 0x84); break;
+        case SongId::PoolTType: built = pooltest::poolSong(g, 0x85); break;
+        case SongId::PoolHand: built = pooltest::poolSong(g, 0x87); break;
+        case SongId::PoolBType: built = pooltest::poolSong(g, 0x88); break;
+        case SongId::PoolArc: built = pooltest::poolSong(g, 0x89); break;
     }
     if (built) built = g.finish(info->name);
     if (!built) err = g.err.empty() ? "generation failed" : g.err;
