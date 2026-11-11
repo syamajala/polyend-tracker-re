@@ -725,9 +725,19 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
     //    digital silence is treated like no input (identical result).
     const MixerSettings& m = mix_;
     bool line = false;
+    // [I] The line keeps the master inserts running only when it is heard:
+    // its direct level is not 0 and it is above the converter's noise (an
+    // analog input is never digital silence). The sends count through the
+    // delay / reverb returns.
+    bool lineHeard = false;
     if (lineIn_) {
         int32_t nz = 0;
         for (uint32_t i = 0; i < 2 * kBlock; ++i) nz |= lineIn_[i];
+        // Only with inserts to run and the line's level up; the first loud
+        // sample ends the scan.
+        if (nz && nIns_ && (lineLvl_.cur != 0.0f || lineLvl_.target != 0.0f))
+            for (uint32_t i = 0; i < 2 * kBlock && !lineHeard; ++i)
+                lineHeard = uint32_t(int32_t(lineIn_[i]) + (kLineHeardMin - 1)) > uint32_t(2 * (kLineHeardMin - 1));
         if (nz) {
             constexpr float kS = 1.0f / 32768.0f;
             const uint8_t ch = m.lineInChannel;
@@ -874,7 +884,7 @@ void AudioEngine::renderBlock(bool offline, int16_t* master, StemBlock* stems) {
             insTempo_ = tempo_;
             for (int i = 0; i < ni; ++i) masterIns_[i]->setTempo(tempo_);
         }
-        bool sound = anyVoice || dly || rev || line;
+        bool sound = anyVoice || dly || rev || lineHeard;
         for (int i = 0; i < ni; ++i) {
             if (sound || insTail_[i]) insTail_[i] = masterIns_[i]->process(mL_, mR_, kBlock);
             sound = sound || insTail_[i];
