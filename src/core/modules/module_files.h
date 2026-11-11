@@ -62,8 +62,8 @@ struct OtmLoadReport {
     int n = 0;
     uint32_t used = 0;      // pool bytes in use
     uint32_t fastUsed = 0;  // fast block bytes in use
-    bool noRoom = false;    // the pool could not grow (the stack floor): not loaded
-    int skipped = 0;        // [I] Modules/*.otm past kMax: not looked at
+    bool noRoom = false;    // the pool could not grow (the stack floor): nothing loaded
+    int skipped = 0;        // .otm files past the first kMax in name order: not loaded
     uint32_t serial = 0;    // +1 on every change
     // [I] Bytes of each compiled-in hot row (OtmPool::hotRows order) in the
     // fast block now: its code up to the cut (0 = it runs from flash).
@@ -78,7 +78,7 @@ struct CardEngine {
     char displayName[16];   // SynthDescriptor::displayName, else name
     uint8_t file;           // OtmLoadReport item of its module
 };
-constexpr int kMaxCardEngines = 32;
+constexpr int kMaxCardEngines = OtmLoadReport::kMax;   // one per card module (more are skipped)
 
 // [I] A card master effect (the boot scan lists them, loaded or not).
 struct CardFx {
@@ -95,6 +95,10 @@ constexpr const char* kModulesDir = "Modules";
 // A cut is a byte offset into the module's image (<= the pool, so 16 bits).
 constexpr uint32_t kOtmMaxShareCuts = 32;
 using OtmShareCut = uint16_t;
+// The row cuts of the files being loaded sit at the end of the loader's
+// scratch (only with a fast block to share): the file gets the rest.
+constexpr uint32_t kOtmCutScratchBytes =
+    OtmLoadReport::kMax * (kOtmMaxShareCuts * sizeof(OtmShareCut) + sizeof(uint32_t));
 
 // Shares a fast block of cap bytes between n modules' rows (cuts[i][0 ..
 // nCuts[i]) = module i's cuts, module_loader.h): they take turns, in order,
@@ -102,7 +106,7 @@ using OtmShareCut = uint16_t;
 void shareFastBlock(const OtmShareCut (*cuts)[kOtmMaxShareCuts], const uint32_t* nCuts, int n, uint32_t cap,
                     uint32_t* share);
 
-// Boot: Modules/*.otm (name order). Each file is loaded once to see what it
+// Boot: Modules/*.otm (name order, the first OtmLoadReport::kMax). Each file is loaded once to see what it
 // is; a module without synth engines stays and is handed to
 // ModuleHost::addLoaded(), a synth module's engines are listed
 // (cardEngineAt) and its pool room goes back. The modules that stay share
