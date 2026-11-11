@@ -500,9 +500,6 @@ private:
     void* hookCtx_ = nullptr;
     IMidiPort* midi_ = nullptr;
     const int16_t* lineIn_ = nullptr;
-    // [I] Line peak (int16) below which the line doesn't keep the master
-    // inserts running: 16 LSB = -66 dBFS, above the codec's idle noise.
-    static constexpr int32_t kLineHeardMin = 16;
     const int16_t* usbIn_ = nullptr;
     UsbSend usbSend_{};
     volatile bool outMeter_ = false;

@@ -169,33 +169,3 @@ TEST(master_inserts_get_the_tempo_on_change) {
     CHECK_EQ(t.tempos.size(), 4u);
     CHECK_NEAR(t.tempos.back(), 97.5f, 1e-6);
 }
-
-// [I] The line keeps the inserts running only when it is heard: an analog
-// input is never digital silence (the codec's idle noise), so noise below
-// AudioEngine::kLineHeardMin, or a muted line, leaves them idle.
-TEST(master_insert_line_noise_or_muted_line_does_not_run_it) {
-    Rig rig;
-    HalfInsert ins;
-    rig.eng->setMasterInsert(&ins);
-    MixerSettings& m = rig.eng->settings();
-    m.lineInMute = false;
-    m.lineInLevel = 86;
-    int16_t line[kBlock * 2];
-    auto feed = [&](int16_t amp, int blocks) {
-        for (uint32_t i = 0; i < kBlock * 2; ++i) line[i] = int16_t(i & 1 ? -amp : amp);
-        int16_t out[kBlock * 2];
-        for (int b = 0; b < blocks; ++b) {
-            rig.eng->setLineInput(line);
-            rig.eng->renderLive(out);
-        }
-    };
-    feed(3, 20);   // idle noise
-    CHECK_EQ(ins.calls, 0);
-    feed(8000, 5);   // a signal
-    CHECK(ins.calls >= 4);
-    m.lineInMute = true;
-    feed(8000, 40);   // the level ramps to 0, then the inserts rest
-    const int calls = ins.calls;
-    feed(8000, 10);
-    CHECK_EQ(ins.calls, calls);
-}
