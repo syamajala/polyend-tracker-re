@@ -14,9 +14,11 @@ namespace mod {
 
 namespace {
 
+// The first kMax names in name order (kept sorted), whatever the directory order.
 struct Names {
     char name[OtmLoadReport::kMax][40];
     int n = 0;
+    int skipped = 0;   // .otm files past the first kMax
 };
 
 bool isOtm(const char* s) {
@@ -30,19 +32,15 @@ bool isOtm(const char* s) {
 bool collect(const IStorage::DirEntry& e, void* ctx) {
     Names& n = *static_cast<Names*>(ctx);
     if (e.isDir || e.name[0] == '.' || !isOtm(e.name)) return true;
-    if (n.n >= OtmLoadReport::kMax) return false;
-    std::strcpy(n.name[n.n++], e.name);
+    if (n.n == OtmLoadReport::kMax) {
+        ++n.skipped;
+        if (std::strcmp(e.name, n.name[n.n - 1]) >= 0) return true;
+        --n.n;   // the last name makes room
+    }
+    int i = n.n++;
+    for (; i > 0 && std::strcmp(n.name[i - 1], e.name) > 0; --i) std::strcpy(n.name[i], n.name[i - 1]);
+    std::strcpy(n.name[i], e.name);
     return true;
-}
-
-void sortNames(Names& names) {
-    for (int i = 1; i < names.n; ++i)
-        for (int j = i; j > 0 && std::strcmp(names.name[j - 1], names.name[j]) > 0; --j) {
-            char t[sizeof(names.name[0])];
-            std::strcpy(t, names.name[j]);
-            std::strcpy(names.name[j], names.name[j - 1]);
-            std::strcpy(names.name[j - 1], t);
-        }
 }
 
 // Reads Modules/<name> into scratch.
@@ -252,24 +250,26 @@ int loadModuleFiles(IStorage& fs, const OtmPool& pool, uint8_t* scratch, uint32_
     r.used = 0;
     r.fastUsed = 0;
     r.noRoom = false;
+    r.skipped = 0;
     for (IModule* m : g_card.mod)   // a scan again: the card synths of the last one leave
         if (m) ModuleHost::instance().removeLoaded(*m);
     g_card = CardState{};
-    if (!pool.mem || !pool.cap || !pool.enter) return 0;
+    if (!pool.mem || !pool.enter) return 0;
     // [I] Registered first: the hot rows share the fast block with no card files too.
     g_card.pool = &pool;
     g_card.r = &r;
     for (int k = 0; k < hotRowCount(); ++k) g_card.hotOk[k] = hotRowCheck(pool.hotRows->rows[k]);
+    // Name order, so the master inserts chain the same way on every boot.
     Names names;
     if (fs.listDir(kModulesDir, &collect, &names) < 0 || names.n == 0) return 0;
+    r.skipped = names.skipped;
     // The whole block while loading, then only what the modules took: the
-    // rest goes back to the stack.
-    if (pool.resize && !pool.resize(pool.cap)) {
+    // rest goes back to the stack. No block at all (a profile whose stack
+    // leaves no room above the floor) is the same as no room.
+    if (!pool.cap || (pool.resize && !pool.resize(pool.cap))) {
         r.noRoom = true;
         return 0;
     }
-    // Name order, so the master inserts chain the same way on every boot.
-    sortNames(names);
     // Pass 1: each file once at the pool's start (no fast part) to see what
     // it is, and its row cuts.
     OtmShareCut (*cuts)[kOtmMaxShareCuts] = g_card.cuts;
@@ -469,9 +469,9 @@ int rescanCardSynths(IStorage& fs, uint8_t* scratch, uint32_t scratchCap) {
         if (r.items[i].loaded) kept[nKept++] = r.items[i];
     r.n = 0;
     Names names;
-    if (fs.listDir(kModulesDir, &collect, &names) < 0) names.n = 0;
-    sortNames(names);
-    if (names.n > 0 && pool.resize && !pool.resize(pool.cap)) {
+    if (fs.listDir(kModulesDir, &collect, &names) < 0) names = Names{};
+    r.skipped = names.skipped;
+    if (names.n > 0 && (!pool.cap || (pool.resize && !pool.resize(pool.cap)))) {
         r.noRoom = true;
         names.n = 0;
     }

@@ -19,6 +19,7 @@
 # make hot-rows      -> [I] tools/hot_rows/*.hot, the synths' hot code for the fast block (fork #21)
 # make otm OTM_MODULE=<path> -> [I] build/<profile>/otm/<name>.otm, a module loadable from the card
 #                    (fork #21; <path> as in a profile, relative to MODULES_DIR; tools/make_otm.py)
+# make otm-test   -> [I] tools/make_otm.py's images against the linker's (ARM toolchain, pyelftools)
 # make fonts      -> regenerate the committed UI font image (src/core/ui/fonts/font_data.*,
 #                    the firmware's packed font_data_z.inc / font_adv.inc,
 #                    sim/third_party/rom_fonts.inc); needs python3 + Pillow
@@ -396,6 +397,12 @@ otm:
 	    $(if $(OTM_REF_FAST),--ref-fast $(OTM_REF_FAST) --ref-fast-out $(BUILD)/otm/$(OTM_NAME)$(OTM_SUFFIX).ref-fast.bin) \
 	    $(if $(OTM_REF_CUT),--ref-cut $(OTM_REF_CUT))
 .PHONY: otm
+
+# [I] tools/make_otm.py against the linker (tools/make_otm_test.py): needs
+# the ARM toolchain and pyelftools.
+otm-test:
+	python3 -I tools/make_otm_test.py --cxx $(CXX) --cxxflags '$(CXXFLAGS)'
+.PHONY: otm-test
 
 # [I] The profile's card modules (profiles/*.toml card = true, fork #21), each as
 # build/<profile>/otm/<name>.otm for the card's Modules/ folder, with its hot row

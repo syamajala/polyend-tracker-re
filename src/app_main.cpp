@@ -71,8 +71,17 @@ constexpr uint32_t kOffScratch = align(kOffNums + 64);
 constexpr uint32_t kOffPerf = align(kOffScratch + kScratch);
 constexpr uint32_t kOffStems = align(kOffPerf + sizeof(ot::PerfPatternMemory));   // WAV export stems (was SRAM)
 constexpr uint32_t kOffPresets = align(kOffStems + sizeof(ot::audio::StemBlock));   // the project's synth presets
+// [3.x] The mix each synth preset carries (app/synth_presets.h), read by the synth bank.
+constexpr uint32_t kOffPresetMix = align(kOffPresets + sizeof(ot::SynthPatch) * ot::kSynthPresetCount);
+#if OT_SLOT_INSERTS
+// [3.x] The insert each synth preset carries (app/synth_presets.h), read by the synth bank.
+constexpr uint32_t kOffPresetIns = align(kOffPresetMix + sizeof(ot::audio::PresetMix) * ot::kSynthPresetCount);
+constexpr uint32_t kOffPresetEnd = kOffPresetIns + sizeof(ot::audio::PresetInsert) * ot::kSynthPresetCount;
+#else
+constexpr uint32_t kOffPresetEnd = kOffPresetMix + sizeof(ot::audio::PresetMix) * ot::kSynthPresetCount;
+#endif
 // [I] Display command export (core/remote/display_tap.h): one recorded frame.
-constexpr uint32_t kOffFrameRec = align(kOffPresets + sizeof(ot::SynthPatch) * ot::kSynthPresetCount);
+constexpr uint32_t kOffFrameRec = align(kOffPresetEnd);
 constexpr uint32_t kEnd = kOffFrameRec + ot::remote::kFrameBufBytes;
 static_assert(ot::board::kSdramSize == 16u * 1024u * 1024u, "spec 01 §2");
 static_assert(kEnd <= ot::board::kSdramSize, "SDRAM layout exceeds 16 MB");
@@ -178,6 +187,9 @@ void logModuleLoad(const ot::mod::OtmLoadReport& r) {
     if (r.fastUsed) ot::hal::diagLogf("modules: SRAM_L block %lu of %lu B used", static_cast<unsigned long>(r.fastUsed),
                                       static_cast<unsigned long>(ot::hal::modulePool()->fastCap));
     if (r.noRoom) ot::hal::diagLog("modules: not loaded, no stack room for the pool");
+    if (r.skipped)
+        ot::hal::diagLogf("modules: %d more not loaded (the first %d by name only)", r.skipped,
+                          ot::mod::OtmLoadReport::kMax);
     if (r.n) ot::hal::diagLogf("modules: pool %lu of %lu B used, stack room %lu B", static_cast<unsigned long>(r.used),
                               static_cast<unsigned long>(ot::hal::modulePool()->cap),
                               static_cast<unsigned long>(ot::hal::stackSizeBytes()));
@@ -511,6 +523,10 @@ void otAppMain(ot::hal::HalSet& hal) {
     mem.perfPatterns = reinterpret_cast<PerfPatternMemory*>(sd + kOffPerf);
     mem.exportStems = reinterpret_cast<audio::StemBlock*>(sd + kOffStems);
     presets::bind(reinterpret_cast<SynthPatch*>(sd + kOffPresets));
+    presets::bindMix(reinterpret_cast<audio::PresetMix*>(sd + kOffPresetMix));
+#if OT_SLOT_INSERTS
+    presets::bindInserts(reinterpret_cast<audio::PresetInsert*>(sd + kOffPresetIns));
+#endif
 
     HalRefs refs;
     auto* tap = new (gTapMem) ot::remote::DisplayTap(*hal.display);
@@ -579,14 +595,19 @@ void otAppMain(ot::hal::HalSet& hal) {
     // Stack guard: an overflow resets the Tracker; say so on screen, not
     // only in the USB diag log, so it never looks like a random reboot. With
     // the guard off (ot_noguard.txt) a lockup is some other double fault.
-    // [I] #21: a module on the card that didn't load says so (the first one).
-    for (int i = 0; i < gApp.moduleLoadReport().n; ++i) {
-        const ot::mod::OtmLoadReport::Item& it = gApp.moduleLoadReport().items[i];
-        if (it.error == ot::mod::OtmError::None && !it.refused) continue;
-        char t[64];
-        snprintf(t, sizeof(t), "Module %s: %s", it.file, it.refused ? "refused" : ot::mod::otmErrorText(it.error));
-        gApp.ui.notify(t, 6000);
-        break;
+    // [I] #21: a module on the card that didn't load says so (the first one;
+    // the diag log has them all).
+    {
+        const ot::mod::OtmLoadReport& r = gApp.moduleLoadReport();
+        char t[64] = "";
+        if (r.noRoom) snprintf(t, sizeof(t), "Modules: no room, none loaded");
+        for (int i = 0; !t[0] && i < r.n; ++i) {
+            const ot::mod::OtmLoadReport::Item& it = r.items[i];
+            if (it.error == ot::mod::OtmError::None && !it.refused) continue;
+            snprintf(t, sizeof(t), "Module %s: %s", it.file, it.refused ? "refused" : ot::mod::otmErrorText(it.error));
+        }
+        if (!t[0] && r.skipped) snprintf(t, sizeof(t), "Modules: %d more than %d not loaded", r.skipped, r.kMax);
+        if (t[0]) gApp.ui.notify(t, 6000);
     }
     if (hal::lastResetWasLockup())
         gApp.ui.notify(hal::stackGuardArmed() ? "Restarted after a crash (stack overflow)"
