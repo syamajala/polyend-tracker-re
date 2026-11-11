@@ -162,6 +162,8 @@ void logModuleLoad(const ot::mod::OtmLoadReport& r) {
         const char* what = it.refused ? "refused (id taken, api or attach)" : ot::mod::otmErrorText(it.error);
         if (it.synth && !it.loaded && it.error == ot::mod::OtmError::None && !it.refused)
             what = "card synth, loads when a project uses it";   // [I] #21
+        if (it.fx && !it.loaded && it.error == ot::mod::OtmError::None && !it.refused)
+            what = "card effect, loads when it is on";
         if (it.loaded && it.rowBytes)
             ot::hal::diagLogf("modules: %s %s, hot code %lu of %lu B in SRAM_L", it.file, what,
                               static_cast<unsigned long>(it.fastBytes), static_cast<unsigned long>(it.rowBytes));
@@ -178,6 +180,8 @@ void logModuleLoad(const ot::mod::OtmLoadReport& r) {
     if (r.fastUsed) ot::hal::diagLogf("modules: SRAM_L block %lu of %lu B used", static_cast<unsigned long>(r.fastUsed),
                                       static_cast<unsigned long>(ot::hal::modulePool()->fastCap));
     if (r.noRoom) ot::hal::diagLog("modules: not loaded, no stack room for the pool");
+    if (r.skipped) ot::hal::diagLogf("modules: %d more .otm files not looked at (%d at most)", r.skipped,
+                                     ot::mod::OtmLoadReport::kMax);
     if (r.n) ot::hal::diagLogf("modules: pool %lu of %lu B used, stack room %lu B", static_cast<unsigned long>(r.used),
                               static_cast<unsigned long>(ot::hal::modulePool()->cap),
                               static_cast<unsigned long>(ot::hal::stackSizeBytes()));
