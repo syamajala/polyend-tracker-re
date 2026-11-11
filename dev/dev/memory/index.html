@@ -911,6 +911,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#flash-on-2026-11-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flash on 2026-11-11
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fork-main-on-2026-11-01" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1075,6 +1086,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#flash-on-2026-11-11" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flash on 2026-11-11
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#fork-main-on-2026-11-01" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1166,6 +1188,25 @@ the remote-control link. Fork: syamajala/polyend-tracker-re <code>main</code> (a
 on 2.1.1); upstream: sandlbn/polyend-tracker-re <code>v2</code> at 2.1.2 (177150b).
 Fork figures corrected the same day from clean builds: the first version
 listed the fork's room above <code>_ebss</code> as upstream's.</em></p>
+<h2 id="flash-on-2026-11-11">Flash on 2026-11-11<a class="headerlink" href="#flash-on-2026-11-11" title="Permanent link">&para;</a></h2>
+<p><em><code>main</code> b2bec6e (3.x, gcc 14.2), <code>full</code>: 794,624 B (.text 787,796 + .data
+6,828); upstream <code>v3</code> 13438f6: 737,280 B. The upstream 3.x merge comes to
+806,912 B, so the fork's flash gate went from 800,000 to 832,000 B. The image
+cap stays <code>tools/check_image.py</code>'s stock extent (877,664 B).</em></p>
+<ul>
+<li>Strings: 34.9 KB merged pool (about 1,900 strings): help texts ~14 KB,
+  printf formats ~7.7 KB (mostly hardware diagnostics), short labels ~13 KB.
+  Most are in upstream files. The map shows the whole pool under <code>ff.c</code> (its
+  first <code>.str1.1</code> section), so per-object sums put "35 KB rodata" there.</li>
+<li>Fork over upstream: ~51 KB of code and data. Performance mode +12.2 KB in
+  <code>screen_performance.cpp</code> (scene banks ~2.7 KB, A/B scenes ~3.8 KB, Fader
+  Ranges ~1.75 KB, MIDI CC type list ~1.15 KB, growth of upstream functions
+  ~2 KB; plus the bank and scene side files), remote control 8.8 KB,
+  progressions 5.4 KB, SFZ / multisample 5.5 KB, export resampler 4.7 KB.</li>
+<li>LTO over the whole image: -16.4 KB, but the card-module exports, the hot pool
+  row tables and the audio path all change; not taken. LTO over the <code>-Os</code> files
+  only is untried.</li>
+</ul>
 <h2 id="fork-main-on-2026-11-01">Fork <code>main</code> on 2026-11-01<a class="headerlink" href="#fork-main-on-2026-11-01" title="Permanent link">&para;</a></h2>
 <p><em>Re-measured from <code>main</code> bc714a8 (Games off), after USB audio, multisample,
 scene bank files, fader ranges and the SDRAM sharing of #109. The tables
@@ -1182,7 +1223,7 @@ below are the 2026-10-23 audit and are kept for the comparison with upstream.</e
 <tr>
 <td>Flash (<code>.text</code> + <code>.data</code>)</td>
 <td style="text-align: right;">—</td>
-<td style="text-align: right;">774,144 B (fail &gt; 800,000 B: ~26 KB left)</td>
+<td style="text-align: right;">774,144 B (fail then &gt; 800,000 B: ~26 KB left)</td>
 </tr>
 <tr>
 <td>SRAM <code>.bss</code></td>
