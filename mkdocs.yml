@@ -51,6 +51,7 @@ nav:
   - Install and go back: install.md
   - User guide:
       - DX7 synth: guide/dx7.md
+      - Master effects: guide/master-fx.md
       - Live resampling: guide/resampling.md
       - Performance mode: guide/performance.md
       - Song mode: guide/song-mode.md

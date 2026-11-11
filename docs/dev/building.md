@@ -28,8 +28,7 @@ set it, or export it once, if the repositories sit next to this one. `opentracke
 found next to `opentracker-synths`.
 
 A **build profile** (`profiles/<name>.toml`, `PROFILE=`, default `full`) picks the modules
-compiled into the image: `full` has ACD, FAT, VAP, PERC, WTFM and the master chorus, BBD
-chorus and tape inserts; `core` has none. Each profile builds into `build/<profile>/`.
+compiled into the image: `full` has ACD, FAT, VAP, PERC and WTFM; `core` has none. Each profile builds into `build/<profile>/`.
 
 **Card modules** (fork #21): a profile entry with `card = true` stays out of the image.
 `make card` builds it as `build/<profile>/otm/<name>.otm` for the card's `Modules/` folder,
@@ -37,12 +36,14 @@ and the host builds (`make host-test`, the simulator, the tools) compile it in, 
 with the card's modules would have it. `in_tree = true` takes the module's path from this
 repository instead of `MODULES_DIR`. `full` builds in the five Mini synths (ACD, FAT,
 VAP, PERC, WTFM); its other synths are card modules: DX7 (`modules/dx7`, in this
-repository), FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type and ARC. No
-image has those built in.
+repository), FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type and ARC, and
+every master effect of opentracker-fx (Dirt, LoFi, Chorus, BBD, Echo, Tape). No image has
+those built in.
 
 At boot the firmware looks at every `Modules/*.otm` (`src/core/modules/module_files.h`):
-a module without synth engines (an effect) loads into the card pool for good; a synth
-module is only listed, so its engines show in the Model list. The card synths in the pool
+a synth module is only listed, so its engines show in the Model list; a master effect (a
+master insert or a settings page) is only listed too, for the FX bank; any other module
+(slot effects only) loads into the card pool for good. The card synths in the pool
 are the ones the project's synth slots use: Open loads them before the slots' patches,
 and a Model change loads the new one once the choice has rested for 1/4 s, while stopped
 (while playing the slot says "Loads at Stop"). Every load starts the synth voices over
@@ -50,10 +51,22 @@ and a Model change loads the new one once the choice has rested for 1/4 s, while
 doesn't fit the pool (32 KB) stays unloaded, with "Card memory full" on its slot;
 the first slot gets the room first. Two slots on one engine load it once.
 
+Card **master effects** load with the card synths, in the same load set
+(`App::syncCardSynths`, `src/core/app/master_fx.cpp`): the ones that are on, the ones
+Turn on asked for (at once while stopped, else at the next Stop) and, at Open, the ones the
+project's sidecar has a chunk for (those that are off leave again). An effect that is
+turned off leaves at the next Stop. While an effect is out, its project data waits in the
+sidecar's kept chunks (`App::stashModuleSection`), so it is saved with the project and
+comes back when it loads. Its SDRAM (`ModuleInfo::sdramBytes`: Echo's 48 KB line) comes
+from the top of the sample memory (`SampleBank::setModuleHold`, after the samples;
+`ModuleHost::setCardSdram` hands it to its `attach()`). The master chain runs in a fixed
+order by module id (`ModuleHost::chainOrder`), the same built in or from the card, and
+holds up to 8 inserts.
+
 Leaving USB storage mode lists `Modules/` again (`rescanCardSynths`) before the Workspace
 reopens: card synths that were added, replaced or removed take effect without a restart.
-Modules without synth engines stay as the boot loaded them (their SDRAM is never given
-back), so a changed effect module still needs a restart.
+Card master effects are listed again too. Modules the boot loaded for good (slot effects
+only) stay as they are, so a changed one still needs a restart.
 
 A synth module's `.otm` carries its **hot row**: the functions that do most of its work,
 hottest first, from `tools/hot_rows/<module>.hot`. When the image has a fast block in
