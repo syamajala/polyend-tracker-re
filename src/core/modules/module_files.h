@@ -46,7 +46,8 @@ struct OtmPool {
 // What happened to each Modules/*.otm: filled at boot, updated by every
 // loadCardSynths (serial counts the changes).
 struct OtmLoadReport {
-    static constexpr int kMax = 16;
+    // [I] 32 (was 16): 11 card synths + 6 effects already make 17 files.
+    static constexpr int kMax = 32;
     struct Item {
         char file[40];      // name in Modules/ (longer names are skipped)
         OtmError error;     // None = loaded and registered (a synth: when last wanted)
@@ -62,6 +63,7 @@ struct OtmLoadReport {
     uint32_t used = 0;      // pool bytes in use
     uint32_t fastUsed = 0;  // fast block bytes in use
     bool noRoom = false;    // the pool could not grow (the stack floor): not loaded
+    int skipped = 0;        // [I] Modules/*.otm past kMax: not looked at
     uint32_t serial = 0;    // +1 on every change
     // [I] Bytes of each compiled-in hot row (OtmPool::hotRows order) in the
     // fast block now: its code up to the cut (0 = it runs from flash).

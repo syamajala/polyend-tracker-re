@@ -16,8 +16,12 @@ namespace {
 
 struct Names {
     char name[OtmLoadReport::kMax][40];
-    int n = 0;
+    int n;
+    int skipped;   // .otm files past kMax
 };
+// One list at a time (main loop): SDRAM, not the stack; a trivial type (no
+// static constructor), reset before each use.
+OT_SDRAM_BSS Names g_names;
 
 bool isOtm(const char* s) {
     const size_t n = std::strlen(s);
@@ -30,7 +34,10 @@ bool isOtm(const char* s) {
 bool collect(const IStorage::DirEntry& e, void* ctx) {
     Names& n = *static_cast<Names*>(ctx);
     if (e.isDir || e.name[0] == '.' || !isOtm(e.name)) return true;
-    if (n.n >= OtmLoadReport::kMax) return false;
+    if (n.n >= OtmLoadReport::kMax) {
+        ++n.skipped;   // keep counting: the report says how many were left out
+        return true;
+    }
     std::strcpy(n.name[n.n++], e.name);
     return true;
 }
@@ -267,9 +274,10 @@ void dropCardSynths() {
 
 int loadModuleFiles(IStorage& fs, const OtmPool& pool, uint8_t* scratch, uint32_t scratchCap,
                     OtmLoadReport* report) {
-    OtmLoadReport local;
+    static OT_SDRAM_BSS OtmLoadReport local;   // no report given (tests)
     OtmLoadReport& r = report ? *report : local;
     r.n = 0;
+    r.skipped = 0;
     r.used = 0;
     r.fastUsed = 0;
     r.noRoom = false;
@@ -281,8 +289,10 @@ int loadModuleFiles(IStorage& fs, const OtmPool& pool, uint8_t* scratch, uint32_
     g_card.pool = &pool;
     g_card.r = &r;
     for (int k = 0; k < hotRowCount(); ++k) g_card.hotOk[k] = hotRowCheck(pool.hotRows->rows[k]);
-    Names names;
+    Names& names = g_names;
+    names.n = names.skipped = 0;
     if (fs.listDir(kModulesDir, &collect, &names) < 0 || names.n == 0) return 0;
+    r.skipped = names.skipped;
     // The whole block while loading, then only what the modules took: the
     // rest goes back to the stack.
     if (pool.resize && !pool.resize(pool.cap)) {
@@ -513,13 +523,15 @@ int rescanCardSynths(IStorage& fs, uint8_t* scratch, uint32_t scratchCap) {
     g_card.nEng = 0;
     g_card.nFx = 0;
     // The modules loaded for good stay where they are, in the report too.
-    OtmLoadReport::Item kept[OtmLoadReport::kMax];
+    static OT_SDRAM_BSS OtmLoadReport::Item kept[OtmLoadReport::kMax];   // main loop only
     int nKept = 0;
     for (int i = 0; i < r.n; ++i)
         if (r.items[i].loaded) kept[nKept++] = r.items[i];
     r.n = 0;
-    Names names;
-    if (fs.listDir(kModulesDir, &collect, &names) < 0) names.n = 0;
+    Names& names = g_names;
+    names.n = names.skipped = 0;
+    if (fs.listDir(kModulesDir, &collect, &names) < 0) names.n = names.skipped = 0;
+    r.skipped = names.skipped;
     sortNames(names);
     if (names.n > 0 && pool.resize && !pool.resize(pool.cap)) {
         r.noRoom = true;
