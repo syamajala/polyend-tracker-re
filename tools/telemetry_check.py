@@ -22,7 +22,7 @@
       slot incl. its peak block; DX7 <= 18k, the algorithm 4 / 6 feedback chain <= 22k)
       fails above N.
   telemetry_check.py size [--size-tool arm-none-eabi-size] [--nm-tool arm-none-eabi-nm] <firmware.elf>
-      Flash use = .text + .data (Berkeley size): fail above 800,000 B, warn above
+      Flash use = .text + .data (Berkeley size): fail above 832,000 B, warn above
       720,000 B (upstream's 720,000 B budget; tools/check_image.py caps the image at
       the stock 1.9.2 extent, 877,664 B) [I].
       With nm (default: the size tool's sibling): no double-precision libm in the
@@ -90,7 +90,9 @@ LIMIT_RE = re.compile(r"^\s+((?:acd|vap|fat|wtfm|perc|dx7|pswitch|preset|stream)
 # left the image for the card in #21):
 # upstream's fail line (720,000 B) is the fork's warning. The hard ceiling is
 # check_image.py's STOCK_END (877,664 B), past which the update bootloader's data lies.
-FLASH_FAIL = 800000
+# Raised 800,000 -> 832,000 B for the upstream 3.x merge (806,912 B); 2026-11 flash
+# audit in docs/dev/memory.md.
+FLASH_FAIL = 832000
 FLASH_WARN = 720000
 # _estack - _ebss holds the stack and newlib's heap (src/hal/stack_watch.h). With the stack
 # guard (src/hal/stack_guard.h) it also holds the 4 KB heap reserve and the 8 KB guard, so
@@ -593,8 +595,8 @@ def selftest():
     assert ok
     ok, flash = check_size([" 715000    6700  180000  901700   dc244 x.elf"], quiet=True)
     assert ok and flash == 721700   # [I] a warning in the fork
-    ok, flash = check_size([" 795000    6700  180000  981700   efac4 x.elf"], quiet=True)
-    assert not ok and flash == 801700
+    ok, flash = check_size([" 827000    6700  180000 1013700   f77c4 x.elf"], quiet=True)
+    assert not ok and flash == 833700
     nm = ["0006c138 T powf", "20030000 B _estack", "20017000 B _ebss", "0006b400 t helper"]
     ok, head = check_symbols(nm, quiet=True)
     assert ok and head == 0x19000, head

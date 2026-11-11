@@ -124,7 +124,7 @@ python3 tools/telemetry_check.py frames build/full
 make budget   # the profile's module flash budgets
 ```
 
-- **Flash** (`.text + .data`): fails above 800,000 B, warns above 720,000 B (upstream fails at 720,000 B; the fork's remote control and Performance mode need more). The image itself may not pass 877,664 B, the stock 1.9.2 extent (`tools/check_image.py`).
+- **Flash** (`.text + .data`): fails above 832,000 B, warns above 720,000 B (upstream fails at 720,000 B; the fork's remote control and Performance mode need more; raised from 800,000 B in 2026-11 for the upstream 3.x merge, see `docs/dev/memory.md`). The image itself may not pass 877,664 B, the stock 1.9.2 extent (`tools/check_image.py`).
 - **Stack headroom** (`_estack − _ebss`): fails below 75 KiB.
 - **libm**: fails if double-precision math functions get linked.
 - **Frames**: fails if any single function's stack frame is as large as the stack guard

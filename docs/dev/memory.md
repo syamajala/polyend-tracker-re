@@ -6,6 +6,26 @@ on 2.1.1); upstream: sandlbn/polyend-tracker-re `v2` at 2.1.2 (177150b).
 Fork figures corrected the same day from clean builds: the first version
 listed the fork's room above `_ebss` as upstream's.*
 
+## Flash on 2026-11-11
+
+*`main` b2bec6e (3.x, gcc 14.2), `full`: 794,624 B (.text 787,796 + .data
+6,828); upstream `v3` 13438f6: 737,280 B. The upstream 3.x merge comes to
+806,912 B, so the fork's flash gate went from 800,000 to 832,000 B. The image
+cap stays `tools/check_image.py`'s stock extent (877,664 B).*
+
+- Strings: 34.9 KB merged pool (about 1,900 strings): help texts ~14 KB,
+  printf formats ~7.7 KB (mostly hardware diagnostics), short labels ~13 KB.
+  Most are in upstream files. The map shows the whole pool under `ff.c` (its
+  first `.str1.1` section), so per-object sums put "35 KB rodata" there.
+- Fork over upstream: ~51 KB of code and data. Performance mode +12.2 KB in
+  `screen_performance.cpp` (scene banks ~2.7 KB, A/B scenes ~3.8 KB, Fader
+  Ranges ~1.75 KB, MIDI CC type list ~1.15 KB, growth of upstream functions
+  ~2 KB; plus the bank and scene side files), remote control 8.8 KB,
+  progressions 5.4 KB, SFZ / multisample 5.5 KB, export resampler 4.7 KB.
+- LTO over the whole image: -16.4 KB, but the card-module exports, the hot pool
+  row tables and the audio path all change; not taken. LTO over the `-Os` files
+  only is untried.
+
 ## Fork `main` on 2026-11-01
 
 *Re-measured from `main` bc714a8 (Games off), after USB audio, multisample,
@@ -14,7 +34,7 @@ below are the 2026-10-23 audit and are kept for the comparison with upstream.*
 
 | | 2026-10-23 | 2026-11-01 |
 |---|---:|---:|
-| Flash (`.text` + `.data`) | — | 774,144 B (fail > 800,000 B: ~26 KB left) |
+| Flash (`.text` + `.data`) | — | 774,144 B (fail then > 800,000 B: ~26 KB left) |
 | SRAM `.bss` | 98,284 B | 109,492 B |
 | Room above `_ebss` (heap + stack) | 92,448 B | 79,104 B |
 | **Margin over the 75 KiB stack rule** | **15,648 B** | **2,304 B** |
