@@ -1505,6 +1505,22 @@ TEST(record_microtiming_and_velocity) {
     CHECK_EQ(int(r.step(0, 1).fx[0].value), (vol * 100 + 63) / 127);
 }
 
+TEST(record_microtiming_follows_track_speed) {
+    // [I] #43: a note recorded on a track at 1/2x gets that track's own
+    // position in its step as Micro-move, not the master's.
+    Rig r(40.0f);
+    r.a.timing[0].speed = 2;   // 1/2x
+    r.seq.settings().recordingOptions = 1;   // Microtiming
+    r.seq.record();
+    r.runUntil([&] { return r.seq.step(0) == 1 && r.seq.microStep(0) >= 30; });
+    const int own = r.seq.microStep(0);
+    CHECK(own != r.seq.masterMicroStep());
+    CHECK_EQ(r.seq.liveNoteOn(60, 100, 0, 0, 100), 0);
+    CHECK_EQ(int(r.step(0, 1).note), 60);
+    CHECK_EQ(int(r.step(0, 1).fx[1].type), 2);
+    CHECK_EQ(int(r.step(0, 1).fx[1].value), (own - 1) * 100 / 47);
+}
+
 TEST(record_external_arms) {
     Rig r(120.0f);
     r.seq.settings().clockIn = 2;

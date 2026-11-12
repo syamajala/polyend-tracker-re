@@ -1655,7 +1655,8 @@ int Sequencer::liveNoteOn(uint8_t note, uint8_t velocity, uint8_t cursorTrack, u
         cell.instrument = instr;
         if (micro) {
             cell.fx[1].type = 2;  // FX-A = Micro-move
-            cell.fx[1].value = uint8_t(clampi((masterMicro_ - 1) * 100 / 47, 0, 100));
+            // [I] The track's own micro (#43): the master's at 1x.
+            cell.fx[1].value = uint8_t(clampi((tracks_[t].micro - 1) * 100 / 47, 0, 100));
         }
         if (opt == 2 || opt == 3) {
             const int v = velocity * instrumentVolume / 127;
@@ -1718,7 +1719,7 @@ void Sequencer::liveNoteOff(uint8_t note, bool writeOff) {
         cell.instrument = tr.liveInstr;   // not 0 (USER_REPORTS_R3 R3-2)
         if (micro && target == tr.step) {
             cell.fx[1].type = 2;
-            cell.fx[1].value = uint8_t(clampi((masterMicro_ - 1) * 100 / 47, 0, 100));
+            cell.fx[1].value = uint8_t(clampi((tr.micro - 1) * 100 / 47, 0, 100));   // [I] the track's (#43)
         }
         host_->markPatternDirty();
     }
