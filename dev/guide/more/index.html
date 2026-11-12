@@ -745,6 +745,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-2x-features-from-upstream" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1236,6 +1247,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-2x-features-from-upstream" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1464,6 +1486,22 @@ pads together, release them, and play the next chord.</p>
   length; a sample longer than the track is placed once, cut at the track's end.</li>
 <li>Slice first: Auto (F1) for drum breaks, Evenly (F2) for loops in time.</li>
 </ul>
+<h2 id="memory">Memory<a class="headerlink" href="#memory" title="Permanent link">&para;</a></h2>
+<p><strong>Config &gt; Memory</strong> shows what fills the Tracker's memory, for when something won't load.
+For example, with DX7 on a synth slot, turning on a third card effect can fail with "Card
+memory full". The page shows DX7 taking 18 KB of the 32 KB, so you know to turn off an
+effect or switch the slot to a built-in synth.</p>
+<ul>
+<li><strong>Card modules</strong>: the card synths and effects that are loaded (DX7, Echo …), what uses
+  them (<code>synth, slot 2</code>, <code>effect</code>) and their size. Ones that are wanted but not in are
+  listed too, with why: <strong>loads at Stop</strong>, <strong>no room</strong> (red), <strong>didn't load</strong>.</li>
+<li><strong>Sample memory</strong>: the samples, plus what is borrowed from it: card effects' buffers
+  (Echo's 48 KB line) and the space held back while resampling or during a tape stop.</li>
+<li>The bar turns red at 90 %. The page is read-only.</li>
+</ul>
+<p>When a card module doesn't fit, the notice names the biggest one loaded, e.g. "Echo: Card
+memory full (DX7 18.3 KB)", and the FX bank shows how much card memory is used. In the
+simulator the card modules are built in, so the page lists only the sample memory.</p>
 <h2 id="the-2x-features-from-upstream">The 2.x features (from upstream)<a class="headerlink" href="#the-2x-features-from-upstream" title="Permanent link">&para;</a></h2>
 <p>The 2.x line brings the newer Tracker features to the original hardware. In short:</p>
 <h3 id="tracker-mini-project-compatibility">Tracker Mini project compatibility<a class="headerlink" href="#tracker-mini-project-compatibility" title="Permanent link">&para;</a></h3>
