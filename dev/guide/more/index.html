@@ -745,6 +745,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#instrument-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instrument library
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#memory" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1247,6 +1258,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#instrument-library" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instrument library
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#memory" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1485,6 +1507,31 @@ pads together, release them, and play the next chord.</p>
   after it. The pattern keeps its
   length; a sample longer than the track is placed once, cut at the track's end.</li>
 <li>Slice first: Auto (F1) for drum breaks, Evenly (F2) for loops in time.</li>
+</ul>
+<h2 id="instrument-library">Instrument library<a class="headerlink" href="#instrument-library" title="Permanent link">&para;</a></h2>
+<p>Keep a sample instrument you've set up (its sample, play mode, slices, envelopes, filter,
+effects…) and use it again in any project. On the <strong>Instrument Effects</strong> page (Instrument
+Params, then <strong>More</strong>):</p>
+<ul>
+<li><strong>Save (F7)</strong> opens the keyboard with the instrument's name; <strong>Save</strong> writes it to
+  <code>Instruments/&lt;name&gt;.pti</code> on the card (into the folder you last opened in Load). An
+  existing name asks before replacing it.</li>
+<li><strong>Load (F6)</strong> lists <code>Instruments/</code>: folders first, then instruments. <strong>F8</strong> opens a folder
+  or loads the instrument into the current slot (replacing it); <strong>Left</strong> goes up a folder
+  (at <code>Instruments/</code> it closes the list); <strong>F7</strong> cancels. Folders can be nested as deep
+  as you like.</li>
+</ul>
+<p><img alt="The instrument library's Load list" src="../../images/instrument-library.png" /></p>
+<ul>
+<li>The files are stock <code>.pti</code> instruments: the Sample Loader lists them too, and stock
+  firmware loads them.</li>
+<li>A long instrument streamed from the card is copied in full first, so Save can take a
+  moment.</li>
+<li>An instrument that doesn't fit in the free sample memory isn't loaded ("Not enough sample
+  memory"); the slot keeps what it had.</li>
+<li>A <a href="../multisample/">multisample</a> instrument saves as a <strong>Slice</strong> instrument (one zone per
+  slice, as stock firmware sees it): the zones' root notes and the Multi play mode are kept
+  with the project, not in the <code>.pti</code>.</li>
 </ul>
 <h2 id="memory">Memory<a class="headerlink" href="#memory" title="Permanent link">&para;</a></h2>
 <p><strong>Config &gt; Memory</strong> shows what fills the Tracker's memory, for when something won't load.
