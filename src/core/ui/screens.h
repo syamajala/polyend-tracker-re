@@ -838,6 +838,18 @@ public:
     // [I] #28 MIDI CC columns: the CC value last sent, -1 none (sent again
     // when the column comes back on).
     int16_t ccSent_[12] = {};
+    // [I] #159 FX columns: the target (perf::fxTarget) and parameter value
+    // each last played, -1 none; played again after a card load (fxLoads_).
+    int16_t fxTgt_[12] = {};
+    int16_t fxSent_[12] = {};
+    uint32_t fxLoads_ = 0;
+    // Column c's stored values: lo .. hi (an FX column: its parameter's
+    // range + 1, and 0 = off); stepValue moves v by d detents inside it.
+    void valueRange(int c, int& lo, int& hi) const;
+    int stepValue(int c, int v, int d) const;
+    // A cell's text: perf::valueText ("---" for 0); an FX column's as its
+    // effect's page shows it.
+    void cellTextOf(int c, int v, char* out, int cap) const;
     // [I] A pad pressed since the scenes last set the column: its row plays,
     // so the green row and pad LEDs show it until the next fader move.
     bool padOver_[12] = {};
@@ -894,13 +906,20 @@ public:
     bool typeList = false;
     int typeCursor = 0;
     int typeTop = 0;
-    int typeFocus_ = 0;     // 0 type, 1 instrument, 2 slot
+    int typeFocus_ = 0;     // 0 type, 1 instrument / effect, 2 slot / parameter
     int midiCursor_ = 0;    // MIDI instrument 0..15
     int midiTop_ = 0;
     int slotCursor_ = 0;    // CC slot 0..5
+    // [I] #159 with Master FX highlighted: the effect (App::masterFx index)
+    // and its page row 1..7; moving to the parameters loads a card effect
+    // (stopped; App::holdPerfFx).
+    int fxCursor_ = 0;
+    int fxRowCursor_ = 1;
+    uint8_t fxListTarget() const;   // the highlighted effect and row as perf::fxTarget
     void openTypeList();
     void closeTypeList(bool apply);
     void moveTypeList(int d);   // the focused list's highlight
+    void moveTypeFocus(int d);  // Left / Right between the lists
     // Sets the edit column's type (and a MIDI CC column's target); its
     // values stay when the new type has the same range and labels, else
     // they are cleared.
@@ -957,6 +976,7 @@ private:
     int fxKey_ = -1;             // [I] #54: scene (x2, +1 = B) whose FX toggles were applied last, -1 none
     void refreshBar();
     void applyAll(bool revertEverything);
+    void applyFxColumns(bool revertEverything);   // [I] #159, from applyAll
     void revert();
     void leave();
     void resetOthers(int slot);

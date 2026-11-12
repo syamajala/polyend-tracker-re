@@ -21,7 +21,7 @@ constexpr int kSlots = 12;
 constexpr int kRows = 4;          // stored rows 0..3 (0 = off)
 constexpr int kLiveRow = 4;       // MIDI-CC live value (spec 12 §B.2)
 constexpr int kStockFxCount = 22; // 0 = empty, 1..21: the types stock stores
-constexpr int kFxCount = 25;      // [I] + OpenTracker-only types (Source::ext)
+constexpr int kFxCount = 26;      // [I] + OpenTracker-only types (Source::ext)
 
 // FX ids (spec 12 §E.2).
 enum Fx : uint8_t {
@@ -35,6 +35,9 @@ enum Fx : uint8_t {
     // [I] #28: sends a CC slot of a MIDI instrument (Source::arg). Values
     // are the CC value + 1, so 0 stays "---" (off): see ccValue().
     kMidiCc,
+    // [I] #159: plays a parameter of a master effect module (Source::arg:
+    // fxTarget); values are the parameter's value + 1, 0 = off, as MIDI CC.
+    kModuleFx,
 };
 
 // [I] #28 MIDI CC column target (Source::arg): MIDI instrument 0..15 (the
@@ -45,6 +48,16 @@ inline int targetMidi(uint8_t t) { return (t >> 3) & 15; }
 inline int targetSlot(uint8_t t) { return t & 7; }
 // A MIDI CC column's stored value -> the CC value 0..127; -1 = off.
 inline int ccValue(int v) { return v >= 1 && v <= 128 ? v - 1 : -1; }
+
+// [I] #159 FX column target (Source::arg): the effect's position in the
+// master chain's fixed order (mod::ModuleHost::chainId, 0..15) and the row
+// of its page (1..7), in MIDI CC's bit layout.
+constexpr int kFxRows = 8;
+inline uint8_t fxTarget(int rank, int row) { return uint8_t((rank & 15) << 3 | (row & 7)); }
+inline int targetRank(uint8_t t) { return (t >> 3) & 15; }
+inline int targetRow(uint8_t t) { return t & 7; }
+// An FX column's stored value -> the parameter value; -1 = off.
+inline int fxValue(int v) { return v >= 1 && v <= 256 ? v - 1 : -1; }
 
 // Value descriptor (spec 12 §E.1): min, max, label table, exclusive-with
 // ids, global flag. Names are OpenTracker's.

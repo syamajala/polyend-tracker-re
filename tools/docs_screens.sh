@@ -237,6 +237,24 @@ tap RIGHT            # the slot list
 wait 300
 EOF
 
+# A Master FX column (#159): column 3's type list on Master FX (the last
+# type), the Echo, its Feedback.
+shot perf-master-fx empty <<'EOF'
+wait 300
+tap PERFORMANCE
+wait 300
+tap REC
+tap RIGHT
+tap RIGHT
+tap DOWN
+enc 40               # Master FX
+tap RIGHT
+enc 4                # Echo
+tap RIGHT
+enc 1                # Feedback
+wait 300
+EOF
+
 # The scene bank page: scenes 3 and 4 edited, on A and B.
 shot scene-bank empty <<'EOF'
 wait 300

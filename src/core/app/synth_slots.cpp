@@ -433,6 +433,7 @@ bool App::syncCardSynths(bool initPatches) {
     beginCardFx(fx, &nFx);
     const bool ok =
         mod::loadCardSynths(fs(), engines, kSynthSlotCount, mem_.scratch, mem_.scratchBytes, fx, nFx);
+    ++cardLoads_;   // [I] #159
     bank.holdEngines(false);
     const bool again = endCardFx(fx, nFx);
     for (int s = 0; s < kSynthSlotCount; ++s) {

@@ -14,6 +14,8 @@
 #include "app/perf_presets.h"
 #include "formats/perf_bank.h"
 #include "formats/perf_scenes.h"
+#include "modules/module.h"
+#include "modules/module_ui.h"
 #include "ui/screens.h"
 
 namespace ot {
@@ -95,6 +97,8 @@ void PerformanceScreen::start(int opt) {
 void PerformanceScreen::engage() {
     for (auto& v : ccSent_) v = -1;   // [I] #28: a MIDI CC column sends on its first value
     App& a = app_;
+    for (int s = 0; s < perf::kSlots; ++s) fxTgt_[s] = fxSent_[s] = -1;   // [I] #159
+    fxLoads_ = a.cardLoads();
     // Rows of the previously selected source are cleared before the source
     // pointers switch (spec 12 §A.5 quirk: a newly selected source keeps its
     // stale rows; they are not applied). The engine starts on source 0.
@@ -327,6 +331,7 @@ void PerformanceScreen::applyAll(bool revertEverything) {
         }
         ccSent_[s] = int16_t(v);
     }
+    applyFxColumns(revertEverything);
     for (int t = 0; t < kTrackCount; ++t) {
         audio::PerfOffsets p;
         int8_t repeat = -1, velOff = 0, transpose = 0;
@@ -341,7 +346,8 @@ void PerformanceScreen::applyAll(bool revertEverything) {
                 globalLen = perf::lengthOverride(v);
                 continue;
             }
-            if (ty == perf::kDjFilter || ty == perf::kTapeStop || ty == perf::kMidiCc) continue;   // [I] applied above
+            if (ty == perf::kDjFilter || ty == perf::kTapeStop || ty == perf::kMidiCc || ty == perf::kModuleFx)
+                continue;   // [I] applied above
             if (!on) continue;
             switch (ty) {
                 case perf::kVolume: p.volume = int16_t(v); velOff = int8_t(v); break;
@@ -384,6 +390,69 @@ void PerformanceScreen::applyAll(bool revertEverything) {
     q.setPerfGlobalLength(globalLen);
 }
 
+// [I] #159 FX columns: each plays its effect's parameter while it has a
+// value; off, another target or leaving releases it (an Echo plays its
+// repeats out). Two columns on one target: the higher one plays.
+void PerformanceScreen::applyFxColumns(bool revertEverything) {
+    App& a = app_;
+    int16_t tgt[perf::kSlots], val[perf::kSlots];
+    for (int s = 0; s < perf::kSlots; ++s) {
+        const bool on = !revertEverything && src.valid() && src.type(s) == perf::kModuleFx && !a.exportingStems();
+        val[s] = int16_t(on ? perf::fxValue(cur[s]) : -1);
+        tgt[s] = int16_t(val[s] >= 0 ? src.target(s) : -1);
+    }
+    for (int s = 0; s < perf::kSlots; ++s)
+        for (int o = s + 1; o < perf::kSlots && tgt[s] >= 0; ++o)
+            if (tgt[o] == tgt[s]) tgt[s] = -1;
+    auto play = [&a](int t, int v) {
+        if (mod::IModulePage* pg = a.perfFxPage(uint8_t(t))) pg->perfPlay(perf::targetRow(uint8_t(t)), v);
+    };
+    for (int s = 0; s < perf::kSlots; ++s) {
+        if (fxTgt_[s] < 0 || fxTgt_[s] == tgt[s]) continue;
+        bool still = false;
+        for (int o = 0; o < perf::kSlots; ++o) still = still || tgt[o] == fxTgt_[s];
+        if (!still) play(fxTgt_[s], -1);
+        fxTgt_[s] = fxSent_[s] = -1;
+    }
+    for (int s = 0; s < perf::kSlots; ++s) {
+        if (tgt[s] < 0 || (tgt[s] == fxTgt_[s] && val[s] == fxSent_[s])) continue;
+        play(tgt[s], val[s]);
+        fxTgt_[s] = tgt[s];
+        fxSent_[s] = val[s];
+    }
+}
+
+void PerformanceScreen::valueRange(int c, int& lo, int& hi) const {
+    const uint8_t ty = src.type(c);
+    const perf::FxDesc& f = perf::fx(ty);
+    lo = f.min;
+    hi = f.max;
+    if (ty != perf::kModuleFx) return;
+    int a = 0, b = 254;   // not loaded: any value (the effect clamps it)
+    if (mod::IModulePage* pg = app_.perfFxPage(src.target(c))) pg->perfRange(perf::targetRow(src.target(c)), a, b);
+    lo = a + 1;
+    hi = b + 1;
+}
+
+int PerformanceScreen::stepValue(int c, int v, int d) const {
+    int lo, hi;
+    valueRange(c, lo, hi);
+    if (src.type(c) != perf::kModuleFx) return clampi(v + d, lo, hi);
+    // [I] #159: off (0), then the parameter's lo .. hi
+    int n = v < lo ? (d > 0 ? lo + d - 1 : (d == 0 && v > 0 ? lo : 0)) : v + d;
+    if (n < lo) return 0;
+    return n > hi ? hi : n;
+}
+
+void PerformanceScreen::cellTextOf(int c, int v, char* out, int cap) const {
+    if (src.type(c) == perf::kModuleFx && perf::fxValue(v) >= 0)
+        if (mod::IModulePage* pg = app_.perfFxPage(src.target(c))) {
+            pg->perfText(perf::targetRow(src.target(c)), perf::fxValue(v), out, cap);
+            return;
+        }
+    cellText(src.type(c), v, out, cap);
+}
+
 // Other slots with the same FX type, or an excluded filter type, go to row 0
 // with value 0 (spec 12 §B.2 step 3, spec 06 §3.4 pad step 2).
 void PerformanceScreen::resetOthers(int c) {
@@ -394,7 +463,8 @@ void PerformanceScreen::resetOthers(int c) {
         if (s == c) continue;
         const uint8_t o = src.type(s);
         if (o != ty && (o == 0 || (o != d.exclA && o != d.exclB))) continue;
-        if (ty == perf::kMidiCc && src.target(s) != src.target(c)) continue;   // [I] #28: another parameter
+        if ((ty == perf::kMidiCc || ty == perf::kModuleFx) && src.target(s) != src.target(c))
+            continue;   // [I] #28, #159: another parameter
         src.setRow(s, 0);
         cur[s] = 0;
         liveValid[s] = false;
@@ -584,8 +654,7 @@ void PerformanceScreen::onEncoder(int d) {
     for (int c = 0; c < perf::kSlots; ++c) {
         const uint8_t ty = src.type(c);
         if (!held_[c] || ty == 0) continue;
-        const perf::FxDesc& f = perf::fx(ty);
-        cur[c] = int16_t(clampi(cur[c] + d, f.min, f.max));
+        cur[c] = int16_t(stepValue(c, cur[c], d));
         const int row = src.row(c);
         // Stored only in edit mode on rows 1..3; never into the live row
         // (spec 12 §B.2: stock writes out of the slot there).
@@ -608,8 +677,7 @@ void PerformanceScreen::editSelected(int d) {
     const uint8_t ty = src.type(c);
     const int row = src.row(c);
     if (ty == 0 || row < 1 || row > 3) return;
-    const perf::FxDesc& f = perf::fx(ty);
-    cur[c] = int16_t(clampi(src.value(c, row) + d, f.min, f.max));
+    cur[c] = int16_t(stepValue(c, src.value(c, row), d));
     src.setValue(c, row, cur[c]);
     edited();
     applyAll(false);
@@ -619,10 +687,16 @@ void PerformanceScreen::editSelected(int d) {
 void PerformanceScreen::setColumnType(uint8_t ty, uint8_t target) {
     const int c = column;
     const uint8_t old = src.type(c);
-    if (ty == perf::kMidiCc && src.target(c) != target) {   // [I] #28: values stay, the new target gets them
+    if ((ty == perf::kMidiCc || ty == perf::kModuleFx) && src.target(c) != target) {
+        // [I] #28, #159: values stay, the new target gets them (into an FX parameter's range)
         src.setTarget(c, target);
         ccSent_[c] = -1;
+        if (ty == old && ty == perf::kModuleFx)
+            for (int r = 1; r < perf::kRows; ++r)
+                if (src.value(c, r) > 0) src.setValue(c, r, int16_t(stepValue(c, src.value(c, r), 0)));
         if (ty == old) {
+            const int row = src.row(c);
+            cur[c] = row >= 1 && row <= 3 ? src.value(c, row) : cur[c];
             edited();
             applyAll(false);
         }
@@ -644,6 +718,34 @@ void PerformanceScreen::setColumnType(uint8_t ty, uint8_t target) {
     applyAll(false);
 }
 
+// [I] #159 the Master FX lists: the effects (App::masterFx) and the rows of
+// the highlighted one's page a column can play (none while it isn't loaded).
+namespace {
+int fxRows(const App& a, int k, int* rows) {
+    App::MasterFx fx;
+    if (!a.masterFx(k, fx) || !fx.module) return 0;
+    mod::IModulePage* pg = fx.module->page();
+    int n = 0;
+    for (int i = 1; pg && i < pg->rows() && i < perf::kFxRows; ++i) {
+        int lo, hi;
+        if (pg->perfRange(i, lo, hi)) rows[n++] = i;
+    }
+    return n;
+}
+int fxIndexOf(const App& a, uint8_t target) {
+    App::MasterFx fx;
+    for (int k = 0; a.masterFx(k, fx); ++k)
+        if (mod::ModuleHost::chainRank(fx.id) == perf::targetRank(target)) return k;
+    return 0;
+}
+}  // namespace
+
+uint8_t PerformanceScreen::fxListTarget() const {
+    App::MasterFx fx;
+    const int rank = app_.masterFx(fxCursor_, fx) ? mod::ModuleHost::chainRank(fx.id) : 0;
+    return perf::fxTarget(rank, fxRowCursor_);
+}
+
 void PerformanceScreen::openTypeList() {
     typeList = true;
     typeCursor = src.type(column);
@@ -653,17 +755,55 @@ void PerformanceScreen::openTypeList() {
     midiCursor_ = typeCursor == perf::kMidiCc ? perf::targetMidi(t) : 0;
     slotCursor_ = typeCursor == perf::kMidiCc ? perf::targetSlot(t) : 0;
     midiTop_ = wg::listFollow(midiCursor_, kMidiInstrumentCount, wg::listVisibleRows(wg::kPanelH), 0);
+    const bool fx = typeCursor == perf::kModuleFx;
+    fxCursor_ = fx ? fxIndexOf(app_, t) : 0;
+    fxRowCursor_ = fx ? perf::targetRow(t) : 1;
 }
 
 void PerformanceScreen::closeTypeList(bool apply) {
     typeList = false;
-    if (apply) setColumnType(uint8_t(typeCursor), perf::ccTarget(midiCursor_, slotCursor_));
+    if (apply) {
+        const bool fx = typeCursor == perf::kModuleFx;
+        setColumnType(uint8_t(typeCursor), fx ? fxListTarget() : perf::ccTarget(midiCursor_, slotCursor_));
+        // [I] #159: a card effect loads now (stopped) or at the next Stop
+        if (fx)
+            if (const char* t = app_.loadPerfFx(src.target(column))) ui_.notify(t, 2000);
+    }
+    app_.holdPerfFx(nullptr);
 }
 
 void PerformanceScreen::moveTypeList(int d) {
-    if (typeFocus_ == 1) midiCursor_ = clampi(midiCursor_ + d, 0, kMidiInstrumentCount - 1);
-    else if (typeFocus_ == 2) slotCursor_ = clampi(slotCursor_ + d, 0, perf::kCcSlots - 1);
-    else typeCursor = clampi(typeCursor + d, 0, perf::kFxCount - 1);
+    const bool fx = typeCursor == perf::kModuleFx;
+    if (fx && typeFocus_ == 1) {
+        fxCursor_ = clampi(fxCursor_ + d, 0, app_.masterFxCount() - 1);
+        fxRowCursor_ = 1;
+    } else if (fx && typeFocus_ == 2) {
+        int rows[perf::kFxRows], i = 0;
+        const int n = fxRows(app_, fxCursor_, rows);
+        while (i < n && rows[i] != fxRowCursor_) ++i;
+        if (n) fxRowCursor_ = rows[clampi((i < n ? i : 0) + d, 0, n - 1)];
+    } else if (typeFocus_ == 1) {
+        midiCursor_ = clampi(midiCursor_ + d, 0, kMidiInstrumentCount - 1);
+    } else if (typeFocus_ == 2) {
+        slotCursor_ = clampi(slotCursor_ + d, 0, perf::kCcSlots - 1);
+    } else {
+        typeCursor = clampi(typeCursor + d, 0, perf::kFxCount - 1);
+    }
+}
+
+void PerformanceScreen::moveTypeFocus(int d) {
+    typeFocus_ = clampi(typeFocus_ + d, 0, 2);
+    if (typeCursor != perf::kModuleFx || typeFocus_ != 2) return;
+    // [I] #159: the parameters of a card effect need it loaded (stopped)
+    App::MasterFx fx;
+    if (!app_.masterFx(fxCursor_, fx)) return;
+    app_.holdPerfFx(fx.id);
+    if (const char* t = app_.loadPerfFx(fxListTarget())) ui_.notify(t, 2000);
+    int rows[perf::kFxRows];
+    const int n = fxRows(app_, fxCursor_, rows);
+    bool in = false;
+    for (int i = 0; i < n; ++i) in = in || rows[i] == fxRowCursor_;
+    if (n && !in) fxRowCursor_ = rows[0];
 }
 
 void PerformanceScreen::swapColumn(int nc) {
@@ -703,8 +843,9 @@ void PerformanceScreen::onButton(uint8_t id, uint8_t state) {
                     case btn::F8: closeTypeList(true); break;
                     case btn::Left:
                     case btn::Right:
-                        // [I] #28: MIDI CC moves between its three lists.
-                        if (typeCursor == perf::kMidiCc) typeFocus_ = clampi(typeFocus_ + (id == btn::Right ? 1 : -1), 0, 2);
+                        // [I] #28, #159: MIDI CC and Master FX move between their three lists.
+                        if (typeCursor == perf::kMidiCc || typeCursor == perf::kModuleFx)
+                            moveTypeFocus(id == btn::Right ? 1 : -1);
                         else closeTypeList(false);
                         break;
                     case btn::F7:
@@ -887,6 +1028,12 @@ void PerformanceScreen::perfSceneCc(uint8_t value) {
 
 void PerformanceScreen::update(uint32_t now) {
     App& a = app_;
+    if (a.cardLoads() != fxLoads_) {   // [I] #159: a loaded effect starts from its settings
+        fxLoads_ = a.cardLoads();
+        for (int s = 0; s < perf::kSlots; ++s) fxTgt_[s] = fxSent_[s] = -1;
+        applyAll(false);
+        ui_.dirty();
+    }
     if (now - lastPoll_ >= kCcPollMs) {
         lastPoll_ = now;
         bool apply = false;
@@ -904,6 +1051,11 @@ void PerformanceScreen::update(uint32_t now) {
             const uint8_t ty = src.type(s);
             src.setRow(s, uint8_t(ty ? perf::kLiveRow : 0));
             live[s] = int16_t(perf::ccToValue(ty, ccVal_[s]));
+            if (ty == perf::kModuleFx) {   // [I] #159: CC 0..127 over the parameter's range
+                int lo, hi;
+                valueRange(s, lo, hi);
+                live[s] = int16_t(lo + ((hi - lo) * (ccVal_[s] > 127 ? 127 : ccVal_[s]) + 63) / 127);
+            }
             liveValid[s] = true;
             resetOthers(s);
             cur[s] = ty ? live[s] : 0;
@@ -999,7 +1151,7 @@ void PerformanceScreen::storeScene(int scene) {
     } else if (count == 1) {
         const uint8_t ty = src.type(last), r = a.project.sceneOn(scene)[last];
         char v[24] = "off";
-        if (r) perf::valueText(ty, src.value(last, r), v, sizeof(v));
+        if (r) cellTextOf(last, src.value(last, r), v, sizeof(v));
         char nm[32] = "---";
         if (ty) columnName(last, nm, sizeof(nm));
         std::snprintf(msg, sizeof(msg), "Scene %d (%c): %s %s", num, ab, nm, v);
@@ -1023,7 +1175,7 @@ int PerformanceScreen::rangeSlot(int c) const {
     // As applyScenes: a pair of one FX type (filters: one pair for all
     // three) blends in scene A's slot, the highest one; MIDI CC per column.
     const uint8_t ty = src.type(c);
-    if (ty == perf::kMidiCc) return c;
+    if (ty == perf::kMidiCc || ty == perf::kModuleFx) return c;   // [I] #159 as MIDI CC
     int at = -1;
     for (int s = 0; s < perf::kSlots; ++s) {
         const uint8_t r = app_.project.sceneOn(0)[s], t = src.type(s);
@@ -1036,6 +1188,14 @@ int PerformanceScreen::sceneShare(int scene, int c) const {
     const int x = columnFader(rangeSlot(c)), toB = x >= kFaderMax / 2;   // [I] #12 the column's interval
     const uint8_t ty = src.type(c);
     if (isStepped(ty)) return (scene == 1) == bool(toB) ? 100 : 0;   // switches at the middle
+    if (ty == perf::kModuleFx) {   // [I] #159: a scene without the column: on / off at the middle
+        bool has[2];
+        for (int sc = 0; sc < 2; ++sc) {
+            const uint8_t r = app_.project.sceneOn(sc)[c];
+            has[sc] = r >= 1 && r <= 3 && src.value(c, r);
+        }
+        if (!has[0] || !has[1]) return (scene == 1) == bool(toB) ? 100 : 0;
+    }
     if (ty == perf::kMidiCc) {   // [I] #28: a scene without the column leaves it to the other
         const uint8_t r = app_.project.sceneOn(scene ? 0 : 1)[c];
         if (r < 1 || r > 3 || !src.value(c, r)) return kFaderMax;
@@ -1445,7 +1605,7 @@ void PerformanceScreen::applyScenes() {
         picked[k.slot] = true;
     };
     for (int ty = 1; ty < perf::kFxCount; ++ty) {
-        if (isFilter(uint8_t(ty)) || ty == perf::kMidiCc) continue;   // [I] #28 MIDI CC: below
+        if (isFilter(uint8_t(ty)) || ty == perf::kMidiCc || ty == perf::kModuleFx) continue;   // [I] #28, #159: below
         const Pick &A = pa[ty], &B = pb[ty];
         if (A.slot < 0 && B.slot < 0) continue;
         involved[ty] = true;
@@ -1490,8 +1650,24 @@ void PerformanceScreen::applyScenes() {
         next[s] = int16_t(lerp100(v[0] ? v[0] : v[1], v[1] ? v[1] : v[0], columnFader(s)));
         picked[s] = true;
     }
+    // [I] #159 FX columns blend one by one too; a scene without the column
+    // is off there, so the effect comes in (or goes) at the middle.
+    for (int s = 0; s < perf::kSlots; ++s) {
+        if (src.type(s) != perf::kModuleFx) continue;
+        int v[2] = {0, 0};
+        for (int sc = 0; sc < 2; ++sc) {
+            const uint8_t r = p.sceneOn(sc)[s];
+            if (r >= 1 && r <= 3) v[sc] = src.value(s, r);
+        }
+        if (!v[0] && !v[1]) continue;
+        for (int o = 0; o < s; ++o)
+            if (picked[o] && src.type(o) == perf::kModuleFx && src.target(o) == src.target(s)) next[o] = 0;
+        const int x = columnFader(s);
+        next[s] = int16_t(v[0] && v[1] ? lerp100(v[0], v[1], x) : (x >= kFaderMax / 2 ? v[1] : v[0]));
+        picked[s] = true;
+    }
     for (int s = 0; s < perf::kSlots; ++s)
-        if (src.type(s) == perf::kMidiCc && picked[s]) {
+        if ((src.type(s) == perf::kMidiCc || src.type(s) == perf::kModuleFx) && picked[s]) {
             cur[s] = next[s];
             liveValid[s] = false;
             padOver_[s] = false;
@@ -1677,7 +1853,7 @@ void PerformanceScreen::draw(Gfx& g) {
         const int x = colX(c), cx = x + 32;
         const uint8_t ty = src.type(c);
         char v[12] = "";
-        if (ty != 0) cellText(ty, liveValid[c] ? live[c] : cur[c], v, sizeof(v));
+        if (ty != 0) cellTextOf(c, liveValid[c] ? live[c] : cur[c], v, sizeof(v));
         put(cx, kTitleValueY, false, v[0] ? v : "");
         if (ty != 0) {
             char nm[32];
@@ -1687,7 +1863,7 @@ void PerformanceScreen::draw(Gfx& g) {
         }
         for (int r = 0; r < perf::kRows; ++r) {
             v[0] = 0;
-            if (ty != 0) cellText(ty, src.value(c, r), v, sizeof(v));
+            if (ty != 0) cellTextOf(c, src.value(c, r), v, sizeof(v));
             put(cx, kRowY + 30 * r, shownRow(c) == r, v);   // [I] follows the scenes
         }
     }
@@ -1783,6 +1959,19 @@ void PerformanceScreen::draw(Gfx& g) {
 
 void PerformanceScreen::columnName(int c, char* out, int cap) const {
     const uint8_t ty = src.type(c);
+    if (ty == perf::kModuleFx) {   // [I] #159 "Echo Feedback"; a number while the effect isn't loaded
+        App::MasterFx fx;
+        const uint8_t t = src.target(c);
+        const char* name = app_.masterFx(fxIndexOf(app_, t), fx) &&
+                                   mod::ModuleHost::chainRank(fx.id) == perf::targetRank(t)
+                               ? fx.name
+                               : "FX";
+        mod::ModuleRow r{};
+        if (mod::IModulePage* pg = app_.perfFxPage(t)) pg->row(perf::targetRow(t), r);
+        else std::snprintf(r.label, sizeof(r.label), "%d", perf::targetRow(t));
+        std::snprintf(out, size_t(cap), "%s %s", name, r.label);
+        return;
+    }
     if (ty != perf::kMidiCc) {
         std::snprintf(out, size_t(cap), "%s", perf::fx(ty).name);
         return;
@@ -1812,6 +2001,26 @@ struct SlotCtx {
     const App* a;
     int midi;
 };
+// [I] #159
+void fxItem(void* ctx, int i, char* out, int cap) {
+    App::MasterFx fx;
+    if (static_cast<const App*>(ctx)->masterFx(i, fx)) std::snprintf(out, size_t(cap), "%s", fx.name);
+    else if (cap > 0) out[0] = 0;
+}
+struct FxRowCtx {
+    const App* a;
+    int k;
+    int rows[perf::kFxRows];
+    int n;
+};
+void fxRowItem(void* ctx, int i, char* out, int cap) {
+    const auto* c = static_cast<const FxRowCtx*>(ctx);
+    App::MasterFx fx;
+    mod::ModuleRow r{};
+    if (c->n == 0) std::snprintf(r.label, sizeof(r.label), "%s", "Loads at Stop");
+    else if (c->a->masterFx(c->k, fx) && fx.module && fx.module->page()) fx.module->page()->row(c->rows[i], r);
+    std::snprintf(out, size_t(cap), "%s", r.label);
+}
 void slotItem(void* ctx, int i, char* out, int cap) {
     const auto* c = static_cast<const SlotCtx*>(ctx);
     char n[24];
@@ -1822,7 +2031,7 @@ void slotItem(void* ctx, int i, char* out, int cap) {
 
 void PerformanceScreen::drawTypeList(Gfx& g) {
     const Theme& th = ui_.th();
-    const bool cc = typeCursor == perf::kMidiCc;
+    const bool cc = typeCursor == perf::kMidiCc, fx = typeCursor == perf::kModuleFx;
     wg::ListView v;
     v.w = 197;
     v.x = 1;   // fixed on the left (the title names the column), not under the column
@@ -1832,9 +2041,11 @@ void PerformanceScreen::drawTypeList(Gfx& g) {
     v.sel = typeCursor;
     // [I] #28: with three lists, the focused one's box is red, the others
     // white (as the file browser's lists).
-    const auto sel = [cc, this](int l) { return cc && typeFocus_ == l ? wg::ListSel::kRed : wg::ListSel::kWhite; };
+    const auto sel = [cc, fx, this](int l) {
+        return (cc || fx) && typeFocus_ == l ? wg::ListSel::kRed : wg::ListSel::kWhite;
+    };
     v.selStyle = sel(0);
-    v.fade = !cc;   // three lists: no fades, to keep the display list small
+    v.fade = !cc && !fx;   // three lists: no fades, to keep the display list small
     v.item = typeItem;
     v.marked = typeMarked;
     int curType = src.type(column);
@@ -1861,6 +2072,31 @@ void PerformanceScreen::drawTypeList(Gfx& g) {
         sl.selStyle = sel(2);
         sl.item = slotItem;
         sl.ctx = &sx;
+        wg::list(g, th, sl);
+    }
+    if (fx) {   // [I] #159: the effects, then the highlighted one's parameters
+        wg::ListView m = v;
+        m.x = v.x + v.w + 2;
+        m.count = app_.masterFxCount();
+        m.top = wg::listFollow(fxCursor_, m.count, wg::listVisibleRows(m.h), 0);
+        m.sel = fxCursor_;
+        m.selStyle = sel(1);
+        m.item = fxItem;
+        m.marked = nullptr;
+        m.ctx = &app_;
+        wg::list(g, th, m);
+        FxRowCtx rx{&app_, fxCursor_, {}, 0};
+        rx.n = fxRows(app_, fxCursor_, rx.rows);
+        int at = 0;
+        while (at < rx.n && rx.rows[at] != fxRowCursor_) ++at;
+        wg::ListView sl = m;
+        sl.x = m.x + m.w + 2;
+        sl.count = rx.n ? rx.n : (typeFocus_ == 2 ? 1 : 0);
+        sl.top = 0;
+        sl.sel = at < rx.n ? at : 0;
+        sl.selStyle = sel(2);
+        sl.item = fxRowItem;
+        sl.ctx = &rx;
         wg::list(g, th, sl);
     }
     for (int t = 0; t < 8; ++t) {
@@ -2051,8 +2287,8 @@ void PerformanceScreen::drawRanges(Gfx& g) {
             const int va = ra ? src.value(c, ra) : 0, vb = rb ? src.value(c, rb) : 0;
             const bool cc = ty == perf::kMidiCc;
             char ta[12], tb[12];
-            cellText(ty, ra || !cc ? va : vb, ta, sizeof(ta));
-            cellText(ty, rb || !cc ? vb : va, tb, sizeof(tb));
+            cellTextOf(c, ra || !cc ? va : vb, ta, sizeof(ta));
+            cellTextOf(c, rb || !cc ? vb : va, tb, sizeof(tb));
             g.text(kBarX - kSceneGap, y, kFontText, th.accent, ta, IDisplay::kOptRightX | IDisplay::kOptCenterY);
             g.text(kBarX + kBarW + kSceneGap, y, kFontText, kSceneBBlue, tb, IDisplay::kOptCenterY);
         }

@@ -33,7 +33,7 @@ bool App::loadPerfBank(const char* name, const perf::Source& src) {
     if (!decodePerfBank(text, got, b)) return false;
     for (int c = 0; c < perf::kSlots; ++c) {
         src.setType(c, b.type[c]);
-        src.setTarget(c, b.type[c] == perf::kMidiCc ? b.target[c] : 0);
+        src.setTarget(c, b.type[c] == perf::kMidiCc || b.type[c] == perf::kModuleFx ? b.target[c] : 0);
         src.setValue(c, 0, 0);
         for (int r = 0; r < 3; ++r) src.setValue(c, r + 1, b.value[c][r]);
         src.setRow(c, 0);

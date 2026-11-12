@@ -700,6 +700,18 @@ public:
     static const char* fxErrorText(FxError e);   // "Not enough sample memory", ...
     // The modules' master inserts to the engine, in chain order.
     void bindMasterInserts();
+    // [I] #159 Performance FX columns (perf::kModuleFx): the page of a
+    // column's effect (perf::fxTarget), nullptr while it isn't loaded. A
+    // card effect loads while a column of the Performance source in use
+    // names it, or while the type list holds it (holdPerfFx), as if it were
+    // on. loadPerfFx loads them now when stopped (else at the next Stop):
+    // a notice text when the target's effect can't load or waits for Stop.
+    mod::IModulePage* perfFxPage(uint8_t target) const;
+    void holdPerfFx(const char* id);   // nullptr: none
+    const char* loadPerfFx(uint8_t target);
+    // Counts card loads: the columns play their values again after one (a
+    // loaded effect starts from its saved settings).
+    uint32_t cardLoads() const { return cardLoads_; }
 
     // ---- project operations (project_io.cpp) ------------------------------
     // The blocking calls below run the same background job as the start*()
@@ -1096,6 +1108,7 @@ private:
     int32_t cardTried_[kSynthSlotCount] = {};
     int32_t cardWaiting_[kSynthSlotCount] = {};
     uint32_t cardSince_ = 0;
+    uint32_t cardLoads_ = 0;   // [I] #159
     bool modulesStale_ = false;   // [I] #21: Modules/ may have changed (USB storage): boot() rescans
 #if OT_SLOT_INSERTS
     struct SlotInsertCfg {
