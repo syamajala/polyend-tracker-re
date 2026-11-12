@@ -835,78 +835,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Firmware">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#build-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Build options
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#size-checks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Size checks
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#host-tests" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Host tests
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#simulator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Simulator
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#test-songs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Test songs
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#performance-gate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Performance gate
-      
-    </span>
-  </a>
-  
 </li>
       
     </ul>
@@ -1100,78 +1028,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Firmware">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#build-options" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Build options
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#size-checks" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Size checks
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#host-tests" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Host tests
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#simulator" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Simulator
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#test-songs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Test songs
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#performance-gate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Performance gate
-      
-    </span>
-  </a>
-  
 </li>
       
     </ul>
@@ -1199,17 +1055,20 @@
 <p>Needs the <strong>Arm GNU toolchain</strong> (<code>arm-none-eabi-gcc</code>; CI uses 14.2.Rel1, use the same one:
 a newer gcc builds a few KB bigger, so the flash gate disagrees with CI), Python 3 with
 <a href="https://pypi.org/project/pyelftools/">pyelftools</a> (<code>tools/make_otm.py</code>, the card modules) and the
-two module repositories from upstream 3.x: the synth engines
-(<a href="https://github.com/opentracker-fw/opentracker-synths">opentracker-synths</a>) and the effects
-(<a href="https://github.com/opentracker-fw/opentracker-fx">opentracker-fx</a>), side by side.</p>
+two module repositories: the synth engines
+(<a href="https://github.com/syamajala/opentracker-synths">opentracker-synths</a>) and the effects
+(<a href="https://github.com/syamajala/opentracker-fx">opentracker-fx</a>), side by side. These are the
+fork's copies of upstream's (<a href="https://github.com/opentracker-fw">opentracker-fw</a>), kept in
+step with it; CI builds with them, so a fork module change (e.g. the Performance FX rows,</p>
+<h1 id="159-is-in">159) is in.<a class="headerlink" href="#159-is-in" title="Permanent link">&para;</a></h1>
 <p>The Makefile picks up Arm's toolchain by itself from <code>/Applications/ArmGNUToolchain/</code> (macOS)
 or <code>~/opt/arm-gnu-toolchain-*-arm-none-eabi/</code> (Linux: unpack
 <code>arm-gnu-toolchain-14.2.rel1-x86_64-arm-none-eabi.tar.xz</code> from
 <a href="https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads">Arm's downloads</a> there);
 otherwise it uses <code>arm-none-eabi-</code> on the <code>PATH</code>, or <code>CROSS=/path/to/arm-none-eabi-</code>.
 Run <code>make clean</code> after switching compilers.</p>
-<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/opentracker-fw/opentracker-synths
-git<span class="w"> </span>clone<span class="w"> </span>https://github.com/opentracker-fw/opentracker-fx
+<div class="highlight"><pre><span></span><code>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/syamajala/opentracker-synths
+git<span class="w"> </span>clone<span class="w"> </span>https://github.com/syamajala/opentracker-fx
 make<span class="w"> </span>clean
 make<span class="w"> </span>-j<span class="w"> </span><span class="nv">MODULES_DIR</span><span class="o">=</span><span class="nv">$PWD</span>/../opentracker-synths
 </code></pre></div>
