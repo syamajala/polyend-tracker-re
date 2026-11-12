@@ -54,7 +54,7 @@ struct Rig {
         while (h.app->masterFx(k, fx) && std::strcmp(fx.id, id) != 0) ++k;
         h.enc(int8_t(k - p().fxCursor_));
         h.tap(btn::Right);
-        while (p().fxRowCursor_ < row) h.enc(1);
+        for (int k = 0; k < perf::kFxRows && p().fxRowCursor_ < row; ++k) h.enc(1);   // bounded: no rows = no hang
         h.tap(btn::F8);
     }
 };
