@@ -22,5 +22,5 @@ modules = [
     { id = "HND1", path = "modules/hand" },
     { id = "BTY1", path = "modules/btype" },
     { id = "ARC1", path = "modules/arc" },
-    { id = "DX7S", path = "modules/dx7", in_tree = true },
+    { id = "DX7S", path = "modules/dx7" },
 ]

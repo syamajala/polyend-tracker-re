@@ -38,8 +38,7 @@ compiled into the image: `full` has ACD, FAT, VAP, PERC and WTFM; `core` has non
 and the host builds (`make host-test`, the simulator, the tools) compile it in, as a device
 with the card's modules would have it. `in_tree = true` takes the module's path from this
 repository instead of `MODULES_DIR`. `full` builds in the five Mini synths (ACD, FAT,
-VAP, PERC, WTFM); its other synths are card modules: DX7 (`modules/dx7`, in this
-repository), FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type and ARC, and
+VAP, PERC, WTFM); its other synths are card modules: DX7 (`modules/dx7` in opentracker-synths), FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type and ARC, and
 every master effect of opentracker-fx (Dirt, LoFi, Chorus, BBD, Echo, Tape). No image has
 those built in.
 

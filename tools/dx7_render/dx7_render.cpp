@@ -1,10 +1,10 @@
-// Render DX7 .syx voices through the DX7 engine (modules/dx7, dx7.*) to
+// Render DX7 .syx voices through the DX7 engine (opentracker-synths modules/dx7) to
 // WAV files, for listening on the host [OT].
 //
 //   dx7_render [-o outdir] [--notes 48,60,72] [--len 1.5] [--vel 0.8] [--gain 0.5] file.syx...
 //
 // Build (after make host-test, whose core library has the DX7 module in):
-//   g++ -std=c++17 -O1 -fsanitize=address,undefined -Isrc/core -Imodules/dx7/src \
+//   g++ -std=c++17 -O1 -fsanitize=address,undefined -Isrc/core -I$MODULES_DIR/modules/dx7/src \
 //       tools/dx7_render/dx7_render.cpp build/full/host-tests/libcore.a -o build/dx7_render
 //
 // Every voice of every file renders one WAV: the notes one after the other

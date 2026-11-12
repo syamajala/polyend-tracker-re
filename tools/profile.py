@@ -20,7 +20,7 @@
       .sdram_bss) against the optional sdram_modules_max.
 
 [I] Module entries (fork #21): `in_tree = true` takes the path from the
-repository root (modules/dx7) instead of MODULES_DIR. `card = true` makes a
+repository root instead of MODULES_DIR (a module kept in this repository). `card = true` makes a
 card module: the device image leaves it out (make card builds it as
 build/<profile>/otm/<name>.otm for the card's Modules/ folder), while host
 builds (gen --host: tests, sim, tools) compile it in, as a device with the

@@ -72,8 +72,6 @@ def owners(elf, addrs, modules_dir):
             mods[a] = rest[1] if len(rest) > 2 and rest[0] == "modules" else "?"
             if len(rest) > 2 and rest[2] == "bench":
                 mods[a] = "bench"
-        elif "/modules/dx7/" in f:
-            mods[a] = "dx7"   # [I] the in-tree DX7 module (profiles: in_tree = true)
         elif "/tests/" in f:
             mods[a] = "bench"
         elif f.endswith(".h") and "/src/core/" in f:
