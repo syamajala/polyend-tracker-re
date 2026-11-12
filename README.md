@@ -5,7 +5,8 @@ written from behavioural specifications. It contains no Polyend code, fonts, ico
 graphics, and is not affiliated with or endorsed by Polyend.
 
 This is a fork of [sandlbn/polyend-tracker-re](https://github.com/sandlbn/polyend-tracker-re).
-It follows upstream's 2.x line (currently 2.2.1) and adds the features below. Projects stay
+It follows upstream's 3.x line (modules and build profiles; currently 3.0.0) and adds the
+features below. Projects stay
 compatible: everything the fork adds is stored in extra files next to `project.mt`, so stock
 firmware, upstream OpenTracker and the Tracker Mini still open them (see each feature for
 details).
@@ -25,9 +26,29 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 | **MIDI instrument LFO** | **Pattern** |
 | ![MIDI Instrument LFO](screenshots/fork/midi-lfo.png) | ![Pattern](screenshots/fork/pattern.png) |
 
+### Card synths and effects
+- Synths and effects as **card modules** (`.otm` files in `Modules/` on the SD card; see
+  Install): eleven synths (DX7, FM4, JU6, D-Type, CS-Type, A-Type, T-Type drums, 8-Type,
+  Hand-Type, B-Type, Arc-Type) and six master effects (Dirt, LoFi, Chorus, BBD chorus, Echo,
+  Tape). A module loads only while the project uses it, into a shared 32 KB card memory.
+- **Master effects:** the **FX bank** (Shift + Master) turns the card effects on and off and
+  sets them; Performance mode plays them in a **Master FX** column.
+- **Config > Memory** shows what is loaded and what fills the sample memory, for when
+  something won't load.
+
+### Track timing
+- **Speed** (1/8x to 2x) and **Groove** (Straight, Swing 54-71, Shuffle, Laid back) per
+  track and per pattern, so a hi-hat can run at double speed or a bassline swing while the
+  drums stay straight. Saved in `timing.bin` next to `project.mt`.
+
+### Instrument library
+- **Save** a set-up sample instrument to `Instruments/<name>.pti` and **Load** it into any
+  project (Instrument Effects page, F6 / F7). The files are stock `.pti` instruments.
+
 ### DX7 FM synth
-- A **6-operator FM engine that plays Yamaha DX7 voices**, as a sixth synth model next to
-  ACD, FAT, VAP, WTFM and PERC. Pick **DX7** in a synth slot's Model list.
+- A **6-operator FM engine that plays Yamaha DX7 voices**, a card synth next to ACD, FAT,
+  VAP, WTFM and PERC: copy `dx7.otm` to `Modules/` and pick **DX7** in a synth slot's Model
+  list.
 - **Load Patch** lists the `.syx` files in `Patches/DX7/`:
   - 32-voice banks come first and open like folders. Pick a voice, Preview it, Confirm;
     **Left** goes back to the folder.
@@ -360,10 +381,16 @@ the whole 2.x line (2.0 to 2.2.5); the full list is in the release notes of the
 
 1. Download the latest image from this fork's
    [Releases](https://github.com/syamajala/polyend-tracker-re/releases) and copy
-   `PolyendTrackerOTv225.ptf` to `/Firmware` on the SD card. Keep the name; the bootloader
+   `PolyendTrackerOTv300.ptf` to `/Firmware` on the SD card. Keep the name; the bootloader
    only accepts 24-character names.
 2. Go to **Config > Firmware update**, select it and confirm. If the screen stays dark
    after the update, press the power button once.
+3. **Modules:** download `Modules.zip` from the same release, unzip it and copy its
+   `Modules` folder to the top of the SD card (replace all files of an existing
+   `Modules` folder), then restart. This adds DX7 and the other card synths and the master
+   effects. Modules only load on the firmware version they came with, so copy the new set
+   with every update. Details:
+   [Install the modules](https://syamajala.github.io/polyend-tracker-re/install/#install-the-modules).
 
 **Going back:** keep the stock `PolyendTracker_1.9.2.ptf` in `/Firmware`. Install it the
 same way, or put its file name into `/Firmware/ot_restore.txt` and power-cycle. Keep only the
