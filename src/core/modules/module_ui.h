@@ -7,6 +7,10 @@
 #include <cstdint>
 #include <cstring>
 
+// [I] fork #159: cores whose IModulePage has the perf* calls and PerfRows
+// (modules build against cores with and without them).
+#define OT_MODULE_PERF_ROWS 1
+
 namespace ot {
 namespace mod {
 
@@ -23,6 +27,49 @@ public:
     virtual int rows() const = 0;            // 1..8
     virtual void row(int i, ModuleRow& out) = 0;
     virtual void adjust(int i, int detents) = 0;   // main loop; mark the module's data dirty
+    // [I] Performance FX columns (fork #159): a column plays row i (1 ..
+    // rows() - 1; row 0 is the on row) at a value lo .. hi of perfRange
+    // while its pad or scene does. The effect sounds while any row plays;
+    // the played value is never saved (row() and the project data keep the
+    // page's settings). Main loop. A page without them isn't playable.
+    virtual bool perfRange(int i, int& lo, int& hi) const {   // false: row i can't be played
+        (void)i;
+        lo = hi = 0;
+        return false;
+    }
+    virtual void perfText(int i, int v, char* out, int cap) {   // v as row() would show it
+        (void)i;
+        if (cap > 0) out[0] = 0;
+        (void)v;
+    }
+    virtual void perfPlay(int i, int v) {   // v < 0: row i is released
+        (void)i;
+        (void)v;
+    }
+};
+
+// [I] fork #159: the rows a page's Performance columns play (value + 1 per
+// row, 0 = not played), for the pages' perfPlay.
+template <int N>
+struct PerfRows {
+    uint8_t v[N] = {};
+    bool any() const {
+        for (uint8_t x : v)
+            if (x) return true;
+        return false;
+    }
+    // Row i plays val (< 0: released), clamped to lo .. hi; false = unchanged.
+    bool set(int i, int val, int lo, int hi) {
+        if (i < 1 || i >= N) return false;
+        const uint8_t n = val < 0 ? 0 : uint8_t((val < lo ? lo : (val > hi ? hi : val)) + 1);
+        if (v[i] == n) return false;
+        v[i] = n;
+        return true;
+    }
+    // Field f of row i takes the played value.
+    void over(int i, uint8_t& f) const {
+        if (i >= 1 && i < N && v[i]) f = uint8_t(v[i] - 1);
+    }
 };
 
 // [I] An effect's page starts with its on / mode row: value "Off" = off

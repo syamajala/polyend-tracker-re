@@ -167,6 +167,9 @@ public:
     }
     // [I] Chain position of a module id (ModuleHost::chainOrder).
     static int chainRank(const char* id);
+    // [I] The id at chain position r of the fixed order, nullptr past it
+    // (fork #159: a Performance FX column names its effect by position).
+    static const char* chainId(int r);
     // [I] Takes a module addLoaded(m, true) registered out again (its engines
     // with it). Main loop, while the audio block runs none of its code.
     void removeLoaded(IModule& m);

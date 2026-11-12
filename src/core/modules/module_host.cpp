@@ -143,6 +143,8 @@ int ModuleHost::chainRank(const char* id) {
     return kChainOrderN;
 }
 
+const char* ModuleHost::chainId(int r) { return r >= 0 && r < kChainOrderN ? kChainOrder[r] : nullptr; }
+
 int ModuleHost::chainOrder(IModule** out) {
     if (!inited_) init();
     int n = 0;

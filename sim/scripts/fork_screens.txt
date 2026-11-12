@@ -161,3 +161,31 @@ wait 1500
 budget midi-lfo-play 1350
 fragcheck midi-lfo-play
 tap PLAY
+# Performance Master FX column (#159): the type list with the effect and
+# parameter lists (the Echo, its Time), then the column playing a row.
+tap PERFORMANCE
+wait 300
+tap REC
+tap DOWN
+enc 40               # Master FX (the last type)
+tap RIGHT
+enc 4                # Echo
+tap RIGHT
+wait 300
+budget-reset
+wait 300
+budget perf-masterfx-list 1950
+fragcheck perf-masterfx-list
+tap F8               # OK: Echo Time
+pad 26 down
+enc 8
+pad 26 up
+tap REC
+pad 26 tap
+tap PLAY
+wait 300
+budget-reset
+wait 1500
+budget perf-masterfx-column 1950
+fragcheck perf-masterfx-column
+tap PLAY
