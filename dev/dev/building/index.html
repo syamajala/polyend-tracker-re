@@ -1082,8 +1082,7 @@ compiled into the image: <code>full</code> has ACD, FAT, VAP, PERC and WTFM; <co
 and the host builds (<code>make host-test</code>, the simulator, the tools) compile it in, as a device
 with the card's modules would have it. <code>in_tree = true</code> takes the module's path from this
 repository instead of <code>MODULES_DIR</code>. <code>full</code> builds in the five Mini synths (ACD, FAT,
-VAP, PERC, WTFM); its other synths are card modules: DX7 (<code>modules/dx7</code>, in this
-repository), FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type and ARC, and
+VAP, PERC, WTFM); its other synths are card modules: DX7 (<code>modules/dx7</code> in opentracker-synths), FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type and ARC, and
 every master effect of opentracker-fx (Dirt, LoFi, Chorus, BBD, Echo, Tape). No image has
 those built in.</p>
 <p>At boot the firmware looks at every <code>Modules/*.otm</code> (<code>src/core/modules/module_files.h</code>):

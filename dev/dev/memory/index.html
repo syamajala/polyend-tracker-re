@@ -1270,7 +1270,7 @@ below are the 2026-10-23 audit and are kept for the comparison with upstream.</e
     that changes the hook's arguments fails there.</li>
 <li><strong>DX7 sine table built at boot (−4 KB):</strong> <code>gDx7Sin</code> is no longer copied from
     flash; <code>dx7::initSinTable()</code> runs msfa's integer recipe (~60 µs). Since #21
-    DX7 is a card module (<code>modules/dx7</code>): its code (~18 KB) left the image and
+    DX7 is a card module (opentracker-synths <code>modules/dx7</code>): its code (~18 KB) left the image and
     the table (4.1 KB) is the module's bss in the card pool, built in <code>attach()</code>.</li>
 <li><strong>Looked at, left:</strong> ~36 KB of string literals (mostly Config help text),
     fonts (already compressed), the play-mode tables (~1.3 KB if packed).</li>
