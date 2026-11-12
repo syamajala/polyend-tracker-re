@@ -19,6 +19,9 @@ and its place in the chain.
 | **Shift + Master** | From a settings page: back to the bank. From the bank: back to Master. |
 | **Master** | The Master, Track Mixer and Global Mixer pages, as on stock. |
 
+To play an effect from the pads (on for a fill, Echo throws, a Mix sweep on the fader),
+give it a [Master FX column](performance.md#master-fx-columns) in Performance mode.
+
 ## The effects
 
 The mix runs through them in this order, whichever are on:

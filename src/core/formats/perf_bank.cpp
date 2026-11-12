@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "app/perf_presets.h"
+#include "modules/module.h"
 
 namespace ot {
 
@@ -70,9 +71,9 @@ uint8_t typeByName(const char* s) {
 // One row value of type `ty` as written in the file.
 bool readValue(uint8_t ty, const char* s, int16_t& v) {
     int n;
-    if (ty == perf::kMidiCc) {
+    if (ty == perf::kMidiCc || ty == perf::kModuleFx) {   // [I] #159: an FX parameter's value
         if (std::strcmp(s, "-") == 0) return v = 0, true;
-        if (!number(s, 0, 127, n)) return false;
+        if (!number(s, 0, ty == perf::kMidiCc ? 127 : 254, n)) return false;
         v = int16_t(n + 1);
         return true;
     }
@@ -99,11 +100,14 @@ size_t encodePerfBank(const PerfBank& b, char* out, size_t cap) {
             put("%s", ":");
             for (int r = 0; r < 3; ++r) {
                 const int v = b.value[c][r];
-                if (ty == perf::kMidiCc && perf::ccValue(v) < 0) put("%s", " -");
-                else put(" %d", ty == perf::kMidiCc ? perf::ccValue(v) : v);
+                const bool plus1 = ty == perf::kMidiCc || ty == perf::kModuleFx;   // stored + 1, 0 = off
+                if (plus1 && v <= 0) put("%s", " -");
+                else put(" %d", plus1 ? v - 1 : v);
             }
             if (ty == perf::kMidiCc)
                 put(" @ midi %d slot %c", perf::targetMidi(b.target[c]) + 1, 'A' + perf::targetSlot(b.target[c]) % 6);
+            const char* fx = ty == perf::kModuleFx ? mod::ModuleHost::chainId(perf::targetRank(b.target[c])) : nullptr;
+            if (fx) put(" @ fx %.4s %d", fx, perf::targetRow(b.target[c]));
         }
         put("%s", "\n");
     }
@@ -186,6 +190,17 @@ bool decodePerfBank(const char* text, size_t len, PerfBank& b) {
                 if (eqi(w1, "midi") && number(m, 1, 16, mi) && eqi(w2, "slot") && std::strlen(s) == 1 &&
                     (s[0] | 32) >= 'a' && (s[0] | 32) < 'a' + perf::kCcSlots)
                     b.target[c] = perf::ccTarget(mi - 1, (s[0] | 32) - 'a');
+            }
+            if (at && ty == perf::kModuleFx) {
+                // [I] #159 "fx ECHO 2": the effect's id and its page row
+                const char* w1 = token(at);
+                const char* id = token(at);
+                const char* r = token(at);
+                int row;
+                b.target[c] = perf::fxTarget(0, 1);
+                if (eqi(w1, "fx") && number(r, 1, perf::kFxRows - 1, row))
+                    for (int k = 0; const char* cid = mod::ModuleHost::chainId(k); ++k)
+                        if (eqi(id, cid)) b.target[c] = perf::fxTarget(k, row);
             }
         } else if (numbered(key, "scene", PerfBank::kScenes, n, rest)) {
             const int sc = n - 1;

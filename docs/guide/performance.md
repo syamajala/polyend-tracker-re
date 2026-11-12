@@ -2,8 +2,9 @@
 
 The Performance screen plays effects live from the pads: 12 columns, each an effect type,
 with 3 stored values per column on the pad rows. The fork adds **scenes with a
-crossfader**, a **bank of 16 scenes**, **master FX** (DJ filter, tape stop) and **MIDI CC
-columns** that play an external synth's parameters.
+crossfader**, a **bank of 16 scenes**, **master FX** (DJ filter, tape stop), **MIDI CC
+columns** that play an external synth's parameters and **Master FX columns** that play the
+master effects (Echo, Chorus, Dirt ...).
 
 ![Performance with the DJ filter held](../images/performance.png)
 
@@ -17,7 +18,7 @@ columns** that play an external synth's parameters.
   every type on the column's current one, on the left of the screen (the title names the
   column). Move with the encoder (**Shift** + a quick turn for bigger jumps) or Up / Down,
   then press **OK (F8)**. **Cancel (F7)**, **Left / Right** or **Rec** close it without
-  changing anything (for **MIDI CC**, Left / Right move between its lists instead). Nothing is applied until OK, and the F keys
+  changing anything (for **MIDI CC** and **Master FX**, Left / Right move between their lists instead). Nothing is applied until OK, and the F keys
   don't switch track effects while the list is open. The row values stay when the new
   type has the same range (e.g. Volume to Panning); otherwise they're cleared as in stock.
   Stock stepped the type with Up / Down, applying each one on the way.
@@ -31,7 +32,7 @@ columns** that play an external synth's parameters.
 
 - Effect types include Volume, Panning, Tune, Low-pass / High-pass / Band-pass, Delay and
   Reverb send, Start / End pos, Direction, the LFOs, Repeater, Play mode, Length, Bit depth
-  and Overdrive, plus the fork's **DJ filter**, **Tape stop** and **MIDI CC**.
+  and Overdrive, plus the fork's **DJ filter**, **Tape stop**, **MIDI CC** and **Master FX**.
 
 ## Scenes and the crossfader
 
@@ -160,7 +161,8 @@ Bank files are text, so they can be written or changed on a computer:
 column 1 = LP cutoff: -60 0 60
 column 2 = Tape stop: 1 3 5
 column 3 = MIDI CC: - 64 127 @ midi 2 slot A
-column 4 = ---
+column 4 = Master FX: 30 60 90 @ fx ECHO 2
+column 5 = ---
 scene 1 = 1 0 2 0 0 0 0 0 0 0 0 0
 scene 2 fx on = 1 2 9
 a = 1
@@ -170,7 +172,10 @@ b = 2
 - `column N = type: row 1 row 2 row 3`. The type is written as it appears in the type list
   (any case), and `---` means an empty column. Values must be in the type's range; a value
   outside it reads as 0. A **MIDI CC** column holds CC values 0–127 (`-` = off) and its
-  target, `@ midi 1-16 slot A-F`.
+  target, `@ midi 1-16 slot A-F`. A **Master FX** column holds the parameter's values
+  (`-` = off) and its target, `@ fx ID ROW`: the effect's id (`DIRT`, `LOFI`, `CHOR`,
+  `BBDC`, `ECHO`, `TAPE`) and the row of its settings page (1 = the one after the on
+  row; Echo: 1 Time, 2 Feedback ... 7 Mix).
 - `scene N = ...` lists twelve rows, one per column, from 0 to 3, where 0 means the scene
   doesn't drive that column. Scenes that aren't listed are empty.
 - `scene N fx on = ...` lists the tracks whose F key the scene turns on (`none` turns them
@@ -220,9 +225,36 @@ then **OK (F8)**.
 - If the instrument's [MIDI LFO](midi-lfo.md) is on the same slot, the column sets the
   LFO's **Center**, as a CC step FX does, and the LFO keeps swinging around it.
 
+## Master FX columns
+
+A **Master FX** column plays a setting of one of the [master effects](master-fx.md) from
+the pads: for example **Echo Feedback** on three pads, or the Echo's **Mix** on the fader,
+for dub throws. Set it up in the type list: highlight **Master FX** (the last type),
+press **Right** to pick the effect, **Right** again to pick its setting, then **OK (F8)**.
+
+![The type list with Master FX](../images/perf-master-fx.png)
+
+- The column is labelled with the effect and the setting, e.g. **Echo Feedback**. Rows
+  show values as the effect's page does (`1/8` for an Echo time).
+- While a row of the column plays, the effect is **on**, with that setting changed. Tap the
+  top (off) row and it goes back to how the FX bank has it: if it was off there, it turns
+  off, and an Echo plays its repeats out. Leaving the screen does the same.
+- What the pads play is never saved into the effect: its page and the project keep your
+  settings.
+- Several columns can play one effect, each a different setting (Echo Time on one,
+  Feedback on another). Two columns on the same setting are like two columns of one type:
+  pressing one turns the other off.
+- **Scenes** fade each Master FX column on its own. A scene that doesn't drive the column
+  has the effect off there, so the effect comes in (or goes) at the middle of the fader,
+  and its setting fades when both scenes drive it.
+- **Effects on the card** load when you choose them: moving to the settings list loads the
+  effect so its settings show, and OK keeps it loaded while a column uses it, even when
+  it's off in the FX bank. While the song plays, loading waits for Stop ("loads at Stop").
+
 ## Saved with the project
 
-The scene bank, the F keys (live and per scene), the master FX and MIDI CC types, the
-MIDI CC columns' instruments and slots and the fader ranges are stored in
+The scene bank, the F keys (live and per scene), the master FX, MIDI CC and Master FX types,
+the MIDI CC columns' instruments and slots, the Master FX columns' effects and settings and
+the fader ranges are stored in
 `perf_scenes.bin` next to `project.mt`. Stock firmware and the Tracker Mini see those columns as empty and ignore
 the scenes.

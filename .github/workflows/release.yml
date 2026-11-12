@@ -22,7 +22,7 @@ jobs:
       - name: Fetch the module repositories
         run: |
           for r in opentracker-synths opentracker-fx; do
-            git clone --depth 1 "https://github.com/opentracker-fw/$r" "$GITHUB_WORKSPACE/../../$r"
+            git clone --depth 1 "https://github.com/syamajala/$r" "$GITHUB_WORKSPACE/../../$r"
           done
       - name: Install GCC 14
         # On the ubuntu-24.04 image already; apt only if a new image drops it.
@@ -44,7 +44,7 @@ jobs:
       - name: Fetch the module repositories
         run: |
           for r in opentracker-synths opentracker-fx; do
-            git clone --depth 1 "https://github.com/opentracker-fw/$r" "$GITHUB_WORKSPACE/../../$r"
+            git clone --depth 1 "https://github.com/syamajala/$r" "$GITHUB_WORKSPACE/../../$r"
           done
       - uses: carlosperate/arm-none-eabi-gcc-action@v1
         with:

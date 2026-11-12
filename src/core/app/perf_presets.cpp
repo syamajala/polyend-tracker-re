@@ -54,6 +54,7 @@ const FxDesc kFx[kFxCount] = {
     {"DJ filter", -100, 100, nullptr, 0, 0, true},   // [I] master bus: < 0 low-pass, > 0 high-pass
     {"Tape stop", 0, 6, kTapeStop, 0, 0, true},      // [I] master bus, momentary
     {"MIDI CC", 0, 128, nullptr, 0, 0, true},        // [I] #28: CC value + 1 (0 = off)
+    {"Master FX", 0, 255, nullptr, 0, 0, true},      // [I] #159: parameter value + 1 (0 = off)
 };
 }  // namespace
 
@@ -61,8 +62,9 @@ const FxDesc& fx(uint8_t id) { return kFx[id < kFxCount ? id : 0]; }
 
 void valueText(uint8_t id, int v, char* out, int cap) {
     const FxDesc& d = fx(id);
-    if (id == kMidiCc && ccValue(v) >= 0) {
-        std::snprintf(out, size_t(cap), "%d", ccValue(v));
+    if ((id == kMidiCc && ccValue(v) >= 0) || (id == kModuleFx && fxValue(v) >= 0)) {
+        // [I] the screen shows an FX column's value as its effect's page does
+        std::snprintf(out, size_t(cap), "%d", v - 1);
     } else if (id == kPlayMode && v >= 0 && v < seq::kPlayModeCount) {
         std::snprintf(out, size_t(cap), "%s", seq::playModeLabel(uint8_t(v)));
     } else if (d.labels && v >= d.min && v <= d.max) {
@@ -78,6 +80,7 @@ int ccToValue(uint8_t id, uint8_t v) {
     const FxDesc& d = fx(id);
     const int x = v > 127 ? 127 : v;
     if (id == kMidiCc) return x + 1;   // [I] #28: the CC value itself
+    if (id == kModuleFx) return x + 1;   // [I] #159: the screen maps it onto the parameter's range
     return d.min + ((d.max - d.min) * x) / 127;
 }
 
@@ -101,7 +104,9 @@ void Source::validate() const {
         if (types[s] >= kStockFxCount) types[s] = uint8_t(s + 1 < kStockFxCount ? s + 1 : 0);
         if (ext && ext[s] && (ext[s] < kStockFxCount || ext[s] >= kFxCount)) ext[s] = 0;
         if (rows[s] > 3) rows[s] = 0;
-        if (arg && (arg[s] > 127 || targetSlot(arg[s]) >= kCcSlots)) arg[s] = 0;
+        if (arg && (arg[s] > 127 || (type(s) == kMidiCc && targetSlot(arg[s]) >= kCcSlots) ||
+                    (type(s) == kModuleFx && targetRow(arg[s]) == 0)))
+            arg[s] = type(s) == kModuleFx ? fxTarget(0, 1) : 0;
         setValue(s, 0, 0);
         for (int r = 1; r < kRows; ++r)
             if (value(s, r) < -255 || value(s, r) > 255) setValue(s, r, 0);

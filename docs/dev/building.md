@@ -5,9 +5,12 @@
 Needs the **Arm GNU toolchain** (`arm-none-eabi-gcc`; CI uses 14.2.Rel1, use the same one:
 a newer gcc builds a few KB bigger, so the flash gate disagrees with CI), Python 3 with
 [pyelftools](https://pypi.org/project/pyelftools/) (`tools/make_otm.py`, the card modules) and the
-two module repositories from upstream 3.x: the synth engines
-([opentracker-synths](https://github.com/opentracker-fw/opentracker-synths)) and the effects
-([opentracker-fx](https://github.com/opentracker-fw/opentracker-fx)), side by side.
+two module repositories: the synth engines
+([opentracker-synths](https://github.com/syamajala/opentracker-synths)) and the effects
+([opentracker-fx](https://github.com/syamajala/opentracker-fx)), side by side. These are the
+fork's copies of upstream's ([opentracker-fw](https://github.com/opentracker-fw)), kept in
+step with it; CI builds with them, so a fork module change (e.g. the Performance FX rows,
+#159) is in.
 
 The Makefile picks up Arm's toolchain by itself from `/Applications/ArmGNUToolchain/` (macOS)
 or `~/opt/arm-gnu-toolchain-*-arm-none-eabi/` (Linux: unpack
@@ -17,8 +20,8 @@ otherwise it uses `arm-none-eabi-` on the `PATH`, or `CROSS=/path/to/arm-none-ea
 Run `make clean` after switching compilers.
 
 ```sh
-git clone https://github.com/opentracker-fw/opentracker-synths
-git clone https://github.com/opentracker-fw/opentracker-fx
+git clone https://github.com/syamajala/opentracker-synths
+git clone https://github.com/syamajala/opentracker-fx
 make clean
 make -j MODULES_DIR=$PWD/../opentracker-synths
 ```
