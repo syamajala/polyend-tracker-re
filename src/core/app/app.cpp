@@ -878,6 +878,12 @@ bool App::storePattern(int num, const Pattern& p) {
     chaseInvalidate(num);
     PatternStock& st = storedStock(num);
     p.copyStockTo(st);
+    if (TrackTiming* tt = storedTiming(num))   // [I] #43 / #83
+        for (int t = 0; t < kTrackCount; ++t)
+            if (tt[t].speed != p.timing[t].speed || tt[t].groove != p.timing[t].groove) {
+                tt[t] = p.timing[t];
+                timingDirty_ = true;
+            }
     bool ok = true;
     for (int e = 0; e < kExtTrackCount; ++e) {
         const Track& src = p.tracks[kStockTrackCount + e];
@@ -897,6 +903,8 @@ void App::assemblePattern(int num, Pattern& dst) const {
     if (!validNum(num)) num = 1;
     const PatternStock& st = storedStock(num);
     dst.copyStockFrom(st);
+    const TrackTiming* tt = storedTiming(num);   // [I] #43 / #83
+    for (int t = 0; t < kTrackCount; ++t) dst.timing[t] = tt ? tt[t] : TrackTiming{};
     for (int e = 0; e < kExtTrackCount; ++e) {
         Track& d = dst.tracks[kStockTrackCount + e];
         if (const Track* b = ext_.find(num, e)) d = *b;
@@ -932,6 +940,12 @@ void App::defaultStored(int num) {
     chaseInvalidate(num);
     clearExtTracks(num);
     defaultPattern(storedStock(num));
+    if (TrackTiming* tt = storedTiming(num))
+        for (int t = 0; t < kTrackCount; ++t)
+            if (!tt[t].isDefault()) {
+                tt[t] = TrackTiming{};
+                timingDirty_ = true;
+            }
 }
 
 void App::resetPatternStore() {
@@ -939,6 +953,8 @@ void App::resetPatternStore() {
     std::memset(extKeep_, 0, sizeof(extKeep_));
     extFullReported_ = 0;
     for (int n = 1; n <= kPatternCount; ++n) defaultPattern(storedStock(n));
+    if (mem_.timing)
+        for (int i = 0; i < kPatternCount * kTrackCount; ++i) mem_.timing[i] = TrackTiming{};
     chaseInvalidateAll();
 }
 
@@ -1018,6 +1034,8 @@ void App::loadPatternTracks(uint8_t number, Pattern& dst, int first, int count) 
             else if (const Track* b = ext_.find(number, t - kStockTrackCount)) d = *b;
             else defaultExtTrack(d, st);
         }
+        const TrackTiming* tt = storedTiming(number);   // [I] #43 / #83
+        for (int t = first; t < end; ++t) dst.timing[t] = tt ? tt[t] : TrackTiming{};
     } else {
         uint16_t len = project.defaultPatternLength();
         if (len < 1 || len > kStepCount) len = 32;
@@ -1025,6 +1043,7 @@ void App::loadPatternTracks(uint8_t number, Pattern& dst, int first, int count) 
             Track& d = dst.tracks[t];
             d.lastStep = uint8_t(len - 1);
             for (auto& s : d.steps) s = Step{};
+            dst.timing[t] = TrackTiming{};
         }
     }
     engine.noteSeqWork(audio::kSeqPreloadPart, uint32_t(end - first));   // only counted in the audio block

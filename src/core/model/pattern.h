@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "model/constants.h"
+#include "model/track_timing.h"
 #include "model/fx.h"
 
 namespace ot {
@@ -80,10 +81,27 @@ struct PatternTracks {
 // (App::storedStock) and the pattern_NN.mtp image (spec 02 §4).
 struct PatternStock : PatternTracks<kStockTrackCount> {};
 
+// [I] Per-track timing of a pattern (#43 speed, #83 groove): indices into
+// the model/track_timing.h tables. Not in the stock .mtp image: kept in the
+// resident timing store and a side file; stock sees 1x and Global.
+struct TrackTiming {
+    uint8_t speed = timing::kSpeedDefault;
+    uint8_t groove = 0;
+    bool isDefault() const { return speed == timing::kSpeedDefault && groove == 0; }
+};
+static_assert(sizeof(TrackTiming) == 2, "2 bytes per track");
+
 // Working pattern: all 16 tracks (sequencer current / preload buffers, undo,
 // file undo, clipboard, performance scratch). Tracks 12..15 are stored in
-// the ext-track pool (model/pattern_store.h) when not empty.
+// the ext-track pool (model/pattern_store.h) when not empty. [I] timing:
+// the tracks' Speed / Groove, after the packed track records.
 struct Pattern : PatternTracks<kTrackCount> {
+    TrackTiming timing[kTrackCount];
+
+    void setDefault() {
+        PatternTracks<kTrackCount>::setDefault();
+        for (auto& t : timing) t = TrackTiming{};
+    }
     void copyStockFrom(const PatternStock& s) {
         for (int t = 0; t < kStockTrackCount; ++t) tracks[t] = s.tracks[t];
     }
@@ -93,7 +111,7 @@ struct Pattern : PatternTracks<kTrackCount> {
 };
 
 static_assert(sizeof(PatternStock) == 769u * kStockTrackCount, "packed stock tracks");
-static_assert(sizeof(Pattern) == 769u * kTrackCount, "packed tracks");
+static_assert(sizeof(Pattern) == 769u * kTrackCount + sizeof(TrackTiming) * kTrackCount, "packed tracks + timing");
 
 // An extension track that has no pool block reads as this: all steps empty,
 // the pattern length of stock track 0 (as the legacy 8 -> 12 upgrade fills

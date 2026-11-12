@@ -601,6 +601,7 @@ struct Harness {
     FakeAudio audio;
     std::vector<int16_t> bank, fx;
     std::vector<ot::PatternStock> pats;
+    std::vector<ot::TrackTiming> timing;
     std::vector<ot::Pattern> undo, fundo, seqBufs;
     std::vector<ot::Track> extTracks;
     std::vector<uint8_t> extMeta;
@@ -632,6 +633,7 @@ struct Harness {
         bank.resize(bankSamples);
         fx.resize(ot::audio::AudioEngine::kFxMemorySamples);
         pats.resize(ot::kPatternCount);
+        timing.resize(ot::kPatternCount * ot::kTrackCount);
         seqBufs.resize(3);   // current, preload, switch stage
         extTracks.resize(ot::ExtTrackPool::kDefaultBlocks + 1);
         extMeta.resize(ot::ExtTrackPool::metaBytes(ot::ExtTrackPool::kDefaultBlocks));
@@ -694,6 +696,7 @@ struct Harness {
         m.fxMemory = fx.data();
         m.fxSamples = uint32_t(fx.size());
         m.patterns = pats.data();
+        m.timing = timing.data();
         m.seqBuffers = seqBufs.data();
         m.seqStage = seqBufs.data() + 2;
         m.extTracks = extTracks.data();

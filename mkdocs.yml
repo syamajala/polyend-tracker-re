@@ -55,6 +55,7 @@ nav:
       - Live resampling: guide/resampling.md
       - Performance mode: guide/performance.md
       - Song mode: guide/song-mode.md
+      - Track timing: guide/track-timing.md
       - MIDI instrument LFO: guide/midi-lfo.md
       - MIDI presets: guide/midi-presets.md
       - Multisample instruments: guide/multisample.md

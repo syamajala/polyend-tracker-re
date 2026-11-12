@@ -85,7 +85,8 @@ public:
     int anchorTrack = 0, anchorStep = 0;
     bool wholeCol = false;
     bool allTracks = false;
-    int focus = -1;                 // -1 none, 0 pattern, 1 length, 2 step jump, 5 undo, 6 redo
+    int focus = -1;                 // -1 none, 0 pattern, 1 length, 2 step jump, 5 undo, 6 redo,
+                                    // [I] kFocusSpeed / kFocusGroove (names page F3 / F4)
     int page = 0;
     bool fillOpen = false;
     void fillValueText(int val, char* out) const;   // From/To display text (8 bytes)
@@ -97,6 +98,9 @@ public:
     // Live-REC arm per track (spec 06 §1.3; 2.x: 16 tracks, 2x-01 §2.4).
     bool armed[kTrackCount] = {true, true, true, true, true, true, true, true,
                                true, true, true, true, true, true, true, true};
+    // [I] Track timing (#43 / #83): names page F3 Speed / F4 Groove of the
+    // cursor track (Pattern::timing), held like Length.
+    static constexpr int kFocusSpeed = 10, kFocusGroove = 11;
 
     SelRect target() const;
     bool edit() const;
@@ -143,6 +147,7 @@ private:
     ColMode heldColMode(bool forDelete) const;
     void focusArrow(uint8_t id);
     void focusDelta(int d);
+    void timingDelta(int d);       // [I] Speed / Groove focus (#43 / #83)
     void editEncoder(int d);
     void openPicker(int which);
     void commitPicker();

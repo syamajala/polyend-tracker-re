@@ -53,6 +53,36 @@ tap PLAY
 wait 3000
 EOF
 
+# Track timing (#43 / #83): the names page, Lead at 2x, Harm Straight, Kick
+# 3/4x on Swing 58, Groove (F4) held on Kick.
+shot track-timing project <<'EOF'
+wait 500
+tap F8
+wait 100
+tap F8
+wait 200
+press F3
+enc 1
+enc 1
+tap RIGHT
+tap RIGHT
+tap RIGHT
+enc -1
+release F3
+press F4
+enc 1
+enc 1
+enc 1
+tap LEFT
+tap LEFT
+enc 1
+release F4
+tap RIGHT
+tap RIGHT
+press F4
+wait 300
+EOF
+
 # Song mode: slot 1 plays 4 times with scene 3 on A and 4 on B (ramp: Slot);
 # the screenshot is taken during the second pass.
 shot song project <<'EOF'

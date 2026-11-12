@@ -91,6 +91,7 @@ struct Machine {
     std::unique_ptr<ot::App> app;
     std::vector<int16_t> sampleBank, fxMemory;
     std::unique_ptr<ot::PatternStock[]> patterns;
+    std::unique_ptr<ot::TrackTiming[]> timing;   // [I] #43 / #83
     std::unique_ptr<ot::Pattern[]> undo, fileUndo, clipboard, seqBuffers;
     std::vector<ot::Track> extTracks;
     std::vector<uint8_t> extMeta;

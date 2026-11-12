@@ -1,5 +1,6 @@
 // Sequencer engine (spec 03). See sequencer.h.
 #include "sequencer/sequencer.h"
+#include "model/track_timing.h"
 
 #include "audio/audio_tables.h"
 #include "sdram_bss.h"
@@ -224,10 +225,9 @@ float Sequencer::effectiveTempo() const {
 float Sequencer::tickPeriodUs() const {
     float bpm = effectiveTempo();
     if (!(bpm > 0.0f)) bpm = projectTempo(project_);  // NO CLK: avoid a zero period
-    if (swingOn_) {
-        const float s = swingPhase_ ? (100.0f - swing_) : swing_;
-        return (s + 50.0f) * 3125.0f / bpm / 12.0f;
-    }
+    // [I] #43 / #83: straight. Stock stretches every other step's ticks
+    // here for the Swing FX (spec 03 §1.3); the track clocks do it now
+    // (microPeriod), so the master, MIDI clock out and tempo syncs stay even.
     return 312500.0f / bpm / 12.0f;
 }
 
@@ -337,10 +337,29 @@ void Sequencer::tick() {
     if (!playing_) return;
     ++tickCount_;
     const uint32_t old = tick_++;
-    if (old % kTicksPerMicro == 0) microStep();  // spec 03 §1.4
+    // spec 03 §1.4: a micro every kTicksPerMicro ticks. [I] #43 / #83: that
+    // is the master's micro (straight: swing is per track now); each track
+    // runs its own micro clock, scaled by its speed and stretched by its
+    // groove. 1x with no swing lands on the master's ticks, as before.
+    const bool master = old % kTicksPerMicro == 0;
+    if (master && !masterMicroStart()) return;
+    for (int t = 0; t < kTracks; ++t) {
+        TrackState& tr = tracks_[t];
+        if (tr.clkSync) {
+            if (!master) continue;
+            tr.clkSync = false;
+            tr.clk = 0;
+        } else {
+            tr.clk = int16_t(tr.clk - int32_t(tr.speed) * 50);
+            if (tr.clk > 0) continue;
+        }
+        trackMicro(t);
+        if (!playing_) return;
+    }
+    if (master) masterMicroEnd();
 }
 
-void Sequencer::microStep() {
+bool Sequencer::masterMicroStart() {
     // spec 03 §1.4 [LG:0xcb2e0].
     freshCommit_ = 0;
     if (++masterMicro_ > kMicrosPerStep) {
@@ -352,26 +371,72 @@ void Sequencer::microStep() {
         // OpenTracker stops after exactly the selected rows (README).
         if (selection_ && !selLoop_ && masterStep_ >= (selEnd_ - selStart_ + 1)) {
             stop();
-            return;
+            return false;
         }
     }
-    bool stepEnd = false;
-    for (int t = 0; t < kTracks; ++t) {
-        processTrack(t);
-        if (!playing_) return;
-        TrackState& tr = tracks_[t];
-        if (++tr.micro > kMicrosPerStep) {
-            tr.micro = 1;
-            advanceStep(t);
-            if (!playing_) return;
-            stepEnd = true;
+    // spec 03 §3.2 (3): track 0's duties. [I] On the master's micro, so a
+    // track at another speed moves neither the clock out nor the preload.
+    if ((masterSub_ - 1) % kMicrosPerClock == 0 && !(selection_ && !selLoop_)) sendRealtime(settings_.clockOut, 0xF8);
+    if (masterSub_ == 1) {
+        // One step before the pattern end (masterPos_, not track 0's own
+        // performance length or play mode).
+        if (masterPos_ == baseLastIndex()) startPreload();
+        if (recording_ && settings_.metronome && sink_) {
+            const int bar = (settings_.tsNum + 1) * (settings_.tsDen + 1);
+            if (masterPos_ % bar == 0) sink_->metronomeClick(true, 100);
+            else if (masterPos_ % (settings_.tsDen + 1) == 0) sink_->metronomeClick(false, 45);
         }
     }
+    return true;
+}
+
+void Sequencer::masterMicroEnd() {
     // [3.x] Step 0 after a wrap has started on every track: a slot whose
     // return the wrap left to a Z of it that did not come gets it now.
     if (zPend_) zFlush(zPend_);
-    if (stepEnd) advanceMaster();
+    // Every 1x track finished its step: the master step ends.
+    if (++masterSub_ > kMicrosPerStep) {
+        masterSub_ = 1;
+        advanceMaster();
+    }
     if (playing_) midiLfoUpdate(tickPeriodUs() * float(kTicksPerMicro));
+}
+
+void Sequencer::trackMicro(int t) {
+    TrackState& tr = tracks_[t];
+    processTrack(t);
+    if (!playing_) return;
+    tr.clk = int16_t(tr.clk + microPeriod(t));   // the gap after this micro: this step's
+    if (++tr.micro > kMicrosPerStep) {
+        tr.micro = 1;
+        advanceStep(t);
+        if (!playing_) return;
+        tr.swingPh = !tr.swingPh;   // spec 03 §1.3, per track
+        loadTrackTiming(t);
+    }
+}
+
+void Sequencer::loadTrackTiming(int t) {
+    // [I] #43 / #83: read at each step start, so an edit applies from the
+    // track's next step.
+    TrackState& tr = tracks_[t];
+    const TrackTiming tt = cur_ ? cur_->timing[t] : TrackTiming{};
+    tr.speed = timing::kSpeedEighths[tt.speed < timing::kSpeedCount ? tt.speed : timing::kSpeedDefault];
+    tr.groove = tt.groove < timing::kGrooveCount ? tt.groove : 0;
+}
+
+int32_t Sequencer::microPeriod(int t) const {
+    // [I] #43 / #83: a micro lasts kTicksPerMicro ticks at 1x = 12 * 8 * 50
+    // units; a groove stretches the step to len / 50 of that (a pair of
+    // swung steps keeps two steps' length).
+    const TrackState& tr = tracks_[t];
+    if (tr.groove == 0) {
+        // Global: the Swing FX as stock's clock stretch (spec 03 §1.3): a
+        // step lasts (s + 50) / 100 of two, the next (150 - s) / 100.
+        const int s = swingOn_ ? int(swing_ + 0.5f) : 50;
+        return int32_t(kTicksPerMicro) * 4 * (tr.swingPh ? 150 - s : s + 50);
+    }
+    return int32_t(kTicksPerMicro) * 8 * timing::grooveLength(tr.groove, tr.step);
 }
 
 // ---------------------------------------------------------------------------
@@ -425,21 +490,7 @@ void Sequencer::processTrack(int t) {
         }
     }
     if (muted && (tr.midiCount || (tr.sounding && isSynth(tr.last.instr)))) noteOffTrack(t, NoteOffMode::Off);
-    // (3) track 0 duties.
-    if (t == 0 && playing_) {
-        if ((tr.micro - 1) % kMicrosPerClock == 0 && !(selection_ && !selLoop_))
-            sendRealtime(settings_.clockOut, 0xF8);
-        if (tr.micro == 1) {
-            // One step before the pattern end (masterPos_, not track 0's own
-            // performance length or play mode).
-            if (masterPos_ == baseLastIndex()) startPreload();
-            if (recording_ && settings_.metronome && sink_) {
-                const int bar = (settings_.tsNum + 1) * (settings_.tsDen + 1);
-                if (tr.step % bar == 0) sink_->metronomeClick(true, 100);
-                else if (tr.step % (settings_.tsDen + 1) == 0) sink_->metronomeClick(false, 45);
-            }
-        }
-    }
+    // (3) track 0 duties: [I] on the master's micro (masterMicroStart).
     // (4) micro-delay and arp counters.
     if (tr.delayActive && tr.delayCounter < 0xFF) ++tr.delayCounter;
     if (tr.arpActive) ++tr.arpCounter;
@@ -759,7 +810,7 @@ void Sequencer::triggerNote(int t, const NoteRec& rec, bool chord, uint8_t chord
             n.volume = rec.volume;
             n.fxA = rec.fxA;
             n.fxB = rec.fxB;
-            n.tickPeriodUs = tickPeriodUs();
+            n.tickPeriodUs = tickPeriodUs() * 8.0f / float(tr.speed);   // [I] the track's tick (#43)
             sink_->voiceNoteOn(uint8_t(t), n);
         }
         tr.sounding = true;
@@ -780,7 +831,7 @@ void Sequencer::triggerNote(int t, const NoteRec& rec, bool chord, uint8_t chord
             n.volume = int8_t(vol);
             n.fxA = rec.fxA;
             n.fxB = rec.fxB;
-            n.tickPeriodUs = tickPeriodUs();
+            n.tickPeriodUs = tickPeriodUs() * 8.0f / float(tr.speed);   // [I] the track's tick (#43)
             if (slot >= 0 && (zPend_ & (1u << n.slot))) zFlush(uint8_t(1u << n.slot));   // [3.x] a note before the step's Z
             sink_->synthNoteOn(uint8_t(t), n);
         }
@@ -1071,10 +1122,12 @@ void Sequencer::resetPositions(int startStep) {
     startStep = clampi(startStep, 0, kStepCount - 1);
     syncOrigin_ = masterStep_ - startStep;
     masterPos_ = int16_t(startStep);
+    masterSub_ = 1;
     for (int t = 0; t < kTracks; ++t) {
         TrackState& tr = tracks_[t];
         tr.micro = 1;
         tr.stepsPlayed = 0;
+        tr.clkSync = true;   // [I] step 0 on the next master micro, on every track
         const uint8_t mode = perfTrack(t) ? tr.playMode : kPlayFwd;
         if (mode == kPlayBack) {
             tr.step = int16_t(lastIndex(t));
@@ -1084,6 +1137,7 @@ void Sequencer::resetPositions(int startStep) {
         } else {
             tr.step = int16_t(startStep);
         }
+        loadTrackTiming(t);
     }
 }
 
@@ -1251,6 +1305,7 @@ void Sequencer::startPlayback(int startStep, bool keepSongMode, bool afterCountI
     }
     for (auto& tr : tracks_) {
         tr.enabled = true;
+        tr.swingPh = false;   // spec 03 §1.3: the first step is the long one
         tr.sinceTrigger = 0;
         tr.gate = 0;
         tr.gateLimit = -1;

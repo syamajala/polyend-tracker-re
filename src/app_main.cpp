@@ -43,9 +43,9 @@ namespace {
 // (sequencer current/preload, undo, file undo, clipboard, performance
 // scratch) is a 16-track Pattern, and the two sequencer buffers moved here
 // from App (SRAM).
-constexpr uint32_t kPatSize = sizeof(ot::Pattern);          // 16 tracks, 12,304 B
+constexpr uint32_t kPatSize = sizeof(ot::Pattern);          // 16 tracks + [I] timing, 12,336 B
 constexpr uint32_t kStockSize = sizeof(ot::PatternStock);   // 12 tracks, 9,228 B
-constexpr uint32_t kUndoSlots = 18;      // spec 05 §5.1 (a) has 20: two make room for the synth presets
+constexpr uint32_t kUndoSlots = 17;      // spec 05 §5.1 (a) has 20: two make room for the synth presets, [I] one for track timing (#43)
 constexpr uint32_t kFileUndoSlots = 10;  // spec 05 §5.1 (b)
 constexpr uint32_t kScratch = 0x10000;
 // Ext-track pool: 384 blocks (spec gap 9) + the pool-full write target.
@@ -54,12 +54,14 @@ constexpr uint32_t kFxSamples = uint32_t(ot::audio::AudioEngine::kFxMemorySample
 constexpr uint32_t kFxBytes = kFxSamples * sizeof(int16_t);
 static_assert(kFxBytes == 3u * 262144u * 2u + 2u * 16384u * 2u, "delay 3x262144 + reverb 2x16384 int16");
 static_assert(ot::kSampleBankBytes == 11796480u, "sample pool size, spec 02 §8.2");
-static_assert(kPatSize == 769u * 16u && kStockSize == 769u * 12u, "packed 769-byte track records");
+static_assert(kPatSize == 769u * 16u + 32u && kStockSize == 769u * 12u, "packed 769-byte track records (+ [I] timing)");
 constexpr uint32_t align(uint32_t v) { return (v + 15u) & ~15u; }
 constexpr uint32_t kOffBank = 0;
 constexpr uint32_t kOffFx = align(kOffBank + ot::kSampleBankBytes);
 constexpr uint32_t kOffPatterns = align(kOffFx + kFxBytes);
-constexpr uint32_t kOffExt = align(kOffPatterns + kStockSize * ot::kPatternCount);
+// [I] Track timing store (#43 / #83): 2 bytes per track per pattern.
+constexpr uint32_t kOffTiming = align(kOffPatterns + kStockSize * ot::kPatternCount);
+constexpr uint32_t kOffExt = align(kOffTiming + sizeof(ot::TrackTiming) * ot::kTrackCount * ot::kPatternCount);
 constexpr uint32_t kOffExtMeta = align(kOffExt + ot::ExtTrackPool::blockBytes(kExtBlocks));
 constexpr uint32_t kOffSeqBufs = align(kOffExtMeta + ot::ExtTrackPool::metaBytes(kExtBlocks - 1));
 constexpr uint32_t kOffUndo = align(kOffSeqBufs + kPatSize * 3u);   // current, preload, switch stage
@@ -508,6 +510,7 @@ void otAppMain(ot::hal::HalSet& hal) {
     mem.fxMemory = reinterpret_cast<int16_t*>(sd + kOffFx);
     mem.fxSamples = kFxSamples;
     mem.patterns = reinterpret_cast<PatternStock*>(sd + kOffPatterns);
+    mem.timing = reinterpret_cast<TrackTiming*>(sd + kOffTiming);
     mem.extTracks = reinterpret_cast<Track*>(sd + kOffExt);
     mem.extTrackBlocks = kExtBlocks;
     mem.extMeta = sd + kOffExtMeta;
