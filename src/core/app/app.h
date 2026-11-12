@@ -707,7 +707,7 @@ public:
     // what is borrowed from it (card effects' memory, the resample / tape
     // stop reservation).
     struct MemoryUse {
-        static constexpr int kMaxRows = 24;
+        static constexpr int kMaxRows = 16;   // 3 synth slots + 6 effects + boot modules; 10 are shown
         enum class State : uint8_t { kLoaded, kWaiting, kNoRoom, kFailed };
         struct Row {
             char name[20];   // "DX7", "Echo"
@@ -845,6 +845,15 @@ public:
                       bool lowQuality = false);
     bool deleteInstrument(int slot);
     bool copyInstrument(int src, int dst);
+    // [I] Instrument library (Instruments/ on the card, any folders in it):
+    // a sample instrument saved as a stock .pti (its sample and every
+    // parameter) and loaded back into a slot. Save flushes the slot to the
+    // Workspace first (a streamed instrument's copy too) and copies its
+    // .pti; Load is importSample after a memory check. nullptr = done,
+    // else the notice text.
+    static constexpr const char* kInstrumentLibDir = "Instruments";
+    const char* saveLibraryInstrument(int slot, const char* dir, const char* name);
+    const char* loadLibraryInstrument(int slot, const char* path);
     void renameInstrument(int slot, const char* name);
     uint32_t sampleBytesNeeded(const char* path);  // projected memory of a file (bytes)
     // [I] #3 multisample instruments (multisample_load.cpp; model/multisample.h).
