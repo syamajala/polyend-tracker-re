@@ -32,6 +32,11 @@ card() {   # card KIND DIR
         cp -R "$songs/." "$2/"
         mkdir -p "$2/Workspace"
         cp -R "$songs/Projects/BG World 1/." "$2/Workspace/"
+        # An instrument library (Instruments/, fork): two folders and three
+        # instruments, copies of the song's first .pti.
+        mkdir -p "$2/Instruments/Drums" "$2/Instruments/Keys"
+        pti=$(ls "$2/Workspace/instruments/"*.pti | head -1)
+        for n in "Choir Pad" "Dusty Rhodes" "Sub Bass"; do cp "$pti" "$2/Instruments/$n.pti"; done
     fi
 }
 
@@ -252,6 +257,19 @@ tap RIGHT
 enc 4                # Echo
 tap RIGHT
 enc 1                # Feedback
+wait 300
+EOF
+
+# The instrument library's Load list (Instrument Effects page, F6).
+shot instrument-library project <<'EOF'
+wait 1500
+tap INSTRPARAMS
+wait 300
+tap F8
+wait 200
+tap F6
+tap DOWN
+tap DOWN
 wait 300
 EOF
 

@@ -99,6 +99,32 @@ Chop a break, then press one key to get a pattern that plays it. On the Sample P
   length; a sample longer than the track is placed once, cut at the track's end.
 - Slice first: Auto (F1) for drum breaks, Evenly (F2) for loops in time.
 
+## Instrument library
+
+Keep a sample instrument you've set up (its sample, play mode, slices, envelopes, filter,
+effects…) and use it again in any project. On the **Instrument Effects** page (Instrument
+Params, then **More**):
+
+- **Save (F7)** opens the keyboard with the instrument's name; **Save** writes it to
+  `Instruments/<name>.pti` on the card (into the folder you last opened in Load). An
+  existing name asks before replacing it.
+- **Load (F6)** lists `Instruments/`: folders first, then instruments. **F8** opens a folder
+  or loads the instrument into the current slot (replacing it); **Left** goes up a folder
+  (at `Instruments/` it closes the list); **F7** cancels. Folders can be nested as deep
+  as you like.
+
+![The instrument library's Load list](../images/instrument-library.png)
+
+- The files are stock `.pti` instruments: the Sample Loader lists them too, and stock
+  firmware loads them.
+- A long instrument streamed from the card is copied in full first, so Save can take a
+  moment.
+- An instrument that doesn't fit in the free sample memory isn't loaded ("Not enough sample
+  memory"); the slot keeps what it had.
+- A [multisample](multisample.md) instrument saves as a **Slice** instrument (one zone per
+  slice, as stock firmware sees it): the zones' root notes and the Multi play mode are kept
+  with the project, not in the `.pti`.
+
 ## The 2.x features (from upstream)
 
 The 2.x line brings the newer Tracker features to the original hardware. In short:

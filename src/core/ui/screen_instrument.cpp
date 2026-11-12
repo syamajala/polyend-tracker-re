@@ -14,6 +14,18 @@
 
 namespace ot {
 
+// [I] Instrument library list (InstrumentScreen::libList): the folder's
+// subfolders, then its .pti files (names without ".pti"), in browserListMem().
+namespace {
+struct LibNames {
+    char n[InstrumentScreen::kLibMax][48];
+    bool dir[InstrumentScreen::kLibMax];
+};
+static_assert(sizeof(LibNames) <= kBrowserListBytes, "the library list fits the shared list buffer");
+LibNames& libNames() { return *static_cast<LibNames*>(browserListMem()); }
+bool libEntryIsDir(int i) { return libNames().dir[i]; }
+}  // namespace
+
 // Bar glyphs (wave.cpp).
 void barSelector(Gfx& g, const Theme& th, int i, const char* title, int d);
 
@@ -170,6 +182,7 @@ void InstrumentScreen::start(int opt) {
     else if (opt == 2) mode = 1;
     else if (mode == 3 || mode == 2 || mode == 4 || mode == 5) mode = 0;
     presetList = false;
+    libList = false;   // [I] instrument library
     effects = false;
     column = clampi(column, 0, columns() - 1);
     // Appendix C §6 entry fix-up: destination Off -> column <= 1.
@@ -558,7 +571,14 @@ void InstrumentScreen::refreshBar() {
             valueText(c, v, sizeof(v), &fr, &bi);
             b.set(c, kE[c], v);
         }
+        if (libList) {   // [I] the instrument library's Load list
+            b.set(6, "Cancel");
+            b.set(7, libCursor < libCount && libEntryIsDir(libCursor) ? "Open" : "Load");
+            return;
+        }
         b.set(4, "MIDI Map");   // appendix C §5 button 4 "Instrument / MIDI Mapping"
+        b.set(5, "Load");       // [I] instrument library: Instruments/*.pti
+        b.set(6, "Save");
         b.set(7, "Back");
         return;
     }
@@ -588,6 +608,7 @@ void InstrumentScreen::onButton(uint8_t id, uint8_t state) {
         } else if (state == kPress) {
             mode = mode == 0 ? 1 : 0;
             effects = false;
+            libList = false;
             column = 0;
         }
         refreshBar();
@@ -617,6 +638,11 @@ void InstrumentScreen::onButton(uint8_t id, uint8_t state) {
         return;
     }
     if (ui_.picker.isOpen()) return;
+    if (mode == 0 && effects && libList) {   // [I] instrument library: the list takes the keys
+        if (state == kPress) onLibraryButton(id);
+        refreshBar();
+        return;
+    }
     if (mode == 5) {   // [I] #13
         if (state == kPress) onPresetButton(id);
         refreshBar();
@@ -631,6 +657,15 @@ void InstrumentScreen::onButton(uint8_t id, uint8_t state) {
             } else if (mode == 0 && effects && f == 7) {
                 effects = false;
                 column = 0;
+            } else if (mode == 0 && effects && f == 5) {   // [I] Load
+                libCursor = libTop_ = 0;
+                listLibrary();
+                if (libCount == 0 && std::strcmp(libDir, App::kInstrumentLibDir) == 0)
+                    ui_.notify("No instruments in Instruments");
+                else
+                    libList = true;
+            } else if (mode == 0 && effects && f == 6) {   // [I] Save
+                saveToLibrary();
             } else if (mode == 0 && effects && f == 4) {
                 // Appendix C §3 Effects button 4 -> MIDI Mapping (mode 2); it
                 // keeps its own instrument index (+0x335), seeded from a
@@ -719,6 +754,7 @@ uint8_t InstrumentScreen::auditionNote() const {
 #if !(defined(OT_TARGET_DEVICE) && OT_TARGET_DEVICE)
 bool InstrumentScreen::encoderOnList() const {
     if (mode == 2 || mode == 5) return true;   // CC mapping list; [I] #13 slots / presets
+    if (mode == 0 && effects && libList) return true;   // [I] instrument library
     if (mode == 0) return !effects && column == 4;   // filter type
     if (mode == 3) return column >= 2;
     const uint8_t ci = app_.currentInstrument();
@@ -735,6 +771,11 @@ void InstrumentScreen::onEncoder(int d) {
     }
     if (mode == 5) {   // [I] #13
         presetMove(d);
+        return;
+    }
+    if (mode == 0 && effects && libList) {   // [I] instrument library
+        libCursor = clampi(libCursor + d, 0, libCount > 0 ? libCount - 1 : 0);
+        refreshBar();
         return;
     }
     // Several held F-keys edit all their columns at once (appendix C §3).
@@ -966,7 +1007,9 @@ void InstrumentScreen::draw(Gfx& g) {
     }
     for (int c = 0; c < 8; ++c)
         if (!drawn[c]) wg::panelColumn(g, th, c);
-    if (focusX >= 0) wg::panelFocus(g, th, focusX, focusW);
+    const bool lib = mode == 0 && effects && libList;   // [I] the library list has the focus
+    if (focusX >= 0 && !lib) wg::panelFocus(g, th, focusX, focusW);
+    if (lib) drawLibrary(g);   // over the empty columns 5..8
 }
 
 // ---------------------------------------------------------------------------
@@ -1218,6 +1261,177 @@ void InstrumentScreen::drawPreset(Gfx& g) {
         else std::snprintf(row, sizeof(row), "%c   %s", 'A' + i, cc);
         g.text(412, wg::kPanelY + 96 + i * 28, kFont1, th.text, row, IDisplay::kOptCenterY);
     }
+}
+
+// ---------------------------------------------------------------------------
+// [I] Instrument library (Instrument Effects page, F6 Load / F7 Save):
+// sample instruments as stock .pti files in Instruments/ and its folders.
+
+namespace {
+bool lessNoCase(const char* a, const char* b) {
+    for (; *a && *b; ++a, ++b) {
+        const int x = (*a >= 'A' && *a <= 'Z') ? *a + 32 : *a, y = (*b >= 'A' && *b <= 'Z') ? *b + 32 : *b;
+        if (x != y) return x < y;
+    }
+    return *a == 0 && *b != 0;
+}
+void libItem(void*, int i, char* out, int cap) {
+    std::snprintf(out, size_t(cap), libNames().dir[i] ? "%s/" : "%s", libNames().n[i]);
+}
+}  // namespace
+
+void InstrumentScreen::listLibrary() {
+    libCount = 0;
+    app_.fs().listDir(libDir, [](const IStorage::DirEntry& e, void* c) {
+        auto* s = static_cast<InstrumentScreen*>(c);
+        if (e.name[0] == '.' || s->libCount >= kLibMax) return true;
+        const size_t n = std::strlen(e.name);
+        const bool pti = !e.isDir && n > 4 && (e.name[n - 4] == '.') && (e.name[n - 3] | 32) == 'p' &&
+                         (e.name[n - 2] | 32) == 't' && (e.name[n - 1] | 32) == 'i';
+        const size_t len = e.isDir ? n : n - 4;
+        if ((!e.isDir && !pti) || len >= sizeof(LibNames::n[0])) return true;
+        LibNames& l = libNames();
+        std::memcpy(l.n[s->libCount], e.name, len);
+        l.n[s->libCount][len] = 0;
+        l.dir[s->libCount] = e.isDir;
+        ++s->libCount;
+        return true;
+    }, this);
+    // Folders first, each part alphabetical (ignoring case).
+    LibNames& l = libNames();
+    for (int i = 1; i < libCount; ++i)
+        for (int j = i; j > 0; --j) {
+            const bool before = l.dir[j] != l.dir[j - 1] ? l.dir[j] : lessNoCase(l.n[j], l.n[j - 1]);
+            if (!before) break;
+            char t[sizeof(LibNames::n[0])];
+            std::memcpy(t, l.n[j], sizeof(t));
+            std::memcpy(l.n[j], l.n[j - 1], sizeof(t));
+            std::memcpy(l.n[j - 1], t, sizeof(t));
+            const bool d = l.dir[j];
+            l.dir[j] = l.dir[j - 1];
+            l.dir[j - 1] = d;
+        }
+    libCursor = clampi(libCursor, 0, libCount > 0 ? libCount - 1 : 0);
+}
+
+void InstrumentScreen::onLibraryButton(uint8_t id) {
+    switch (id) {
+        case btn::Up: libCursor = clampi(libCursor - 1, 0, libCount > 0 ? libCount - 1 : 0); break;
+        case btn::Down: libCursor = clampi(libCursor + 1, 0, libCount > 0 ? libCount - 1 : 0); break;
+        case btn::Right:
+            if (libCursor < libCount && libNames().dir[libCursor]) openLibraryEntry();
+            break;
+        case btn::F8: openLibraryEntry(); break;
+        case btn::Left: {
+            // Up one folder; at Instruments/ itself the list closes.
+            char* slash = std::strrchr(libDir, '/');
+            if (!slash || std::strcmp(libDir, App::kInstrumentLibDir) == 0) {
+                libList = false;
+                break;
+            }
+            char from[48];
+            std::snprintf(from, sizeof(from), "%s", slash + 1);
+            *slash = 0;
+            libCursor = libTop_ = 0;
+            listLibrary();
+            for (int i = 0; i < libCount; ++i)
+                if (libNames().dir[i] && std::strcmp(libNames().n[i], from) == 0) libCursor = i;
+            break;
+        }
+        case btn::F7:
+        case btn::Rec: libList = false; break;
+        case btn::Play: Screen::onButton(id, kPress); break;
+        default: break;
+    }
+    ui_.dirty();
+}
+
+void InstrumentScreen::openLibraryEntry() {
+    if (libCursor < 0 || libCursor >= libCount) return;
+    const LibNames& l = libNames();
+    if (l.dir[libCursor]) {
+        const size_t n = std::strlen(libDir);
+        if (n + 1 + std::strlen(l.n[libCursor]) >= sizeof(libDir)) {
+            ui_.notify("Folder path too long");
+            return;
+        }
+        std::snprintf(libDir + n, sizeof(libDir) - n, "/%s", l.n[libCursor]);
+        libCursor = libTop_ = 0;
+        listLibrary();
+        return;
+    }
+    char path[256];
+    std::snprintf(path, sizeof(path), "%s/%s.pti", libDir, l.n[libCursor]);
+    const char* err = app_.loadLibraryInstrument(app_.currentInstrument(), path);
+    ui_.notify(err ? err : "Instrument loaded");
+    if (!err) libList = false;
+    refreshBar();
+}
+
+void InstrumentScreen::saveToLibrary() {
+    const uint8_t ci = app_.currentInstrument();
+    if (ci >= kSampleInstrumentCount || !app_.instrPresent[ci]) {
+        ui_.notify("The instrument is empty");
+        return;
+    }
+    char init[40];
+    std::snprintf(init, sizeof(init), "%s", app_.instruments[ci].name);
+    ui_.kb.open("Save Instrument", init, kInstrumentNameLen, "Save",
+                [](void* c, bool ok, const char* text) {
+                    auto* s = static_cast<InstrumentScreen*>(c);
+                    if (!ok) return;
+                    std::snprintf(s->libName_, sizeof(s->libName_), "%s", text ? text : "");
+                    cleanName(s->libName_);
+                    if (!s->libName_[0]) {
+                        s->ui_.notify("The name is empty");
+                        return;
+                    }
+                    char path[256];
+                    std::snprintf(path, sizeof(path), "%s/%s.pti", s->libDir, s->libName_);
+                    if (s->app_.fs().exists(path)) {
+                        s->ui_.ask("Instrument exists", "Replace it?", nullptr, "Cancel", "Replace",
+                                   [](void* c2, int key) {
+                                       if (key == btn::F8) static_cast<InstrumentScreen*>(c2)->saveToLibraryNow();
+                                   },
+                                   s);
+                        return;
+                    }
+                    s->saveToLibraryNow();
+                },
+                this);
+}
+
+void InstrumentScreen::saveToLibraryNow() {
+    const char* err = app_.saveLibraryInstrument(app_.currentInstrument(), libDir, libName_);
+    char msg[220];
+    if (err) std::snprintf(msg, sizeof(msg), "%s", err);
+    else std::snprintf(msg, sizeof(msg), "Saved to %s", libDir);
+    ui_.notify(msg);
+    refreshBar();
+    ui_.dirty();
+}
+
+void InstrumentScreen::drawLibrary(Gfx& g) {
+    const Theme& th = ui_.th();
+    // Over the page's empty columns 5..8: the folder, then its list.
+    const int x = wg::columnX(4), w = 799 - x;
+    wg::panel(g, th, x, wg::kPanelY, w, wg::kPanelH);
+    g.text(x + 12, wg::kPanelY + 16, kFont1, th.dim, libDir, IDisplay::kOptCenterY);
+    wg::ListView v;
+    v.x = x;
+    v.y = wg::kPanelY + 30;
+    v.w = w;
+    v.h = wg::kPanelH - 30;
+    v.background = false;
+    v.count = libCount;
+    libTop_ = wg::listFollow(libCursor, libCount, wg::listVisibleRows(v.h), libTop_);
+    v.top = libTop_;
+    v.sel = libCursor;
+    v.active = true;
+    v.item = libItem;
+    wg::list(g, th, v);
+    if (!libCount) g.text(x + 12, wg::kPanelY + 52, kFont1, th.dim, "(empty folder)", IDisplay::kOptCenterY);
+    wg::panelFocus(g, th, x, w);
 }
 
 }  // namespace ot

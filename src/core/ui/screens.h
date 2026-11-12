@@ -329,6 +329,15 @@ public:
     int presetCount = 0;
     static constexpr int kPresetMax = 200;
     bool effects = false;
+    // [I] Instrument library (Instrument Effects page): F6 Load lists
+    // Instruments/ (folders first, then .pti files, names in
+    // browserListMem(); any depth: a folder opens, Left goes up), F7 Save
+    // names the instrument and writes it to the folder last listed.
+    bool libList = false;
+    int libCursor = 0;
+    int libCount = 0;
+    static constexpr int kLibMax = 200;
+    char libDir[192] = "Instruments";
     int column = 0;        // mode 2: 0 = CC list pane, 1 = Instruments pane
     int dest = 0;          // automation destination 0..5
     int ccScroll = 0;      // MIDI Mapping CC list row 0..46 (appendix C §1 +0x334)
@@ -350,6 +359,15 @@ private:
     void savePresetNow();
     void editName();
     void drawPreset(Gfx& g);
+    // [I] Instrument library.
+    void listLibrary();
+    void onLibraryButton(uint8_t id);
+    void openLibraryEntry();
+    void saveToLibrary();
+    void saveToLibraryNow();
+    void drawLibrary(Gfx& g);
+    int libTop_ = 0;
+    char libName_[40] = {};
     int presetTop_ = 0;
     int presetCcTop_ = 0;
     char presetName_[MidiCcNames::kPresetNameMax + 1] = {};
