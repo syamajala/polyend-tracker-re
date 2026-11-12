@@ -837,7 +837,7 @@ void sizeText(uint32_t b, char* out, int cap) {
         std::snprintf(out, size_t(cap), "%lu.%lu KB", static_cast<unsigned long>(b >> 10),
                       static_cast<unsigned long>((b & 1023u) * 10u >> 10));
 }
-OT_SDRAM_BSS App::MemoryUse g_memUse;   // ~1.2 KB, refilled each frame
+OT_SDRAM_BSS App::MemoryUse g_memUse;   // ~850 B, refilled each frame
 }  // namespace
 
 void ConfigScreen::drawMemory(Gfx& g) {

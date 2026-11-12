@@ -707,7 +707,7 @@ public:
     // what is borrowed from it (card effects' memory, the resample / tape
     // stop reservation).
     struct MemoryUse {
-        static constexpr int kMaxRows = 24;
+        static constexpr int kMaxRows = 16;   // 3 synth slots + 6 effects + boot modules; 10 are shown
         enum class State : uint8_t { kLoaded, kWaiting, kNoRoom, kFailed };
         struct Row {
             char name[20];   // "DX7", "Echo"
