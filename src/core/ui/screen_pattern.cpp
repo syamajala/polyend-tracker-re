@@ -6,6 +6,7 @@
 #include "app/app.h"
 #include "app/project_fields.h"
 #include "app/render.h"
+#include "model/track_timing.h"
 #include "ui/fx_text.h"
 #include "ui/notes.h"
 #include "sequencer/seq_tables.h"
@@ -535,9 +536,16 @@ void PatternScreen::refreshBar() {
         default:
             b.setName(0, "Pattern", "name");
             b.setName(1, "Track", "name");
+            // [I] Track timing (#43 / #83) of the cursor track.
+            b.set(2, "Speed", timing::kSpeedNames[app_.pattern().timing[track].speed % timing::kSpeedCount]);
+            b.set(3, "Groove", timing::kGrooveNames[app_.pattern().timing[track].groove % timing::kGrooveCount]);
             b.set(7, "More");
             b.underline(0, wg::kUnderlineAvailable);
             b.underline(1, wg::kUnderlineAvailable);
+            b.underline(2, wg::kUnderlineAvailable);
+            b.underline(3, wg::kUnderlineAvailable);
+            if (focus == kFocusSpeed) b.highlight(2, true);
+            if (focus == kFocusGroove) b.highlight(3, true);
             b.pages(7, 3, page);
             break;
     }
@@ -900,6 +908,12 @@ void PatternScreen::pageButton(int f, uint8_t state) {
         }
         return;
     }
+    if (page == 2 && (f == 2 || f == 3)) {   // [I] held like Length (page 0 F2)
+        const int fc = f == 2 ? kFocusSpeed : kFocusGroove;
+        if (state == kPress) focus = fc;
+        else if (state == kRelease && focus == fc) focus = -1;
+        return;
+    }
     if (state != kPress) return;
     if (f == 7) {
         page = (page + 1) % 3;
@@ -1066,6 +1080,14 @@ void PatternScreen::focusArrow(uint8_t id) {
         else if (id == btn::Down) j -= 1;
         else j = presetStep(kJumpPresets, sizeof(kJumpPresets), j, id == btn::Right ? 1 : -1);
         a.setStepJump(clampi(j, 0, 32));
+    } else if (fcs == kFocusSpeed || fcs == kFocusGroove) {
+        // [I] Up / Down change the value, Left / Right the track (focus kept).
+        if (id == btn::Up || id == btn::Down) {
+            timingDelta(id == btn::Up ? 1 : -1);
+        } else {
+            track = clampi(track + (id == btn::Right ? 1 : -1), 0, kTrackCount - 1);
+            keepTrackVisible();
+        }
     } else if ((fcs == 5 || fcs == 6) && id == btn::Left) {
         encUsedInHold_ = true;
         a.undoEdit();
@@ -1086,11 +1108,29 @@ void PatternScreen::focusDelta(int d) {
         a.patternEdited();
     } else if (focus == 2) {
         a.setStepJump(clampi(a.stepJump() + d, 0, 32));
+    } else if (focus == kFocusSpeed || focus == kFocusGroove) {
+        timingDelta(d);
     } else if (focus == 5 || focus == 6) {
         encUsedInHold_ = true;
         if (d < 0) a.undoEdit();
         else if (d > 0) a.redoEdit();
     }
+}
+
+// [I] Track timing (#43 / #83): one value step per detent, clamped. The
+// sequencer reads it at the track's next step.
+void PatternScreen::timingDelta(int d) {
+    App& a = app_;
+    const bool sp = focus == kFocusSpeed;
+    TrackTiming& tt = a.pattern().timing[track];
+    const uint8_t cur = sp ? tt.speed : tt.groove;
+    const int n = sp ? timing::kSpeedCount : timing::kGrooveCount;
+    const uint8_t v = uint8_t(clampi(cur + (d > 0 ? 1 : -1), 0, n - 1));
+    if (v == cur) return;
+    a.pushUndo();
+    (sp ? tt.speed : tt.groove) = v;
+    a.patternEdited();
+    ui_.dirty();
 }
 
 #if !(defined(OT_TARGET_DEVICE) && OT_TARGET_DEVICE)

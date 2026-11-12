@@ -44,6 +44,7 @@ bool Machine::start(const MachineOptions& o, bool headless) {
     sampleBank.assign(ot::kSampleBankBytes / 2, 0);
     fxMemory.assign(ot::audio::AudioEngine::kFxMemorySamples, 0);
     patterns.reset(new ot::PatternStock[ot::kPatternCount]);
+    timing.reset(new ot::TrackTiming[ot::kPatternCount * ot::kTrackCount]);
     seqBuffers.reset(new ot::Pattern[3]);   // current, preload, switch stage
     extTracks.assign(ot::ExtTrackPool::kDefaultBlocks + 1, ot::Track{});
     extMeta.assign(ot::ExtTrackPool::metaBytes(ot::ExtTrackPool::kDefaultBlocks), 0);
@@ -148,6 +149,7 @@ bool Machine::start(const MachineOptions& o, bool headless) {
     m.fxMemory = fxMemory.data();
     m.fxSamples = uint32_t(fxMemory.size());
     m.patterns = patterns.get();
+    m.timing = timing.get();
     m.seqBuffers = seqBuffers.get();
     m.seqStage = seqBuffers.get() + 2;
     m.extTracks = extTracks.data();
@@ -155,7 +157,7 @@ bool Machine::start(const MachineOptions& o, bool headless) {
     m.extMeta = extMeta.data();
     m.undo = undo.get();
     m.undoNums = undoNums;
-    m.undoSlots = 18;      // as the device (app_main.cpp)
+    m.undoSlots = 17;      // as the device (app_main.cpp)
     m.fileUndo = fileUndo.get();
     m.fileUndoNums = fileUndoNums;
     m.fileUndoSlots = 10;  // spec 05 §5.1 (b)

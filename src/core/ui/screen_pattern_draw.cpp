@@ -12,6 +12,7 @@
 #include <cstring>
 
 #include "app/app.h"
+#include "model/track_timing.h"
 #include "ui/fonts/fonts.h"
 #include "ui/fx_text.h"
 #include "ui/notes.h"
@@ -542,8 +543,8 @@ void PatternScreen::drawGridVertical(Gfx& g, bool threeTracks) {
     //     cached RAM_G fragment (2.x M0), static while names / mutes / the
     //     view do not change.
     g.cached(kFragPatHeaders, [&] {
-        int tx[8], tw[8], n = 0;
-        char names[8][24];
+        int tx[8], tw[8], tagW[8], n = 0;
+        char names[8][24], tags[8][12];
         bool muted[8];
         for (int v = 0; v < nT && n < 8; ++v) {
             const int t = firstTrack + v;
@@ -552,8 +553,23 @@ void PatternScreen::drawGridVertical(Gfx& g, bool threeTracks) {
             if (!a.project.trackName(t, nm, sizeof(nm)) || !nm[0])
                 std::snprintf(nm, sizeof(nm), t < 8 ? "Track %d" : "Midi %d", t + 1);
             std::snprintf(names[n], sizeof(names[n]), "%s", nm);
-            int w = textWidth(kFont4, names[n]);
+            // [I] Track timing tag (#43 / #83), only off the defaults: "3/4x",
+            // "S58", "2x S58". The name is shortened to keep the tag whole; a
+            // narrow tab that would keep under 3 letters shows the speed only.
+            const int sp = pat.timing[t].speed % timing::kSpeedCount, gr = pat.timing[t].groove % timing::kGrooveCount;
+            const char* st = sp == timing::kSpeedDefault ? "" : timing::kSpeedNames[sp];
             const int maxW = L.trackW - 8;
+            std::snprintf(tags[n], sizeof(tags[n]), "%s%s%s", st, st[0] && gr ? " " : "", timing::kGrooveTags[gr]);
+            tagW[n] = tags[n][0] ? textWidth(kFont4, tags[n]) + 6 : 0;
+            char head[4];
+            std::snprintf(head, sizeof(head), "%s", names[n]);
+            if (st[0] && gr && textWidth(kFont4, head) + tagW[n] > maxW) {
+                std::snprintf(tags[n], sizeof(tags[n]), "%s", st);
+                tagW[n] = textWidth(kFont4, tags[n]) + 6;
+            }
+            for (size_t k = std::strlen(names[n]); k > 1 && textWidth(kFont4, names[n]) + tagW[n] > maxW; --k)
+                names[n][k - 1] = 0;
+            int w = textWidth(kFont4, names[n]) + tagW[n];
             if (w > maxW) w = maxW;
             // Narrow (8-track) view: the tab spans the track, or the top row's
             // note shows half-covered beside the name ("Hats5", R3-10).
@@ -595,6 +611,8 @@ void PatternScreen::drawGridVertical(Gfx& g, bool threeTracks) {
         }
         g.clip(0, ty, right, 28);
         for (int i = 0; i < n; ++i) run(g, tx[i] + 4, ty + 6, kFont4, names[i], gc(th, kGcTabText));
+        for (int i = 0; i < n; ++i)
+            if (tags[i][0]) run(g, tx[i] + tw[i] + 4 - tagW[i] + 6, ty + 6, kFont4, tags[i], th.accent);
         g.noClip();
     });
 }

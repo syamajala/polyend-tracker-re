@@ -127,6 +127,10 @@ struct AppMemory {
     Track* extTracks = nullptr;
     int extTrackBlocks = 0;               // ExtTrackPool::kDefaultBlocks + 1 on the device
     uint8_t* extMeta = nullptr;
+    // [I] Track timing store (#43 / #83): kPatternCount * kTrackCount
+    // entries, pattern n at [(n-1) * kTrackCount]. Optional: without it
+    // every pattern reads as 1x / Global (tools).
+    TrackTiming* timing = nullptr;
     Pattern* seqBuffers = nullptr;        // 2 entries: sequencer current + preload (16 tracks)
     // Optional third sequencer buffer: switchPatternNow() assembles the new
     // pattern there in the main loop (no pattern copy in the audio block).
@@ -283,6 +287,14 @@ public:
     // 1.9.3 name of storedStock(): tracks 0..11 only. New code that may touch
     // tracks 12..15 uses storedTrack()/storePattern()/assemblePattern().
     PatternStock& stored(int num) { return storedStock(num); }
+    // [I] Track timing of pattern num (#43 / #83), kTrackCount entries;
+    // nullptr without a timing store. Kept by storePattern / assemblePattern.
+    TrackTiming* storedTiming(int num) {
+        return mem_.timing && num >= 1 && num <= kPatternCount ? mem_.timing + (num - 1) * kTrackCount : nullptr;
+    }
+    const TrackTiming* storedTiming(int num) const {
+        return mem_.timing && num >= 1 && num <= kPatternCount ? mem_.timing + (num - 1) * kTrackCount : nullptr;
+    }
     // Write access to track t (0..15) of pattern num; t >= 12 allocates a
     // pool block (initialised to the default ext track). Pool full: reported
     // (notice, extPoolFullEvents()) and a scratch track is returned whose
@@ -1186,6 +1198,10 @@ private:
     OT_APP_SDRAM_MEMBER(mod::OtmLoadReport, moduleLoad_);  // [I] #21: Modules/*.otm at boot
     uint8_t patDirty_[32] = {};
     bool projectDirty_ = false, namesDirty_ = false, configDirty_ = false, configForce_ = false;
+    bool timingDirty_ = false;   // [I] #43 / #83: timing.bin needs writing (storePattern changed the store)
+    // [I] #43 / #83 timing.bin next to the project.mt at `projectPath` (no-op without a timing store).
+    bool loadTimingSide(const char* projectPath);
+    bool saveTimingSide(const char* projectPath);
     uint8_t recShadow_[12] = {};                  // project bytes 0x134..0x13F last synced
     bool recShadowValid_ = false;
     uint8_t recUsbShadow_ = 0;                    // [I] Project::recUsb last synced

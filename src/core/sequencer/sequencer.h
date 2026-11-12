@@ -264,6 +264,15 @@ private:
         bool recEnabled = true;
         bool sounding = false;
         uint8_t micro = 1;       // 1..48
+        // [I] Track clock (#43 / #83): micros of this track are due when clk
+        // counts down to 0 (kSpeedEighths * 50 per master tick); each micro
+        // adds its step's length back (Sequencer::microPeriod). clkSync: wait
+        // for the next master micro (play start, pattern switch).
+        int16_t clk = 0;
+        bool clkSync = true;
+        bool swingPh = false;    // Groove Global: the Swing FX phase of this track's step
+        uint8_t speed = 8;       // eighths of 1x (timing::kSpeedEighths)
+        uint8_t groove = 0;      // timing::kGrooveNames index
         int16_t step = 0;
         int16_t stepsPlayed = 0;
         uint16_t sinceTrigger = 0;
@@ -317,7 +326,11 @@ private:
     void advance(float seconds);
     void updateExternalTempo(float seconds);
     void tick();
-    void microStep();
+    bool masterMicroStart();          // false: playback stopped
+    void masterMicroEnd();
+    void trackMicro(int t);           // one micro of track t, then its next due time
+    void loadTrackTiming(int t);      // [I] speed / groove of track t from cur_
+    int32_t microPeriod(int t) const; // [I] clock units until track t's next micro
     void processTrack(int t);
     void stepStart(int t);
     void handleNote(int t, Pending& p);
@@ -455,6 +468,12 @@ private:
     uint32_t tick_ = 1;
     uint64_t tickCount_ = 0;
     uint8_t masterMicro_ = 1;
+    uint8_t masterSub_ = 1;   // [I] 1..48: the micro of the master step (a 1x track's micro)
+    // [I] Track clocks are visited only on the master's micro and on the tick
+    // the earliest track is due (tick() skips the rest): trackLast_ = tick of
+    // the last visit, trackDue_ = the next due tick.
+    uint32_t trackLast_ = 0;
+    uint32_t trackDue_ = 0;
     // [3.x] Z chase per synth slot (in the padding before masterStep_): low
     // nibble = the preset the slot had when the pattern (or selection)
     // started, high nibble = the preset the sequencer last gave it.

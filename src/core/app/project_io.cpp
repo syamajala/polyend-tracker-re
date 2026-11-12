@@ -13,6 +13,7 @@
 #include "app/stream_policy.h"
 #include "audio/synth_params.h"
 #include "formats/multisample_side.h"
+#include "formats/timing_side.h"
 #include "formats/bytes.h"
 #include "formats/crc32.h"
 #include "formats/file_io.h"
@@ -29,6 +30,18 @@
 #include "sdram_bss.h"
 
 namespace ot {
+
+// [I] #43 / #83 timing.bin (formats/timing_side.h), through the scratch buffer.
+bool App::loadTimingSide(const char* projectPath) {
+    if (!mem_.timing || !mem_.scratch || mem_.scratchBytes < tmside::kMaxFileSize) return true;
+    timingDirty_ = false;
+    return loadTimingFile(fs(), projectPath, mem_.timing, mem_.scratch) == FmtStatus::Ok;
+}
+
+bool App::saveTimingSide(const char* projectPath) {
+    if (!mem_.timing || !mem_.scratch || mem_.scratchBytes < tmside::kMaxFileSize) return true;
+    return saveTimingFile(fs(), projectPath, mem_.timing, mem_.scratch) == FmtStatus::Ok;
+}
 
 namespace {
 // Slots whose own N.patch was refused at load (damaged or too large): the
@@ -678,6 +691,8 @@ bool App::newProject() {
     ok = saveProjectFile(f, path, project, &midiNames) == FmtStatus::Ok && ok;
     for (int i = 0; i < kSampleInstrumentCount; ++i) multiClear(i);   // [I] #3
     ok = saveMultiMapsFile(f, path) == FmtStatus::Ok && ok;
+    ok = saveTimingSide(path) && ok;   // [I] #43 / #83: none yet, removes a stale file
+    timingDirty_ = false;
     // Synth slots: the default records' patches (library "Init", else the
     // built-in Init), written to Workspace/N.patch like the Mini.
     g_patchKept = 0;
@@ -2395,6 +2410,8 @@ bool App::jobUnit(uint32_t& cost) {
             uint8_t cur = project.currentPattern();
             if (cur < 1) cur = 1;
             project.setCurrentPattern(cur);
+            projectFilePath(src, sizeof(src), kWorkspace);
+            if (!loadTimingSide(src)) ++pj_.loadErrors;   // [I] #43 / #83, after every pattern
             loadPattern(cur, pattern(), true);
             attachSequencer();
             undo.clear();
@@ -2453,6 +2470,8 @@ bool App::jobUnit(uint32_t& cost) {
             projectFilePath(src, sizeof(src), pj_.dir);
             if (copyMidiNamesFile(f, src, dst) != FmtStatus::Ok) ++pj_.loadErrors;
             if (copyMultiMapsFile(f, src, dst) != FmtStatus::Ok) ++pj_.loadErrors;   // [I] #3
+            if (mem_.timing && mem_.scratch && copyTimingFile(f, src, dst, mem_.scratch) != FmtStatus::Ok)
+                ++pj_.loadErrors;   // [I] #43 / #83
             cost += kJobSmallCost;
             // Steps 3-6 run inside the load (instruments, names, patterns).
             jobBeginLoad();
@@ -2469,6 +2488,15 @@ bool App::jobUnit(uint32_t& cost) {
             int n = pj_.idx;
             while (n <= kPatternCount && !((patDirty_[n >> 3] >> (n & 7)) & 1)) ++n;
             if (n > kPatternCount) {
+                if (timingDirty_) {   // [I] #43 / #83
+                    projectFilePath(dst, sizeof(dst), kWorkspace);
+                    timingDirty_ = false;
+                    if (!saveTimingSide(dst)) {
+                        timingDirty_ = true;
+                        ++pj_.loadErrors;
+                    }
+                    cost += kJobSmallCost;
+                }
                 pj_.stage = kANames;
                 return true;
             }
@@ -2679,6 +2707,7 @@ bool App::jobUnit(uint32_t& cost) {
             projectFilePath(dst, sizeof(dst), pj_.dir);
             if (saveProjectFile(f, dst, project, &midiNames) != FmtStatus::Ok) ++pj_.loadErrors;
             if (saveMultiMapsFile(f, dst) != FmtStatus::Ok) ++pj_.loadErrors;   // [I] #3
+            if (!saveTimingSide(dst)) ++pj_.loadErrors;                        // [I] #43 / #83
             cost += 4 * kJobSmallCost;
             pj_.stage = kSPatterns;
             pj_.idx = 1;

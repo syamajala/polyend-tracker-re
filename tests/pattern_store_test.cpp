@@ -15,7 +15,7 @@ using namespace ot;
 // ---- memory budget (mirrors the static_asserts of src/app_main.cpp) --------
 static_assert(sizeof(Track) == 769, "track block");
 static_assert(sizeof(PatternStock) == 9228, "12 tracks");
-static_assert(sizeof(Pattern) == 12304, "16 tracks");
+static_assert(sizeof(Pattern) == 12336, "16 tracks + [I] timing");
 static_assert(sizeof(PerfPatternMemory) == 769 * 16 * 2 + sizeof(Pattern), "perf slots [16][2] + scratch");
 static_assert(ExtTrackPool::kDefaultBlocks == 384, "spec gap 9");
 static_assert(ExtTrackPool::metaBytes(384) == 255 * 4 * 2 + 48, "uint16 index + used bitmap");

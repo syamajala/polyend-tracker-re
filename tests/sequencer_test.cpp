@@ -10,6 +10,7 @@
 #include "sequencer/seq_rng.h"
 #include "sequencer/seq_tables.h"
 #include "sequencer/sequencer.h"
+#include "model/track_timing.h"
 
 using namespace ot;
 
@@ -292,6 +293,141 @@ TEST(swing_ratio) {
     r.seq.stop();
     CHECK(!r.seq.swingActive());
     CHECK_NEAR(r.seq.swingValue(), 50.0, 1e-6);
+}
+
+// --- [I] Track timing (#43 speed, #83 groove) ------------------------------------
+
+namespace {
+uint8_t speedIdx(int eighths) {
+    for (int i = 0; i < timing::kSpeedCount; ++i)
+        if (timing::kSpeedEighths[i] == eighths) return uint8_t(i);
+    return uint8_t(timing::kSpeedDefault);
+}
+}  // namespace
+
+TEST(track_speed_step_ticks) {
+    // A step of a track at speed e/8 lasts 576 * 8 / e master ticks; every
+    // track starts on the master's first micro (tick 12).
+    for (int e : {1, 2, 4, 6, 8, 12, 16}) {
+        Rig r(120.0f);
+        for (int s = 0; s < 32; ++s) {
+            r.setNote(0, s, 60);
+            r.setNote(1, s, 62);
+        }
+        r.a.timing[0].speed = speedIdx(e);
+        r.seq.play(0);
+        r.blocks(int(0.125 * 40 / kBlockS));   // 40 master steps
+        auto on = r.sink.of(Ev::NoteOn, 0), ref = r.sink.of(Ev::NoteOn, 1);
+        const uint64_t per = 576u * 8u / uint64_t(e);
+        CHECK(on.size() >= 3);
+        CHECK(ref.size() >= 32);
+        if (on.size() < 3 || ref.size() < 2) continue;
+        CHECK_EQ(on[0].tick, 12u);
+        CHECK_EQ(ref[0].tick, 12u);
+        for (size_t i = 1; i < on.size(); ++i) CHECK_EQ(on[i].tick - on[i - 1].tick, per);
+        for (size_t i = 1; i < ref.size(); ++i) CHECK_EQ(ref[i].tick - ref[i - 1].tick, 576u);
+    }
+}
+
+TEST(track_speed_wraps_on_own_length) {
+    // 16-step pattern: a 2x track loops twice per master loop; a 1/2x track
+    // plays steps 0..7 in the first loop and goes on with 8..15 in the next
+    // (a repeating pattern does not reset the tracks).
+    Rig r(120.0f);
+    for (auto& t : r.a.tracks) t.lastStep = 15;
+    for (int s = 0; s < 16; ++s) {
+        r.setNote(0, s, 40 + s);
+        r.setNote(1, s, 60 + s);
+    }
+    r.a.timing[0].speed = speedIdx(16);
+    r.a.timing[1].speed = speedIdx(4);
+    r.seq.play(0);
+    r.blocks(int(0.125 * 33 / kBlockS));   // just over two master loops
+    auto fast = r.sink.of(Ev::NoteOn, 0), slow = r.sink.of(Ev::NoteOn, 1);
+    CHECK(fast.size() >= 64);
+    CHECK(slow.size() >= 16);
+    if (fast.size() < 64 || slow.size() < 16) return;
+    for (size_t i = 0; i < 64; ++i) CHECK_EQ(fast[i].a, 40 + int(i % 16));
+    for (size_t i = 0; i < 16; ++i) {
+        CHECK_EQ(slow[i].a, 60 + int(i));
+        CHECK_EQ(slow[i].tick, 12u + 1152u * i);
+    }
+}
+
+TEST(track_speed_keeps_master_clock) {
+    // Pattern end, MIDI clock out and the step counter follow the master at
+    // 1x, whatever track 0's speed.
+    Rig r(120.0f);
+    r.seq.settings().clockOut = 1;
+    for (auto& t : r.a.tracks) t.lastStep = 7;
+    r.a.timing[0].speed = speedIdx(16);
+    r.seq.play(0);
+    r.blocks(int(0.125 * 8.5 / kBlockS));
+    CHECK_EQ(r.seq.masterStep(), 8);
+    auto clk = r.sink.midiStatus(0xF8);
+    CHECK(clk.size() >= 48);
+    if (clk.size() < 2) return;
+    for (size_t i = 1; i < clk.size(); ++i) CHECK_EQ(clk[i].tick - clk[i - 1].tick, 96u);   // 24 PPQN, straight
+}
+
+TEST(groove_swing_pairs) {
+    // Swing 58: even steps 58 / 50 of a step, odd 42 / 50; a pair keeps two
+    // steps (1152 ticks) exactly, single steps land on the nearest tick.
+    Rig r(120.0f);
+    for (int s = 0; s < 32; ++s) r.setNote(0, s, 60);
+    r.a.timing[0].groove = 3;   // Swing 58
+    CHECK(std::strcmp(timing::kGrooveNames[3], "Swing 58") == 0);
+    r.seq.play(0);
+    r.blocks(int(0.125 * 20 / kBlockS));
+    auto on = r.sink.of(Ev::NoteOn, 0);
+    CHECK(on.size() >= 17);
+    if (on.size() < 17) return;
+    for (size_t i = 0; i + 2 < on.size(); i += 2) {
+        CHECK_EQ(on[i + 2].tick - on[i].tick, 1152u);
+        const int64_t d = int64_t(on[i + 1].tick - on[i].tick);
+        CHECK(d >= 668 && d <= 669);   // 576 * 58 / 50 = 668.16
+    }
+}
+
+TEST(groove_replaces_swing_fx) {
+    // The Swing FX (Global) swings track 0; track 1 on Straight stays even,
+    // track 2 on Swing 54 keeps its own amount; stop clears the FX swing.
+    Rig r(60.0f);
+    for (int s = 0; s < 32; ++s) {
+        r.setNote(0, s, 60);
+        r.setNote(1, s, 62);
+        r.setNote(2, s, 64);
+    }
+    r.fxA(0, 0, 17, 75);   // Swing 75: 1.25 / 0.75 (stock)
+    r.a.timing[1].groove = 1;   // Straight
+    r.a.timing[2].groove = 2;   // Swing 54
+    r.seq.play(0);
+    r.blocks(int(12 * 0.25 / kBlockS));
+    auto sw = r.sink.of(Ev::NoteOn, 0), st = r.sink.of(Ev::NoteOn, 1), g = r.sink.of(Ev::NoteOn, 2);
+    CHECK(sw.size() >= 8 && st.size() >= 8 && g.size() >= 8);
+    if (sw.size() < 8 || st.size() < 8 || g.size() < 8) return;
+    for (size_t i = 0; i < 7; ++i) {
+        CHECK_EQ(sw[i + 1].tick - sw[i].tick, (i % 2 ? 432u : 720u));
+        CHECK_EQ(st[i + 1].tick - st[i].tick, 576u);
+        const int64_t d = int64_t(g[i + 1].tick - g[i].tick);
+        if (i % 2) CHECK(d >= 529 && d <= 530);   // 576 * 46 / 50 = 529.92
+        else CHECK(d >= 622 && d <= 623);         // 576 * 54 / 50 = 622.08
+    }
+}
+
+TEST(track_timing_defaults_match_stock_ticks) {
+    // A pattern with default timing plays every note on the same ticks as
+    // before #43 (every 576 ticks from tick 12), on every track.
+    Rig r(133.0f);
+    for (int t = 0; t < 8; ++t)
+        for (int s = 0; s < 32; s += 1 << (t % 3)) r.setNote(t, s, 50 + t);
+    r.seq.play(0);
+    r.blocks(int(15.0 / 133.0 * 40 / kBlockS));
+    for (int t = 0; t < 8; ++t) {
+        auto on = r.sink.of(Ev::NoteOn, t);
+        CHECK(on.size() >= 10);
+        for (const auto& e : on) CHECK_EQ((e.tick - 12u) % (576u << (t % 3)), 0u);
+    }
 }
 
 // --- FX timing ------------------------------------------------------------------
@@ -1367,6 +1503,22 @@ TEST(record_microtiming_and_velocity) {
     CHECK_EQ(int(r.step(0, 1).fx[0].type), 18);            // FX-B volume
     const int vol = 100 * 100 / 127;
     CHECK_EQ(int(r.step(0, 1).fx[0].value), (vol * 100 + 63) / 127);
+}
+
+TEST(record_microtiming_follows_track_speed) {
+    // [I] #43: a note recorded on a track at 1/2x gets that track's own
+    // position in its step as Micro-move, not the master's.
+    Rig r(40.0f);
+    r.a.timing[0].speed = 2;   // 1/2x
+    r.seq.settings().recordingOptions = 1;   // Microtiming
+    r.seq.record();
+    r.runUntil([&] { return r.seq.step(0) == 1 && r.seq.microStep(0) >= 30; });
+    const int own = r.seq.microStep(0);
+    CHECK(own != r.seq.masterMicroStep());
+    CHECK_EQ(r.seq.liveNoteOn(60, 100, 0, 0, 100), 0);
+    CHECK_EQ(int(r.step(0, 1).note), 60);
+    CHECK_EQ(int(r.step(0, 1).fx[1].type), 2);
+    CHECK_EQ(int(r.step(0, 1).fx[1].value), (own - 1) * 100 / 47);
 }
 
 TEST(record_external_arms) {
