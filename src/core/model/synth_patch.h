@@ -21,7 +21,7 @@ enum SynthEngineId : int32_t {
     kSynthEngineWtfm = 5,
     kSynthEnginePerc = 6,
     // [I] Not a Tracker Mini model: the DX7 FM engine (issue #20), a card
-    // module (modules/dx7, fork #21) in the fork's engine range 0xF0..0xFF
+    // module (opentracker-synths modules/dx7, fork #21) in the fork's engine range 0xF0..0xFF
     // (upstream's modules count up from 0x80). Its patches and projects from
     // before the module used 0x40: read as 0xF0.
     kSynthEngineDx7 = 0xF0,

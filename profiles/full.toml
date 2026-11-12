@@ -14,7 +14,7 @@ modules = [
     { id = "WTF1", path = "modules/wtfm" },
     # [I] Card modules (fork #21): not in the image; make card builds them for the
     # card's Modules/ folder, host builds (tests, sim) compile them in.
-    { id = "DX7S", path = "modules/dx7", in_tree = true, card = true },
+    { id = "DX7S", path = "modules/dx7", card = true },
     { id = "FM4S", path = "modules/fm4", card = true },
     { id = "JU6S", path = "modules/ju6", card = true },
     { id = "DTY1", path = "modules/dtype", card = true },

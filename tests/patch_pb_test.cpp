@@ -372,7 +372,7 @@ TEST(unknown_fields_kept_in_order) {
 #endif
 
 #if defined(OT_MOD_DX7S)
-// DX7 patches keep the voice in top-level field 100 (modules/dx7 dx7_patch.h).
+// DX7 patches keep the voice in top-level field 100 (opentracker-synths modules/dx7, dx7_patch.h).
 TEST(dx7_voice_field) {
     SynthPatch p;
     CHECK(patchInit(kSynthEngineDx7, &p));

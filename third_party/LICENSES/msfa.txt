@@ -1,10 +1,12 @@
 msfa (Music Synthesizer for Android, https://github.com/google/music-synthesizer-for-android)
 Copyright 2012-2013 Google Inc.
-Used by OpenTracker for: the DX7 FM engine (src/core/audio/engines/dx7.cpp) is derived from
-msfa's dx7note.cc, env.cc, pitchenv.cc, lfo.cc, fm_core.cc, fm_op_kernel.cc and patch.cc;
-the tables in src/core/audio/engines/dx7_tables.cpp are generated with the recipes of its
-sin.cc, exp2.cc and freqlut.cc (tools/make_dx7_tables). The changes are listed at the top
-of dx7.h / dx7.cpp.
+Used by OpenTracker for: the DX7 FM engine, the DX7 card module (dx7.otm; host builds,
+the simulator and the tools compile it in). Its source is modules/dx7 in opentracker-synths
+(with this licence as modules/dx7/msfa.txt): src/dx7.cpp is derived from msfa's
+dx7note.cc, env.cc, pitchenv.cc, lfo.cc, fm_core.cc, fm_op_kernel.cc and patch.cc; the
+tables in src/dx7_tables.cpp are generated with the recipes of its sin.cc, exp2.cc and
+freqlut.cc (tools/make_dx7_tables.py there). The changes are listed at the top of dx7.h /
+dx7.cpp.
 
 
                                  Apache License
