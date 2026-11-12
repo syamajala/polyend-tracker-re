@@ -13,6 +13,7 @@
 #include "modules/module.h"
 #include "modules/module_files.h"
 #include "modules/module_ui.h"
+#include "ui/screens.h"
 #include "ui_fakes.h"
 
 using namespace ot;
@@ -247,4 +248,48 @@ TEST(card_fx_loads_with_the_project) {
     CHECK(!ModuleHost::instance().find("CFX1"));
     CHECK(a.turnMasterFx(bankRow(a), true) == nullptr);
     CHECK_EQ(g_fx.level, 43);
+}
+
+// [I] The Config Memory page's data: a card effect loaded takes its room in
+// the card memory (the pool), named; "Card memory full" names the largest.
+TEST(card_fx_memory_use_lists_the_loaded_effect) {
+    FxRig rig;
+    Harness h;
+    App& a = *h.app;
+    CHECK(a.newProject());
+    App::MemoryUse u;
+    a.memoryUse(u);
+    CHECK_EQ(u.cardCap, uint32_t(sizeof(g_pool)));
+    CHECK_EQ(u.nCard, 0);
+    CHECK(a.turnMasterFx(bankRow(a), true) == nullptr);
+    a.memoryUse(u);
+    CHECK_EQ(u.nCard, 1);
+    CHECK_STR(u.card[0].name, "Card FX");
+    CHECK_STR(u.card[0].what, "effect");
+    CHECK(u.card[0].state == App::MemoryUse::State::kLoaded);
+    CHECK(u.card[0].bytes >= 24u);   // image 16 + bss 8 (+ alignment)
+    CHECK_EQ(u.cardUsed, a.moduleLoadReport().used);
+    // Its 4 KB line comes from the sample memory.
+    CHECK_EQ(u.holdBytes, 4096u);
+    CHECK_EQ(u.sampleCap, a.bank.capacityBytes() + 4096u);
+    char t[64];
+    a.cardFullText(t, sizeof t);
+    CHECK(std::strncmp(t, "Card memory full (Card FX 0.", 28) == 0);
+}
+
+TEST(config_memory_page_draws_read_only) {
+    FxRig rig;
+    Harness h;
+    App& a = *h.app;
+    CHECK(a.newProject());
+    CHECK(a.turnMasterFx(bankRow(a), true) == nullptr);
+    h.tap(btn::Config);
+    h.run(100);
+    for (int k = 0; k < 6; ++k) h.tap(btn::Down);   // Project .. Firmware, then Memory
+    CHECK_STR(ConfigScreen::categoryName(6), "Memory");
+    h.run(100);
+    CHECK_STR(a.ui.bar.label[7].top, "");   // nothing to enter
+    h.tap(btn::Right);
+    h.run(100);
+    CHECK_STR(a.ui.bar.label[7].top, "");
 }

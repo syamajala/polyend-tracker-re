@@ -700,6 +700,32 @@ public:
     static const char* fxErrorText(FxError e);   // "Not enough sample memory", ...
     // The modules' master inserts to the engine, in chain order.
     void bindMasterInserts();
+
+    // ---- [I] memory use: the Config Memory page (app/memory_use.cpp) ----
+    // Card memory: every card module loaded (its room) or wanted and not
+    // loaded (about what it needs, and why); sample memory: the samples and
+    // what is borrowed from it (card effects' memory, the resample / tape
+    // stop reservation).
+    struct MemoryUse {
+        static constexpr int kMaxRows = 24;
+        enum class State : uint8_t { kLoaded, kWaiting, kNoRoom, kFailed };
+        struct Row {
+            char name[20];   // "DX7", "Echo"
+            char what[24];   // "synth, slot 2", "effect"
+            uint32_t bytes;  // loaded: its room; else about what it needs
+            State state;
+        };
+        Row card[kMaxRows];
+        int nCard;
+        uint32_t cardUsed, cardCap;   // cardCap 0: no card memory (modules built in)
+        int samples;                  // instruments loaded
+        uint32_t sampleBytes, sampleCap;   // sampleCap: the whole sample memory
+        uint32_t holdBytes;           // card effects' memory (Echo's line)
+        uint32_t reservedBytes;       // resampling / tape stop
+    };
+    void memoryUse(MemoryUse& out) const;
+    // "Card memory full (DX7 18.8 KB)": the largest loaded card module named.
+    void cardFullText(char* out, int cap) const;
     // [I] #159 Performance FX columns (perf::kModuleFx): the page of a
     // column's effect (perf::fxTarget), nullptr while it isn't loaded. A
     // card effect loads while a column of the Performance source in use

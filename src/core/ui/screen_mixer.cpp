@@ -1061,10 +1061,19 @@ void MixerScreen::draw(Gfx& g) {
         std::snprintf(line, sizeof(line), "Master chain: %d of %d", fxSel_ + 1, n);
         g.text(x, y, kFontText, th.dim, line);
         y += 34;
+        const mod::OtmLoadReport& lr = app_.moduleLoadReport();
+        if (fx.fromCard && lr.cap) {   // [I] the room card synths and effects share (Config > Memory)
+            std::snprintf(line, sizeof(line), "Card memory: %lu of %lu KB used", static_cast<unsigned long>((lr.used + 1023u) / 1024u),
+                          static_cast<unsigned long>(lr.cap / 1024u));
+            g.text(x, y, kFontText, th.dim, line);
+            y += 34;
+        }
         if (const char* e = App::fxErrorText(fx.error)) {
             std::snprintf(line, sizeof(line), "Didn't load: %s", e);
             if (fx.error == App::FxError::kFailed) std::snprintf(line, sizeof(line), "Didn't load");
             g.text(x, y, kFontText, th.alert, line);
+            if (fx.error == App::FxError::kModuleMemory)
+                g.text(x, y + 26, kFontSmall, th.dim, "What uses it: Config > Memory");
         } else if (fx.pending) {
             g.text(x, y, kFontText, th.dim, "Loads at Stop");
         } else if (fx.card >= 0 && fx.module && !fx.on) {

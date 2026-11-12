@@ -19,6 +19,10 @@ other features:
 Without the file, a project that uses DX7 still opens, with the notice
 "Synth 1 (DX7) not available"; put the file back to play it.
 
+DX7 takes about 18 KB of the 32 KB card memory that card synths and
+[card effects](master-fx.md) share, so with DX7 loaded only some effects fit.
+**Config > [Memory](more.md#memory)** shows what is loaded.
+
 ![Synth Parameters with the DX7 model](../images/dx7-params.png)
 
 ## Use a DX7 voice

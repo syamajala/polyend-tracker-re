@@ -7,6 +7,7 @@
 #include "app/project_io.h"
 #include "app/project_fields.h"
 #include "build_id.h"
+#include "sdram_bss.h"
 #include "remote/remote.h"
 #include "ui/config_help.h"
 #include "ui/notes.h"
@@ -151,6 +152,10 @@ const Opt kFirmware[] = {
     {"Reset config", kAction, kNone, 2, 0, 0, nullptr, 0},
     {"HP level", kEnum, kDev, 0, 0, 8, kHpLevels, 0},   // /.develop only, keep last
 };
+// [I] Memory: a read-only page (drawMemory) in place of the option list.
+const Opt kMemory[] = {
+    {"Memory use", kText, kNone, 0, 0, 0, nullptr, 0},
+};
 const Opt kInfo[] = {
     {"Licenses", kAction, kNone, 3, 0, 0, nullptr, 0},
     // [I] 2.x (spec 2x-02 §2.2): since boot.
@@ -172,8 +177,10 @@ const Cat kCats[] = {
     {"USB", kUsbOpts, int(sizeof(kUsbOpts) / sizeof(Opt))},   // [I] 2.x, Mini order
     {"Metronome", kMetronome, int(sizeof(kMetronome) / sizeof(Opt))},
     {"Firmware", kFirmware, int(sizeof(kFirmware) / sizeof(Opt))},
+    {"Memory", kMemory, int(sizeof(kMemory) / sizeof(Opt))},   // [I] what fills the card and sample memory
     {"Info", kInfo, int(sizeof(kInfo) / sizeof(Opt))},
 };
+bool isMemory(int cat) { return kCats[cat].opts == kMemory; }
 constexpr int kCatCount = int(sizeof(kCats) / sizeof(Cat));
 bool gDevRows = false;   // /.develop: show the develop-only rows (ConfigScreen::start)
 
@@ -414,6 +421,7 @@ void ConfigScreen::refreshBar() {
     // F3..F6: "▲ <item> ▼" centred on 400 (also while the category list has
     // the focus [S snap 004]).
     b.setWide(3, gFwMode ? "Firmware update" : o.name);
+    if (isMemory(category)) return;   // [I] read-only: nothing to enter
     if (!editing) {
         const RecorderScreen* r = recorderOf(ui_);
         b.set(6, focus == 1 || (r && r->returnsFromConfig()) ? "Back" : "");
@@ -649,7 +657,9 @@ void ConfigScreen::onButton(uint8_t id, uint8_t state) {
             case btn::F5:
             case btn::F6:
             case btn::F8:
-            case btn::Right: focus = 1; break;
+            case btn::Right:
+                if (!isMemory(category)) focus = 1;   // [I] Memory has nothing to pick
+                break;
             case btn::F7:
             case btn::Left:
                 if (returnToRecorder()) return;
@@ -733,6 +743,10 @@ void ConfigScreen::draw(Gfx& g) {
     cv.item = catItem;
     wg::list(g, th, cv);
     const Cat& c = kCats[category];
+    if (isMemory(category)) {
+        drawMemory(g);
+        return;
+    }
     // Third column: empty panel (601, 29, 197, 394) [S snap 004].
     wg::panelColumn(g, th, 6, 2);
     if (ui_.developMode() && devValid) {
@@ -808,6 +822,87 @@ void ConfigScreen::draw(Gfx& g) {
                    IDisplay::kOptCenterY | IDisplay::kOptRightX);
     }
     if (focus == 1) wg::panelFocus(g, th, 201, 397);
+}
+
+// [I] Memory: what fills the card memory (the card modules loaded, and the
+// ones wanted that didn't fit) and the sample memory, one panel over the
+// option list and the third column.
+namespace {
+// "18.8 KB", "9.7 MB"
+void sizeText(uint32_t b, char* out, int cap) {
+    if (b >= 1024u * 1024u)
+        std::snprintf(out, size_t(cap), "%lu.%lu MB", static_cast<unsigned long>(b >> 20),
+                      static_cast<unsigned long>((b & 0xFFFFFu) * 10u >> 20));
+    else
+        std::snprintf(out, size_t(cap), "%lu.%lu KB", static_cast<unsigned long>(b >> 10),
+                      static_cast<unsigned long>((b & 1023u) * 10u >> 10));
+}
+OT_SDRAM_BSS App::MemoryUse g_memUse;   // ~1.2 KB, refilled each frame
+}  // namespace
+
+void ConfigScreen::drawMemory(Gfx& g) {
+    const Theme& th = ui_.th();
+    App::MemoryUse& u = g_memUse;
+    app_.memoryUse(u);
+    constexpr int kX = 214, kWhat = 420, kRight = 784, kPitch = 22;
+    wg::panel(g, th, 201, wg::kPanelY, 596, wg::kPanelH);
+    int y = 48;
+    char a[24], b[24], line[48];
+    // A section title with "used of total" and a bar under it.
+    auto header = [&](const char* title, uint32_t used, uint32_t cap) {
+        g.text(kX, y, kFont1, th.text, title, IDisplay::kOptCenterY);
+        sizeText(used, a, sizeof a);
+        sizeText(cap, b, sizeof b);
+        std::snprintf(line, sizeof line, "%s of %s", a, b);
+        g.text(kRight, y, kFont1, th.text, line, IDisplay::kOptCenterY | IDisplay::kOptRightX);
+        y += 16;
+        const int w = kRight - kX;
+        const int fill = cap ? int(uint64_t(w) * (used > cap ? cap : used) / cap) : 0;
+        g.rectsBegin(th.dim);
+        g.rectsAdd(kX, y, w, 4);
+        g.rectsEnd();
+        g.rectsBegin(used * 10u >= cap * 9u ? th.alert : th.accent);
+        if (fill) g.rectsAdd(kX, y, fill, 4);
+        g.rectsEnd();
+        y += 4 + kPitch;
+    };
+    auto row = [&](const char* name, const char* what, uint32_t bytes, uint32_t c) {
+        g.text(kX + 14, y, kFont1, c, name, IDisplay::kOptCenterY);
+        if (what[0]) g.text(kWhat, y, kFont1, th.dim, what, IDisplay::kOptCenterY);
+        sizeText(bytes, a, sizeof a);
+        g.text(kRight, y, kFont1, c, a, IDisplay::kOptCenterY | IDisplay::kOptRightX);
+        y += kPitch;
+    };
+    if (!u.cardCap) {   // host builds: the card modules are compiled in
+        g.text(kX, y, kFont1, th.text, "Card modules", IDisplay::kOptCenterY);
+        g.text(kRight, y, kFont1, th.dim, "built in", IDisplay::kOptCenterY | IDisplay::kOptRightX);
+        y += kPitch + 8;
+    } else {
+        header("Card modules", u.cardUsed, u.cardCap);
+        constexpr int kMaxShown = 10;
+        for (int i = 0; i < u.nCard && i < kMaxShown; ++i) {
+            const App::MemoryUse::Row& r = u.card[i];
+            const bool in = r.state == App::MemoryUse::State::kLoaded;
+            static const char* const kWhy[] = {"", "loads at Stop", "no room", "didn't load"};
+            if (in) std::snprintf(line, sizeof line, "%s", r.what);
+            else std::snprintf(line, sizeof line, "%s: %s", r.what, kWhy[int(r.state)]);
+            row(r.name, line, r.bytes, in ? th.text : r.state == App::MemoryUse::State::kWaiting ? th.dim : th.alert);
+        }
+        if (u.nCard > kMaxShown) {
+            std::snprintf(line, sizeof line, "%d more", u.nCard - kMaxShown);
+            g.text(kX + 14, y, kFont1, th.dim, line, IDisplay::kOptCenterY);
+            y += kPitch;
+        }
+        row("free", "", u.cardUsed < u.cardCap ? u.cardCap - u.cardUsed : 0, th.dim);
+        y += 10;
+    }
+    const uint32_t used = u.sampleBytes + u.holdBytes + u.reservedBytes;
+    header("Sample memory", used, u.sampleCap);
+    std::snprintf(line, sizeof line, "%d instrument%s", u.samples, u.samples == 1 ? "" : "s");
+    row("samples", line, u.sampleBytes, th.text);
+    if (u.holdBytes) row("card effects", "effect buffers", u.holdBytes, th.text);
+    if (u.reservedBytes) row("held back", "resampling, tape stop", u.reservedBytes, th.text);
+    row("free", "", u.sampleCap > used ? u.sampleCap - used : 0, th.dim);
 }
 
 // ---------------------------------------------------------------------------

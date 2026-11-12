@@ -327,8 +327,11 @@ bool App::synthUnavailableNotice(char* out, size_t cap) const {
     for (int s = 0; s < kSynthSlotCount; ++s) {
         const int32_t eng = slotEngineId(s);
         if (eng && audio::synthEngineFor(eng)) continue;
-        if (const char* why = cardSlotState(s))
+        if (const char* why = cardSlotState(s)) {
+            char full[48];   // [I] naming what fills the card memory (the Memory page)
+            if (std::strcmp(why, "Card memory full") == 0) cardFullText(full, sizeof full), why = full;
             std::snprintf(out, cap, "Synth %d (%s): %s", s + 1, synthEngineDisplayName(eng), why);
+        }
         else
             std::snprintf(out, cap, "Synth %d (%s) not available", s + 1, synthEngineDisplayName(eng));
         return true;

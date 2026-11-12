@@ -100,7 +100,7 @@ TEST(config_current_version_names_the_flavour) {
 TEST(licenses_page_names_the_flavour) {
     Harness h;
     h.tap(btn::Config);
-    for (int i = 0; i < 6; ++i) h.tap(btn::Down);   // Info
+    for (int i = 0; i < ConfigScreen::categoryCount() - 1; ++i) h.tap(btn::Down);   // Info (last)
     h.tap(btn::Right);                                // Licenses
     h.tap(btn::F8);
     h.run(50);
