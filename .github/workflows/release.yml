@@ -49,6 +49,10 @@ jobs:
       - uses: carlosperate/arm-none-eabi-gcc-action@v1
         with:
           release: '14.2.Rel1'
+      - name: Install pyelftools
+        # tools/make_otm.py (card modules, #21) reads the module objects with it.
+        # System-wide: make runs it with python3 -I, which skips the user site.
+        run: sudo python3 -m pip install --break-system-packages pyelftools==0.33
       - name: Version from the tag
         id: ver
         run: |
