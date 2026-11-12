@@ -469,6 +469,11 @@ private:
     uint64_t tickCount_ = 0;
     uint8_t masterMicro_ = 1;
     uint8_t masterSub_ = 1;   // [I] 1..48: the micro of the master step (a 1x track's micro)
+    // [I] Track clocks are visited only on the master's micro and on the tick
+    // the earliest track is due (tick() skips the rest): trackLast_ = tick of
+    // the last visit, trackDue_ = the next due tick.
+    uint32_t trackLast_ = 0;
+    uint32_t trackDue_ = 0;
     // [3.x] Z chase per synth slot (in the padding before masterStep_): low
     // nibble = the preset the slot had when the pattern (or selection)
     // started, high nibble = the preset the sequencer last gave it.

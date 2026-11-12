@@ -343,6 +343,12 @@ void Sequencer::tick() {
     // groove. 1x with no swing lands on the master's ticks, as before.
     const bool master = old % kTicksPerMicro == 0;
     if (master && !masterMicroStart()) return;
+    // Between the master's micros only the tick a track is due on visits
+    // the clocks, so a pattern at 1x costs what it did before.
+    if (!master && int32_t(old - trackDue_) < 0) return;
+    const int32_t elapsed = int32_t(old - trackLast_);
+    trackLast_ = old;
+    int32_t wait = 1 << 20;   // ticks until the earliest track is due
     for (int t = 0; t < kTracks; ++t) {
         TrackState& tr = tracks_[t];
         if (tr.clkSync) {
@@ -350,12 +356,22 @@ void Sequencer::tick() {
             tr.clkSync = false;
             tr.clk = 0;
         } else {
-            tr.clk = int16_t(tr.clk - int32_t(tr.speed) * 50);
-            if (tr.clk > 0) continue;
+            const int32_t c = tr.clk - elapsed * int32_t(tr.speed) * 50;
+            tr.clk = int16_t(c);
+            if (c > 0) {
+                const int32_t inc = int32_t(tr.speed) * 50;
+                const int32_t w = (c + inc - 1) / inc;
+                if (w < wait) wait = w;
+                continue;
+            }
         }
         trackMicro(t);
         if (!playing_) return;
+        const int32_t inc = int32_t(tr.speed) * 50;   // the speed of its next micro
+        const int32_t w = (int32_t(tr.clk) + inc - 1) / inc;
+        if (w < wait) wait = w;
     }
+    trackDue_ = old + uint32_t(wait);
     if (master) masterMicroEnd();
 }
 
