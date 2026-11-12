@@ -373,6 +373,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#install-the-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install the modules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#go-back-to-stock-firmware" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1101,6 +1112,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#install-the-modules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install the modules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#go-back-to-stock-firmware" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1144,12 +1166,12 @@
 
 <h1 id="install-and-go-back">Install and go back<a class="headerlink" href="#install-and-go-back" title="Permanent link">&para;</a></h1>
 <h2 id="get-an-image">Get an image<a class="headerlink" href="#get-an-image" title="Permanent link">&para;</a></h2>
-<p>The firmware image is a single file named like <code>PolyendTrackerOTv223.ptf</code> (for version
-2.2.3). Three ways to get one:</p>
+<p>The firmware image is a single file named like <code>PolyendTrackerOTv300.ptf</code> (for version
+3.0.0). Three ways to get one:</p>
 <ul>
 <li><strong>Releases:</strong> tagged versions are published on the fork's
-  <a href="https://github.com/syamajala/polyend-tracker-re/releases">Releases</a> page. <em>(No release
-  has been made yet.)</em></li>
+  <a href="https://github.com/syamajala/polyend-tracker-re/releases">Releases</a> page, with
+  <code>Modules.zip</code> (the card modules, below) and <code>MidiPresets.zip</code>.</li>
 <li><strong>CI builds:</strong> every push to <code>main</code> builds an image. Open the latest
   <a href="https://github.com/syamajala/polyend-tracker-re/actions/workflows/ci.yml">CI run</a> on
   <code>main</code> and download the <code>firmware-…</code> artifact (you need to be logged in to GitHub).</li>
@@ -1168,6 +1190,50 @@ rename the <code>.ptf</code> file.</p>
 <li>On the Tracker, go to <strong>Config &gt; Firmware update</strong>, select the file and confirm.</li>
 <li>If the screen stays dark after the update, press the power button once.</li>
 </ol>
+<h2 id="install-the-modules">Install the modules<a class="headerlink" href="#install-the-modules" title="Permanent link">&para;</a></h2>
+<p>DX7, the other extra synths and the <a href="../guide/master-fx/">master effects</a> aren't in the
+firmware image: they are <strong>card modules</strong>, <code>.otm</code> files the Tracker loads from the SD card.
+The five Mini synths (ACD, FAT, VAP, WTFM, PERC) are built in and need nothing.</p>
+<ol>
+<li>Download <strong><code>Modules.zip</code></strong> from the same release as the firmware.</li>
+<li>Unzip it. It holds one folder, <code>Modules</code>, with the <code>.otm</code> files.</li>
+<li>Copy the <strong><code>Modules</code></strong> folder to the top of the SD card, so the files sit in
+   <code>/Modules/</code> (for example <code>/Modules/dx7.otm</code>). If a <code>Modules</code> folder is already there,
+   <strong>replace all of its files</strong>.</li>
+<li>Restart the Tracker.</li>
+</ol>
+<p>What's in it:</p>
+<table>
+<thead>
+<tr>
+<th>Kind</th>
+<th>Modules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Synths</td>
+<td><code>dx7</code> (DX7), <code>fm4</code> (FM4), <code>ju6</code> (JU6), <code>dtype</code> (D-Type), <code>cstype</code> (CS-Type), <code>atype</code> (A-Type), <code>ttype</code> (T-Type drums), <code>eight</code> (8-Type), <code>hand</code> (Hand-Type), <code>btype</code> (B-Type), <code>arc</code> (Arc-Type)</td>
+</tr>
+<tr>
+<td>Effects</td>
+<td><code>dirt</code>, <code>lofi</code>, <code>chorus</code>, <code>bbd</code>, <code>echo</code>, <code>tape</code></td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>The card synths show in a synth slot's <strong>Model</strong> list, and the effects in the
+  <a href="../guide/master-fx/">FX bank</a>. A module only takes memory while a project uses it;
+  <strong>Config &gt; <a href="../guide/more/#memory">Memory</a></strong> shows what is loaded.</li>
+<li>You can leave out modules you don't want: delete their files from <code>/Modules/</code>.</li>
+<li><strong>Update the modules with every firmware update.</strong> Modules from another firmware version
+  don't load: the boot screen says the module "needs updating".</li>
+<li>In <a href="../guide/more/#usb-storage-mode">USB Storage mode</a> you can copy synth modules without
+  a restart: leaving USB Storage mode reads <code>/Modules/</code> again. A changed effect module
+  needs a restart.</li>
+<li>Without the folder the Tracker works as before, without those synths and effects. A
+  project that uses a missing synth opens with "Synth N (name) not available" on that slot.</li>
+</ul>
 <h2 id="go-back-to-stock-firmware">Go back to stock firmware<a class="headerlink" href="#go-back-to-stock-firmware" title="Permanent link">&para;</a></h2>
 <p>Keep Polyend's stock image, <code>PolyendTracker_1.9.2.ptf</code>, in <code>/Firmware</code> too. Then either:</p>
 <ul>

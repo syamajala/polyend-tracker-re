@@ -1191,8 +1191,9 @@ seconds. The diag log records "reset reason: core lockup".</p>
 <li><strong>Crackles or dropped notes when busy:</strong> check the <strong>CPU meter</strong> (Config &gt; General &gt;
   CPU meter). The voice limiter cuts synth voices first when the audio gets close to its
   limit; lowering <strong>Synth voices</strong> or synth polyphony helps.</li>
-<li><strong>A synth slot is silent and shows "not available":</strong> its model has no engine in this
-  build (WTFM).</li>
+<li><strong>A synth slot is silent and shows "not available":</strong> its model is a card module that
+  isn't on the card, or is from another firmware version. Copy the release's <code>Modules</code>
+  folder to the card (<a href="../../install/#install-the-modules">Install the modules</a>).</li>
 <li><strong>DX7 voice sounds different from a hardware DX7:</strong> report the voice (<code>.syx</code> file) in an
   issue; the engine is checked against Dexed, not hardware.</li>
 </ul>
