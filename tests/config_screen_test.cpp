@@ -77,8 +77,9 @@ TEST(config_licenses_page) {
     App& a = *h.app;
     h.tap(btn::Config);
     ConfigScreen& c = cfgScreen(h);
-    for (int i = 0; i < 6; ++i) h.tap(btn::Down);   // Info
-    CHECK(c.category == 6);
+    const int info = ConfigScreen::categoryCount() - 1;   // Info is last ([I] after Memory)
+    for (int i = 0; i < info; ++i) h.tap(btn::Down);
+    CHECK(c.category == info);
     h.tap(btn::Right);        // Licenses
     CHECK(c.option == 0);
     h.tap(btn::F8);
@@ -160,6 +161,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
     // 2.x USB Storage: live state, never stored (store 3), Off at boot.
     // [I] Remote control: live bridge state (store 5; 4 is kDev), Off at boot.
     const Want usb[] = {{"USB Storage", 3, 3, 2, 0, 0}, {"Remote control", 3, 5, 2, 0, 0}};
+    const Want memory[] = {{"Memory use", 5, 2, 0, 0, -1}};   // [I] the page draws the rest
     const Want info[] = {{"Licenses", 7, 2, 0, 0, -1},
                          // 2.x [I] (spec 2x-02 §2.2)
                          {"CPU overruns", 5, 2, 0, 0, -1},
@@ -173,11 +175,12 @@ TEST(config_menu_lists_all_options_with_defaults) {
     const CatWant cats[] = {
         {"Project Settings", project, 10}, {"General", general, 20}, {"MIDI", midi, 11},
         {"USB", usb, 2},                   // [I] 2.x (Tracker Mini order)
-        {"Metronome", metro, 5},           {"Firmware", firmware, 4}, {"Info", info, 4},
+        {"Metronome", metro, 5},           {"Firmware", firmware, 4}, {"Memory", memory, 1},   // [I] read-only page
+        {"Info", info, 4},
     };
-    CHECK_EQ(ConfigScreen::categoryCount(), 7);
+    CHECK_EQ(ConfigScreen::categoryCount(), 8);
     int total = 0;
-    for (int k = 0; k < 7; ++k) {
+    for (int k = 0; k < 8; ++k) {
         CHECK_STR(ConfigScreen::categoryName(k), cats[k].name);
         CHECK_EQ(ConfigScreen::optionCount(k), cats[k].n);
         for (int i = 0; i < cats[k].n; ++i, ++total) {
@@ -192,7 +195,7 @@ TEST(config_menu_lists_all_options_with_defaults) {
             if (w.def >= 0) CHECK_EQ(c.optionIndex(k, i), w.def);
         }
     }
-    CHECK_EQ(total, 56);   // stock 42 + 2.x Export theme, CPU meter, Synth voices, Radio stereo, Export sample rate, two stream rows, Pad layout, Note names, three Info lines, USB Storage, Remote control
+    CHECK_EQ(total, 57);   // stock 42 + 2.x Export theme, CPU meter, Synth voices, Radio stereo, Export sample rate, two stream rows, Pad layout, Note names, three Info lines, USB Storage, Remote control, Memory use
     char t[48];
     c.optionText(3, 0, t, sizeof t);   // USB Storage: Off
     CHECK_STR(t, "Off");

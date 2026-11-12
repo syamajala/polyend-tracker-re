@@ -98,6 +98,7 @@ struct HelpCat {
 const HelpCat kHelp[] = {
     {kProjectHelp, N(kProjectHelp)}, {kGeneralHelp, N(kGeneralHelp)}, {kMidiHelp, N(kMidiHelp)},
     {kUsbHelp, N(kUsbHelp)},         {nullptr, 0},                      {kFirmwareHelp, N(kFirmwareHelp)},
+    {nullptr, 0},   // [I] Memory
     {nullptr, 0},
 };
 constexpr int kHelpCats = N(kHelp);
