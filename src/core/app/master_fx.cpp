@@ -30,7 +30,7 @@ struct FxState {
 };
 OT_SDRAM_BSS FxState g_fx;
 
-uint32_t bit(int k) { return k >= 0 && k < 32 ? 1u << k : 0u; }
+uint32_t insertBit(int k) { return k >= 0 && k < 32 ? 1u << k : 0u; }
 
 bool fxOn(const mod::IModule* m) { return m && mod::pageOn(const_cast<mod::IModule*>(m)->page()); }
 
@@ -106,7 +106,7 @@ bool App::masterFx(int k, MasterFx& out) const {
         out.sdramBytes = f ? f->sdramBytes : 0;
         out.fromCard = true;
     }
-    out.pending = (g_fx.pending & bit(out.card)) != 0;
+    out.pending = (g_fx.pending & insertBit(out.card)) != 0;
     out.error = out.card >= 0 ? g_fx.error[out.card] : FxError::kNone;
     return true;
 }
@@ -125,16 +125,16 @@ const char* App::turnMasterFx(int k, bool on) {
     if (!masterFx(k, fx)) return nullptr;
     if (fx.module) {
         mod::pageTurn(fx.module->page(), on);
-        if (!on && fx.card >= 0) g_fx.pending &= ~bit(fx.card);   // leaves at the next Stop
+        if (!on && fx.card >= 0) g_fx.pending &= ~insertBit(fx.card);   // leaves at the next Stop
         markProjectDirty();
         return nullptr;
     }
     if (fx.card < 0) return nullptr;
     if (!on) {   // not loaded yet: forget the request
-        g_fx.pending &= ~bit(fx.card);
+        g_fx.pending &= ~insertBit(fx.card);
         return nullptr;
     }
-    g_fx.pending |= bit(fx.card);
+    g_fx.pending |= insertBit(fx.card);
     g_fx.error[fx.card] = FxError::kNone;
     if (seq.isPlaying() || seq.isArmed() || jobBusy()) return nullptr;   // loads at the next Stop
     syncCardSynths(true);
@@ -160,7 +160,7 @@ int App::wantedCardFx(int* fx) const {
         const int k = mod::cardFxIndex(l.id[i]);
         if (k < 0) continue;
         const mod::IModule* m = mod::cardFxModule(k);
-        if ((m && fxOn(m)) || (g_fx.pending & bit(k)) || (g_fx.open & bit(k)) || (g_fx.perfHold & bit(k)) ||
+        if ((m && fxOn(m)) || (g_fx.pending & insertBit(k)) || (g_fx.open & insertBit(k)) || (g_fx.perfHold & insertBit(k)) ||
             perfUses(*this, k))
             fx[n++] = k;
     }
@@ -171,22 +171,22 @@ uint32_t App::cardFxMask() const {
     int fx[mod::kMaxCardFx];
     const int n = wantedCardFx(fx);
     uint32_t m = 0;
-    for (int i = 0; i < n; ++i) m |= bit(fx[i]);
+    for (int i = 0; i < n; ++i) m |= insertBit(fx[i]);
     return m;
 }
 
 void App::markCardFxTried(const int* fx, int nFx) {
     g_fx.tried = 0;
-    for (int i = 0; i < nFx; ++i) g_fx.tried |= bit(fx[i]);
+    for (int i = 0; i < nFx; ++i) g_fx.tried |= insertBit(fx[i]);
 }
 
 void App::settleCardFx() {
     // Nothing to load: requests for effects already in are done.
     for (int k = 0; k < mod::cardFxCount(); ++k)
         if (mod::IModule* m = mod::cardFxModule(k)) {
-            if (g_fx.pending & bit(k)) mod::pageTurn(m->page(), true);
-            g_fx.pending &= ~bit(k);
-            g_fx.open &= ~bit(k);
+            if (g_fx.pending & insertBit(k)) mod::pageTurn(m->page(), true);
+            g_fx.pending &= ~insertBit(k);
+            g_fx.open &= ~insertBit(k);
         }
 }
 
@@ -228,15 +228,15 @@ bool App::endCardFx(const int* fx, int nFx) {
             if (g_fx.error[k] == FxError::kNone)
                 g_fx.error[k] = it.error == mod::OtmError::TooBig || moduleLoad_.noRoom ? FxError::kModuleMemory
                                                                                         : FxError::kFailed;
-            if ((g_fx.open & bit(k)) && !loadNotice_[0])
+            if ((g_fx.open & insertBit(k)) && !loadNotice_[0])
                 std::snprintf(loadNotice_, sizeof loadNotice_, "%s: %s", mod::cardFxAt(k)->name,
                               fxErrorText(g_fx.error[k]));
             continue;
         }
         g_fx.error[k] = FxError::kNone;
         restoreModuleSection(*m);
-        if (g_fx.pending & bit(k)) mod::pageTurn(m->page(), true);
-        else if (!fxOn(m) && !(g_fx.perfHold & bit(k)) && !perfUses(*this, k)) again = true;   // Open: off, it leaves again
+        if (g_fx.pending & insertBit(k)) mod::pageTurn(m->page(), true);
+        else if (!fxOn(m) && !(g_fx.perfHold & insertBit(k)) && !perfUses(*this, k)) again = true;   // Open: off, it leaves again
     }
     // Errors of effects this load left out stay; the requests are done.
     g_fx.pending = 0;
@@ -253,7 +253,7 @@ mod::IModulePage* App::perfFxPage(uint8_t target) const {
 
 void App::holdPerfFx(const char* id) {
     const int k = id ? mod::cardFxIndex(id) : -1;
-    g_fx.perfHold = bit(k);
+    g_fx.perfHold = insertBit(k);
 }
 
 const char* App::loadPerfFx(uint8_t target) {
@@ -296,7 +296,7 @@ void App::releaseCardFx() {
 void App::openCardFx() {
     // Card effects with project data load for it (stopped: the project load).
     for (int k = 0; k < mod::cardFxCount(); ++k)
-        if (sidecarHasModule(mod::cardFxAt(k)->id)) g_fx.open |= bit(k);
+        if (sidecarHasModule(mod::cardFxAt(k)->id)) g_fx.open |= insertBit(k);
 }
 
 bool App::cardFxWaiting(uint32_t now) {
