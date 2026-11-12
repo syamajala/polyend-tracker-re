@@ -10,6 +10,7 @@
 #include <cstring>
 
 #include "app/app.h"
+#include "app/perf_presets.h"
 #include "modules/module.h"
 #include "modules/module_files.h"
 #include "modules/module_ui.h"
@@ -24,6 +25,7 @@ struct FxState {
     uint32_t open;      // card effects to load for their project data (Open)
     uint32_t tried;     // the set the last load tried (serviceCardSynths)
     uint32_t waiting;   // the set waiting to settle
+    uint32_t perfHold;  // [I] #159 the card effect the Performance type list shows
     App::FxError error[mod::kMaxCardFx];
 };
 OT_SDRAM_BSS FxState g_fx;
@@ -55,6 +57,18 @@ void listIds(FxIds& l) {
         }
         l.id[at] = id;
     }
+}
+
+// [I] #159 card effect k is named by an FX column of the Performance
+// source in use.
+bool perfUses(const App& app, int k) {
+    App& a = const_cast<App&>(app);   // perf::select reads only here
+    const perf::Source src = perf::select(a.cfg.perfPresets, a.cfg, a.project);
+    if (!src.valid()) return false;
+    const int rank = mod::ModuleHost::chainRank(mod::cardFxAt(k)->id);
+    for (int s = 0; s < perf::kSlots; ++s)
+        if (src.type(s) == perf::kModuleFx && perf::targetRank(src.target(s)) == rank) return true;
+    return false;
 }
 
 uint32_t holdBytes(const int* fx, int nFx) {
@@ -146,7 +160,9 @@ int App::wantedCardFx(int* fx) const {
         const int k = mod::cardFxIndex(l.id[i]);
         if (k < 0) continue;
         const mod::IModule* m = mod::cardFxModule(k);
-        if ((m && fxOn(m)) || (g_fx.pending & bit(k)) || (g_fx.open & bit(k))) fx[n++] = k;
+        if ((m && fxOn(m)) || (g_fx.pending & bit(k)) || (g_fx.open & bit(k)) || (g_fx.perfHold & bit(k)) ||
+            perfUses(*this, k))
+            fx[n++] = k;
     }
     return n;
 }
@@ -220,7 +236,7 @@ bool App::endCardFx(const int* fx, int nFx) {
         g_fx.error[k] = FxError::kNone;
         restoreModuleSection(*m);
         if (g_fx.pending & bit(k)) mod::pageTurn(m->page(), true);
-        else if (!fxOn(m)) again = true;   // Open: off, it leaves again
+        else if (!fxOn(m) && !(g_fx.perfHold & bit(k)) && !perfUses(*this, k)) again = true;   // Open: off, it leaves again
     }
     // Errors of effects this load left out stay; the requests are done.
     g_fx.pending = 0;
@@ -229,8 +245,36 @@ bool App::endCardFx(const int* fx, int nFx) {
     return again;
 }
 
+mod::IModulePage* App::perfFxPage(uint8_t target) const {
+    const char* id = mod::ModuleHost::chainId(perf::targetRank(target));
+    const mod::IModule* m = id ? mod::ModuleHost::instance().find(id) : nullptr;
+    return m ? const_cast<mod::IModule*>(m)->page() : nullptr;
+}
+
+void App::holdPerfFx(const char* id) {
+    const int k = id ? mod::cardFxIndex(id) : -1;
+    g_fx.perfHold = bit(k);
+}
+
+const char* App::loadPerfFx(uint8_t target) {
+    const char* id = mod::ModuleHost::chainId(perf::targetRank(target));
+    const int k = id ? mod::cardFxIndex(id) : -1;
+    if (k < 0 || mod::cardFxModule(k)) return nullptr;   // compiled in, or loaded
+    static char t[48];
+    if (seq.isPlaying() || seq.isArmed() || jobBusy()) {
+        std::snprintf(t, sizeof t, "%s: loads at Stop", mod::cardFxAt(k)->name);
+        return t;
+    }
+    g_fx.error[k] = FxError::kNone;
+    syncCardSynths(true);
+    if (mod::cardFxModule(k)) return nullptr;
+    std::snprintf(t, sizeof t, "%s: %s", mod::cardFxAt(k)->name,
+                  fxErrorText(g_fx.error[k] != FxError::kNone ? g_fx.error[k] : FxError::kFailed));
+    return t;
+}
+
 void App::releaseCardFx() {
-    g_fx.pending = g_fx.open = g_fx.tried = g_fx.waiting = 0;
+    g_fx.pending = g_fx.open = g_fx.tried = g_fx.waiting = g_fx.perfHold = 0;
     for (FxError& e : g_fx.error) e = FxError::kNone;
     bool any = false;
     for (int k = 0; k < mod::cardFxCount(); ++k) any |= mod::cardFxModule(k) != nullptr;
