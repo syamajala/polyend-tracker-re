@@ -57,10 +57,13 @@ struct OtmLoadReport {
         bool loaded;        // in the pool now
         uint32_t rowBytes;  // its row: the code that may run from the fast block (0 = none)
         uint32_t fastBytes; // the part of the row in the fast block (the cut; 0 = none)
+        uint32_t poolBytes; // [I] its room in the pool now (0 = not loaded)
+        uint32_t needBytes; // [I] image + bss: about what it takes (less a fast block cut)
     };
     Item items[kMax];
     int n = 0;
     uint32_t used = 0;      // pool bytes in use
+    uint32_t cap = 0;       // [I] the most the pool may grow to (OtmPool::cap)
     uint32_t fastUsed = 0;  // fast block bytes in use
     bool noRoom = false;    // the pool could not grow (the stack floor): nothing loaded
     int skipped = 0;        // .otm files past the first kMax in name order: not loaded

@@ -71,6 +71,15 @@ bool perfUses(const App& app, int k) {
     return false;
 }
 
+// "Echo: Card memory full (DX7 18.8 KB)": why card effect k didn't load,
+// naming the card module that takes the most room ([I] the Memory page).
+void fxNotice(const App& a, const char* name, App::FxError e, char* out, int cap) {
+    char why[48];
+    if (e == App::FxError::kModuleMemory) a.cardFullText(why, sizeof why);
+    else std::snprintf(why, sizeof why, "%s", App::fxErrorText(e));
+    std::snprintf(out, size_t(cap), "%s: %s", name, why);
+}
+
 uint32_t holdBytes(const int* fx, int nFx) {
     uint32_t b = 0;
     for (int k = 0; k < nFx; ++k) b += (mod::cardFxAt(fx[k])->sdramBytes + 15u) & ~15u;
@@ -139,8 +148,8 @@ const char* App::turnMasterFx(int k, bool on) {
     if (seq.isPlaying() || seq.isArmed() || jobBusy()) return nullptr;   // loads at the next Stop
     syncCardSynths(true);
     if (g_fx.error[fx.card] != FxError::kNone) {
-        static char t[48];
-        std::snprintf(t, sizeof t, "%s: %s", fx.name, fxErrorText(g_fx.error[fx.card]));
+        static char t[64];
+        fxNotice(*this, fx.name, g_fx.error[fx.card], t, sizeof t);
         return t;
     }
     return nullptr;
@@ -229,8 +238,7 @@ bool App::endCardFx(const int* fx, int nFx) {
                 g_fx.error[k] = it.error == mod::OtmError::TooBig || moduleLoad_.noRoom ? FxError::kModuleMemory
                                                                                         : FxError::kFailed;
             if ((g_fx.open & insertBit(k)) && !loadNotice_[0])
-                std::snprintf(loadNotice_, sizeof loadNotice_, "%s: %s", mod::cardFxAt(k)->name,
-                              fxErrorText(g_fx.error[k]));
+                fxNotice(*this, mod::cardFxAt(k)->name, g_fx.error[k], loadNotice_, sizeof loadNotice_);
             continue;
         }
         g_fx.error[k] = FxError::kNone;
@@ -260,7 +268,7 @@ const char* App::loadPerfFx(uint8_t target) {
     const char* id = mod::ModuleHost::chainId(perf::targetRank(target));
     const int k = id ? mod::cardFxIndex(id) : -1;
     if (k < 0 || mod::cardFxModule(k)) return nullptr;   // compiled in, or loaded
-    static char t[48];
+    static char t[64];
     if (seq.isPlaying() || seq.isArmed() || jobBusy()) {
         std::snprintf(t, sizeof t, "%s: loads at Stop", mod::cardFxAt(k)->name);
         return t;
@@ -268,8 +276,8 @@ const char* App::loadPerfFx(uint8_t target) {
     g_fx.error[k] = FxError::kNone;
     syncCardSynths(true);
     if (mod::cardFxModule(k)) return nullptr;
-    std::snprintf(t, sizeof t, "%s: %s", mod::cardFxAt(k)->name,
-                  fxErrorText(g_fx.error[k] != FxError::kNone ? g_fx.error[k] : FxError::kFailed));
+    fxNotice(*this, mod::cardFxAt(k)->name, g_fx.error[k] != FxError::kNone ? g_fx.error[k] : FxError::kFailed, t,
+             sizeof t);
     return t;
 }
 

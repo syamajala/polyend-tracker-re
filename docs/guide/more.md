@@ -99,6 +99,24 @@ Chop a break, then press one key to get a pattern that plays it. On the Sample P
   length; a sample longer than the track is placed once, cut at the track's end.
 - Slice first: Auto (F1) for drum breaks, Evenly (F2) for loops in time.
 
+## Memory
+
+**Config > Memory** shows what fills the Tracker's memory, for when something won't load.
+For example, with DX7 on a synth slot, turning on a third card effect can fail with "Card
+memory full". The page shows DX7 taking 18 KB of the 32 KB, so you know to turn off an
+effect or switch the slot to a built-in synth.
+
+- **Card modules**: the card synths and effects that are loaded (DX7, Echo …), what uses
+  them (`synth, slot 2`, `effect`) and their size. Ones that are wanted but not in are
+  listed too, with why: **loads at Stop**, **no room** (red), **didn't load**.
+- **Sample memory**: the samples, plus what is borrowed from it: card effects' buffers
+  (Echo's 48 KB line) and the space held back while resampling or during a tape stop.
+- The bar turns red at 90 %. The page is read-only.
+
+When a card module doesn't fit, the notice names the biggest one loaded, e.g. "Echo: Card
+memory full (DX7 18.3 KB)", and the FX bank shows how much card memory is used. In the
+simulator the card modules are built in, so the page lists only the sample memory.
+
 ## The 2.x features (from upstream)
 
 The 2.x line brings the newer Tracker features to the original hardware. In short:

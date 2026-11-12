@@ -696,6 +696,7 @@ private:
     void moveOpt(int d);
     void movePick(int d);
     bool returnToRecorder();
+    void drawMemory(Gfx& g);   // [I] the Memory category's page
     uint32_t lastDev_ = 0;
 };
 

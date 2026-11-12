@@ -274,6 +274,7 @@ void dropCardSynths() {
             g_card.mod[i] = nullptr;
             r.items[i].loaded = false;
             r.items[i].fastBytes = 0;
+            r.items[i].poolBytes = 0;
         }
     g_card.nHotWant = 0;
     r.used = g_card.keepUsed;
@@ -289,6 +290,7 @@ int loadModuleFiles(IStorage& fs, const OtmPool& pool, uint8_t* scratch, uint32_
     OtmLoadReport& r = report ? *report : local;
     r.n = 0;
     r.skipped = 0;
+    r.cap = pool.cap;
     r.used = 0;
     r.fastUsed = 0;
     r.noRoom = false;
@@ -331,6 +333,7 @@ int loadModuleFiles(IStorage& fs, const OtmPool& pool, uint8_t* scratch, uint32_
                                t ? &t->nCuts[nKeep] : nullptr);
         if (it.error != OtmError::None) continue;
         it.rowBytes = hdr.rowBytes;
+        it.needBytes = hdr.imageBytes + hdr.bssBytes;
         IModule* m = place(pool, it, scratch, len, hdr, 0, &used, &fastUsed);
         if (!m) continue;
 #if defined(OT_POOL_TEST) && OT_POOL_TEST
@@ -363,6 +366,7 @@ int loadModuleFiles(IStorage& fs, const OtmPool& pool, uint8_t* scratch, uint32_
             continue;
         }
         it.loaded = true;
+        it.poolBytes = used - r.used;
         r.used = used;
         r.fastUsed = fastUsed;
         ++loaded;
@@ -518,6 +522,7 @@ bool loadCardSynths(IStorage& fs, const int32_t* engines, int n, uint8_t* scratc
             continue;
         }
         it.loaded = true;
+        it.poolBytes = used - r.used;
         g_card.mod[f] = m;
         r.used = used;
         r.fastUsed = fastUsed;
@@ -569,6 +574,7 @@ int rescanCardSynths(IStorage& fs, uint8_t* scratch, uint32_t scratchCap) {
         it.error = readChecked(fs, pool, it.file, scratch, scratchCap, &len, &hdr, nullptr, nullptr);
         if (it.error != OtmError::None) continue;
         it.rowBytes = hdr.rowBytes;
+        it.needBytes = hdr.imageBytes + hdr.bssBytes;
         IModule* m = place(pool, it, scratch, len, hdr, 0, &used, &fastUsed);
         // A new module without synth engines or a master effect loads at the next start.
         if (m) {

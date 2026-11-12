@@ -189,3 +189,19 @@ wait 1500
 budget perf-masterfx-column 1950
 fragcheck perf-masterfx-column
 tap PLAY
+# Config > Memory (the card modules are built in on the host: the card
+# section is one line; the device lists them).
+tap CONFIG
+wait 200
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN             # Memory (after Firmware)
+wait 300
+budget-reset
+wait 300
+budget config-memory 850
+fragcheck config-memory
+tap PATTERN
