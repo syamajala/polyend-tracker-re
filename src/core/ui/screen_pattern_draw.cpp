@@ -380,7 +380,7 @@ void PatternScreen::drawGridVertical(Gfx& g, bool threeTracks) {
         const int ps = a.seq.step(track);
         for (int r = 0; r < kRows; ++r)
             if (rowStep[r] == ps) troughRow = r;
-    } else {
+    } else if (!th.flag(slot::kFlagBandPlayingOnly)) {   // [I] CE themes: only while playing
         troughRow = wrapRow;
     }
     // 7. Bottom fade of the grid control (style bit21).

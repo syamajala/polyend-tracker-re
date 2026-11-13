@@ -87,7 +87,7 @@ const Opt kGeneral[] = {
     {"Display brightness", kEnum, kCfg, CF(brightness), 0, 3, kLowMedHigh, 0},
     {"Display theme", kEnum, kCfg, CF(theme), 0, 3, kThemes, 0},
     {"Display font", kEnum, kCfg, CF(font), 0, 2, kFonts, 0},
-    {"Export theme", kAction, kNone, 4, 0, 0, nullptr, 0},   // [I] 2.x theme files
+    {"Export theme", kAction, kNone, 4, 0, 0, nullptr, 0},   // [I] CE JSON theme files
     {"Pads brightness", kEnum, kCfg, CF(padsBrightness), 0, 3, kLowMedHigh, 0},
     {"Pads preview", kEnum, kCfg, CF(padsPreview), 0, 3, kPreview, 0},
     {"Recording options", kEnum, kCfg, CF(recordingOptions), 0, 4, kRecOpts, 0},
@@ -267,8 +267,8 @@ bool fwFn(const IStorage::DirEntry& e, void* c) {
     return gFwCount < kFwMax;
 }
 
-// [I] 2.x theme files: the Display theme picker lists the stock themes, then
-// Themes/*.txt (ui/theme_file.h), rebuilt on every Enter.
+// [I] CE JSON theme files: the Display theme picker lists the stock themes, then
+// Themes/*.json (ui/theme_file.h), rebuilt on every Enter.
 char (*const gThemeList)[kThemeNameMax + 1] = reinterpret_cast<char (*)[kThemeNameMax + 1]>(g_browserLists);
 int gThemeCount = 0;
 bool gThemeMode = false;
@@ -504,10 +504,10 @@ void ConfigScreen::enter() {
         char msg[64];
         const char* name = a.activeThemeName();
         switch (a.exportTheme()) {
-            case App::ThemeExport::kOk: std::snprintf(msg, sizeof(msg), "Saved %s/%s.txt", kThemesDir, name); break;
-            case App::ThemeExport::kExists: std::snprintf(msg, sizeof(msg), "%s/%s.txt exists", kThemesDir, name); break;
+            case App::ThemeExport::kOk: std::snprintf(msg, sizeof(msg), "Saved %s/%s.json", kThemesDir, name); break;
+            case App::ThemeExport::kExists: std::snprintf(msg, sizeof(msg), "%s/%s.json exists", kThemesDir, name); break;
             case App::ThemeExport::kUnavailable: std::snprintf(msg, sizeof(msg), "Not available in USB Storage mode"); break;
-            default: std::snprintf(msg, sizeof(msg), "Cannot write %s/%s.txt", kThemesDir, name); break;
+            default: std::snprintf(msg, sizeof(msg), "Cannot write %s/%s.json", kThemesDir, name); break;
         }
         ui_.notify(msg);
     } else {
@@ -550,7 +550,7 @@ void ConfigScreen::apply() {
             const char* name = gThemeList[picker - kThemeCount];
             if (!a.loadCustomTheme(name)) {
                 char msg[64];
-                std::snprintf(msg, sizeof(msg), "Cannot read %s/%s.txt", kThemesDir, name);
+                std::snprintf(msg, sizeof(msg), "Cannot read %s/%s.json", kThemesDir, name);
                 ui_.notify(msg);
                 return;
             }
@@ -740,6 +740,7 @@ void ConfigScreen::draw(Gfx& g) {
     cv.count = kCatCount;
     cv.sel = category;
     cv.selStyle = wg::ListSel::kWhite;
+    cv.labelText = true;   // [I] CE themes: grey items, the selected one bright
     cv.item = catItem;
     wg::list(g, th, cv);
     const Cat& c = kCats[category];
@@ -788,6 +789,7 @@ void ConfigScreen::draw(Gfx& g) {
         pv.count = n;
         pv.sel = picker;
         pv.selStyle = wg::ListSel::kWhite;
+        pv.labelText = true;
         gPickTop = wg::listFollow(picker, n, wg::listVisibleRows(pv.h), gPickTop);
         pv.top = gPickTop;
         pv.item = pickItem;
@@ -807,6 +809,7 @@ void ConfigScreen::draw(Gfx& g) {
     ov.count = catCount(category);
     ov.sel = option;
     ov.selStyle = wg::ListSel::kWhite;
+    ov.labelText = true;
     gOptTop = wg::listFollow(option, catCount(category), wg::listVisibleRows(ov.h), focus == 1 ? gOptTop : 0);
     ov.top = gOptTop;
     ov.item = optItem;
@@ -818,7 +821,8 @@ void ConfigScreen::draw(Gfx& g) {
         const Opt& o = c.opts[ov.top + r];
         optValueText(a, o, optIndex(a, o), v, sizeof(v));
         if (v[0])
-            g.text(valueRight(category), ov.y + 17 + wg::kListRowH * r, kFont1, textC, v,
+            g.text(valueRight(category), ov.y + 17 + wg::kListRowH * r, kFont1,
+                   th.slot(ov.top + r == option ? slot::kListTextSel : slot::kListText), v,
                    IDisplay::kOptCenterY | IDisplay::kOptRightX);
     }
     if (focus == 1) wg::panelFocus(g, th, 201, 397);

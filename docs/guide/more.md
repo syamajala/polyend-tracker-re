@@ -143,6 +143,26 @@ When a card module doesn't fit, the notice names the biggest one loaded, e.g. "E
 memory full (DX7 18.3 KB)", and the FX bank shows how much card memory is used. In the
 simulator the card modules are built in, so the page lists only the sample memory.
 
+## Colour themes
+
+Make a theme in [Tracker CE's theme editor](https://polyend.github.io/tracker-theme-editor/),
+press **Export Theme**, and copy the `.json` file to the `Themes` folder on the card. Pick it
+under **Config > General > Display theme**, after the three built-in themes. Themes made for
+Tracker CE work on OpenTracker, and the other way round.
+
+- **Export theme** (Config > General) saves the theme you're using, built-in or not, as
+  `Themes/<name>.json`. Import that into the editor to start from it. An existing file is
+  never overwritten.
+- A theme draws in CE's style: flat panels without fades, and the band across the pattern
+  only on the playing row while the song plays. The built-in themes keep the stock look.
+- Colours a file leaves out come from its **base** (Original, Monochrome or Anniversary).
+  Keys that have no counterpart on OpenTracker (CE's mini menu and on-screen keyboard) are
+  ignored, and they aren't written on export.
+- Text set to its own background colour (unreadable) falls back to the base's colours.
+- Twelve example themes are in [`themes/`](https://github.com/syamajala/polyend-tracker-re/tree/main/themes)
+  in the repository, among them Halloween (contributed by AnthonyBerg1983).
+- The old `key = value` text themes (`.txt`) are no longer read.
+
 ## The 2.x features (from upstream)
 
 The 2.x line brings the newer Tracker features to the original hardware. In short:

@@ -628,6 +628,7 @@ void EditorScreen::draw(Gfx& g) {
     v.sel = effect;
     v.top = wg::listFollow(effect, v.count, wg::listVisibleRows(v.h), 0);
     v.selStyle = wg::ListSel::kWhite;
+    v.labelText = true;   // [I] CE themes: grey items, the selected one bright
     v.item = effectItem;
     wg::list(g, th, v);
     if (focus == 3) wg::panelFocus(g, th, kListX, kListW);

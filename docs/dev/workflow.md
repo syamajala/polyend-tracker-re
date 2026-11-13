@@ -64,6 +64,14 @@ Projects must keep opening in stock firmware, upstream OpenTracker and the Track
   progression per line in scale numbers, not `key = value`. The built-in files are
   compiled in (`prog::defaultText`) and written only when the folder has no `.txt` file,
   never over an existing one.
+- `Themes/<name>.json` are Tracker CE's colour themes, read and written in CE's format so
+  themes move between CE's web editor and OpenTracker (`ui/theme_file.h`). The CE key ->
+  slot map is generated: edit `tools/ce_theme_map.py` and run it to rewrite
+  `src/core/ui/ce_theme_map.inc`. The map came from black-box observation only: a theme
+  with one colour per CE key was screenshotted in CE's web editor and matched pixel by pixel
+  against the simulator with one colour per slot. Slots 277..284 are fork slots for parts
+  CE colours apart from the stock sets; the stock themes copy the colour each one replaces.
+  The example themes are in `themes/`; host tests parse each one.
 
 ## Code conventions
 

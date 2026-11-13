@@ -1,5 +1,5 @@
-// 2.x theme files from the card, app side: Config > General > Display theme
-// lists the stock themes then /Themes/*.txt, the choice persists in the
+// [I] CE JSON theme files from the card, app side: Config > General > Display
+// theme lists the stock themes then /Themes/*.json, the choice persists in the
 // config extension record (v5) and reloads at boot / after USB Storage mode,
 // Export theme writes the active theme (docs/CHANGES_2X.md).
 #include "test.h"
@@ -22,8 +22,9 @@ constexpr int kThemeRow = 2;
 constexpr int kExportRow = 4;
 
 const char* const kNeon =
-    "# Neon\nbase = original\nbackground = #06030F\npanel = #140A26\naccent = #FF2BD6\n";
-const char* const kPaper = "base = monochrome\nbackground = #F0EEE8\n";
+    "{\"name\": \"Neon\", \"base\": \"Original\", \"background\": \"#06030F\",\n"
+    " \"popups\": {\"stepList\": {\"background\": \"#140A26\"}}, \"accents\": {\"red\": \"#FF2BD6\"}}\n";
+const char* const kPaper = "{\"base\": \"Monochrome\", \"background\": \"#F0EEE8\"}\n";
 
 void putFile(FakeStorage& fs, const std::string& path, const std::string& text) {
     fs.mkdir(path.substr(0, path.rfind('/')).c_str());
@@ -59,14 +60,12 @@ void pickTheme(Harness& h, int pick) {
     h.tap(btn::F8);   // Apply
 }
 
-bool sameDl(const std::vector<std::string>& a, const std::vector<std::string>& b) { return a == b; }
-
 }  // namespace
 
 TEST(theme_picker_lists_stock_then_card_themes) {
     Harness h;
-    putFile(h.fs, "Themes/Neon.txt", kNeon);
-    putFile(h.fs, "Themes/amber.txt", "base = original\n");
+    putFile(h.fs, "Themes/Neon.json", kNeon);
+    putFile(h.fs, "Themes/amber.json", "{\"base\": \"Original\"}");
     putFile(h.fs, "Themes/readme.md", "");
     gotoGeneralRow(h, kThemeRow);
     ConfigScreen& c = cfgScreen(h);
@@ -102,7 +101,7 @@ TEST(theme_picker_lists_stock_then_card_themes) {
 TEST(apply_card_theme_activates_table) {
     Harness h;
     App& a = *h.app;
-    putFile(h.fs, "Themes/Neon.txt", kNeon);
+    putFile(h.fs, "Themes/Neon.json", kNeon);
     pickTheme(h, 3);
     CHECK(!cfgScreen(h).editing);
     CHECK(a.customThemeActive());
@@ -111,14 +110,14 @@ TEST(apply_card_theme_activates_table) {
     CHECK_EQ(a.cfg.theme, 0);
     CHECK_EQ(a.ui.th().bg, 0x06030Fu);
     CHECK_EQ(a.ui.th().accent, 0xFF2BD6u);
-    CHECK_EQ(a.ui.th().slot(slot::kList + 3), 0x140A26u);
+    CHECK_EQ(a.ui.th().slot(slot::kEmptyPanel + 1), 0x140A26u);
     CHECK_STR(a.ui.th().name, "Neon");
     // The picker opens on the active entry.
     h.tap(btn::F8);
     CHECK_EQ(cfgScreen(h).picker, 3);
     h.tap(btn::F7);
     // A Monochrome-based file sets the stock byte to its base.
-    putFile(h.fs, "Themes/Paper.txt", kPaper);
+    putFile(h.fs, "Themes/Paper.json", kPaper);
     pickTheme(h, 4);   // Neon, Paper
     CHECK_STR(a.customThemeName(), "Paper");
     CHECK_EQ(a.cfg.theme, 1);
@@ -130,26 +129,26 @@ TEST(apply_card_theme_open_failure_keeps_previous) {
     Harness h;
     App& a = *h.app;
     a.cfg.theme = 2;
-    putFile(h.fs, "Themes/Neon.txt", kNeon);
+    putFile(h.fs, "Themes/Neon.json", kNeon);
     gotoGeneralRow(h, kThemeRow);
     ConfigScreen& c = cfgScreen(h);
     h.tap(btn::F8);
     CHECK_EQ(c.picker, 2);
     h.tap(btn::Down);
-    h.fs.files.erase("Themes/Neon.txt");   // gone before Apply
+    h.fs.files.erase("Themes/Neon.json");   // gone before Apply
     h.tap(btn::F8);
     CHECK(!a.customThemeActive());
     CHECK_EQ(a.cfg.theme, 2);
     CHECK_EQ(a.cfg.themeFile[0], 0);
     CHECK(&a.ui.th() == &theme(2));
     CHECK(a.ui.notice() != nullptr);
-    CHECK_STR(a.ui.notice(), "Cannot read Themes/Neon.txt");
+    CHECK_STR(a.ui.notice(), "Cannot read Themes/Neon.json");
 }
 
 TEST(apply_stock_theme_clears_custom) {
     Harness h;
     App& a = *h.app;
-    putFile(h.fs, "Themes/Neon.txt", kNeon);
+    putFile(h.fs, "Themes/Neon.json", kNeon);
     CHECK(a.loadCustomTheme("Neon"));
     CHECK(a.customThemeActive());
     pickTheme(h, 1);
@@ -167,7 +166,7 @@ TEST(apply_stock_theme_clears_custom) {
 TEST(custom_theme_persists_in_ext_v5_and_reloads_at_boot) {
     FakeNvStore nv;
     Harness h(false);
-    putFile(h.fs, "Themes/Paper.txt", kPaper);
+    putFile(h.fs, "Themes/Paper.json", kPaper);
     h.app->setNvStore(&nv);
     h.app->boot();
     CHECK(h.app->loadCustomTheme("Paper"));
@@ -205,7 +204,7 @@ TEST(custom_theme_persists_in_ext_v5_and_reloads_at_boot) {
 TEST(boot_without_theme_file_falls_back_to_base_and_keeps_name) {
     FakeNvStore nv;
     Harness h(false);
-    putFile(h.fs, "Themes/Paper.txt", kPaper);
+    putFile(h.fs, "Themes/Paper.json", kPaper);
     h.app->setNvStore(&nv);
     h.app->boot();
     CHECK(h.app->loadCustomTheme("Paper"));
@@ -229,15 +228,15 @@ TEST(boot_without_theme_file_falls_back_to_base_and_keeps_name) {
 TEST(usb_storage_exit_reloads_theme) {
     Harness h;
     App& a = *h.app;
-    putFile(h.fs, "Themes/Neon.txt", kNeon);
+    putFile(h.fs, "Themes/Neon.json", kNeon);
     CHECK(a.loadCustomTheme("Neon"));
     CHECK(a.enterUsbStorage() == App::UsbEnter::kOk);
     CHECK(a.exportTheme() == App::ThemeExport::kUnavailable);   // the card is the computer's
     h.run(40);
     // The computer edits the file.
-    h.fs.files["Themes/Neon.txt"] = std::vector<uint8_t>();
-    const std::string t = std::string(kNeon) + "background = #010101\n";
-    h.fs.files["Themes/Neon.txt"].assign(t.begin(), t.end());
+    h.fs.files["Themes/Neon.json"] = std::vector<uint8_t>();
+    const std::string t = "{\"background\": \"#010101\"}";
+    h.fs.files["Themes/Neon.json"].assign(t.begin(), t.end());
     CHECK_EQ(a.ui.th().bg, 0x06030Fu);   // nothing read while the card is away
     a.exitUsbStorage();
     CHECK(a.customThemeActive());
@@ -248,7 +247,7 @@ TEST(usb_storage_exit_reloads_theme) {
 TEST(reset_config_clears_custom_theme) {
     Harness h;
     App& a = *h.app;
-    putFile(h.fs, "Themes/Paper.txt", kPaper);
+    putFile(h.fs, "Themes/Paper.json", kPaper);
     CHECK(a.loadCustomTheme("Paper"));
     h.tap(btn::Config);
     ConfigScreen& c = cfgScreen(h);
@@ -267,7 +266,7 @@ TEST(reset_config_clears_custom_theme) {
 TEST(theme_row_value_shows_custom_name) {
     Harness h;
     App& a = *h.app;
-    putFile(h.fs, "Themes/Neon.txt", kNeon);
+    putFile(h.fs, "Themes/Neon.json", kNeon);
     ConfigScreen& c = cfgScreen(h);
     char t[48];
     c.optionText(kGeneral, kThemeRow, t, sizeof t);
@@ -350,39 +349,45 @@ TEST(export_theme_action_writes_file_and_refuses_overwrite) {
     CHECK(o.help != nullptr);
     gotoGeneralRow(h, kExportRow);
     h.tap(btn::F8);
-    CHECK(h.fs.files.count("Themes/Original.txt"));
+    CHECK(h.fs.files.count("Themes/Original.json"));
     CHECK(h.fs.dirs.count("Themes"));
-    const std::string t = fileText(h.fs, "Themes/Original.txt");
-    CHECK(t.find("base = original\n") != std::string::npos);
-    CHECK(t.find("# accent = #CD1818\n") != std::string::npos);
-    CHECK_STR(a.ui.notice(), "Saved Themes/Original.txt");
+    const std::string t = fileText(h.fs, "Themes/Original.json");
+    CHECK(t.find("  \"base\": \"Original\",\n") != std::string::npos);
+    CHECK(t.find("    \"red\": \"#cd1818\",\n") != std::string::npos);
+    CHECK_STR(a.ui.notice(), "Saved Themes/Original.json");
     // Again: refused, the file stays.
-    h.fs.files["Themes/Original.txt"] = {'x'};
+    h.fs.files["Themes/Original.json"] = {'x'};
     h.tap(btn::F8);
-    CHECK_STR(a.ui.notice(), "Themes/Original.txt exists");
-    CHECK_EQ(h.fs.files["Themes/Original.txt"].size(), 1u);
+    CHECK_STR(a.ui.notice(), "Themes/Original.json exists");
+    CHECK_EQ(h.fs.files["Themes/Original.json"].size(), 1u);
     // The active custom theme exports under its own name (refused: its file exists).
-    putFile(h.fs, "Themes/Neon.txt", kNeon);
+    putFile(h.fs, "Themes/Neon.json", kNeon);
     CHECK(a.loadCustomTheme("Neon"));
     CHECK(a.exportTheme() == App::ThemeExport::kExists);
-    // The exported file loads back as the same table.
+    // The exported file loads back with its colours: exporting that gives
+    // the same file again.
     a.clearCustomTheme();
     a.cfg.theme = 2;
     CHECK(a.exportTheme() == App::ThemeExport::kOk);
     CHECK(a.loadCustomTheme("Anniversary"));
-    for (int i = 0; i < kThemeSlotCount; ++i) CHECK_EQ(a.ui.th().slot(i), theme(2).slot(i));
+    CHECK_EQ(a.ui.th().bg, theme(2).bg);
+    const std::string first = fileText(h.fs, "Themes/Anniversary.json");
+    h.fs.files.erase("Themes/Anniversary.json");
+    CHECK(a.exportTheme() == App::ThemeExport::kOk);
+    CHECK(fileText(h.fs, "Themes/Anniversary.json") == first);
 }
 
 TEST(no_theme_files_stock_output_identical) {
-    // Without theme files the active theme is the stock table itself, and a
-    // file with only a base line draws exactly like that stock theme.
+    // Without theme files the active theme is the stock table itself. A file
+    // with only a base keeps that theme's colours; it draws in CE's flat look
+    // (theme_file.h), so only the first pass is the stock picture.
     for (uint8_t t = 0; t < kThemeCount; ++t) {
         Harness h;
         App& a = *h.app;
         a.cfg.theme = t;
         CHECK(&a.ui.th() == &theme(t));
         // The card is the same for both passes (the Loader lists its folders).
-        putFile(h.fs, "Themes/Same.txt", std::string("base = ") + themeBaseName(t) + "\n");
+        putFile(h.fs, "Themes/Same.json", std::string("{\"base\": \"") + themeBaseName(t) + "\"}");
         CHECK(!a.customThemeActive());
         std::vector<std::string> shots[2];
         for (int k = 0; k < 2; ++k) {
@@ -398,6 +403,9 @@ TEST(no_theme_files_stock_output_identical) {
             }
         }
         CHECK(!shots[0].empty());
-        CHECK(sameDl(shots[0], shots[1]));
+        for (int i = 0; i < kThemeSlotCount; ++i) {
+            if ((i >= slot::kFlagBottomFade && i <= slot::kFlagBarLines) || i == slot::kFlagBandPlayingOnly) continue;
+            CHECK_EQ(a.ui.th().slot(i), theme(t).slot(i));
+        }
     }
 }

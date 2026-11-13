@@ -1,0 +1,152 @@
+{
+  "name": "C64",
+  "base": "Original",
+  "background": "#352879",
+  "topBar": {
+    "text": "#ffffff",
+    "background": "#6c5eb5",
+    "frame": "#a59bf0",
+    "text2": "#a59bf0"
+  },
+  "songTimer": {
+    "text": "#ffffff",
+    "background": "#6c5eb5",
+    "frame": "#ffffff",
+    "text2": "#a59bf0"
+  },
+  "labels": {
+    "active": {
+      "text": "#ffffff",
+      "frame": "#a59bf0"
+    },
+    "inactive": {
+      "text": "#ffffff"
+    },
+    "activeButton": {
+      "frame": "#a59bf0",
+      "text2": "#a59bf0"
+    },
+    "inactiveButton": {
+      "text": "#333333"
+    }
+  },
+  "moreButton": {
+    "inactiveDot": "#4a3e9a"
+  },
+  "editBox": {
+    "text": "#a59bf0",
+    "boxBackground": "#3e3290",
+    "frame": "#ffffff"
+  },
+  "bottomButtons": {
+    "text": "#ffffff",
+    "background": "#30246c",
+    "frame": "#8a7fd8"
+  },
+  "patternTracker": {
+    "trackName": "#a59bf0",
+    "background": "#352879",
+    "note": "#ffffff",
+    "instrument": "#edf171",
+    "fx1": "#9ae29b",
+    "fx2": "#6abfc6",
+    "inactiveNote": "#5446a8",
+    "inactiveInstrument": "#5446a8",
+    "inactiveFx1": "#5446a8",
+    "inactiveFx2": "#5446a8",
+    "selection": "#ffffff",
+    "gridDivider": "#40338c",
+    "inactiveTrack": "#3a2e82",
+    "playhead": "#4a3e9a",
+    "selectionText": "#ffffff",
+    "verticalDivider": "#4a3e9a",
+    "stepNumber": "#8a7fd8",
+    "greenMode": "#9ae29b",
+    "activeTrack": "#8a7fd8",
+    "trackEnd": "#edf171"
+  },
+  "songPlayer": {
+    "text": "#a59bf0",
+    "activeBlock": "#a59bf0",
+    "scrollbar": "#575757",
+    "background": "#30246c",
+    "inactiveText": "#333333",
+    "editMode": "#ffffff",
+    "scrollbarBackground": "#000000",
+    "playhead": "#444344",
+    "emptyTrack": "#4a3e9a",
+    "playheadActive": "#9ae29b"
+  },
+  "waveform": {
+    "audio": "#a59bf0",
+    "background": "#3e3290",
+    "progress": {
+      "text": "#a59bf0",
+      "cursor": "#ffffff"
+    },
+    "sliceMarker": "#ffffff",
+    "activeSlice": "#a59bf0",
+    "slicePlayhead": "#9ae29b"
+  },
+  "frames": {
+    "active": "#ffffff",
+    "inactive": "#6c5eb5",
+    "green": "#9ae29b"
+  },
+  "popups": {
+    "stepTitle": {
+      "text": "#352879",
+      "background": "#a59bf0",
+      "frame": "#ffffff"
+    },
+    "stepList": {
+      "scrollbar": "#575757",
+      "background": "#3e3290",
+      "textNormal": "#a59bf0",
+      "scrollbarTrack": "#000000"
+    },
+    "note": {
+      "padBackground": "#3e3290",
+      "padText": "#a59bf0",
+      "selectionFrame": "#ffffff"
+    },
+    "dialog": {
+      "text": "#a59bf0",
+      "background": "#3e3290",
+      "frame": "#9a6759"
+    }
+  },
+  "bars": {
+    "active": {
+      "primary": "#a59bf0",
+      "container": "#3e3290",
+      "background": "#3e3290"
+    },
+    "sampleLoaderNormal": {
+      "primary": "#4a3e9a",
+      "container": "#3e3290",
+      "background": "#3e3290"
+    }
+  },
+  "lists": {
+    "sampleLoader": {
+      "frameSelect": "#ffffff",
+      "scrollbar": "#575757",
+      "background": "#3e3290",
+      "textNormal": "#a59bf0",
+      "scrollbarTrack": "#000000"
+    },
+    "sampleLoaderInactive": {
+      "frameSelect": "#ffffff"
+    }
+  },
+  "accents": {
+    "white": "#a59bf0",
+    "red": "#ffffff",
+    "orange": "#c08040",
+    "yellow": "#edf171",
+    "green": "#9ae29b",
+    "cyan": "#6abfc6",
+    "grey": "#4a3e9a"
+  }
+}
