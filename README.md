@@ -165,6 +165,12 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 - **Config > General > Note names: Sharps / Flats / Auto.** Auto spells the project's scale
   correctly, modes included (C Mixolydian shows Bb, not A#). Display only.
 
+### Colour themes
+- **Tracker CE's JSON themes:** make one in the
+  [CE theme editor](https://polyend.github.io/tracker-theme-editor/), put the `.json` in
+  `/Themes` and pick it under Config > General > Display theme. Export theme writes the active
+  theme in the same format. These replace upstream's `.txt` theme files.
+
 ### Piano pads
 - **Config > General > Pad layout: Stock / Piano.** Piano makes the pads two keyboards an
   octave apart, as on grid controllers: the white keys along a row, the black keys in the

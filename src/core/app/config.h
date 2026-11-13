@@ -81,8 +81,8 @@ struct Config {
     // converted, 44100 in the header; default), 0 = the device rate with
     // 44117 in the header, as stock (spec 04 §6.1). Extension record byte 6.
     uint8_t exportRate = 1;
-    // [I] 2.x theme files (ui/theme_file.h): basename of the chosen
-    // Themes/<name>.txt, empty = a stock theme. While it is set, `theme`
+    // [I] CE JSON theme files (ui/theme_file.h): basename of the chosen
+    // Themes/<name>.json, empty = a stock theme. While it is set, `theme`
     // holds the file's base. Extension record bytes 7..27 (record v5).
     char themeFile[21] = {};
     // [I] 2.x Config > General "Radio stereo" Off / On: the tuner leaves its

@@ -221,7 +221,7 @@ expect-usbstorage on|off    fail unless the mode, its page and the card lock all
                             the app touched the locked card
 expect-usbwarn on|off       fail unless the eject reminder is (not) shown
 theme N / font N            config Display theme 0..2 / Display font 0..1 (no Config key flow)
-theme NAME                  config Display theme from the card's Themes/NAME.txt (2.x theme files)
+theme NAME                  config Display theme from the card's Themes/NAME.json (CE JSON themes)
 echo TEXT                   print to stderr
 budget-reset                start a display-budget window
 budget NAME WORDS           fail if a frame since the reset uploaded > WORDS

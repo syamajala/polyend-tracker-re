@@ -1,0 +1,152 @@
+{
+  "name": "Vaporwave",
+  "base": "Original",
+  "background": "#1b0b33",
+  "topBar": {
+    "text": "#ff71ce",
+    "background": "#2e1450",
+    "frame": "#f6e9ff",
+    "text2": "#f6e9ff"
+  },
+  "songTimer": {
+    "text": "#ff71ce",
+    "background": "#2e1450",
+    "frame": "#ff71ce",
+    "text2": "#f6e9ff"
+  },
+  "labels": {
+    "active": {
+      "text": "#ffffff",
+      "frame": "#f6e9ff"
+    },
+    "inactive": {
+      "text": "#ffffff"
+    },
+    "activeButton": {
+      "frame": "#f6e9ff",
+      "text2": "#f6e9ff"
+    },
+    "inactiveButton": {
+      "text": "#333333"
+    }
+  },
+  "moreButton": {
+    "inactiveDot": "#33185a"
+  },
+  "editBox": {
+    "text": "#f6e9ff",
+    "boxBackground": "#241044",
+    "frame": "#ff71ce"
+  },
+  "bottomButtons": {
+    "text": "#01cdfe",
+    "background": "#200e3c",
+    "frame": "#9a86c0"
+  },
+  "patternTracker": {
+    "trackName": "#000000",
+    "background": "#1e0c3a",
+    "note": "#01cdfe",
+    "instrument": "#fffb96",
+    "fx1": "#ff71ce",
+    "fx2": "#b967ff",
+    "inactiveNote": "#12406a",
+    "inactiveInstrument": "#4a4632",
+    "inactiveFx1": "#4a2050",
+    "inactiveFx2": "#382460",
+    "selection": "#ff71ce",
+    "gridDivider": "#2e1652",
+    "inactiveTrack": "#261046",
+    "playhead": "#000000",
+    "selectionText": "#ffffff",
+    "verticalDivider": "#000000",
+    "stepNumber": "#9a86c0",
+    "greenMode": "#05ffa1",
+    "activeTrack": "#9a86c0",
+    "trackEnd": "#fffb96"
+  },
+  "songPlayer": {
+    "text": "#f6e9ff",
+    "activeBlock": "#f6e9ff",
+    "scrollbar": "#575757",
+    "background": "#200e3c",
+    "inactiveText": "#333333",
+    "editMode": "#ff71ce",
+    "scrollbarBackground": "#000000",
+    "playhead": "#444344",
+    "emptyTrack": "#33185a",
+    "playheadActive": "#05ffa1"
+  },
+  "waveform": {
+    "audio": "#01cdfe",
+    "background": "#241044",
+    "progress": {
+      "text": "#f6e9ff",
+      "cursor": "#ff71ce"
+    },
+    "sliceMarker": "#ff71ce",
+    "activeSlice": "#ffffff",
+    "slicePlayhead": "#05ffa1"
+  },
+  "frames": {
+    "active": "#ff71ce",
+    "inactive": "#4a2070",
+    "green": "#05ffa1"
+  },
+  "popups": {
+    "stepTitle": {
+      "text": "#000000",
+      "background": "#ffffff",
+      "frame": "#ff71ce"
+    },
+    "stepList": {
+      "scrollbar": "#575757",
+      "background": "#241044",
+      "textNormal": "#f6e9ff",
+      "scrollbarTrack": "#000000"
+    },
+    "note": {
+      "padBackground": "#241044",
+      "padText": "#f6e9ff",
+      "selectionFrame": "#ff71ce"
+    },
+    "dialog": {
+      "text": "#f6e9ff",
+      "background": "#241044",
+      "frame": "#ff4f7b"
+    }
+  },
+  "bars": {
+    "active": {
+      "primary": "#f6e9ff",
+      "container": "#241044",
+      "background": "#241044"
+    },
+    "sampleLoaderNormal": {
+      "primary": "#33185a",
+      "container": "#241044",
+      "background": "#241044"
+    }
+  },
+  "lists": {
+    "sampleLoader": {
+      "frameSelect": "#ff71ce",
+      "scrollbar": "#575757",
+      "background": "#241044",
+      "textNormal": "#f6e9ff",
+      "scrollbarTrack": "#000000"
+    },
+    "sampleLoaderInactive": {
+      "frameSelect": "#ffffff"
+    }
+  },
+  "accents": {
+    "white": "#f6e9ff",
+    "red": "#ff71ce",
+    "orange": "#d67022",
+    "yellow": "#fffb96",
+    "green": "#05ffa1",
+    "cyan": "#01cdfe",
+    "grey": "#222222"
+  }
+}

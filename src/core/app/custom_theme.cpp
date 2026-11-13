@@ -1,4 +1,4 @@
-// 2.x theme files from the card (ui/theme_file.h): the app side of the
+// [I] CE JSON theme files from the card (ui/theme_file.h): the app side of the
 // Display theme choice (see App::loadCustomTheme in app.h).
 #include <cstdio>
 #include <cstring>

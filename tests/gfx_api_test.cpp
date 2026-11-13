@@ -290,7 +290,7 @@ TEST(gradient_hairline_roundrect_icons) {
 }
 
 TEST(theme_slots_from_spec20) {
-    CHECK_EQ(kThemeSlotCount, 277);
+    CHECK_EQ(kThemeSlotCount, 285);   // 277 stock + 8 fork slots
     const Theme& o = theme(0);
     const Theme& m = theme(1);
     const Theme& a = theme(2);
@@ -306,7 +306,18 @@ TEST(theme_slots_from_spec20) {
     CHECK(m.flag(slot::kFlagCursorRowGrad));
     CHECK(!a.flag(slot::kFlagUnknown));
     CHECK_EQ(o.slot(-1), 0u);
-    CHECK_EQ(o.slot(277), 0u);
+    CHECK_EQ(o.slot(kThemeSlotCount), 0u);
+    // [I] Fork slots: the stock themes copy the colours they replace.
+    for (const Theme* t : {&o, &m, &a}) {
+        CHECK_EQ(t->slot(slot::kListText), t->slot(slot::kList + 4));
+        CHECK_EQ(t->slot(slot::kListTextSel), t->slot(slot::kList + 4));
+        CHECK_EQ(t->slot(slot::kLoaderInsSel), t->slot(slot::kList));
+        CHECK_EQ(t->slot(slot::kTempoFill), t->slot(slot::kSongList));
+        CHECK_EQ(t->slot(slot::kFullPopupText), t->slot(slot::kKeyboardLabels));
+        CHECK_EQ(t->slot(slot::kFullPopupBand), t->slot(slot::kKeyboardLabels + 1));
+        CHECK_EQ(t->slot(slot::kLoaderHeader), 0x080808u);
+        CHECK(!t->flag(slot::kFlagBandPlayingOnly));
+    }
     // Named colours unchanged.
     CHECK_EQ(o.accent, 0xCD1818u);
     CHECK_EQ(o.track[0], 0x00E8BEu);

@@ -1244,7 +1244,7 @@ namespace {
 // Column header label (spec 20 §4.5): 080808 band x 3..297 (+ 300 k),
 // y 32..58 with 1-px soft edges, bold font-4 caption centred [S snap 009].
 void headerLabel(Gfx& g, const Theme& th, int x, const char* text) {
-    const uint32_t c = 0x080808;
+    const uint32_t c = th.slot(slot::kLoaderHeader);   // [I] 080808 on the stock themes
     wg::panel(g, th, x + 2, 32, 294, 27, c, false);
     wg::blendFill(g, x + 2, 31, 295, 1, c, wg::kEdgeA);
     wg::blendFill(g, x + 2, 59, 295, 1, c, wg::kEdgeA);
@@ -1309,6 +1309,7 @@ void LoaderScreen::draw(Gfx& g) {
         v.count = l ? 48 : count;
         v.sel = l ? insCursor : sdCursor;
         v.selStyle = l ? wg::ListSel::kWhite : wg::ListSel::kRed;
+        if (l) v.selSlot = slot::kLoaderInsSel;   // [I] kList on the stock themes
         gTop[l] = wg::listFollow(v.sel, v.count, wg::listVisibleRows(v.h), gTop[l]);
         v.top = gTop[l];
         v.ctx = this;

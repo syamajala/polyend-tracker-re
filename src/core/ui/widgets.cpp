@@ -366,12 +366,12 @@ void titleHairline(Gfx& g, const Theme& th, int x0, int x1, uint32_t colour) {
 // ---------------------------------------------------------------------------
 // Popup headers
 
-void popupHeader(Gfx& g, const Theme& th, const char* title, int x0, int x1, int textX) {
+void popupHeader(Gfx& g, const Theme& th, const char* title, int x0, int x1, int textX, int set) {
     if (x1 < x0) return;
-    g.fill(x0, 0, x1 - x0 + 1, kHairlineY - 1, th.slot(slot::kKeyboardLabels + 1));
+    g.fill(x0, 0, x1 - x0 + 1, kHairlineY - 1, th.slot(set + 1));
     if (title && *title) {
         g.clip(x0, 0, x1 - x0 + 1, kHairlineY - 1);
-        g.text(textX, kTitleCentreY, kFont4, th.slot(slot::kKeyboardLabels), title, IDisplay::kOptCenterY);
+        g.text(textX, kTitleCentreY, kFont4, th.slot(set), title, IDisplay::kOptCenterY);
         g.noClip();
     }
 }
@@ -391,9 +391,11 @@ void rightPopupPanel(Gfx& g, const Theme& th, int y) {
 }
 
 void fullPopupHeader(Gfx& g, const Theme& th, const char* title) {
-    const uint32_t band = th.slot(slot::kKeyboardLabels + 1);
+    // [I] Its own pair (kFullPopupText / Band, = kKeyboardLabels on the stock
+    // themes): CE gives the Notes popup the normal title bar's colours.
+    const uint32_t band = th.slot(slot::kFullPopupBand);
     g.fill(0, 0, kScreenW, kHairlineY, th.bg);
-    popupHeader(g, th, title, 2, kScreenW - 3, 12);
+    popupHeader(g, th, title, 2, kScreenW - 3, 12, slot::kFullPopupText);
     blendFill(g, 1, 0, 1, kHairlineY - 1, band, kEdgeA);
     blendFill(g, kScreenW - 2, 0, 1, kHairlineY - 1, band, kEdgeA);
     g.fill(2, kHairlineY - 1, kScreenW - 4, 1, mix(th.bg, band, 181));   // b5b5b5
@@ -658,6 +660,7 @@ void list(Gfx& g, const Theme& th, const ListView& v) {
             buf[sizeof(buf) - 1] = 0;
             const bool marked = v.marked && v.marked(v.ctx, idx);
             uint32_t tc = v.enabled ? th.slot(s + (marked ? 5 : 4)) : th.slot(slot::kBottomLabelOff);
+            if (v.enabled && v.labelText && !marked) tc = th.slot(idx == v.sel ? slot::kListTextSel : slot::kListText);
             if (v.enabled && v.colour) {
                 const int32_t c = v.colour(v.ctx, idx);
                 if (c >= 0) tc = uint32_t(c);
@@ -698,6 +701,7 @@ void list(Gfx& g, const Theme& th, const ListView& v) {
         if (v.selStyle == ListSel::kWhite) c = th.slot(slot::kList);
         else if (v.selStyle == ListSel::kRed) c = th.slot(slot::kFocusFrame);
         else if (v.selStyle == ListSel::kGreen) c = th.slot(slot::kGreen);
+        if (v.selSlot >= 0) c = th.slot(v.selSlot);
         if (!v.enabled) c = mix(th.slot(s + 3), c, kEdgeA);   // 7e7e7e on Monochrome [S round 3, 007]
         const int rt = v.y + 4 + kListRowH * (v.sel - v.top);
         stroke(g, v.x + 3, rt, v.x + 3 + innerW, rt + kListRowH, c);

@@ -1,0 +1,152 @@
+{
+  "name": "Halloween",
+  "base": "Original",
+  "background": "#000000",
+  "topBar": {
+    "text": "#f8f8f2",
+    "background": "#000000",
+    "frame": "#c9c9ca",
+    "text2": "#c9c9ca"
+  },
+  "songTimer": {
+    "text": "#f8f8f2",
+    "background": "#000000",
+    "frame": "#cd1818",
+    "text2": "#c9c9ca"
+  },
+  "labels": {
+    "active": {
+      "text": "#ffffff",
+      "frame": "#c9c9ca"
+    },
+    "inactive": {
+      "text": "#ffffff"
+    },
+    "activeButton": {
+      "frame": "#c9c9ca",
+      "text2": "#c9c9ca"
+    },
+    "inactiveButton": {
+      "text": "#333333"
+    }
+  },
+  "moreButton": {
+    "inactiveDot": "#222222"
+  },
+  "editBox": {
+    "text": "#c9c9ca",
+    "boxBackground": "#0a0a0a",
+    "frame": "#cd1818"
+  },
+  "bottomButtons": {
+    "text": "#777777",
+    "background": "#0a0a0a",
+    "frame": "#6272a4"
+  },
+  "patternTracker": {
+    "trackName": "#282a36",
+    "background": "#080808",
+    "note": "#00e8be",
+    "instrument": "#fef749",
+    "fx1": "#bb58f1",
+    "fx2": "#93ced8",
+    "inactiveNote": "#00e8be",
+    "inactiveInstrument": "#fef749",
+    "inactiveFx1": "#bb58f1",
+    "inactiveFx2": "#93ced8",
+    "selection": "#cd1818",
+    "gridDivider": "#0e0e0e",
+    "inactiveTrack": "#171717",
+    "playhead": "#734096",
+    "selectionText": "#f65b13",
+    "verticalDivider": "#734096",
+    "stepNumber": "#6272a4",
+    "greenMode": "#50fa7b",
+    "activeTrack": "#6272a4",
+    "trackEnd": "#fef749"
+  },
+  "songPlayer": {
+    "text": "#c9c9ca",
+    "activeBlock": "#c9c9ca",
+    "scrollbar": "#575757",
+    "background": "#0a0a0a",
+    "inactiveText": "#333333",
+    "editMode": "#cd1818",
+    "scrollbarBackground": "#000000",
+    "playhead": "#444344",
+    "emptyTrack": "#222222",
+    "playheadActive": "#50fa7b"
+  },
+  "waveform": {
+    "audio": "#f8f8f2",
+    "background": "#0a0a0a",
+    "progress": {
+      "text": "#c9c9ca",
+      "cursor": "#cd1818"
+    },
+    "sliceMarker": "#cd1818",
+    "activeSlice": "#000000",
+    "slicePlayhead": "#50fa7b"
+  },
+  "frames": {
+    "active": "#cd1818",
+    "inactive": "#3f3f3f",
+    "green": "#50fa7b"
+  },
+  "popups": {
+    "stepTitle": {
+      "text": "#f8f8f2",
+      "background": "#000000",
+      "frame": "#cd1818"
+    },
+    "stepList": {
+      "scrollbar": "#575757",
+      "background": "#0a0a0a",
+      "textNormal": "#c9c9ca",
+      "scrollbarTrack": "#000000"
+    },
+    "note": {
+      "padBackground": "#0a0a0a",
+      "padText": "#c9c9ca",
+      "selectionFrame": "#cd1818"
+    },
+    "dialog": {
+      "text": "#c9c9ca",
+      "background": "#0a0a0a",
+      "frame": "#ff5555"
+    }
+  },
+  "bars": {
+    "active": {
+      "primary": "#c9c9ca",
+      "container": "#0a0a0a",
+      "background": "#0a0a0a"
+    },
+    "sampleLoaderNormal": {
+      "primary": "#222222",
+      "container": "#0a0a0a",
+      "background": "#0a0a0a"
+    }
+  },
+  "lists": {
+    "sampleLoader": {
+      "frameSelect": "#cd1818",
+      "scrollbar": "#575757",
+      "background": "#0a0a0a",
+      "textNormal": "#c9c9ca",
+      "scrollbarTrack": "#000000"
+    },
+    "sampleLoaderInactive": {
+      "frameSelect": "#ffffff"
+    }
+  },
+  "accents": {
+    "white": "#c9c9ca",
+    "red": "#cd1818",
+    "orange": "#ffb86c",
+    "yellow": "#fef749",
+    "green": "#50fa7b",
+    "cyan": "#8be9fd",
+    "grey": "#734096"
+  }
+}

@@ -173,7 +173,9 @@ void titleHairline(Gfx& g, const Theme& th, int x0, int x1, uint32_t colour = kT
 // White band (slot kKeyboardLabels+1) over title rows 0..26 from x0 to x1
 // with the black bold title (slot kKeyboardLabels, font 4, cap y 8..19) at
 // textX.
-void popupHeader(Gfx& g, const Theme& th, const char* title, int x0, int x1, int textX);
+// [I] `set`: the slot pair (text, band); the Notes popup uses kFullPopupText.
+void popupHeader(Gfx& g, const Theme& th, const char* title, int x0, int x1, int textX,
+                 int set = slot::kKeyboardLabels);
 // Right-hand popup (Instruments, Fx; 015 / 018): header x 600..799, text ink
 // from x 621, rows 27 / 28 868686 / 525252. Ui::openPopupHeader draws it over
 // the title bar after the hairline; screens draw rightPopupPanel under their
@@ -287,6 +289,11 @@ struct ListView {
     bool fade = true;
     int set = slot::kList;     // 7-colour set: sel, sel active, thumb, bg, text, marked, track
     ListSel selStyle = ListSel::kFromSet;
+    // [I] Item text from slot kListText / kListTextSel (the selected item)
+    // instead of the set's (Config, Sample Editor: CE themes colour these apart).
+    bool labelText = false;
+    // [I] >= 0: the selection outline's slot over selStyle's.
+    int selSlot = -1;
     uint8_t font = kFont1;
     // false: a disabled list (Master Delay Rate while Sync is off, round-3
     // Snapshot_007): items in the disabled label colour (slot

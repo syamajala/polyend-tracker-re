@@ -26,12 +26,12 @@ const char* const kProjectHelp[] = {
 const char* const kGeneralHelp[] = {
     "Selects the FM band and channel steps used by the built-in radio in your part of the world.",
     "Sets the backlight level of the screen.",
-    "Selects the colour scheme of the user interface. Theme files from the Themes folder of the SD card are "
-    "listed after the three built-in themes.",
+    "Selects the colour scheme of the user interface. Tracker CE theme files (.json) from the Themes folder "
+    "of the SD card are listed after the three built-in themes.",
     "Selects the set of fonts used on screen.",
-    // [I] 2.x theme files.
-    "Saves the current colour scheme as a text file in the Themes folder of the SD card, to edit on a "
-    "computer and choose under Display theme. An existing file is never overwritten.",
+    // [I] CE JSON theme files.
+    "Saves the current colour scheme as a Tracker CE theme file (.json) in the Themes folder of the SD card, "
+    "to edit in the CE theme editor and choose under Display theme. An existing file is never overwritten.",
     "Sets how bright the pad lights are.",
     "Lights the pads of the notes on the current pattern line: on the cursor track only, on all tracks, or "
     "not at all.",

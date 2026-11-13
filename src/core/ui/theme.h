@@ -5,10 +5,12 @@
 
 namespace ot {
 
-// spec 20 §1.4: every theme is a table of 277 words. Index i is the colour
-// "slot" i (byte offset 4 * i in the stock table); controls take a contiguous
-// block starting at their colour-set offset. Slots 273..276 are flags (0/1).
-constexpr int kThemeSlotCount = 277;
+// spec 20 §1.4: every stock theme is a table of 277 words. Index i is the
+// colour "slot" i (byte offset 4 * i in the stock table); controls take a
+// contiguous block starting at their colour-set offset. Slots 273..276 are
+// flags (0/1). [I] Slots 277..284 are the fork's (CE JSON themes colour
+// these parts apart; the stock themes copy the colours they replace).
+constexpr int kThemeSlotCount = 285;
 
 // Named slot indices (spec 20 §1.4 roles). A block's later colours follow its
 // first slot, e.g. kSlotGrid + 2 is the Note text colour.
@@ -67,6 +69,15 @@ constexpr int kFlagUnknown = 276;
 // that draws no bar underlines and no strip separators (VISUAL_DIFF Part 2
 // C6, §8.23): OpenTracker reads it as "bar lines drawn".
 constexpr int kFlagBarLines = kFlagUnknown;
+// [I] Fork slots (CE JSON themes, ui/theme_file.h). Stock: the slot named.
+constexpr int kListText = 277;          // Config / Sample Editor list items (kList + 4)
+constexpr int kListTextSel = 278;       // ... the selected item (kList + 4)
+constexpr int kLoaderInsSel = 279;      // Sample Loader instrument list selection (kList)
+constexpr int kTempoFill = 280;         // Song tempo bar fill (kSongList)
+constexpr int kFullPopupText = 281;     // Notes popup title text (kKeyboardLabels)
+constexpr int kFullPopupBand = 282;     // ... its band (kKeyboardLabels + 1)
+constexpr int kLoaderHeader = 283;      // Sample Loader column header band (080808)
+constexpr int kFlagBandPlayingOnly = 284;   // pattern band only while playing (0)
 // Pattern grid block entries (kGrid + n) the theme helpers below name.
 constexpr int kGridCursorRow = kGrid + 13;   // cursor-row shading (000000 / 303030 / 222222)
 constexpr int kGridCursorText = kGrid + 14;  // text on the cursor cell (ffffff / 000000 / 000000)

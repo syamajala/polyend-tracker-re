@@ -1069,7 +1069,7 @@ void SongScreen::draw(Gfx& g) {
     // Tempo value bar (701, 29, 97, 394), white fill = tempo / 800.
     const float tempo = a.cfg.clockIn ? a.seq.externalTempo() : a.project.tempo();
     wg::ValueBarStyle vs;
-    vs.fill = white;
+    vs.fill = th.slot(slot::kTempoFill);   // [I] = white (kSongList) on the stock themes
     wg::valueBar(g, th, 701, wg::kPanelY, 97, wg::kPanelH, tempo / kTempoMax, vs);
     if (focus == 2) wg::panelFocus(g, th, 701, 97);
 

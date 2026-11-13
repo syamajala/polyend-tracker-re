@@ -1,0 +1,152 @@
+{
+  "name": "Barbie",
+  "base": "Original",
+  "background": "#2b0a1e",
+  "topBar": {
+    "text": "#ffffff",
+    "background": "#ff1493",
+    "frame": "#ffe4f2",
+    "text2": "#ffe4f2"
+  },
+  "songTimer": {
+    "text": "#ffffff",
+    "background": "#ff1493",
+    "frame": "#ff1493",
+    "text2": "#ffe4f2"
+  },
+  "labels": {
+    "active": {
+      "text": "#ffffff",
+      "frame": "#ffe4f2"
+    },
+    "inactive": {
+      "text": "#ffffff"
+    },
+    "activeButton": {
+      "frame": "#ffe4f2",
+      "text2": "#ffe4f2"
+    },
+    "inactiveButton": {
+      "text": "#333333"
+    }
+  },
+  "moreButton": {
+    "inactiveDot": "#561640"
+  },
+  "editBox": {
+    "text": "#ffe4f2",
+    "boxBackground": "#3a0e2a",
+    "frame": "#ff1493"
+  },
+  "bottomButtons": {
+    "text": "#ffb6da",
+    "background": "#330c24",
+    "frame": "#d07aa8"
+  },
+  "patternTracker": {
+    "trackName": "#000000",
+    "background": "#300c22",
+    "note": "#ff69b4",
+    "instrument": "#ffc0e0",
+    "fx1": "#ff85c8",
+    "fx2": "#ffffff",
+    "inactiveNote": "#5a1a3c",
+    "inactiveInstrument": "#5a3048",
+    "inactiveFx1": "#50203e",
+    "inactiveFx2": "#4a3a44",
+    "selection": "#ff1493",
+    "gridDivider": "#4a1236",
+    "inactiveTrack": "#3c0f2c",
+    "playhead": "#000000",
+    "selectionText": "#ffffff",
+    "verticalDivider": "#000000",
+    "stepNumber": "#d07aa8",
+    "greenMode": "#ff8fcf",
+    "activeTrack": "#d07aa8",
+    "trackEnd": "#fef749"
+  },
+  "songPlayer": {
+    "text": "#ffe4f2",
+    "activeBlock": "#ffe4f2",
+    "scrollbar": "#575757",
+    "background": "#330c24",
+    "inactiveText": "#333333",
+    "editMode": "#ff1493",
+    "scrollbarBackground": "#000000",
+    "playhead": "#444344",
+    "emptyTrack": "#561640",
+    "playheadActive": "#ff8fcf"
+  },
+  "waveform": {
+    "audio": "#ff69b4",
+    "background": "#3a0e2a",
+    "progress": {
+      "text": "#ffe4f2",
+      "cursor": "#ff1493"
+    },
+    "sliceMarker": "#ff1493",
+    "activeSlice": "#ffffff",
+    "slicePlayhead": "#ff8fcf"
+  },
+  "frames": {
+    "active": "#ff1493",
+    "inactive": "#7a1e58",
+    "green": "#ff8fcf"
+  },
+  "popups": {
+    "stepTitle": {
+      "text": "#000000",
+      "background": "#ffffff",
+      "frame": "#ff1493"
+    },
+    "stepList": {
+      "scrollbar": "#575757",
+      "background": "#3a0e2a",
+      "textNormal": "#ffe4f2",
+      "scrollbarTrack": "#000000"
+    },
+    "note": {
+      "padBackground": "#3a0e2a",
+      "padText": "#ffe4f2",
+      "selectionFrame": "#ff1493"
+    },
+    "dialog": {
+      "text": "#ffe4f2",
+      "background": "#3a0e2a",
+      "frame": "#ffffff"
+    }
+  },
+  "bars": {
+    "active": {
+      "primary": "#ffe4f2",
+      "container": "#3a0e2a",
+      "background": "#3a0e2a"
+    },
+    "sampleLoaderNormal": {
+      "primary": "#561640",
+      "container": "#3a0e2a",
+      "background": "#3a0e2a"
+    }
+  },
+  "lists": {
+    "sampleLoader": {
+      "frameSelect": "#ff1493",
+      "scrollbar": "#575757",
+      "background": "#3a0e2a",
+      "textNormal": "#ffe4f2",
+      "scrollbarTrack": "#000000"
+    },
+    "sampleLoaderInactive": {
+      "frameSelect": "#ffffff"
+    }
+  },
+  "accents": {
+    "white": "#ffe4f2",
+    "red": "#ff1493",
+    "orange": "#d67022",
+    "yellow": "#fef749",
+    "green": "#ff8fcf",
+    "cyan": "#3fffff",
+    "grey": "#222222"
+  }
+}
