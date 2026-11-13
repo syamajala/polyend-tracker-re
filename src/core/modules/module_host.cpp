@@ -220,6 +220,7 @@ void ModuleHost::removeLoaded(IModule& m) {
     }
     for (int k = w; k < nDesc_; ++k) desc_[k] = nullptr;
     nDesc_ = w;
+    last_ = nullptr;
 }
 
 // [I] A module loaded from the card (modules/module_files.h, fork #21): the
@@ -243,6 +244,7 @@ bool ModuleHost::addLoaded(IModule& m, bool onDemand) {
             if (!mine) desc_[w++] = desc_[k];
         }
         nDesc_ = w;
+        last_ = nullptr;
         break;
     }
 #endif
@@ -265,8 +267,13 @@ bool ModuleHost::addLoaded(IModule& m, bool onDemand) {
 
 const SynthDescriptor* ModuleHost::synthDescriptor(int32_t engineId) {
     if (!inited_) init();
+    // The last one served first: a slot's reload asks for the same engine
+    // once per parameter. One pointer (a single store): the audio block and
+    // the main loop may both ask; a module leaves only while no engine runs.
+    const SynthDescriptor* const l = last_;
+    if (l && l->engineId == engineId) return l;
     for (int k = 0; k < nDesc_; ++k)
-        if (desc_[k]->engineId == engineId) return desc_[k];
+        if (desc_[k]->engineId == engineId) return last_ = desc_[k];
     return nullptr;
 }
 

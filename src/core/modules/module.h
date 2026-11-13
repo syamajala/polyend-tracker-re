@@ -115,8 +115,8 @@ extern const char* const kCardModuleIds[];
 
 class ModuleHost {
 public:
-    // [I] 32 (stock 3.x: 16): the profile's modules plus the card's (fork #21:
-    // host builds compile every card module in).
+    // [I] 32 (stock 3.x: 16): the profile's modules plus the card's (host
+    // builds compile every card module in).
     static constexpr int kMaxModules = 32;
     static ModuleHost& instance();
     // Walks kModuleFactories: API check, duplicate-id check, attach().
@@ -212,6 +212,7 @@ private:
     int n_ = 0;
     int nInit_ = 0;   // [I] modules registered by init() (the rest: addLoaded)
     int nDesc_ = 0;
+    const SynthDescriptor* last_ = nullptr;   // the last synthDescriptor() result
     bool inited_ = false;
     char refused_[5] = {};
     SdramArena sdram_ = {nullptr, 0, 0};   // the profile's block from init() (constant-initialised)
