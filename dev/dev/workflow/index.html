@@ -1236,6 +1236,14 @@ side, and only upstream's other changes need applying on top
   progression per line in scale numbers, not <code>key = value</code>. The built-in files are
   compiled in (<code>prog::defaultText</code>) and written only when the folder has no <code>.txt</code> file,
   never over an existing one.</li>
+<li><code>Themes/&lt;name&gt;.json</code> are Tracker CE's colour themes, read and written in CE's format so
+  themes move between CE's web editor and OpenTracker (<code>ui/theme_file.h</code>). The CE key -&gt;
+  slot map is generated: edit <code>tools/ce_theme_map.py</code> and run it to rewrite
+  <code>src/core/ui/ce_theme_map.inc</code>. The map came from black-box observation only: a theme
+  with one colour per CE key was screenshotted in CE's web editor and matched pixel by pixel
+  against the simulator with one colour per slot. Slots 277..284 are fork slots for parts
+  CE colours apart from the stock sets; the stock themes copy the colour each one replaces.
+  The example themes are in <code>themes/</code>; host tests parse each one.</li>
 </ul>
 <h2 id="code-conventions">Code conventions<a class="headerlink" href="#code-conventions" title="Permanent link">&para;</a></h2>
 <ul>

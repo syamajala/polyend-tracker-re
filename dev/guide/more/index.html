@@ -795,6 +795,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#colour-themes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Colour themes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-2x-features-from-upstream" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1308,6 +1319,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#colour-themes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Colour themes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-2x-features-from-upstream" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1577,6 +1599,25 @@ effect or switch the slot to a built-in synth.</p>
 <p>When a card module doesn't fit, the notice names the biggest one loaded, e.g. "Echo: Card
 memory full (DX7 18.3 KB)", and the FX bank shows how much card memory is used. In the
 simulator the card modules are built in, so the page lists only the sample memory.</p>
+<h2 id="colour-themes">Colour themes<a class="headerlink" href="#colour-themes" title="Permanent link">&para;</a></h2>
+<p>Make a theme in <a href="https://polyend.github.io/tracker-theme-editor/">Tracker CE's theme editor</a>,
+press <strong>Export Theme</strong>, and copy the <code>.json</code> file to the <code>Themes</code> folder on the card. Pick it
+under <strong>Config &gt; General &gt; Display theme</strong>, after the three built-in themes. Themes made for
+Tracker CE work on OpenTracker, and the other way round.</p>
+<ul>
+<li><strong>Export theme</strong> (Config &gt; General) saves the theme you're using, built-in or not, as
+  <code>Themes/&lt;name&gt;.json</code>. Import that into the editor to start from it. An existing file is
+  never overwritten.</li>
+<li>A theme draws in CE's style: flat panels without fades, and the band across the pattern
+  only on the playing row while the song plays. The built-in themes keep the stock look.</li>
+<li>Colours a file leaves out come from its <strong>base</strong> (Original, Monochrome or Anniversary).
+  Keys that have no counterpart on OpenTracker (CE's mini menu and on-screen keyboard) are
+  ignored, and they aren't written on export.</li>
+<li>Text set to its own background colour (unreadable) falls back to the base's colours.</li>
+<li>Twelve example themes are in <a href="https://github.com/syamajala/polyend-tracker-re/tree/main/themes"><code>themes/</code></a>
+  in the repository, among them Halloween (contributed by AnthonyBerg1983).</li>
+<li>The old <code>key = value</code> text themes (<code>.txt</code>) are no longer read.</li>
+</ul>
 <h2 id="the-2x-features-from-upstream">The 2.x features (from upstream)<a class="headerlink" href="#the-2x-features-from-upstream" title="Permanent link">&para;</a></h2>
 <p>The 2.x line brings the newer Tracker features to the original hardware. In short:</p>
 <h3 id="tracker-mini-project-compatibility">Tracker Mini project compatibility<a class="headerlink" href="#tracker-mini-project-compatibility" title="Permanent link">&para;</a></h3>
