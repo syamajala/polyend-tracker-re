@@ -1525,8 +1525,29 @@ pads together, release them, and play the next chord.</p>
 <li>Live recording (Rec while playing) already spreads a chord over the next free tracks.</li>
 </ul>
 <h2 id="slices-to-pattern">Slices to pattern<a class="headerlink" href="#slices-to-pattern" title="Permanent link">&para;</a></h2>
-<p>Chop a break, then press one key to get a pattern that plays it. On the Sample Playback screen
-(Slice or Beat Slice mode), open the <strong>More</strong> page (F6):</p>
+<p>Chop a break, then press one key to get a pattern that plays it. Without this you would
+enter every slice by hand on the right step before the break even plays straight; with it,
+flipping the break is plain pattern editing.</p>
+<p>For example, with a 2-bar drum break:</p>
+<ol>
+<li>Load it into an instrument. On <strong>Sample Playback</strong>, pick <strong>Slice</strong> mode and press
+   <strong>F1 Auto</strong>: it cuts at each hit, say into 12 slices.</li>
+<li>Open the <strong>More</strong> page (<strong>F6</strong>). <strong>F4 Steps</strong> shows 32 (2 bars at the song tempo);
+   turn the encoder if it guessed wrong.</li>
+<li>With the pattern cursor on an empty track, press <strong>F5 To Pattern</strong>. The track gets one
+   note per slice, on the step where its hit is: slice 1 as <code>C2</code>, slice 2 as <code>C#2</code>, and so
+   on.</li>
+</ol>
+<div class="highlight"><pre><span></span><code>step  1    2    3    4    5    6    7  …
+note  C2   ---  C#2  ---  D2   ---  D#2
+      kick      hat       snare     hat
+</code></pre></div>
+<ol>
+<li>Press <strong>Play</strong>: the break plays as recorded, in time. Now edit the track as any other:
+   change a note to swap a hit (slice 3 → slice 1 puts a kick where the snare was), delete
+   notes for space, or repeat the snare slice for a roll.</li>
+</ol>
+<p>On the Sample Playback screen (Slice or Beat Slice mode), the <strong>More</strong> page (F6) has:</p>
 <table>
 <thead>
 <tr>
