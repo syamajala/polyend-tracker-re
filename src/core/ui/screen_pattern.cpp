@@ -283,6 +283,10 @@ void PatternScreen::stop() {
     patternLatch_ = false;
 }
 
+bool PatternScreen::pickedHere() const {
+    return pickTrack_ == track && pickStep_ == step && pickPattern_ == int(app_.patternNumber());
+}
+
 SelRect PatternScreen::target() const {
     SelRect r;
     const int l = len();
@@ -1470,6 +1474,9 @@ void PatternScreen::commitPicker() {
     if (kind == 2 || kind == 5) {
         const int ins = kind == 5 ? synthui::popupInstrumentMidi(v) : synthui::popupInstrument(v);
         a.setCurrentInstrument(ins);
+        pickTrack_ = track;
+        pickStep_ = step;
+        pickPattern_ = a.patternNumber();
         char t[48];
         if (synthui::presetNotice(a, ins, t, sizeof t)) ui_.notify(t);   // [3.x] it will be silent
         if (edit()) {

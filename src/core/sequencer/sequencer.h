@@ -324,6 +324,8 @@ private:
 
     void resetState();
     void advance(float seconds);
+    // [3.x] The next step's synth notes, a block ahead (ISequencerSink::synthExpect).
+    void expectNextStep();
     void updateExternalTempo(float seconds);
     void tick();
     bool masterMicroStart();          // false: playback stopped
@@ -466,6 +468,8 @@ private:
 
     // clock
     uint32_t tick_ = 1;
+    uint32_t expectAt_ = 0;     // [3.x] the step-start tick last announced (expectNextStep)
+    bool expectSent_ = false;
     uint64_t tickCount_ = 0;
     uint8_t masterMicro_ = 1;
     uint8_t masterSub_ = 1;   // [I] 1..48: the micro of the master step (a 1x track's micro)

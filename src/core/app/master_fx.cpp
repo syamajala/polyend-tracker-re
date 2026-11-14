@@ -290,12 +290,12 @@ void App::releaseCardFx() {
         bank.setModuleHold(0);
         return;
     }
-    int32_t engines[kSynthSlotCount];
-    slotEngines(engines);
+    int32_t engines[kCardWanted];
+    cardWantedEngines(engines);
     if (previewSlot_ >= 0) endSynthPreview();
     holdSynthEngines();
     engine.setMasterInserts(nullptr, 0);
-    mod::loadCardSynths(fs(), engines, kSynthSlotCount, mem_.scratch, mem_.scratchBytes);
+    mod::loadCardSynths(fs(), engines, kCardWanted, mem_.scratch, mem_.scratchBytes);
     engine.synth().holdEngines(false);
     bank.setModuleHold(0);
     bindMasterInserts();

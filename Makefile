@@ -16,6 +16,7 @@
 # make patches    -> build/patches/Patches/<MODEL>/ (synth preset pack, tools/make_patches/PRESETS.md)
 # make budget     -> the profile's declared module budgets (flash, SRAM) and their limits
 # make card          -> [I] the profile's card modules as build/<profile>/otm/<name>.otm (fork #21)
+# make firmware      -> [I] the image and the card modules (all + card): Firmware/ and Modules/ on the card
 # make hot-rows      -> [I] tools/hot_rows/*.hot, the synths' hot code for the fast block (fork #21)
 # make otm OTM_MODULE=<path> -> [I] build/<profile>/otm/<name>.otm, a module loadable from the card
 #                    (fork #21; <path> as in a profile, relative to MODULES_DIR; tools/make_otm.py)
@@ -86,7 +87,8 @@ endif
 HOT_ROWS  := tools/hot_rows
 HOT_ROWS_IN := $(strip $(foreach i,$(MOD_IDS),$(wildcard $(HOT_ROWS)/$(notdir $(MOD_DIR_$(i))).hot)))
 OT_HOT_POOL ?= $(if $(filter 1,$(OT_POOL_TEST)),0,$(if $(HOT_ROWS_IN),1,0))
-HOT_POOL_BYTES := 13696
+# The block's size: profiles/<name>.toml hot_pool_bytes (tools/profile.py).
+HOT_POOL_BYTES := $(or $(OT_HOT_POOL_BYTES),13696)
 ifeq ($(OT_HOT_POOL),1)
 OTM_FAST_BYTES := $(HOT_POOL_BYTES)
 else ifneq ($(OT_POOL_TEST),1)
@@ -266,7 +268,7 @@ $(HOT_LD): $(HOT_ROW_OBJS) $(wildcard $(HOT_ROWS)/*.hot) tools/hot_pool.py tools
 
 ifeq ($(OT_HOT_POOL),1)
 HOT_LINK = $(CXX) $(LDFLAGS) -Wl,-q $(OBJS) $(1) -L$(CORE) -L$(BUILD) $(LIBS) -o $(2) -Wl,-Map=$(BUILD)/opentracker.map
-$(BUILD)/opentracker.elf: $(OBJS) $(LDSCRIPT) $(HOT_LD)
+$(BUILD)/opentracker.elf: $(OBJS) $(LDSCRIPT) $(HOT_LD) $(GEN)/modules.mk
 	python3 -I tools/hot_pool.py table --out $(BUILD)/hot_rows0.S
 	$(CC) $(CPUFLAGS) -c $(BUILD)/hot_rows0.S -o $(BUILD)/hot_rows0.o
 	$(call HOT_LINK,$(BUILD)/hot_rows0.o,$@.pass1)
@@ -275,7 +277,7 @@ $(BUILD)/opentracker.elf: $(OBJS) $(LDSCRIPT) $(HOT_LD)
 	$(call HOT_LINK,$(BUILD)/hot_rows.o,$@)
 	python3 -I tools/hot_pool.py table --elf $@ --out $(BUILD)/hot_rows.check.S --expect $(BUILD)/hot_rows.S --quiet $(HOT_TABLE) || { rm -f $@; exit 1; }
 else
-$(BUILD)/opentracker.elf: $(OBJS) $(LDSCRIPT) $(HOT_LD)
+$(BUILD)/opentracker.elf: $(OBJS) $(LDSCRIPT) $(HOT_LD) $(GEN)/modules.mk
 	$(CXX) $(LDFLAGS) $(OBJS) -L$(CORE) -L$(BUILD) $(LIBS) -o $@ -Wl,-Map=$(BUILD)/opentracker.map
 endif
 	$(SIZE) $@
@@ -414,6 +416,14 @@ card:
 	    --out $(BUILD)/otm/$(notdir $(d)).otm --cxx $(CXX) --cxxflags '$(CXXFLAGS)' \
 	    $(if $(wildcard $(HOT_ROWS)/$(notdir $(d)).hot),--hot $(HOT_ROWS)/$(notdir $(d)).hot) &&) true
 .PHONY: card
+
+# [I] Everything for the card: the image (build/<profile>/PolyendTrackerOT*.ptf
+# for Firmware/) and the card modules (build/<profile>/otm/*.otm for Modules/).
+firmware: all
+	$(MAKE) card
+	@echo "Firmware/: $(PTF)"
+	@echo "Modules/:  $(BUILD)/otm/*.otm"
+.PHONY: firmware
 
 # [I] The synths' hot rows (fork #21): every mode of every synth under the QEMU bench
 # (profiles/allsynths.toml), folded into tools/hot_rows/<module>.hot by tools/synth_hot.py.

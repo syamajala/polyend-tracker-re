@@ -70,8 +70,8 @@ struct OtmLoadReport {
     uint32_t serial = 0;    // +1 on every change
     // [I] Bytes of each compiled-in hot row (OtmPool::hotRows order) in the
     // fast block now: its code up to the cut (0 = it runs from flash).
-    static constexpr int kMaxHot = 8;
-    uint32_t hotCut[kMaxHot] = {};
+    static constexpr int kMaxHot = 8;   // tools/hot_pool.py refuses more rows
+    uint16_t hotCut[kMaxHot] = {};   // a cut is at most 0xFFFF (loadCardSynths)
 };
 
 // A card synth engine (the boot scan lists them, loaded or not).
@@ -99,9 +99,10 @@ constexpr const char* kModulesDir = "Modules";
 constexpr uint32_t kOtmMaxShareCuts = 32;
 using OtmShareCut = uint16_t;
 // The row cuts of the files being loaded sit at the end of the loader's
-// scratch (only with a fast block to share): the file gets the rest.
+// scratch (only with a fast block to share): the file gets the rest. [I] With
+// each cut, the hot row cut it stands for (loadCardSynths).
 constexpr uint32_t kOtmCutScratchBytes =
-    OtmLoadReport::kMax * (kOtmMaxShareCuts * sizeof(OtmShareCut) + sizeof(uint32_t));
+    OtmLoadReport::kMax * (2 * kOtmMaxShareCuts * sizeof(OtmShareCut) + sizeof(uint32_t));
 
 // Shares a fast block of cap bytes between n modules' rows (cuts[i][0 ..
 // nCuts[i]) = module i's cuts, module_loader.h): they take turns, in order,

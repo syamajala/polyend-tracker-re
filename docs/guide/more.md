@@ -128,13 +128,13 @@ Params, then **More**):
 ## Memory
 
 **Config > Memory** shows what fills the Tracker's memory, for when something won't load.
-For example, with DX7 on a synth slot, turning on a third card effect can fail with "Card
-memory full". The page shows DX7 taking 18 KB of the 32 KB, so you know to turn off an
-effect or switch the slot to a built-in synth.
+For example, with DX7 on a synth slot, turning on the last card effects can fail with
+"Card memory full". The page shows DX7 taking 18 KB of the card memory, so you know to turn
+off an effect or switch the slot to a built-in synth.
 
 - **Card modules**: the card synths and effects that are loaded (DX7, Echo …), what uses
-  them (`synth, slot 2`, `effect`) and their size. Ones that are wanted but not in are
-  listed too, with why: **loads at Stop**, **no room** (red), **didn't load**.
+  them (`synth, slot 2`, `synth, P3` for a synth preset, `effect`) and their size. Ones
+  that are wanted but not in are listed too, with why: **loads at Stop**, **no room** (red), **didn't load**.
 - **Sample memory**: the samples, plus what is borrowed from it: card effects' buffers
   (Echo's 48 KB line) and the space held back while resampling or during a tape stop.
 - The bar turns red at 90 %. The page is read-only.

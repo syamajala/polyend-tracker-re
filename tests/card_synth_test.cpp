@@ -14,6 +14,8 @@
 #include "modules/synth_descriptor.h"
 #include "modules/synth_models.h"
 #include "modules/thumb_branch.h"
+#include "model/fx.h"
+#include "ui/screens.h"
 #include "ui_fakes.h"
 
 using namespace ot;
@@ -144,6 +146,68 @@ TEST(card_synth_loads_with_the_project) {
     CHECK_EQ(a.synthPatch(0).engine, kCardEng);
 }
 
+// A preset names a card synth no slot plays: it loads too (a Z or a
+// preset instrument plays it), on Open and when stored.
+TEST(card_synth_of_a_preset_loads_with_it) {
+    CardRig rig;
+    Harness h;
+    App& a = *h.app;
+    CHECK(a.newProject());
+    a.setSynthEngine(0, kCardEng);
+    h.run(400);
+    CHECK(cardEngineLoaded(kCardEng));
+    a.storeSynthPreset(3, 0);
+    a.setSynthModel(0, int(SynthModel::VAP));
+    h.run(400);
+    CHECK(cardEngineLoaded(kCardEng));   // P3 still names it
+    CHECK(a.saveProjectAs("CardP"));
+    CHECK(a.newProject());
+    h.run(400);
+    CHECK(!cardEngineLoaded(kCardEng));
+    CHECK(a.openProject("Projects", "CardP"));
+    CHECK(a.slotEngineId(0) != kCardEng);
+    CHECK_EQ(a.synthPreset(3).engine, kCardEng);
+    CHECK_EQ(int(a.synthPreset(3).paramCount), 2);
+    CHECK(cardEngineLoaded(kCardEng));
+    h.run(400);
+    CHECK(cardEngineLoaded(kCardEng));   // and it stays
+    // The preset cleared: nothing names it, it leaves.
+    a.clearSynthPreset(3);
+    h.run(400);
+    CHECK(!cardEngineLoaded(kCardEng));
+}
+
+// A slot on a preset (a Z, stopped) stays on it when a preset change
+// loads a card synth: the Synth page keeps editing the preset.
+TEST(slot_on_a_preset_stays_on_it_across_a_card_load) {
+    CardRig rig;
+    Harness h;
+    App& a = *h.app;
+    CHECK(a.newProject());
+    a.storeSynthPreset(3, 1);   // P3: slot 2's built-in sound
+    // A Synth 1 note with a Z3 at the cursor: Synth 1 is on P3 (the stopped chase).
+    Step& st = a.pattern().tracks[0].steps[0];
+    st.note = 60;
+    st.instrument = uint8_t(kFirstSynthInstrument);
+    st.fx[1] = StepFx{0, uint8_t(kFxPresetCmdBase + 3)};
+    a.patternEdited();
+    static_cast<PatternScreen*>(h.app->ui.screen(kModPattern))->step = 0;
+    h.run();
+    CHECK_EQ(a.synthPresetActive(0), 3);
+    a.setSynthEngine(2, kCardEng);
+    h.run(400);
+    CHECK(cardEngineLoaded(kCardEng));
+    const SynthPatch card = a.synthPatch(2);
+    a.setSynthModel(2, int(SynthModel::VAP));
+    h.run(400);
+    CHECK(!cardEngineLoaded(kCardEng));
+    CHECK_EQ(a.synthPresetActive(0), 3);
+    a.setSynthPresetPatch(4, card, "Card");   // P4 now names the card synth
+    h.run(400);
+    CHECK(cardEngineLoaded(kCardEng));
+    CHECK_EQ(a.synthPresetActive(0), 3);
+}
+
 // ---- [I] built-in synths' hot rows share the fast block (modules/hot_rows.h) ----
 
 namespace ot {
@@ -180,6 +244,7 @@ struct FakeRow {
 FakeRow g_acdRow(0x00010000u), g_vapRow(0x00020000u);
 HotRow g_rows[2];
 HotRows g_hot = {2, g_rows};
+OtmPool g_hotPool;
 
 struct HotRig {
     explicit HotRig(uint32_t fastCap) {
@@ -187,15 +252,12 @@ struct HotRig {
         g_rows[1] = g_vapRow.row(&vapModule, 0x00020000u);
         g_acdRow.vptr = 0x00011000u;
         g_vapRow.vptr = 0x00021000u;
-        static OtmPool pool;
-        pool = OtmPool{g_pool, 0x20030000u, sizeof(g_pool), kCore, nullptr, &enterCard, nullptr};
-        pool.fastMem = g_fast;
-        pool.fastBase = kFastBase;
-        pool.fastCap = fastCap;
-        pool.hotRows = &g_hot;
-        static OtmPool* p;
-        p = &pool;
-        Harness::beforeInit = [](Harness&, HalRefs& r) { r.modulePool = p; };
+        g_hotPool = OtmPool{g_pool, 0x20030000u, sizeof(g_pool), kCore, nullptr, &enterCard, nullptr};
+        g_hotPool.fastMem = g_fast;
+        g_hotPool.fastBase = kFastBase;
+        g_hotPool.fastCap = fastCap;
+        g_hotPool.hotRows = &g_hot;
+        Harness::beforeInit = [](Harness&, HalRefs& r) { r.modulePool = &g_hotPool; };
     }
     ~HotRig() { Harness::beforeInit = nullptr; }
 };
@@ -236,3 +298,22 @@ TEST(hot_row_without_room_runs_from_flash) {
     CHECK_EQ(g_vapRow.vptr, kFastBase + 16);   // the first slot's synth got the block
     CHECK_EQ(g_acdRow.vptr, 0x00011000u);
 }
+
+TEST(boot_scan_again_puts_moved_rows_back_in_flash) {
+    HotRig rig(sizeof(g_fast));
+    Harness h;
+    App& a = *h.app;
+    CHECK(a.newProject());
+    a.setSynthEngine(0, engineOf(acdModule()));
+    h.run(400);
+    CHECK_EQ(g_acdRow.vptr, kFastBase + 16);
+    // A scan again (the pool's start is rewritten): the moved row goes back
+    // to flash first, and the report shows nothing in the block.
+    static uint8_t scratch[4096];
+    OtmLoadReport r;
+    r.hotCut[0] = 99;
+    loadModuleFiles(h.fs, g_hotPool, scratch, sizeof(scratch), &r);
+    CHECK_EQ(g_acdRow.vptr, 0x00011000u);
+    CHECK_EQ(int(r.hotCut[0]), 0);
+}
+
