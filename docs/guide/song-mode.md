@@ -36,7 +36,24 @@ resets the selected value.
 
 ## Ramps
 
-A slot with a scene on B sweeps the fader from A to B. **Ramp** sets when:
+A ramp is the song moving the [crossfader](performance.md#scenes-and-the-crossfader) for
+you. For example, a build-up into a drop: scene 1 is the mix dry and open, scene 2 has the
+low-pass filter nearly closed and lots of delay. A slot plays pattern 5 with **Count 4**,
+**Scene `1>2`** and **Ramp `Slot`**: over its four passes the filter closes slowly, by
+itself, on any screen. The next slot starts with its own scene, so the drop comes in clean.
+
+A slot with a scene on B sweeps the fader from A to B, and **Ramp** sets when. On that
+4-pass slot, the fader moves like this:
+
+```
+pass:  1         2         3         4
+Slot   A ──────────────────────────────────→ B  one slow sweep over all 4
+Each   A ────→ B A ────→ B A ────→ B A ────→ B  a sweep each pass, back to A
+First  A ────→ B B ······· B ······· B ·······  sweeps on pass 1, then stays on B
+Last   A ······· A ······· A ······· A ────→ B  only the last pass
+L2     A ······· A ······· A ──────────────→ B  the last 2 passes
+16     A ······· A ······· A ······· A ···─→ B  only the last 16 steps (a fill)
+```
 
 | Ramp | The fader goes A → B … |
 |---|---|
@@ -46,7 +63,8 @@ A slot with a scene on B sweeps the fader from A to B. **Ramp** sets when:
 | `Last`, `L2` … `L15` | across the last N passes (the choices follow the slot's Count) |
 | `1` … `128` | across the slot's last N steps (Shift + encoder moves by 16) |
 
-Moving the fader yourself takes over until the next slot.
+A slot with only an A scene (`3`) has no ramp: it plays scene 3 the whole slot. Moving the
+fader yourself takes over until the next slot.
 
 ## Moving around
 

@@ -79,8 +79,31 @@ pads together, release them, and play the next chord.
 
 ## Slices to pattern
 
-Chop a break, then press one key to get a pattern that plays it. On the Sample Playback screen
-(Slice or Beat Slice mode), open the **More** page (F6):
+Chop a break, then press one key to get a pattern that plays it. Without this you would
+enter every slice by hand on the right step before the break even plays straight; with it,
+flipping the break is plain pattern editing.
+
+For example, with a 2-bar drum break:
+
+1. Load it into an instrument. On **Sample Playback**, pick **Slice** mode and press
+   **F1 Auto**: it cuts at each hit, say into 12 slices.
+2. Open the **More** page (**F6**). **F4 Steps** shows 32 (2 bars at the song tempo);
+   turn the encoder if it guessed wrong.
+3. With the pattern cursor on an empty track, press **F5 To Pattern**. The track gets one
+   note per slice, on the step where its hit is: slice 1 as `C2`, slice 2 as `C#2`, and so
+   on.
+
+   ```
+   step  1    2    3    4    5    6    7  …
+   note  C2   ---  C#2  ---  D2   ---  D#2
+         kick      hat       snare     hat
+   ```
+
+4. Press **Play**: the break plays as recorded, in time. Now edit the track as any other:
+   change a note to swap a hit (slice 3 → slice 1 puts a kick where the snare was), delete
+   notes for space, or repeat the snare slice for a roll.
+
+On the Sample Playback screen (Slice or Beat Slice mode), the **More** page (F6) has:
 
 | Key | Does |
 |---|---|
