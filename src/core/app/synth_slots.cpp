@@ -346,8 +346,8 @@ const char* App::cardSlotState(int s) const {
     const mod::CardEngine* e = mod::cardEngine(eng);
     if (!e || mod::cardEngineLoaded(eng)) return nullptr;
     if (seq.isPlaying() || seq.isArmed()) return "Loads at Stop";
-    int32_t engines[kSynthSlotCount];
-    slotEngines(engines);
+    int32_t engines[kCardWanted];
+    cardWantedEngines(engines);
     if (std::memcmp(cardTried_, engines, sizeof(cardTried_)) != 0) return "Loading";
     const mod::OtmLoadReport& r = moduleLoad_;
     if (r.noRoom) return "No card memory";
@@ -357,13 +357,17 @@ const char* App::cardSlotState(int s) const {
     return mod::otmErrorText(it.error);
 }
 
-void App::slotEngines(int32_t* out) const {
+void App::cardWantedEngines(int32_t* out) const {
     for (int s = 0; s < kSynthSlotCount; ++s) out[s] = slotEngineId(s);
+    // A Z or a preset instrument plays a preset on a slot: its synth is
+    // loaded while the preset names it, as a slot's is.
+    for (int n = 1; n <= kSynthPresetCount; ++n)
+        out[kSynthSlotCount + n - 1] = synthPresetUsed(n) ? synthPreset(n).engine : 0;
 }
 
 void App::serviceCardSynths(uint32_t now) {
-    int32_t engines[kSynthSlotCount];
-    slotEngines(engines);
+    int32_t engines[kCardWanted];
+    cardWantedEngines(engines);
     const bool synthsTried = std::memcmp(cardTried_, engines, sizeof(cardTried_)) == 0;
     const bool fxWaiting = cardFxWaiting(now);   // [I] the card effects that are on changed
     if (synthsTried && !fxWaiting) {
@@ -416,18 +420,17 @@ void App::rescanCardSynths() {
 }
 
 bool App::syncCardSynths(bool initPatches) {
-    // The slots' engines: card synths load, card and built-in synths share
-    // the fast block (modules/module_files.h).
-    // [I] Z presets (upstream #171) will add the engines their presets name.
-    int32_t engines[kSynthSlotCount];
-    slotEngines(engines);
+    // The slots' and the presets' engines: card synths load, card and
+    // built-in synths share the fast block (modules/module_files.h).
+    int32_t engines[kCardWanted];
+    cardWantedEngines(engines);
     std::memcpy(cardTried_, engines, sizeof(cardTried_));
     // [I] With the card effects that are on, waiting to load or have project
     // data (app/master_fx.cpp).
     int fx[mod::kMaxCardFx];
     int nFx = wantedCardFx(fx);
     markCardFxTried(fx, nFx);
-    if (!mod::cardSynthsDiffer(engines, kSynthSlotCount, fx, nFx)) {
+    if (!mod::cardSynthsDiffer(engines, kCardWanted, fx, nFx)) {
         settleCardFx();
         return true;
     }
@@ -436,10 +439,13 @@ bool App::syncCardSynths(bool initPatches) {
     if (!mem_.scratch) return false;
     if (previewSlot_ >= 0) endSynthPreview();
     audio::SynthBank& bank = engine.synth();
+    // A slot on a preset (a Z) stays on it: the reload is not an edit.
+    uint8_t onPreset[kSynthSlotCount];
+    for (int s = 0; s < kSynthSlotCount; ++s) onPreset[s] = uint8_t(bank.presetOf(s));
     holdSynthEngines();
     beginCardFx(fx, &nFx);
     const bool ok =
-        mod::loadCardSynths(fs(), engines, kSynthSlotCount, mem_.scratch, mem_.scratchBytes, fx, nFx);
+        mod::loadCardSynths(fs(), engines, kCardWanted, mem_.scratch, mem_.scratchBytes, fx, nFx);
     ++cardLoads_;   // [I] #159
     bank.holdEngines(false);
     const bool again = endCardFx(fx, nFx);
@@ -453,6 +459,7 @@ bool App::syncCardSynths(bool initPatches) {
             if (!loadSynthLibraryPatch(s, "Init")) initSynthPatch(s);
         }
         engine.synth().patchChanged(s);
+        if (onPreset[s]) bank.presetSelect(s, onPreset[s]);   // false: the preset is empty now
     }
     if (!ok && initPatches) {
         char t[64];

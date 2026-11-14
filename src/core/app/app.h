@@ -653,12 +653,14 @@ public:
     // [I] #21: what happened to each Modules/*.otm (boot, then every card synth load).
     const mod::OtmLoadReport& moduleLoadReport() const { return moduleLoad_; }
     // [I] #21 card synths (modules/module_files.h): the card synths loaded
-    // are the ones the slots name. Project open loads them before the
+    // are the ones the slots and the presets name (slots first: they get
+    // the pool when not all fit; the fast block is shared by turns). Project open loads them before the
     // patches; a model change loads kCardSettleMs after the choice rests,
     // while stopped (serviceCardSynths), then gives the slot its Init patch.
     static constexpr uint32_t kCardSettleMs = 250;
     void serviceCardSynths(uint32_t now);
-    void slotEngines(int32_t* out) const;   // slotEngineId of every slot
+    static constexpr int kCardWanted = kSynthSlotCount + kSynthPresetCount;
+    void cardWantedEngines(int32_t* out) const;   // every slot's engine, then every preset's (0 = none)
     bool syncCardSynths(bool initPatches);
     // [I] After USB storage mode: Modules/ listed anew (rescanCardSynths),
     // before boot() reopens the Workspace.
@@ -1150,10 +1152,10 @@ private:
     // Mini record's model), module sections, foreign module chunks kept.
     int32_t slotEngine_[kSynthSlotCount] = {};
     uint8_t slotArpGate_[kSynthSlotCount] = {100, 100, 100};
-    // [I] #21: the slot engines a card synth load last tried (it isn't
-    // retried for the same set) and since when the current set waits.
-    int32_t cardTried_[kSynthSlotCount] = {};
-    int32_t cardWaiting_[kSynthSlotCount] = {};
+    // [I] #21: the engines a card synth load last tried (it isn't retried for
+    // the same set) and since when the current set waits (cardWantedEngines).
+    int32_t cardTried_[kCardWanted] = {};
+    int32_t cardWaiting_[kCardWanted] = {};
     uint32_t cardSince_ = 0;
     uint32_t cardLoads_ = 0;   // [I] #159
     bool modulesStale_ = false;   // [I] #21: Modules/ may have changed (USB storage): boot() rescans

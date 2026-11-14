@@ -43,7 +43,7 @@ on:
 - **Echo** borrows **48 KB of sample memory** while it is loaded (about half a second of
   mono sample). Samples come first: when they fill the memory, Echo doesn't load and the
   bank says **Not enough sample memory**.
-- Card effects and card synths share the card memory (32 KB). When it is full, an effect
+- Card effects and card synths share the card memory (about 45 KB). When it is full, an effect
   doesn't load and the bank says **Card memory full**, naming the biggest module loaded
   (e.g. DX7); turn off another effect or pick a built-in synth. **Config >
   [Memory](more.md#memory)** lists what is in it.

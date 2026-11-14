@@ -30,7 +30,8 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 - Synths and effects as **card modules** (`.otm` files in `Modules/` on the SD card; see
   Install): eleven synths (DX7, FM4, JU6, D-Type, CS-Type, A-Type, T-Type drums, 8-Type,
   Hand-Type, B-Type, Arc-Type) and six master effects (Dirt, LoFi, Chorus, BBD chorus, Echo,
-  Tape). A module loads only while the project uses it, into a shared 32 KB card memory.
+  Tape). A module loads only while the project uses it, into a shared card memory (about 45 KB:
+  what the stack floor leaves).
 - **Master effects:** the **FX bank** (Shift + Master) turns the card effects on and off and
   sets them; Performance mode plays them in a **Master FX** column.
 - **Config > Memory** shows what is loaded and what fills the sample memory, for when
@@ -432,11 +433,11 @@ See `AGENTS.md` for the full rules.
 
 **Card synths** load when the project uses them. At boot an effect module loads for good;
 a synth module is only listed, so its engines show in the Model list. Open loads the
-card synths the project's slots use, before the slots' patches, and a Model change loads
+card synths the project's slots and synth presets use, before the slots' patches, and a Model change loads
 the new one once the choice has rested for 1/4 s, while stopped (while playing, the slot
 says "Loads at Stop"). Every load stops the synth voices. A synth that doesn't fit the
-pool stays unloaded, with "Card memory full" on its slot; the first slot gets the room
-first, and two slots on one engine load it once. A profile entry with `card = true`
+pool (all the room the 25 KB stack floor leaves, about 45 KB) stays unloaded, with "Card
+memory full" on its slot; the slots get the room first, then the presets, and two slots on one engine load it once. A profile entry with `card = true`
 stays out of the image, and `make card` builds it into `build/<profile>/otm/`; the host
 builds (tests, simulator, tools) compile it in. `full` lists the ten synths it doesn't
 build in (FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type, ARC) as card

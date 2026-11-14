@@ -35,16 +35,20 @@ void App::memoryUse(MemoryUse& u) const {
     const mod::OtmLoadReport& r = moduleLoad_;
     u.cardUsed = r.used;
     u.cardCap = r.cap;
-    int32_t engines[kSynthSlotCount];
-    slotEngines(engines);
-    // Slots naming card engine e: "synth, slot 1 2" (synths count from 1).
+    int32_t engines[kCardWanted];
+    cardWantedEngines(engines);
+    // Slots and presets naming card engine e: "synth, slot 1 2, P3" (synths
+    // count from 1).
     auto slotsOf = [&engines](int file, char* out, int cap) {
         int n = std::snprintf(out, size_t(cap), "synth");
         bool first = true;
-        for (int s = 0; s < kSynthSlotCount; ++s) {
-            const mod::CardEngine* e = mod::cardEngine(engines[s]);
+        for (int i = 0; i < kCardWanted; ++i) {
+            const mod::CardEngine* e = mod::cardEngine(engines[i]);
             if (!e || e->file != file || n >= cap) continue;
-            n += std::snprintf(out + n, size_t(cap - n), first ? ", slot %d" : " %d", s + 1);
+            if (i >= kSynthSlotCount)
+                n += std::snprintf(out + n, size_t(cap - n), ", P%d", i - kSynthSlotCount + 1);
+            else
+                n += std::snprintf(out + n, size_t(cap - n), first ? ", slot %d" : " %d", i + 1);
             first = false;
         }
     };

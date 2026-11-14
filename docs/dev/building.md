@@ -46,12 +46,14 @@ At boot the firmware looks at every `Modules/*.otm` (`src/core/modules/module_fi
 a synth module is only listed, so its engines show in the Model list; a master effect (a
 master insert or a settings page) is only listed too, for the FX bank; any other module
 (slot effects only) loads into the card pool for good. The card synths in the pool
-are the ones the project's synth slots use: Open loads them before the slots' patches,
+are the ones the project's synth slots and synth presets (P1-P8) use: Open loads them
+once the presets are read, before the slots' patches,
 and a Model change loads the new one once the choice has rested for 1/4 s, while stopped
 (while playing the slot says "Loads at Stop"). Every load starts the synth voices over
 (`SynthBank::holdEngines`), and the slots' synths share the fast block again. A synth that
-doesn't fit the pool (32 KB) stays unloaded, with "Card memory full" on its slot;
-the first slot gets the room first. Two slots on one engine load it once.
+doesn't fit the pool (all the room the 25 KB stack floor leaves, about 45 KB on `full`,
+at most 64 KB for the 16-bit cuts) stays unloaded, with "Card memory full" on its slot;
+the slots get the room first, then the presets. Two slots on one engine load it once.
 
 Card **master effects** load with the card synths, in the same load set
 (`App::syncCardSynths`, `src/core/app/master_fx.cpp`): the ones that are on, the ones
