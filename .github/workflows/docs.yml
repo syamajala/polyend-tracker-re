@@ -3,14 +3,17 @@
 # Pushes to main: publish it as version "dev" with mike, on the gh-pages branch
 # (Settings > Pages > Source: Deploy from a branch, gh-pages / root).
 # Release tags will add their own versions later.
+# [I] The Synths pages come from the synth module repository's help files
+# (tools/docs_synth_pages.py); a help change there is published by the next run
+# here (a push to main, or Run workflow).
 name: Docs
 
 on:
   push:
     branches: [main]
-    paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml']
+    paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml', 'tools/docs_synth_pages.py']
   pull_request:
-    paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml']
+    paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml', 'tools/docs_synth_pages.py']
   workflow_dispatch:
 
 concurrency:
@@ -31,6 +34,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - name: Synth pages
+        run: |
+          git clone --depth 1 https://github.com/syamajala/opentracker-synths "$RUNNER_TEMP/opentracker-synths"
+          python3 -I tools/docs_synth_pages.py "$RUNNER_TEMP/opentracker-synths"
       - name: Install MkDocs
         run: pip install "mkdocs<2" "mkdocs-material==9.*" "mike==2.*"   # MkDocs 2 drops plugins and Material themes
       - name: Build

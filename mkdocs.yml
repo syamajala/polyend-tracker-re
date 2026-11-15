@@ -64,6 +64,25 @@ nav:
       - More features: guide/more.md
       - Remote control: guide/remote-control.md
       - Troubleshooting: guide/troubleshooting.md
+  # Written by tools/docs_synth_pages.py from the synth module repository's help files.
+  - Synths:
+      - Overview: synths/index.md
+      - 8-Type: synths/8type.md
+      - A-Type: synths/atype.md
+      - ACD: synths/acd.md
+      - Arc-Type: synths/arctype.md
+      - B-Type: synths/btype.md
+      - CS-Type: synths/cstype.md
+      - D-Type: synths/dtype.md
+      - DX7: synths/dx7.md
+      - FAT: synths/fat.md
+      - FM4: synths/fm4.md
+      - Hand-Type: synths/handtype.md
+      - JU6: synths/ju6.md
+      - PERC: synths/perc.md
+      - T-Type: synths/ttype.md
+      - VAP: synths/vap.md
+      - WTFM: synths/wtfm.md
   - Developers:
       - Building: dev/building.md
       - Simulator: dev/simulator.md

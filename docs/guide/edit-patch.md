@@ -73,7 +73,8 @@ The texts come from the SD card, `Help/Synths/<SYNTH>.md` (in `Modules.zip` on t
 page, next to the card modules; see [Install the modules](../install.md#install-the-modules)).
 Without the file the box says which one is missing, and everything else works as usual.
 
-So far **B-Type** has a help file; the other synths follow.
+Every synth has a help file. The same text, with a guide to how each synth works, is on
+its page under [Synths](../synths/index.md).
 
 ## Writing a help file
 
@@ -85,6 +86,7 @@ Each synth's help is a Markdown file next to its code in the module repository,
   setting, `- Choice: text` for each choice, named exactly as on screen, with one short
   paragraph under each heading.
 
-Only the reference goes on the card. `make host-test` checks it against the synth: every
-section, setting and choice needs a line, and each line has to fit the box. The format is
-in `src/core/modules/synth_help.h`.
+Only the reference goes on the card; the whole file becomes the synth's page on this
+site. `make host-test` checks it against the synth: every section, setting and choice
+needs a line, and each line has to fit the box. The format is in
+`src/core/modules/synth_help.h`.
