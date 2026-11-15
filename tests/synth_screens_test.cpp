@@ -54,6 +54,20 @@ void openEngineSlot(Harness& h, int s, int32_t engineId) {
     h.tap(btn::InstrParams);
 }
 
+// [I] Edit Patch's Macros section (#176) and the row of macro m's header
+// (k = -1) or of its target k there.
+int macrosSection(SynthScreen& s) {
+    const synthui::Section* sec = nullptr;
+    int at = -1;
+    s.editSections(&sec, &at);
+    return at;
+}
+int macroRow(SynthScreen& s, int m, int k = -1) {
+    for (int r = 0, mm = 0, kk = 0; s.macroRowAt(r, &mm, &kk); ++r)
+        if (mm == m && kk == k) return r;
+    return -1;
+}
+
 // [I] Edit Patch (#176): the first setting of section `sec` with the value
 // focused (Left to the sections, Up to the first, Down to `sec`, Right twice).
 void editValue(Harness& h, int sec) {
@@ -129,7 +143,7 @@ TEST(page_and_view_navigation) {
     CHECK(s.view == SynthScreen::View::Edit);
     CHECK(frameHas(h, "Edit Patch: Init"));
     CHECK(frameHas(h, "Oscillator"));
-    CHECK(frameHas(h, "Macro 1"));
+    CHECK(frameHas(h, "Macros"));
     CHECK_EQ(s.editCol, 0);
     h.tap(btn::Down);
     CHECK(s.section == 1 && s.row == 0);
@@ -455,10 +469,10 @@ TEST(load_from_library) {
     CHECK(s.view == SynthScreen::View::Browser);
     CHECK(std::strcmp(a.synthSlot(1).patchName, "Acid Lead") == 0);
     CHECK(std::fabs(audio::synthParamGet(a.synthPatch(1), 9) - 1234.0f) < 1e-3f);
-    // Back on the Macros page the macro name shows in the label and legend.
+    // Back on the Macros page the macro name shows in its label.
     h.tap(btn::F7);
     h.tap(btn::InstrParams);
-    CHECK(frameHas(h, "Wobble"));
+    CHECK(frameHas(h, "M1 Wobble"));
 }
 
 // Load Patch popup (Tracker+ 1.0, docs/SYNTH_UX_MINI_VS_OT.md row 24): F5-F6
@@ -586,27 +600,24 @@ TEST(init_patch_with_confirmation) {
     CHECK(a.synthPatchSource(1) == App::PatchSource::Init);
 }
 
+// [I] One Macros section (#176): each macro's header (F8 Rename, Unipolar /
+// Bipolar) and its settings (the amount, F3 Remove); F4 To Macro on a
+// setting adds it to a macro or takes it off.
 TEST(macro_section_editing) {
     Harness h;
     App& a = *h.app;
     openSlot(h, 1);
     SynthScreen& s = synth(a);
     h.tap(btn::F8);
-    const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(kSynthEngineAcd, &sec);
-    int m1 = -1;
-    for (int i = 0; i < n; ++i)
-        if (sec[i].macro == 0) m1 = i;
-    CHECK(m1 >= 0);
-    s.section = m1;
-    s.row = 0;
-    s.editCol = 2;   // the value; F5 / F7 move the row
-    // Name row: F8 "Edit" (Mini manual p.155) opens the naming keyboard; the
-    // value column above F8 shows the Edit key.
+    s.section = macrosSection(s);
+    CHECK(s.section >= 0);
+    s.row = macroRow(s, 0);   // M1's header
+    s.editCol = 2;            // the value; F5 / F7 move the row
     h.app->ui.dirty();
     h.run(40);
-    CHECK_STR(a.ui.bar.label[7].top, "Edit");
-    CHECK(frameHas(h, "Edit"));
+    CHECK_STR(a.ui.bar.label[7].top, "Rename");
+    CHECK_STR(a.ui.bar.label[5].top, "Macros");
+    CHECK(frameHas(h, "Unipolar") && frameHas(h, "Bipolar"));
     h.tap(btn::F8);
     CHECK(a.ui.kb.isOpen());
     h.tap(btn::F7);   // keyboard Cancel
@@ -620,43 +631,109 @@ TEST(macro_section_editing) {
     h.tap(btn::F8);
     CHECK(std::strcmp(a.synthPatch(1).macros[0].name, "cut") == 0);
     CHECK(a.synthPatch(1).macros[0].nameLen == 3);
-    // Bipolar toggles; F8 is Back again off the Name row.
-    h.tap(btn::F7);
-    h.app->ui.dirty();
-    h.run(40);
-    CHECK_STR(a.ui.bar.label[7].top, "Back");
+    CHECK(frameHas(h, "M1 cut"));
+    // Unipolar / Bipolar on the header: Down (encoder right) Bipolar.
     const bool bi = a.synthPatch(1).macros[0].bipolar;
     {   // the macro was turned away from its neutral value first
         SynthSlotRecord rec = a.synthSlot(1);
         rec.macros[0] = 20;
         a.setSynthSlotRecord(1, rec);
     }
-    h.enc(1);
+    h.enc(bi ? -1 : 1);
     CHECK(a.synthPatch(1).macros[0].bipolar == !bi);
     // User report: the value restarts at the new mode's neutral position
     // (bipolar centre 63 = "0", else 0), not at a leftover -63.
     CHECK_EQ(int(a.synthSlot(1).macros[0]), !bi ? 63 : 0);
-    h.enc(1);
+    h.enc(bi ? 1 : -1);
     CHECK(a.synthPatch(1).macros[0].bipolar == bi);
     CHECK_EQ(int(a.synthSlot(1).macros[0]), bi ? 63 : 0);
-    h.enc(1);   // back to the toggled state for the rest of the test
-    // A new target in the first free slot: Parameter row of target count.
-    const int count = audio::synthMacroTargets(a.synthPatch(1).macros[0]);
-    s.row = 2 + 2 * count;
-    h.enc(1);   // first choice: Osc Saw Mix (index 0)
+    // F4 To Macro on Oscillator > Saw Mix (index 0): the six macros, F4 Add.
     const PatchMacro& mc = a.synthPatch(1).macros[0];
-    CHECK(audio::synthMacroTargets(mc) == count + 1);
-    CHECK(mc.targets[count].param == 0);
-    CHECK(frameHas(h, "Osc Saw Mix"));
-    // Its amount.
-    h.tap(btn::F7);
+    const int count = audio::synthMacroTargets(mc);
+    s.section = 0;
+    s.row = 0;
+    s.editCol = 1;
+    h.app->ui.dirty();
+    h.run(40);
+    CHECK_STR(a.ui.bar.label[3].top, "To Macro");
+    h.tap(btn::F4);
+    CHECK_EQ(s.toMacro, 0);
+    CHECK_STR(a.ui.bar.label[3].top, "Add");
+    CHECK_STR(a.ui.bar.label[7].top, "Cancel");
+    CHECK(frameHas(h, "M6 Macro 6"));
+    CHECK(!frameHas(h, "M7 Velocity"));   // M7 is the Volume column's
+    h.tap(btn::F4);
+    CHECK_EQ(s.toMacro, -1);
+    CHECK_EQ(audio::synthMacroTargets(mc), count + 1);
+    CHECK_EQ(mc.targets[count].param, 0);
+    CHECK(patchBitsToFloat(mc.targets[count].amountBits) == 1.0f);
+    CHECK(std::strcmp(mc.name, "cut") == 0);   // a named macro keeps its name
+    // Its amount, on its row in Macros.
+    s.section = macrosSection(s);
+    s.row = macroRow(s, 0, count);
+    s.editCol = 2;
+    CHECK(frameHas(h, "Saw Mix"));
     h.enc(-50);
     CHECK(std::fabs(patchBitsToFloat(mc.targets[count].amountBits) - 0.5f) < 1e-4f);
-    // Back to Unassigned removes the trailing target.
-    h.tap(btn::F5);
-    h.enc(-1);
-    CHECK(audio::synthMacroTargets(mc) == count);
+    // F3 Remove takes it off; on a header F3 does nothing.
+    h.tap(btn::F3);
+    CHECK_EQ(audio::synthMacroTargets(mc), count);
+    s.row = macroRow(s, 0);
+    h.tap(btn::F3);
+    CHECK_EQ(audio::synthMacroTargets(mc), count);
+    // F4 on a setting already on a macro opens at that macro: F4 Remove.
+    s.section = 0;
+    s.row = 0;
+    h.tap(btn::F4);
+    h.tap(btn::Down);   // M2: unnamed, takes the setting's name
+    h.tap(btn::F4);
+    const PatchMacro& m2 = a.synthPatch(1).macros[1];
+    CHECK_EQ(audio::synthMacroTargets(m2), 1);
+    CHECK(std::strcmp(m2.name, "Saw Mix") == 0);
+    h.tap(btn::F4);
+    CHECK_EQ(s.toMacro, 1);
+    CHECK_STR(a.ui.bar.label[3].top, "Remove");
+    h.tap(btn::F4);
+    CHECK_EQ(audio::synthMacroTargets(m2), 0);
+    // F8 cancels without a change.
+    h.tap(btn::F4);
+    h.tap(btn::F8);
+    CHECK_EQ(s.toMacro, -1);
+    CHECK_EQ(audio::synthMacroTargets(m2), 0);
+    CHECK(s.view == SynthScreen::View::Edit);
     CHECK(a.synthPatchDirty(1));
+}
+
+// [I] F4 To Macro: five settings a macro at most; a setting macros can't move
+// (Width) has F4 off.
+TEST(to_macro_limits) {
+    Harness h;
+    App& a = *h.app;
+    openSlot(h, 1);
+    SynthScreen& s = synth(a);
+    h.tap(btn::F8);
+    s.editCol = 1;
+    const PatchMacro& m3 = a.synthPatch(1).macros[2];
+    for (int r = 0; r < 6; ++r) {
+        s.section = 0;
+        s.row = r;
+        h.tap(btn::F4);
+        h.tap(btn::Down);
+        h.tap(btn::Down);   // M3
+        h.tap(btn::F4);
+    }
+    CHECK_EQ(audio::synthMacroTargets(m3), synthui::kMacroShownTargets);
+    // Width: not a macro target.
+    const synthui::Section* sec = nullptr;
+    const int n = s.editSections(&sec, nullptr);
+    for (int i = 0; i < n; ++i)
+        for (int r = 0; sec[i].macro < 0 && r < sec[i].count; ++r)
+            if (sec[i].params[r] == audio::synthWidthParam(kSynthEngineAcd)) s.section = i, s.row = r;
+    h.app->ui.dirty();
+    h.run(40);
+    CHECK(!a.ui.bar.label[3].enabled);
+    h.tap(btn::F4);
+    CHECK_EQ(s.toMacro, -1);
 }
 
 TEST(not_available_is_read_only) {
@@ -1053,7 +1130,8 @@ TEST(edit_patch_bar_follows_manual) {
     CHECK_STR(b.label[1].top, "Save As");
     CHECK_STR(b.label[2].top, "Init");
     CHECK_STR(b.label[2].bottom, "Patch");
-    CHECK(b.label[3].hidden && b.label[4].hidden && b.label[6].hidden);
+    CHECK_STR(b.label[3].top, "To Macro");   // [I] #176
+    CHECK(b.label[4].hidden && b.label[6].hidden);
     CHECK_STR(b.label[5].top, "Oscillator");
     CHECK_STR(b.label[7].top, "Back");
     CHECK_EQ(int(b.separatorMask() & 0x60), 0);
@@ -1067,26 +1145,28 @@ TEST(edit_patch_bar_follows_manual) {
     CHECK_EQ(s.section, 1);
     CHECK_EQ(s.row, 0);
     CHECK_STR(b.label[5].top, "Filter");
+    // [I] The last section is Macros (#176).
     const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(kSynthEngineAcd, &sec);
+    const int n = s.editSections(&sec, nullptr);
     s.section = n - 1;
+    CHECK(s.onMacros());
+    h.app->ui.dirty();
+    h.run(40);
+    CHECK_STR(b.label[5].top, "Macros");
+    CHECK_STR(b.label[2].top, "Remove");
+    CHECK(b.label[3].hidden);
     h.tap(btn::F6);
     CHECK_EQ(s.section, 0);
-    // Macro sections: Name, Bipolar and 5 Parameter / Amount pairs.
-    int m1 = -1;
-    for (int i = 0; i < n; ++i)
-        if (sec[i].macro == 0) m1 = i;
-    s.section = m1;
-    s.row = 11;   // the list scrolls to the last row
-    s.editCol = 2;
-    CHECK_EQ(s.rows(), 12);
-    CHECK(frameHas(h, "Parameter 5"));
-    CHECK(!frameHas(h, "Parameter 6"));
-    // A patch with six targets keeps the sixth through edits of the others.
+    // A patch with six targets shows five and keeps the sixth through edits
+    // of the others.
     PatchMacro& mc = a.synthPatch(1).macros[0];
     mc.count = 6;
     for (int k = 0; k < 6; ++k) mc.targets[k] = PatchTarget{k, patchFloatToBits(0.1f * float(k + 1))};
-    s.row = 3;   // Amount 1
+    s.section = n - 1;
+    CHECK(macroRow(s, 0, 4) >= 0);
+    CHECK_EQ(macroRow(s, 0, 5), -1);
+    s.row = macroRow(s, 0, 0);
+    s.editCol = 2;
     h.enc(5);
     CHECK_EQ(mc.count, 6);
     CHECK_EQ(mc.targets[5].param, 5);
@@ -1307,53 +1387,32 @@ TEST(edit_patch_delete_resets_to_init) {
             }
         }
     }
-    // Macro rows: name, bipolar, a target and its amount.
+    // [I] Macros (#176): a header resets the name and polarity, a setting its amount.
     a.setSynthModel(1, int(SynthModel::ACD));
     CHECK(patchInit(kSynthEngineAcd, &init));
-    const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(kSynthEngineAcd, &sec);
-    int m1 = -1, m7 = -1;
-    for (int i = 0; i < n; ++i) {
-        if (sec[i].macro == 0) m1 = i;
-        if (sec[i].macro == 6) m7 = i;
-    }
+    s.section = macrosSection(s);
     PatchMacro& mc = a.synthPatch(1).macros[0];
     std::snprintf(mc.name, sizeof(mc.name), "cut");
     mc.nameLen = 3;
     mc.bipolar = true;
-    s.section = m1;
-    s.row = 0;
+    s.row = macroRow(s, 0);
     h.tap(btn::Delete);
     CHECK_STR(mc.name, "Macro 1");
     CHECK_EQ(int(mc.nameLen), 7);
-    s.row = 1;
-    h.tap(btn::Delete);
     CHECK(!mc.bipolar);
-    s.row = 2;
-    h.enc(3);   // a target on M1 (Init has none)
-    CHECK_EQ(audio::synthMacroTargets(mc), 1);
-    h.tap(btn::F7);       // the next row (the value keeps the focus)
-    h.enc(-25);
-    h.tap(btn::Delete);   // amount: 1.00 (a new target's amount)
+    mc.count = 1;   // a target Init doesn't have: back to 1.00
+    mc.targets[0] = PatchTarget{0, patchFloatToBits(0.25f)};
+    s.row = macroRow(s, 0, 0);
+    h.tap(btn::Delete);
     CHECK(patchBitsToFloat(mc.targets[0].amountBits) == 1.0f);
-    h.tap(btn::F5);
-    h.tap(btn::Delete);   // Parameter 1: back to Unassigned
-    CHECK_EQ(audio::synthMacroTargets(mc), 0);
-    // M7 Velocity: its Init target (Volume, +1) comes back.
+    // M7 Velocity: its Init amount comes back.
     PatchMacro& v = a.synthPatch(1).macros[6];
-    s.section = m7;
-    s.row = 2;
-    h.enc(2);
-    s.row = 3;
+    s.row = macroRow(s, 6, 0);
+    s.editCol = 2;
     h.enc(-40);
-    CHECK(v.targets[0].param != init.macros[6].targets[0].param || v.targets[0].amountBits != init.macros[6].targets[0].amountBits);
+    CHECK(v.targets[0].amountBits != init.macros[6].targets[0].amountBits);
     h.tap(btn::Delete);
-    s.row = 2;
-    h.tap(btn::Delete);
-    CHECK_EQ(audio::synthMacroTargets(v), 1);
     CHECK_EQ(v.targets[0].param, init.macros[6].targets[0].param);
-    s.row = 3;
-    h.tap(btn::Delete);
     CHECK(v.targets[0].amountBits == init.macros[6].targets[0].amountBits);
     CHECK(a.synthPatchDirty(1));
 }
@@ -1380,13 +1439,6 @@ TEST(macro_targets_stay_packed) {
     openSlot(h, 1);
     SynthScreen& s = synth(a);
     h.tap(btn::F8);
-    const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(kSynthEngineAcd, &sec);
-    int m2 = -1;
-    for (int i = 0; i < n; ++i)
-        if (sec[i].macro == 1) m2 = i;
-    s.section = m2;
-    s.editCol = 2;
     PatchMacro& mc = a.synthPatch(1).macros[1];
     mc.count = 0;
     for (auto& t : mc.targets) t = PatchTarget{0, 0};
@@ -1397,35 +1449,38 @@ TEST(macro_targets_stay_packed) {
             if (mc.targets[j].param != 0 || mc.targets[j].amountBits != 0) return false;
         return true;
     };
-    s.row = 2 + 2 * 2;   // Parameter 3 on an empty macro: appended as target 1
-    h.enc(1);
-    CHECK_EQ(mc.count, 1);
-    CHECK(packed());
-    CHECK_EQ(s.row, 2);
-    s.row = 2 + 2 * 4;   // Parameter 5: target 2
-    h.enc(2);
-    CHECK_EQ(mc.count, 2);
+    // [I] F4 To Macro appends (#176): Oscillator rows 0..2 on M2.
+    s.editCol = 1;
+    for (int r = 0; r < 3; ++r) {
+        s.section = 0;
+        s.row = r;
+        h.tap(btn::F4);
+        h.tap(btn::Down);
+        h.tap(btn::F4);
+    }
+    CHECK_EQ(mc.count, 3);
     CHECK(packed());
     const int second = mc.targets[1].param;
-    s.row = 2;           // clear target 1: target 2 moves up
-    h.enc(-10);
-    CHECK_EQ(mc.count, 1);
+    // F3 Remove on the first: the others move up.
+    s.section = macrosSection(s);
+    s.row = macroRow(s, 1, 0);
+    h.tap(btn::F3);
+    CHECK_EQ(mc.count, 2);
     CHECK_EQ(mc.targets[0].param, second);
     CHECK(packed());
-    // A hole read from a file (-1 inside count) still reads as empty and is
-    // closed by the next edit.
+    // A hole read from a file (-1 inside count) isn't listed and is closed
+    // by the next edit.
     mc.count = 3;
     mc.targets[0] = PatchTarget{5, patchFloatToBits(0.5f)};
     mc.targets[1] = PatchTarget{-1, 0};
     mc.targets[2] = PatchTarget{7, patchFloatToBits(0.25f)};
-    CHECK(frameHas(h, "Unassigned"));   // Mini manual p.173 (was "None")
-    CHECK(!frameHas(h, "None"));
-    s.row = 2 + 2 * 2;
-    h.enc(1);
-    CHECK_EQ(mc.count, 2);
+    CHECK_EQ(macroRow(s, 1, 1), -1);
+    CHECK(macroRow(s, 1, 2) >= 0);
+    s.row = macroRow(s, 1, 0);
+    h.tap(btn::F3);
+    CHECK_EQ(mc.count, 1);
     CHECK(packed());
-    CHECK_EQ(mc.targets[0].param, 5);
-    CHECK_EQ(s.row, 2 + 2 * 1);
+    CHECK_EQ(mc.targets[0].param, 7);
 }
 
 // 32-character patch names end to end (the record holds 32 bytes; the Mini
@@ -1791,14 +1846,15 @@ TEST(synth_edit_wheel_hint_on_off_rows_are_lists) {
         CHECK(s.view == SynthScreen::View::Edit);
         s.editCol = 2;   // the value column
         const synthui::Section* sec = nullptr;
-        const int n = synthui::sections(s.engine(), &sec);
+        int at = -1;
+        const int n = s.editSections(&sec, &at);
         for (int i = 0; i < n; ++i) {
             s.section = i;
-            if (sec[i].macro >= 0) {
-                s.row = 1;   // Off / On (bipolar)
+            if (i == at) {   // [I] Macros: a header's Unipolar / Bipolar is a list, an amount a bar
+                s.row = macroRow(s, 0);
                 CHECK(a.ui.encoderOnList());
-                s.row = 0;   // Name: Edit key
-                CHECK(!a.ui.encoderOnList());
+                s.row = macroRow(s, 6, 0);   // M7 Velocity's Volume
+                CHECK(s.row >= 0 && !a.ui.encoderOnList());
                 ++macroRows;
                 continue;
             }
@@ -1907,9 +1963,7 @@ TEST(width_and_stereo_rows) {
     const int n = synthui::sections(kSynthEngineFat, &sec);
     CHECK(n > 0 && std::strcmp(sec[0].name, "Osc") == 0);
     CHECK_EQ(int(sec[0].params[sec[0].count - 1]), audio::synthFatStereoParam());
-    char label[32];
-    synthui::paramFullName(kSynthEngineFat, audio::synthFatStereoParam(), label, sizeof label);
-    CHECK_STR(label, "Osc Stereo");
+    CHECK_STR(synthui::paramUi(kSynthEngineFat, audio::synthFatStereoParam())->label, "Stereo");
     // PERC: no Width row anywhere.
     const int np = synthui::sections(kSynthEnginePerc, &sec);
     for (int i = 0; i < np; ++i)
@@ -1927,7 +1981,6 @@ TEST(macro_names_hide_control_bytes) {
     std::snprintf(m.name, sizeof(m.name), "Cutoff\r");
     m.nameLen = 7;
     h.tap(btn::InstrParams);   // Synth Macros 2/2
-    CHECK(frameHas(h, "Cutoff"));
     CHECK(frameHas(h, "M1 Cutoff"));
     bool raw = false;
     for (const std::string& l : h.disp.last) raw |= l.find('\r') != std::string::npos;

@@ -1252,8 +1252,6 @@ constexpr int kMacroRows = 2 + 2 * kMacroShownTargets;   // Name, Bipolar, Param
 const ParamUi* paramUi(int32_t engine, int index);
 // Sections of an engine's Edit Patch page (macros M1..M7 last).
 int sections(int32_t engine, const Section** out);
-// "Osc Saw Mix" (section + label; macro target names).
-void paramFullName(int32_t engine, int index, char* out, int cap);
 void formatValue(int32_t engine, int index, float v, char* out, int cap);
 float valueFrac(int32_t engine, int index, float v);   // 0..1 (bar position)
 bool valueBipolar(int32_t engine, int index);
@@ -1356,6 +1354,7 @@ public:
     int section = 0;        // Edit: section index
     int row = 0;            // Edit: row in the section
     int editCol = 0;        // Edit: the focused column, 0 sections, 1 settings, 2 the value
+    int toMacro = -1;       // Edit: [I] F4 To Macro's list, the macro selected (0..5); -1 closed
     // Browser (Patches/<MODEL>/*.patch, sorted). [I] An engine with patch
     // files of another format (synth_descriptor.h PatchImport: DX7 .syx) lists
     // those too: banks first, like folders (an open bank lists its patches),
@@ -1374,6 +1373,12 @@ public:
     int32_t engine() const;
     bool available() const;   // the model has an engine in this build
     int rows() const;         // rows of the current Edit section
+    // [I] Edit Patch (#176): the engine's sections, its macros M1..M7 shown as
+    // one Macros section at the end (macrosAt, -1 without macros); returns the
+    // count on screen. Its rows: each macro's header (k = -1), then its targets.
+    int editSections(const synthui::Section** sec, int* macrosAt) const;
+    bool onMacros() const;
+    bool macroRowAt(int r, int* m, int* k) const;
     void listBrowser();
     void openBrowser();       // F7 Load Patch: the popup
     void closeBrowser();      // Cancel: the slot's patch as before the popup
@@ -1389,10 +1394,12 @@ private:
     void paramsChange(int d, bool wrap = false);
     void macroChange(int d);
     void editChange(int d);
-    void macroRowChange(int m, int r, int d);
-    void macroRowText(int m, int r, char* label, int lcap, char* value, int vcap) const;
+    void macroRowChange(int m, int k, int d);
     void macroNameKeyboard();
-    bool nameRow() const;     // Edit Patch on a macro's Name row (F8 = Edit)
+    bool nameRow() const;     // Edit Patch on a macro's header row (F8 = Rename)
+    int toMacroParam() const;   // the setting F4 puts on a macro, -1 none
+    void toMacroKey(uint8_t id, uint8_t state);
+    void toMacroCommit();
     void resetSelected();     // Delete on Params / Macros / Edit Patch
     void resetEditRow();      // Delete in Edit Patch: the Init patch's value
     bool editValueIsList() const;   // Edit: the row's value is a list (enum, Off / On)

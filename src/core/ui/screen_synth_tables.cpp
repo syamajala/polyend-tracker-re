@@ -58,27 +58,6 @@ int sections(int32_t engine, const Section** out) {
     return d ? int(d->sectionCount) : 0;
 }
 
-void paramFullName(int32_t engine, int index, char* out, int cap) {
-    const ParamUi* u = paramUi(engine, index);
-    if (!u) {
-        std::snprintf(out, size_t(cap), "None");
-        return;
-    }
-    const Section* sec = nullptr;
-    const int ns = sections(engine, &sec);
-    for (int s = 0; s < ns; ++s)
-        for (int k = 0; k < sec[s].count; ++k)
-            if (sec[s].params[k] == index) {
-                // Mod rows and the PERC mixer already name their group.
-                if (std::strcmp(sec[s].name, "Mod") == 0 || std::strcmp(sec[s].name, "Mixer") == 0 ||
-                    std::strcmp(sec[s].name, "FX") == 0)
-                    std::snprintf(out, size_t(cap), "%s", u->label);
-                else std::snprintf(out, size_t(cap), "%s %s", sec[s].name, u->label);
-                return;
-            }
-    std::snprintf(out, size_t(cap), "%s", u->label);
-}
-
 void formatValue(int32_t engine, int index, float v, char* out, int cap) {
     const ParamUi* u = paramUi(engine, index);
     const size_t c = size_t(cap);

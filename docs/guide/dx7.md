@@ -69,8 +69,8 @@ loaded voice**, without changing the voice itself:
 Each loaded DX7 voice comes with **macros M1–M6 aimed at the six Tone controls** and
 named after them (M1 Bright, M2 Feedback … M6 Detune). So a voice can be shaped from the
 **Synth Macros** page (Instrument Params again), or per step with the **macro FX**
-(columns A–F), without opening Edit Patch. The macros can still be re-aimed on their
-Edit Patch pages.
+(columns A–F), without opening Edit Patch. To aim them elsewhere, use **F4 To Macro** and
+the **Macros** section in [Edit Patch](edit-patch.md#macros).
 
 ![Synth Macros: M1 Bright raised a little](../images/dx7-macros.png)
 
