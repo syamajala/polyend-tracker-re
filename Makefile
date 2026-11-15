@@ -16,7 +16,10 @@
 # make patches    -> build/patches/Patches/<MODEL>/ (synth preset pack, tools/make_patches/PRESETS.md)
 # make budget     -> the profile's declared module budgets (flash, SRAM) and their limits
 # make card          -> [I] the profile's card modules as build/<profile>/otm/<name>.otm (fork #21)
-# make firmware      -> [I] the image and the card modules (all + card): Firmware/ and Modules/ on the card
+# make firmware      -> [I] the image, the card modules and the synth help files (all + card + help):
+#                    Firmware/, Modules/ and Help/Synths/ on the card
+# make help       -> [I] build/<profile>/Help/Synths/<NAME>.md, the profile modules' help files
+#                    (modules/synth_help.h), for the card's Help/Synths/ folder
 # make hot-rows      -> [I] tools/hot_rows/*.hot, the synths' hot code for the fast block (fork #21)
 # make otm OTM_MODULE=<path> -> [I] build/<profile>/otm/<name>.otm, a module loadable from the card
 #                    (fork #21; <path> as in a profile, relative to MODULES_DIR; tools/make_otm.py)
@@ -421,9 +424,20 @@ card:
 # for Firmware/) and the card modules (build/<profile>/otm/*.otm for Modules/).
 firmware: all
 	$(MAKE) card
+	$(MAKE) help
 	@echo "Firmware/: $(PTF)"
 	@echo "Modules/:  $(BUILD)/otm/*.otm"
+	@echo "Help/:     $(BUILD)/Help/Synths/*.md"
 .PHONY: firmware
+
+# [I] The synth help files (help/<NAME>.md) of the image's and the card's modules:
+# their "# Settings" reference only, the part the help box reads (modules/synth_help.h).
+HELP_FILES := $(wildcard $(addsuffix /help/*.md,$(foreach i,$(MOD_IDS),$(MOD_DIR_$(i))) $(MOD_CARD_DIRS)))
+help:
+	@mkdir -p $(BUILD)/Help/Synths
+	@$(if $(HELP_FILES),,echo "profile $(PROFILE) has no help files")
+	$(foreach f,$(HELP_FILES),python3 -I tools/synth_help_card.py $(f) $(BUILD)/Help/Synths/$(notdir $(f)) &&) true
+.PHONY: help
 
 # [I] The synths' hot rows (fork #21): every mode of every synth under the QEMU bench
 # (profiles/allsynths.toml), folded into tools/hot_rows/<module>.hot by tools/synth_hot.py.

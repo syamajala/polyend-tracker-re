@@ -217,9 +217,9 @@ The 2.x line brings the newer Tracker features to the original hardware. In shor
 - **Voices:** a shared pool of 4 by default, adjustable in **Config > General > Synth
   voices** (1–8). If the audio gets close to its limit, only synth voices are cut; sample
   tracks never are.
-- Screens after the Mini's layout: Synth Parameters, Synth Macros, Edit Patch (sections on
-  the pads; Save, Save As, Init), the Load Patch popup with Preview, and the synth level
-  columns on Global Mixer page 3.
+- Screens after the Mini's layout: Synth Parameters, Synth Macros, the Load Patch popup
+  with Preview, and the synth level columns on Global Mixer page 3. In this fork
+  **[Edit Patch](edit-patch.md)** is laid out like Config, with a help box.
 - Exports include separate stems `synth_1..3.wav`.
 
 ### Export sample rate

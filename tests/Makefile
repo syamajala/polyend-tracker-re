@@ -102,9 +102,11 @@ TEST_RUNS := $(TEST_BINS:%=%.run)
 .PHONY: run $(TEST_RUNS)
 $(OUT)/snapshots:
 	mkdir -p $@
+# The profile modules' folders, for their help files (synth_help_test).
+HELP_DIRS := $(subst $(eval) ,:,$(strip $(foreach i,$(MOD_IDS),$(MOD_DIR_$(i)))))
 run: $(TEST_RUNS)
 $(TEST_RUNS): %.run: % | $(OUT)/snapshots
-	@OT_SNAPSHOT_DIR=$(abspath $(OUT))/snapshots OT_OTM_DIR=$(abspath ../build/$(PROFILE)/otm) OT_FIXTURES=$(CURDIR)/fixtures OT_VENDOR_FIXTURES=$(OT_VENDOR_FIXTURES) $<
+	@OT_HELP_DIRS=$(HELP_DIRS) OT_SNAPSHOT_DIR=$(abspath $(OUT))/snapshots OT_OTM_DIR=$(abspath ../build/$(PROFILE)/otm) OT_FIXTURES=$(CURDIR)/fixtures OT_VENDOR_FIXTURES=$(OT_VENDOR_FIXTURES) $<
 
 # Audio render benchmark (tests/audio_bench.cpp): -O2, no sanitizers.
 BENCH_OUT := ../build/$(PROFILE)/bench

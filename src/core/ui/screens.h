@@ -1356,6 +1356,7 @@ public:
     static constexpr int kArpGateColumn = 6;
     int section = 0;        // Edit: section index
     int row = 0;            // Edit: row in the section
+    int editCol = 0;        // Edit: the focused column, 0 sections, 1 settings, 2 the value
     // Browser (Patches/<MODEL>/*.patch, sorted). [I] An engine with patch
     // files of another format (synth_descriptor.h PatchImport: DX7 .syx) lists
     // those too: banks first, like folders (an open bank lists its patches),
@@ -1395,6 +1396,16 @@ private:
     bool nameRow() const;     // Edit Patch on a macro's Name row (F8 = Edit)
     void resetSelected();     // Delete on Params / Macros / Edit Patch
     void resetEditRow();      // Delete in Edit Patch: the Init patch's value
+    bool editValueIsList() const;   // Edit: the row's value is a list (enum, Off / On)
+    void editMove(int d);     // Edit: Up / Down / encoder in the focused column
+    // Edit: the engine's help file (Help/Synths/<NAME>.md, modules/synth_help.h)
+    // at the start of browserListMem(), loaded when Edit Patch draws; valid
+    // while Edit Patch stays on screen. nullptr: no file.
+    const char* helpText(uint32_t* len);
+    void drawHelp(Gfx& g, const synthui::Section* sec, int n);
+    int32_t helpEngine_ = 0;
+    uint32_t helpLen_ = 0;
+    bool helpValid_ = false;
     void applyModel();        // pendingModel_ -> the slot (after "Discard edits?")
     bool loadSelectedNow();
     bool openBank(const char* file);   // its patches into the list (false: not the engine's format)

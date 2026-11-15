@@ -1,0 +1,67 @@
+// Synth help files: an engine's page in the docs and its Edit Patch help box
+// text, one Markdown file per engine next to its module code
+// (modules/<dir>/help/<NAME>.md in the module repository; NAME = the
+// descriptor's name). Two parts:
+//   # B-Type                 the guide: free Markdown (how it works, recipes)
+//   ...                      for the docs only
+//   # Settings               the reference, to the next # heading or the end:
+//   ## Channel               a section (Section::longName)
+//   ### Distortion           a setting of that section (ParamUi::label)
+//   - Pure: a clean square   a choice of an enum setting (its enum name), or
+//   - low is ..., high ...   for a number setting, one item: the low/high tip
+// The docs show the whole file; the card gets the reference only
+// (Help/Synths/<NAME>.md, make help). The line of a heading is the paragraph
+// right after it (source lines joined with spaces); anything more under it
+// (later paragraphs, indented lines, fenced code, #### parts) is skipped. A
+// choice item may continue on indented lines. Lines carry no inline markup
+// and fit the help box (kHelpLineW).
+#pragma once
+
+#include <cstdint>
+
+#include "ui/gfx.h"
+
+namespace ot {
+namespace synthhelp {
+
+// The help box: each line is "<name> <text>" in kHelpFont, at most kHelpLineW
+// pixels wide (checked by tests/synth_help_test.cpp).
+constexpr uint8_t kHelpFont = kFont5;
+constexpr int kHelpLineW = 760;
+constexpr int kHelpNameGap = 6;   // px between the name and the text
+constexpr int kMaxLine = 256;     // find(): longer device lines are cut
+constexpr uint32_t kMaxFile = 16384;   // a help file's bytes (the screen reads no more)
+
+enum Level : uint8_t { kSection = 2, kSetting = 3, kChoice = 4 };
+
+// One entry of a help file, in file order. name: the heading text (empty for
+// kChoice); line: the device line (kChoice: the whole item, see splitChoice;
+// empty when none), valid during the callback only.
+struct Entry {
+    Level level;
+    const char* name;
+    int nameLen;
+    const char* line;
+    int lineLen;
+    int lineNo;   // 1-based source line of the heading or item
+};
+using Visit = void (*)(void* ctx, const Entry& e);
+
+// Walks the entries of the reference in `text` (from "# Settings" to the next
+// # heading; the whole text when it has no "# Settings"). buf (cap bytes)
+// holds each joined line; a longer one is cut at cap - 1.
+void walk(const char* text, uint32_t len, char* buf, int cap, Visit visit, void* ctx);
+
+// The length of the choice name in a choice item ("Pure: a clean square"
+// -> 4), -1 without ": ".
+int splitChoice(const char* item, int len);
+
+// The device line for a place in the file, copied to out (NUL-terminated);
+// returns its length, 0 when the file has none. setting / choice nullptr =
+// the section's / setting's own line; choice "" = the setting's tip (the
+// whole first item, for a number setting).
+int find(const char* text, uint32_t len, const char* section, const char* setting, const char* choice,
+         char* out, int cap);
+
+}  // namespace synthhelp
+}  // namespace ot
