@@ -1,7 +1,7 @@
 # Snapshot_030: Config > General > Pads preview picker (VISUAL_DIFF §8.19,
 # Part 2 §11). Help panel + picker list inside one red focus frame, strip
 # 050505 with separators only at 200 / 600 / 700. The help text is our own
-# (config_help.cpp), so only its left / top edges are checked.
+# (help/Config.md on the card), so only its left / top edges are checked.
 stock Snapshot_030.png
 project Jude Frankum - Chill Out Room
 script

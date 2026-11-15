@@ -10,7 +10,7 @@
 #include "app/project_fields.h"
 #include "build_id.h"
 
-#include "ui/config_help.h"
+#include "config_help.h"
 #include "ui/screens.h"
 
 using namespace ot;
@@ -207,17 +207,16 @@ TEST(config_menu_lists_all_options_with_defaults) {
     CHECK_STR(t, "4");
     // Help texts: 25 options (spec 15 §3.2): all of Project Settings and
     // General, CC in, CC in channel, Clock sync correction, Firmware update.
+    // [I] From help/Config.md (the card's Help/Config.md).
     int helps = 0;
     for (int k = 0; k < 7; ++k)
         for (int i = 0; i < cats[k].n; ++i) {
-            ConfigScreen::OptionInfo o;
-            CHECK(ConfigScreen::optionInfo(k, i, &o));
             const bool want = k <= 1 || (k == 2 && (i == 7 || i == 8 || i == 10)) || k == 3 || (k == 5 && i == 0);
-            CHECK_EQ(o.help != nullptr, want);
-            helps += o.help != nullptr;
+            const std::string help = configHelpOf(k, i);
+            CHECK_EQ(!help.empty(), want);
+            helps += !help.empty();
         }
     CHECK_EQ(helps, 36);   // stock 25 + 2.x Export theme, CPU meter, Synth voices, Radio stereo, Export sample rate, two stream rows, Pad layout, Note names, USB Storage and Remote control
-    CHECK_EQ(configHelpCount(), 36);
     c.optionText(5, 1, t, sizeof t);
     CHECK(std::strlen(t) > 0);
 }
@@ -423,10 +422,17 @@ TEST(config_stock_value_labels) {
 TEST(config_help_box_and_pickers) {
     Harness h;
     App& a = *h.app;
+    // [I] The help texts come from the card's Help/Config.md: none without it.
     h.tap(btn::Config);
     ConfigScreen& c = cfgScreen(h);
     h.tap(btn::Right);
     h.tap(btn::Down);         // Pattern divider
+    h.tap(btn::F8);
+    h.run(50);
+    CHECK(!h.disp.lastHasText("highlighted"));
+    h.tap(btn::F7);
+    const std::string& file = configHelpFile();
+    h.fs.files["Help/Config.md"] = std::vector<uint8_t>(file.begin(), file.end());
     h.tap(btn::F8);
     CHECK(c.editing);
     CHECK_EQ(c.picker, 3);
@@ -551,4 +557,58 @@ TEST(config_values_clear_the_scroll_bar) {
     // The list's text area ends at x 201 + 3 + (397 - 13) = 588 with the bar.
     CHECK(ConfigScreen::valueRight(general) <= 584);
     CHECK_EQ(ConfigScreen::valueRight(metronome), 590);
+}
+
+// [I] help/Config.md: every ## names a category and every ### one of its
+// options; each text is one paragraph without markup that fits the help box
+// (x 210, 185 px wide, 353 px high, 19 px a line, font 5).
+TEST(config_help_file_matches_the_menu) {
+    const std::string& text = configHelpFile();
+    CHECK(text.rfind("# Config\n", 0) == 0);
+    CHECK(text.find("\n# Settings\n") != std::string::npos);
+    struct Ctx {
+        int cat = -1, errors = 0, texts = 0;
+    } x;
+    char buf[synthhelp::kMaxLine];
+    synthhelp::walk(text.data(), uint32_t(text.size()), buf, sizeof buf,
+                    [](void* p, const synthhelp::Entry& e) {
+                        Ctx& c = *static_cast<Ctx*>(p);
+                        const std::string name(e.name, size_t(e.nameLen)), line(e.line, size_t(e.lineLen));
+                        auto bad = [&](const char* why) {
+                            std::printf("  help/Config.md:%d: '%s': %s\n", e.lineNo, name.c_str(), why);
+                            ++c.errors;
+                        };
+                        if (e.level == synthhelp::kSection) {
+                            c.cat = -1;
+                            for (int k = 0; k < ConfigScreen::categoryCount(); ++k)
+                                if (name == ConfigScreen::categoryName(k)) c.cat = k;
+                            if (c.cat < 0) bad("no such category");
+                            return;
+                        }
+                        if (e.level != synthhelp::kSetting) return bad("only ## and ### headings");
+                        bool found = false;
+                        for (int i = 0; c.cat >= 0 && i < ConfigScreen::optionCount(c.cat); ++i) {
+                            ConfigScreen::OptionInfo o;
+                            found |= ConfigScreen::optionInfo(c.cat, i, &o) && name == o.name;
+                        }
+                        if (!found) bad("no such option in the category");
+                        if (line.empty()) bad("no text");
+                        if (line.find_first_of("*`[]<>|_") != std::string::npos) bad("markup in the text");
+                        // Word wrap at the box width.
+                        int lines = 1, pen = 0;
+                        const int space = textWidth(kFont5, " ");
+                        for (size_t a = 0; a < line.size();) {
+                            size_t b = line.find(' ', a);
+                            if (b == std::string::npos) b = line.size();
+                            const int w = textWidth(kFont5, line.substr(a, b - a).c_str());
+                            if (pen > 0 && pen + space + w > 185) ++lines, pen = w;
+                            else pen += (pen > 0 ? space : 0) + w;
+                            a = b + 1;
+                        }
+                        if (lines * 19 > 353) bad("too long for the help box");
+                        ++c.texts;
+                    },
+                    &x);
+    CHECK_EQ(x.errors, 0);
+    CHECK_EQ(x.texts, 36);
 }

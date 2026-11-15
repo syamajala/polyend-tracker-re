@@ -1,5 +1,5 @@
 // Synth help files: an engine's page in the docs and its Edit Patch help box
-// text, one Markdown file per engine next to its module code
+// text (the same format holds Config's help texts, help/Config.md), one Markdown file per engine next to its module code
 // (modules/<dir>/help/<NAME>.md in the module repository; NAME = the
 // descriptor's name). Two parts:
 //   # B-Type                 the guide: free Markdown (how it works, recipes)
@@ -29,7 +29,7 @@ namespace synthhelp {
 constexpr uint8_t kHelpFont = kFont5;
 constexpr int kHelpLineW = 760;
 constexpr int kHelpNameGap = 6;   // px between the name and the text
-constexpr int kMaxLine = 256;     // find(): longer device lines are cut
+constexpr int kMaxLine = 320;     // find(): longer lines are cut (Config texts reach 260)
 constexpr uint32_t kMaxFile = 16384;   // a help file's bytes (the screen reads no more)
 
 enum Level : uint8_t { kSection = 2, kSetting = 3, kChoice = 4 };

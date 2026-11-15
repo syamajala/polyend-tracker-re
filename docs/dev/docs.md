@@ -53,5 +53,8 @@ for the docs, then the `# Settings` reference that the Edit Patch help box reads
   `Modules.zip`.
 - `make host-test` (`tests/synth_help_test.cpp`) checks every help file of the profile's
   modules against the descriptor: names, full coverage, no markup, the widest font fits.
+- Config's help box texts work the same way: `help/Config.md` in this repository (`##` a
+  category, `###` an option), on the card as `Help/Config.md`; `tests/config_screen_test.cpp`
+  checks it against the Config menu.
 - Describe what a setting does. Wording about how something sounds goes in only after it
   has been heard on the device.

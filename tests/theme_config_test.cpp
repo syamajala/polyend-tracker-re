@@ -8,6 +8,7 @@
 
 #include <string>
 
+#include "config_help.h"
 #include "ui/screens.h"
 #include "ui/theme_file.h"
 
@@ -346,7 +347,7 @@ TEST(export_theme_action_writes_file_and_refuses_overwrite) {
     CHECK(ConfigScreen::optionInfo(kGeneral, kExportRow, &o));
     CHECK_STR(o.name, "Export theme");
     CHECK_EQ(o.kind, 7);
-    CHECK(o.help != nullptr);
+    CHECK(!configHelpOf(kGeneral, kExportRow).empty());
     gotoGeneralRow(h, kExportRow);
     h.tap(btn::F8);
     CHECK(h.fs.files.count("Themes/Original.json"));
