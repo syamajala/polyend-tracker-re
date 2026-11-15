@@ -396,6 +396,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../guide/edit-patch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Edit Patch and synth help
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../guide/master-fx/" class="md-nav__link">
         
   
@@ -1025,6 +1053,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#synth-help-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Synth help files
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1100,6 +1139,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#synth-help-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Synth help files
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1148,6 +1198,21 @@ site per version on the <code>gh-pages</code> branch:</p>
 <li>every push to <code>main</code> updates <strong>dev</strong>;</li>
 <li>once the fork makes releases, each release tag will add its version, and the version
   picker at the top will switch between them.</li>
+</ul>
+<h2 id="synth-help-files">Synth help files<a class="headerlink" href="#synth-help-files" title="Permanent link">&para;</a></h2>
+<p>Each synth's help lives next to its code in the module repository,
+<code>modules/&lt;synth&gt;/help/&lt;NAME&gt;.md</code> (<code>NAME</code> = the descriptor's name, e.g. <code>BTYPE</code>): a guide
+for the docs, then the <code># Settings</code> reference that the Edit Patch help box reads
+(format in <code>src/core/modules/synth_help.h</code>, user view in
+<a href="../../guide/edit-patch/">Edit Patch and synth help</a>).</p>
+<ul>
+<li><code>make help</code> (and <code>make firmware</code>) writes the card copies, the reference only, to
+  <code>build/&lt;profile&gt;/Help/Synths/</code> (<code>tools/synth_help_card.py</code>); the release puts them in
+  <code>Modules.zip</code>.</li>
+<li><code>make host-test</code> (<code>tests/synth_help_test.cpp</code>) checks every help file of the profile's
+  modules against the descriptor: names, full coverage, no markup, the widest font fits.</li>
+<li>Describe what a setting does. Wording about how something sounds goes in only after it
+  has been heard on the device.</li>
 </ul>
 
 
