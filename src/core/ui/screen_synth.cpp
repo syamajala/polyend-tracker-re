@@ -67,8 +67,50 @@ void barColumn(Gfx& g, const Theme& th, int col, float v, bool bipolar, bool ena
     wg::valueBar(g, th, wg::columnX(col), wg::kPanelY, wg::columnW(span), h, v, st);
 }
 
+// Edit Patch's section list: the engine's sections, then [I] "Macros" (#176).
+struct SectionList {
+    const synthui::Section* sec;
+    int macrosAt;
+};
 void sectionItem(void* ctx, int i, char* out, int cap) {
-    std::snprintf(out, size_t(cap), "%s", static_cast<const synthui::Section*>(ctx)[i].longName);
+    const SectionList& l = *static_cast<const SectionList*>(ctx);
+    std::snprintf(out, size_t(cap), "%s", i == l.macrosAt ? "Macros" : l.sec[i].longName);
+}
+
+const char* shown(const char* s);
+
+// [I] F4 To Macro's list (#176): M1..M6 with their names, tagged "on" where
+// the setting already is, else with how many settings each moves.
+struct ToMacroList {
+    const SynthPatch* p;
+    int param;
+};
+void toMacroItem(void* ctx, int i, char* out, int cap) {
+    const PatchMacro& mc = static_cast<const ToMacroList*>(ctx)->p->macros[i];
+    std::snprintf(out, size_t(cap), "M%d %s", i + 1, mc.name[0] ? shown(mc.name) : "-");
+}
+const char* toMacroTag(void* ctx, int i) {
+    static const char* const kDigits[] = {"0", "1", "2", "3", "4", "5", "6"};
+    const ToMacroList& l = *static_cast<const ToMacroList*>(ctx);
+    const PatchMacro& mc = l.p->macros[i];
+    int live = 0;
+    for (int k = 0; k < audio::synthMacroTargets(mc); ++k) {
+        if (mc.targets[k].param == l.param) return "on";
+        live += mc.targets[k].param >= 0;
+    }
+    return kDigits[live < 6 ? live : 6];
+}
+
+// "moves Distortion, DAC Bits" ("moves nothing yet"): the settings macro mc moves.
+void macroMoves(int32_t engine, const PatchMacro& mc, char* out, int cap) {
+    int n = std::snprintf(out, size_t(cap), "moves");
+    for (int k = 0; k < audio::synthMacroTargets(mc); ++k) {
+        const synthui::ParamUi* u = mc.targets[k].param >= 0 ? synthui::paramUi(engine, mc.targets[k].param) : nullptr;
+        if (!u) continue;
+        n += std::snprintf(out + n, size_t(cap > n ? cap - n : 0), "%s%s", n > 5 ? ", " : " ", u->label);
+        if (n >= cap) return;
+    }
+    if (n == 5) std::snprintf(out + n, size_t(cap - n), " nothing yet");
 }
 
 void listColumn(Gfx& g, const Theme& th, int col, int span, const char* const* items, int count, int sel,
@@ -234,9 +276,49 @@ bool SynthScreen::available() const {
 
 int SynthScreen::rows() const {
     const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(engine(), &sec);
+    int at = -1;
+    const int n = editSections(&sec, &at);
     if (section < 0 || section >= n) return 0;
-    return sec[section].macro >= 0 ? synthui::kMacroRows : sec[section].count;
+    if (section != at) return sec[section].count;
+    int r = 0, m = 0, k = 0;
+    while (macroRowAt(r, &m, &k)) ++r;
+    return r;
+}
+
+int SynthScreen::editSections(const synthui::Section** sec, int* macrosAt) const {
+    const int n = synthui::sections(engine(), sec);
+    int at = 0;   // the macro sections come last (synth_descriptor.h)
+    while (at < n && (*sec)[at].macro < 0) ++at;
+    if (macrosAt) *macrosAt = at < n ? at : -1;
+    return at < n ? at + 1 : n;
+}
+
+bool SynthScreen::onMacros() const {
+    const synthui::Section* sec = nullptr;
+    int at = -1;
+    editSections(&sec, &at);
+    return at >= 0 && section == at;
+}
+
+bool SynthScreen::macroRowAt(int r, int* m, int* k) const {
+    const SynthPatch& p = app_.synthTargetPatch(slot, et_);
+    for (int i = 0; i < kPatchMacros - 1; ++i) {   // M1..M7 (the macro sections)
+        if (r-- == 0) return *m = i, *k = -1, true;
+        const PatchMacro& mc = p.macros[i];
+        const int count = std::min(audio::synthMacroTargets(mc), synthui::kMacroShownTargets);
+        for (int j = 0; j < count; ++j)
+            if (mc.targets[j].param >= 0 && r-- == 0) return *m = i, *k = j, true;
+    }
+    return false;
+}
+
+int SynthScreen::toMacroParam() const {
+    const synthui::Section* sec = nullptr;
+    int at = -1;
+    const int n = editSections(&sec, &at);
+    if (section < 0 || section >= n || section == at || row < 0 || row >= sec[section].count) return -1;
+    const int idx = sec[section].params[row];
+    return synthui::targetChoiceIndex(engine(), idx) > 0 ? idx : -1;   // macros move the Mini parameters only
 }
 
 void SynthScreen::start(int opt) {
@@ -268,6 +350,7 @@ void SynthScreen::start(int opt) {
 
 void SynthScreen::stop() {
     helpValid_ = false;   // other screens use the browser lists
+    toMacro = -1;
     audition(false, 0);
     closeOpened();
     if (view == View::Browser) closeBrowser();   // leaving the screen cancels the popup
@@ -410,18 +493,34 @@ void SynthScreen::refreshBar() {
             // Manual p.153: Save, Save As, Init Patch, -, Up, the section,
             // Down, Back; F5..F7 form one group (no separators inside, the
             // arrows are drawn by drawEdit).
+            const synthui::Section* sec = nullptr;
+            int at = -1;
+            const int n = editSections(&sec, &at);
+            b.label[4].hidden = b.label[6].hidden = true;
+            b.separators = uint8_t(0xFE & ~((1u << 5) | (1u << 6)));
+            if (toMacro >= 0) {   // [I] F4 To Macro's list: F4 adds or removes, F8 cancels
+                const PatchMacro& mc = app_.synthTargetPatch(slot, et_).macros[toMacro];
+                bool on = false;
+                for (int k = 0; k < audio::synthMacroTargets(mc); ++k) on |= mc.targets[k].param == toMacroParam();
+                b.label[0].hidden = b.label[1].hidden = b.label[2].hidden = true;
+                b.set(3, on ? "Remove" : "Add");
+                b.set(5, "Macro");
+                b.set(7, "Cancel");
+                break;
+            }
             b.set(0, "Save", nullptr, !ro);
             b.set(1, "Save As", nullptr, !ro);
-            b.setName(2, "Init", "Patch", !ro);
-            b.label[3].hidden = b.label[4].hidden = b.label[6].hidden = true;
-            const synthui::Section* sec = nullptr;
-            const int n = synthui::sections(engine(), &sec);
-            if (section >= 0 && section < n) b.set(5, sec[section].longName);
-            // A macro's Name row: F8 "Edit" opens the naming keyboard (Mini
+            int m = 0, k = 0;
+            const bool target = section == at && macroRowAt(row, &m, &k) && k >= 0;
+            if (section == at) b.set(2, "Remove", nullptr, target && !ro);   // [I] a macro's setting off it
+            else b.setName(2, "Init", "Patch", !ro);
+            if (section == at) b.label[3].hidden = true;
+            else b.set(3, "To Macro", nullptr, toMacroParam() >= 0 && !ro);   // [I] #176
+            if (section >= 0 && section < n) b.set(5, section == at ? "Macros" : sec[section].longName);
+            // A macro's header row: F8 Rename opens the naming keyboard (Mini
             // manual p.155 "Select edit to use naming editor"; Tracker+
             // tutorial V2 7:52). Back stays on F8 for every other row.
-            b.set(7, nameRow() ? "Edit" : "Back", nullptr, !nameRow() || !ro);
-            b.separators = uint8_t(0xFE & ~((1u << 5) | (1u << 6)));
+            b.set(7, nameRow() ? "Rename" : "Back", nullptr, !nameRow() || !ro);
             break;
         }
         case View::Insert:
@@ -540,12 +639,13 @@ void SynthScreen::resetSelected() {
 
 void SynthScreen::resetEditRow() {
     const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(engine(), &sec);
+    int at = -1;
+    const int n = editSections(&sec, &at);
     if (section < 0 || section >= n || row < 0 || row >= rows()) return;
     SynthPatch& init = *new (static_cast<unsigned char*>(browserListMem()) + kInitPatchAt) SynthPatch();
     if (!patchInit(engine(), &init)) return;
     SynthPatch& p = app_.synthTargetPatch(slot, et_);
-    if (sec[section].macro < 0) {
+    if (section != at) {
         const int idx = sec[section].params[row];
         const int mini = audio::synthParamCount(engine());
         if (idx >= mini) {
@@ -564,27 +664,19 @@ void SynthScreen::resetEditRow() {
         else if (idx < p.paramCount) p.params[idx] = PatchParam{0u, false};   // absent = the engine default
         else return;
     } else {
-        const int m = sec[section].macro;
+        // [I] A macro's header: its Init name and polarity; a setting of it:
+        // the Init amount of that target (1.00 when Init has none there).
+        int m = 0, k = 0;
+        if (!macroRowAt(row, &m, &k)) return;
         PatchMacro& mc = p.macros[m];
         const PatchMacro& im = init.macros[m];
-        const int initCount = audio::synthMacroTargets(im);
-        if (row == 0) {
+        if (k < 0) {
             std::memcpy(mc.name, im.name, sizeof(mc.name));
             mc.nameLen = im.nameLen;
-        } else if (row == 1) {
             mc.bipolar = im.bipolar;
         } else {
-            const int k = (row - 2) / 2;
-            const bool live = k < audio::synthMacroTargets(mc) && mc.targets[k].param >= 0;
-            if ((row - 2) % 2 == 0) {
-                const PatchTarget t = k < initCount ? im.targets[k] : PatchTarget{-1, patchFloatToBits(1.0f)};
-                if (live && mc.targets[k].param == t.param) return;
-                if (!live && t.param < 0) return;
-                setMacroTarget(mc, k, t.param, t.amountBits);
-            } else {
-                if (!live) return;
-                mc.targets[k].amountBits = k < initCount ? im.targets[k].amountBits : patchFloatToBits(1.0f);
-            }
+            const bool same = k < audio::synthMacroTargets(im) && im.targets[k].param == mc.targets[k].param;
+            mc.targets[k].amountBits = same ? im.targets[k].amountBits : patchFloatToBits(1.0f);
         }
     }
     edited();
@@ -607,37 +699,14 @@ void SynthScreen::macroChange(int d) {
     ui_.dirty();
 }
 
-void SynthScreen::macroRowText(int m, int r, char* label, int lcap, char* value, int vcap) const {
-    const PatchMacro& mc = app_.synthTargetPatch(slot, et_).macros[clampi(m, 0, kPatchMacros - 1)];
-    const int count = audio::synthMacroTargets(mc);
-    if (r == 0) {
-        std::snprintf(label, size_t(lcap), "Name");
-        std::snprintf(value, size_t(vcap), "%s", mc.name[0] ? shown(mc.name) : "-");
-    } else if (r == 1) {
-        std::snprintf(label, size_t(lcap), "Bipolar");
-        std::snprintf(value, size_t(vcap), "%s", mc.bipolar ? "On" : "Off");
-    } else {
-        const int k = (r - 2) / 2;
-        const bool live = k < count && mc.targets[k].param >= 0;
-        if ((r - 2) % 2 == 0) {
-            std::snprintf(label, size_t(lcap), "Parameter %d", k + 1);
-            if (live) synthui::paramFullName(engine(), mc.targets[k].param, value, vcap);
-            else std::snprintf(value, size_t(vcap), "Unassigned");   // Mini manual p.173 figure
-        } else {
-            std::snprintf(label, size_t(lcap), "Amount %d", k + 1);
-            if (live) std::snprintf(value, size_t(vcap), "%.2f", double(patchBitsToFloat(mc.targets[k].amountBits)));
-            else std::snprintf(value, size_t(vcap), "-");
-        }
-    }
-}
-
-void SynthScreen::macroRowChange(int m, int r, int d) {
+// [I] A macro's header (k < 0): Unipolar / Bipolar, a list (Down: Bipolar);
+// its target k: the amount, -2.00..2.00 in steps of 0.01.
+void SynthScreen::macroRowChange(int m, int k, int d) {
     SynthPatch& p = app_.synthTargetPatch(slot, et_);
     PatchMacro& mc = p.macros[clampi(m, 0, kPatchMacros - 1)];
-    int count = audio::synthMacroTargets(mc);
-    if (r == 0) return;   // the name: keyboard (F7 / encoder push)
-    if (r == 1) {
-        mc.bipolar = !mc.bipolar;
+    if (k < 0) {
+        if (mc.bipolar == (d > 0)) return;
+        mc.bipolar = d > 0;
         // The macro's value restarts at its neutral position for the new
         // mode (0, or the centre 63 = "0" when bipolar), as on a patch load;
         // keeping the old 0 showed a bipolar macro at -63 (user report).
@@ -647,47 +716,33 @@ void SynthScreen::macroRowChange(int m, int r, int d) {
             app_.setSynthTargetRecord(slot, rec, et_);
         }
     } else {
-        const int k = (r - 2) / 2;
-        if ((r - 2) % 2 == 0) {
-            const int cur = k < count ? mc.targets[k].param : -1;
-            const int n = synthui::targetChoices(engine());
-            const int ci = clampi(synthui::targetChoiceIndex(engine(), cur) + d, 0, n - 1);
-            const int np = synthui::targetChoice(engine(), ci);
-            if (np == cur) return;
-            const int at = setMacroTarget(mc, k, np, patchFloatToBits(1.0f));
-            if (at >= 0) row = 2 + 2 * at;   // the cursor follows an appended target
-        } else {
-            if (k >= count || mc.targets[k].param < 0) return;
-            float a = patchBitsToFloat(mc.targets[k].amountBits);
-            a = clampf(std::round((a + 0.01f * float(d)) * 100.0f) / 100.0f, -2.0f, 2.0f);
-            mc.targets[k].amountBits = patchFloatToBits(a);
-        }
+        if (k >= audio::synthMacroTargets(mc) || mc.targets[k].param < 0) return;
+        float a = patchBitsToFloat(mc.targets[k].amountBits);
+        a = clampf(std::round((a + 0.01f * float(d)) * 100.0f) / 100.0f, -2.0f, 2.0f);
+        mc.targets[k].amountBits = patchFloatToBits(a);
     }
     edited();
 }
 
 bool SynthScreen::nameRow() const {
-    const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(engine(), &sec);
-    return view == View::Edit && section >= 0 && section < n && sec[section].macro >= 0 && row == 0;
+    int m = 0, k = 0;
+    return view == View::Edit && toMacro < 0 && onMacros() && macroRowAt(row, &m, &k) && k < 0;
 }
 
-// Macro name row (F8 Edit, encoder push): the naming keyboard.
+// A macro's header row (F8 Rename, encoder push): the naming keyboard.
 void SynthScreen::macroNameKeyboard() {
-    const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(engine(), &sec);
-    if (!available() || section >= n || sec[section].macro < 0 || row != 0) return;
-    const PatchMacro& mc = app_.synthTargetPatch(slot, et_).macros[sec[section].macro];
+    int m = 0, k = 0;
+    if (!available() || !nameRow() || !macroRowAt(row, &m, &k)) return;
+    const PatchMacro& mc = app_.synthTargetPatch(slot, et_).macros[m];
     // Renaming drops the control bytes the name was shown without.
     bindAsk();
     ui_.kb.open("Macro Name", shown(mc.name), kPatchMacroNameMax - 1, "Enter",
                 [](void* c, bool ok, const char* text) {
                     auto* s = static_cast<SynthScreen*>(c);
                     if (!ok || !text || s->askStale()) return;
-                    const synthui::Section* sc = nullptr;
-                    const int ns = synthui::sections(s->engine(), &sc);
-                    if (s->section >= ns || sc[s->section].macro < 0) return;
-                    PatchMacro& m = s->app_.synthTargetPatch(s->slot, s->et_).macros[sc[s->section].macro];
+                    int mi = 0, ki = 0;
+                    if (!s->nameRow() || !s->macroRowAt(s->row, &mi, &ki)) return;
+                    PatchMacro& m = s->app_.synthTargetPatch(s->slot, s->et_).macros[mi];
                     std::snprintf(m.name, sizeof(m.name), "%s", text);
                     m.nameLen = uint8_t(std::strlen(m.name));
                     s->edited();
@@ -698,10 +753,12 @@ void SynthScreen::macroNameKeyboard() {
 void SynthScreen::editChange(int d) {
     if (!available()) return;
     const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(engine(), &sec);
+    int at = -1;
+    const int n = editSections(&sec, &at);
     if (section < 0 || section >= n) return;
-    if (sec[section].macro >= 0) {
-        macroRowChange(sec[section].macro, row, d);
+    if (section == at) {   // [I] a header: the polarity; a setting: its amount
+        int m = 0, k = 0;
+        if (macroRowAt(row, &m, &k)) macroRowChange(m, k, d);
         return;
     }
     if (row < 0 || row >= sec[section].count) return;
@@ -1079,8 +1136,9 @@ void SynthScreen::onButton(uint8_t id, uint8_t state) {
                 openBrowser();
             } else if (id == btn::F8) {
                 view = View::Edit;
+                toMacro = -1;
                 const synthui::Section* sec = nullptr;
-                const int n = synthui::sections(engine(), &sec);
+                const int n = editSections(&sec, nullptr);
                 if (section >= n) section = row = 0;
                 row = clampi(row, 0, rows() > 0 ? rows() - 1 : 0);
                 listTop_ = 0;
@@ -1111,12 +1169,32 @@ void SynthScreen::onButton(uint8_t id, uint8_t state) {
             presetKey(id);
             break;
         case View::Edit: {
+            if (toMacro >= 0) {
+                toMacroKey(id, state);
+                break;
+            }
             const synthui::Section* sec = nullptr;
-            const int n = synthui::sections(engine(), &sec);
+            const int n = editSections(&sec, nullptr);
+            int m = 0, k = 0;
             if (id == btn::F1) savePatch();
             else if (id == btn::F2) savePatchAs();
-            else if (id == btn::F3) initPatch();
-            else if (id == btn::F6 && n > 0) {   // the section label: next section
+            else if (id == btn::F3 && onMacros()) {   // [I] Remove: the setting off its macro
+                if (!ro && macroRowAt(row, &m, &k) && k >= 0) {
+                    setMacroTarget(app_.synthTargetPatch(slot, et_).macros[m], k, -1, 0);
+                    row = clampi(row, 0, rows() - 1);
+                    edited();
+                }
+            } else if (id == btn::F3) initPatch();
+            else if (id == btn::F4) {   // [I] To Macro: the macro list, the first one moving it selected
+                const int p = toMacroParam();
+                if (!ro && p >= 0) {
+                    const SynthPatch& pt = app_.synthTargetPatch(slot, et_);
+                    toMacro = 0;
+                    for (int i = audio::kSynthSeqMacros - 1; i >= 0; --i)
+                        for (int j = 0; j < audio::synthMacroTargets(pt.macros[i]); ++j)
+                            if (pt.macros[i].targets[j].param == p) toMacro = i;
+                }
+            } else if (id == btn::F6 && n > 0) {   // the section label: next section
                 section = (section + 1) % n;
                 row = 0;
                 listTop_ = 0;
@@ -1183,16 +1261,18 @@ bool SynthScreen::encoderOnList() const {
     }
 #endif
     if (view != View::Edit || !available()) return false;
-    return editCol < 2 || editValueIsList();   // the section and setting lists
+    return toMacro >= 0 || editCol < 2 || editValueIsList();   // the section, setting and macro lists
 }
 #endif
 
 bool SynthScreen::editValueIsList() const {
     const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(engine(), &sec);
+    int at = -1;
+    const int n = editSections(&sec, &at);
     if (section < 0 || section >= n) return false;
-    // A macro's Off / On row is a two-item list (drawn by listColumn).
-    if (sec[section].macro >= 0) return row == 1;
+    // A macro's header: Unipolar / Bipolar, a two-item list (drawn by listColumn).
+    int m = 0, k = 0;
+    if (section == at) return macroRowAt(row, &m, &k) && k < 0;
     if (row < 0 || row >= sec[section].count) return false;
     const synthui::ParamUi* u = synthui::paramUi(engine(), sec[section].params[row]);
     // Enum rows (Filter Type, LFO Waveform, ...) and On / Off rows are drawn
@@ -1207,7 +1287,7 @@ void SynthScreen::editMove(int d) {
     }
     if (editCol == 0) {
         const synthui::Section* sec = nullptr;
-        const int n = synthui::sections(engine(), &sec);
+        const int n = editSections(&sec, nullptr);
         const int ns = clampi(section + d, 0, n > 0 ? n - 1 : 0);
         if (ns == section) return;
         section = ns;
@@ -1219,12 +1299,64 @@ void SynthScreen::editMove(int d) {
     refreshBar();
 }
 
+// [I] F4 To Macro's list (#176): M1..M6 in the value column; Up / Down and
+// the encoder pick one, F4 adds the setting to it or takes it off, F8 or
+// Left cancels. Other keys close the list and do what they do.
+void SynthScreen::toMacroKey(uint8_t id, uint8_t state) {
+    if (id == btn::Up || id == btn::Down) toMacro = clampi(toMacro + (id == btn::Down ? 1 : -1), 0, audio::kSynthSeqMacros - 1);
+    else if (id == btn::F4) toMacroCommit();
+    else if (id == btn::F8 || id == btn::Left) toMacro = -1;
+    else if (!btn::isFKey(id) && id != btn::Right && id != btn::Delete) {
+        toMacro = -1;
+        Screen::onButton(id, state);
+    }
+}
+
+void SynthScreen::toMacroCommit() {
+    const int p = toMacroParam();
+    const int m = toMacro;
+    toMacro = -1;
+    if (p < 0 || m < 0 || !available()) return;
+    PatchMacro& mc = app_.synthTargetPatch(slot, et_).macros[m];
+    const synthui::ParamUi* u = synthui::paramUi(engine(), p);
+    const char* label = u ? u->label : "?";
+    const int count = audio::synthMacroTargets(mc);
+    int at = -1, live = 0;
+    for (int k = 0; k < count; ++k) {
+        if (mc.targets[k].param == p) at = k;
+        live += mc.targets[k].param >= 0;
+    }
+    char t[64], dflt[12];
+    std::snprintf(dflt, sizeof(dflt), "Macro %d", m + 1);
+    if (at < 0 && live >= synthui::kMacroShownTargets) {
+        std::snprintf(t, sizeof(t), "M%d already moves %d settings", m + 1, live);
+        ui_.notify(t);
+        return;
+    }
+    if (at >= 0) {
+        setMacroTarget(mc, at, -1, 0);
+        std::snprintf(t, sizeof(t), "%s off M%d %s", label, m + 1, shown(mc.name));
+    } else {
+        if (!mc.name[0] || !std::strcmp(shown(mc.name), dflt)) {   // an unnamed macro takes the setting's name
+            std::snprintf(mc.name, sizeof(mc.name), "%s", label);
+            mc.nameLen = uint8_t(std::strlen(mc.name));
+        }
+        setMacroTarget(mc, count, p, patchFloatToBits(1.0f));
+        std::snprintf(t, sizeof(t), "%s -> M%d %s", label, m + 1, shown(mc.name));
+    }
+    edited();
+    ui_.notify(t);
+}
+
 void SynthScreen::onEncoder(int d) {
     retarget();
     switch (view) {
         case View::Params: paramsChange(param == 0 ? (d > 0 ? 1 : -1) : d); break;
         case View::Macros: macroChange(d); break;
-        case View::Edit: editMove(d); break;
+        case View::Edit:
+            if (toMacro >= 0) toMacro = clampi(toMacro + d, 0, audio::kSynthSeqMacros - 1);
+            else editMove(d);
+            break;
         case View::Presets: row = clampi(row + d, 0, kSynthPresetCount - 1); break;
         case View::Insert:
 #if OT_SLOT_INSERTS
@@ -1454,17 +1586,24 @@ void SynthScreen::drawMacros(Gfx& g) {
     barColumn(g, th, kArpGateColumn, float(app_.slotArpGate(slot)) / 100.0f, false, !ro, kMacroBarH);
     wg::panel(g, th, wg::columnX(7), wg::kPanelY, wg::columnW(), kMacroBarH);
     if (!ro) wg::focusFrame(g, th, wg::columnX(macro), 31, wg::columnX(macro) + wg::columnW(), wg::kPanelY + kMacroBarH - 1);
-    // Legend (manual p.149): "Macro k   <name>" in two columns.
+    // [I] Under each bar the settings its macro moves, "+" up / "-" down with
+    // the knob (#176; stock lists "Macro k  <name>" in two columns, manual
+    // p.149: the names are on the bottom bar too).
     wg::panel(g, th, 1, kLegendY, 797, wg::kPanelY + wg::kPanelH - kLegendY);
     const uint32_t dim = th.slot(slot::kBottomLabel), white = th.slot(slot::kList + 4);
     for (int k = 0; k < audio::kSynthSeqMacros; ++k) {
-        const int x = 21 + 400 * (k / 3), y = kLegendY + 26 + 32 * (k % 3);
-        char lab[20], name[40];
-        std::snprintf(lab, sizeof(lab), "Macro %d", k + 1);
-        std::snprintf(name, sizeof(name), "%s", p.macros[k].name[0] ? shown(p.macros[k].name) : "-");
-        fit(name, kFont3, 240);
-        g.text(x, y, kFont3, dim, lab, IDisplay::kOptCenterY);
-        g.text(x + 110, y, kFont3, k == macro ? white : dim, name, IDisplay::kOptCenterY);
+        const PatchMacro& mc = p.macros[k];
+        const int x = wg::columnX(k) + 6;
+        int line = 0;
+        for (int j = 0; j < audio::synthMacroTargets(mc) && line < synthui::kMacroShownTargets; ++j) {
+            const synthui::ParamUi* u = mc.targets[j].param >= 0 ? synthui::paramUi(engine(), mc.targets[j].param) : nullptr;
+            if (!u) continue;
+            char t[40];
+            std::snprintf(t, sizeof(t), "%c%s", patchBitsToFloat(mc.targets[j].amountBits) < 0.0f ? '-' : '+', u->label);
+            fit(t, kFont3, wg::columnW() - 10);
+            g.text(x, kLegendY + 14 + 22 * line++, kFont3, k == macro ? white : dim, t, IDisplay::kOptCenterY);
+        }
+        if (!line) g.text(x, kLegendY + 14, kFont3, dim, "not set", IDisplay::kOptCenterY);
     }
 }
 
@@ -1507,25 +1646,64 @@ void SynthScreen::drawHelp(Gfx& g, const synthui::Section* sec, int n) {
     };
     uint32_t len = 0;
     const char* help = helpText(&len);
+    char t[synthhelp::kMaxLine], name[40];
+    const SynthPatch& p = app_.synthTargetPatch(slot, et_);
+    // A setting's own line, from its section in the help file.
+    auto settingLine = [&](int i, int idx) {
+        const synthui::ParamUi* u = synthui::paramUi(engine(), idx);
+        t[0] = 0;
+        for (int s = 0; help && s < n; ++s)
+            for (int j = 0; j < sec[s].count; ++j)
+                if (sec[s].macro < 0 && sec[s].params[j] == idx) synthhelp::find(help, len, sec[s].longName, u ? u->label : "", nullptr, t, sizeof(t));
+        line(i, u ? u->label : "?", t);
+    };
+    int at = -1;
+    editSections(&sec, &at);
+    if (toMacro >= 0) {   // [I] F4 To Macro's list
+        const PatchMacro& mc = p.macros[toMacro];
+        line(0, "To Macro", "F4 puts the setting on the macro, or takes it off; F8 cancels");
+        settingLine(1, toMacroParam());
+        macroMoves(engine(), mc, t, sizeof(t));
+        std::snprintf(name, sizeof(name), "M%d %s", toMacro + 1, mc.name[0] ? shown(mc.name) : "-");
+        line(2, name, t);
+        return;
+    }
+    if (section == at) {   // [I] the Macros section
+        t[0] = 0;
+        if (help) synthhelp::find(help, len, "Macros", nullptr, nullptr, t, sizeof(t));
+        line(0, "Macros", t[0] ? t : "knobs on Synth Macros, each moving several settings at once");
+        int m = 0, k = 0;
+        if (!macroRowAt(row, &m, &k)) return;
+        const PatchMacro& mc = p.macros[m];
+        if (k < 0) {
+            std::snprintf(name, sizeof(name), "M%d %s", m + 1, mc.name[0] ? shown(mc.name) : "-");
+            macroMoves(engine(), mc, t, sizeof(t));
+            line(1, name, std::strcmp(t, "moves nothing yet") ? t : "moves nothing yet: F4 To Macro on a setting adds one");
+            line(2, mc.bipolar ? "Bipolar" : "Unipolar", mc.bipolar ? "the knob's middle is zero" : "the knob starts at zero");
+        } else {
+            settingLine(1, mc.targets[k].param);
+            std::snprintf(name, sizeof(name), "%+.2f", double(patchBitsToFloat(mc.targets[k].amountBits)));
+            line(2, name, "how far the macro moves it; F3 takes it off");
+        }
+        return;
+    }
     if (!help) {
-        char t[64];
         std::snprintf(t, sizeof(t), "Help/Synths/%s.md on the card", synthEngineFolder(engine()));
         line(0, "No help file:", t);
         return;
     }
     if (section < 0 || section >= n) return;
     const synthui::Section& s = sec[section];
-    char t[synthhelp::kMaxLine];
     synthhelp::find(help, len, s.longName, nullptr, nullptr, t, sizeof(t));
     line(0, s.longName, t);
-    if (s.macro >= 0 || row < 0 || row >= s.count) return;   // macros: no help yet
+    if (row < 0 || row >= s.count) return;
     const int idx = s.params[row];
     const synthui::ParamUi* u = synthui::paramUi(engine(), idx);
     if (!u) return;
     synthhelp::find(help, len, s.longName, u->label, nullptr, t, sizeof(t));
     line(1, u->label, t);
     // The choice: its own line for a list, the low / high tip for a number.
-    const float v = audio::synthParamGet(app_.synthTargetPatch(slot, et_), idx);
+    const float v = audio::synthParamGet(p, idx);
     const char* choice = "";
     char val[40];
     if (u->fmt == synthui::kFmtEnum && u->names && u->nameCount > 0)
@@ -1550,9 +1728,11 @@ void SynthScreen::drawEdit(Gfx& g) {
     std::snprintf(t, sizeof(t), "Edit Patch: %s", r.patchName[0] ? shown(r.patchName) : "-");
     title(g, t);
     const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(eng, &sec);
+    int at = -1;
+    const int n = editSections(&sec, &at);
     const int visible = wg::listVisibleRows(kEditListH);
     // Sections.
+    SectionList sl{sec, at};
     wg::ListView sv;
     sv.h = kEditListH;
     sv.count = n;
@@ -1560,9 +1740,10 @@ void SynthScreen::drawEdit(Gfx& g) {
     sv.top = wg::listFollow(section, n, visible, 0);
     sv.selStyle = wg::ListSel::kWhite;
     sv.item = sectionItem;
-    sv.ctx = const_cast<synthui::Section*>(sec);
+    sv.ctx = &sl;
     wg::list(g, th, sv);
-    // Settings: label left, value right.
+    // Settings: label left, value right. [I] Macros: each macro's header
+    // (name, how many settings it moves), then its settings with amounts.
     const int lx = wg::columnX(2), lw = wg::columnW(4);
     const int nr = rows();
     wg::ListView v;
@@ -1575,14 +1756,30 @@ void SynthScreen::drawEdit(Gfx& g) {
     v.top = listTop_;
     v.selStyle = wg::ListSel::kWhite;
     wg::list(g, th, v);   // background, selection and scroll bar; the rows are drawn here
-    const bool macroSec = section < n && sec[section].macro >= 0;
+    const bool macroSec = section == at;
     const int innerW = lw - (nr > visible ? 13 : 6);
     const uint32_t white = th.slot(slot::kList + 4), dim = th.slot(slot::kBottomLabel);
     for (int k = 0; k < visible && listTop_ + k < nr; ++k) {
         const int i = listTop_ + k;
         char lab[40], val[40];
-        if (macroSec) macroRowText(sec[section].macro, i, lab, sizeof(lab), val, sizeof(val));
-        else {
+        int indent = 0;
+        if (macroSec) {
+            int m = 0, j = 0;
+            macroRowAt(i, &m, &j);
+            const PatchMacro& mc = p.macros[m];
+            if (j < 0) {
+                int live = 0;
+                for (int q = 0; q < audio::synthMacroTargets(mc); ++q) live += mc.targets[q].param >= 0;
+                std::snprintf(lab, sizeof(lab), "M%d %s", m + 1, mc.name[0] ? shown(mc.name) : "-");
+                if (live) std::snprintf(val, sizeof(val), "%d setting%s", live, live == 1 ? "" : "s");
+                else std::snprintf(val, sizeof(val), "not set");
+            } else {
+                const synthui::ParamUi* u = synthui::paramUi(eng, mc.targets[j].param);
+                std::snprintf(lab, sizeof(lab), "%s", u ? u->label : "?");
+                std::snprintf(val, sizeof(val), "%+.2f", double(patchBitsToFloat(mc.targets[j].amountBits)));
+                indent = 16;
+            }
+        } else {
             const int idx = sec[section].params[i];
             const synthui::ParamUi* u = synthui::paramUi(eng, idx);
             std::snprintf(lab, sizeof(lab), "%s", u ? u->label : "?");
@@ -1590,31 +1787,37 @@ void SynthScreen::drawEdit(Gfx& g) {
         }
         fit(val, kFont1, innerW / 2 - 8);
         const int vw = textWidth(kFont1, val);
-        fit(lab, kFont1, innerW - vw - 30);
+        fit(lab, kFont1, innerW - vw - 30 - indent);
         const int y = v.y + 17 + wg::kListRowH * k;
-        g.text(lx + 13, y, kFont1, white, lab, IDisplay::kOptCenterY);
+        g.text(lx + 13 + indent, y, kFont1, white, lab, IDisplay::kOptCenterY);
         g.text(lx + innerW - 6, y, kFont1, i == row ? white : dim, val, IDisplay::kOptCenterY | IDisplay::kOptRightX);
     }
-    // The selected setting's value: a list or a bar.
+    // The selected setting's value: a list or a bar; [I] F4's macro list.
     const int vc = 6, vx = wg::columnX(vc), vwid = wg::columnW(2);
-    if (section >= n || row >= nr) {
+    if (toMacro >= 0) {
+        ToMacroList tl{&p, toMacroParam()};
+        wg::ListView mv;
+        mv.x = vx;
+        mv.w = vwid;
+        mv.h = kEditListH;
+        mv.count = audio::kSynthSeqMacros;
+        mv.sel = toMacro;
+        mv.selStyle = wg::ListSel::kWhite;
+        mv.item = toMacroItem;
+        mv.tag = toMacroTag;
+        mv.ctx = &tl;
+        wg::list(g, th, mv);
+    } else if (section >= n || row >= nr) {
         wg::panel(g, th, vx, wg::kPanelY, vwid, kEditListH);
     } else if (macroSec) {
-        const PatchMacro& mc = p.macros[sec[section].macro];
-        const int count = audio::synthMacroTargets(mc);
-        if (row == 0) {
-            // The Name row's "Edit" key above F8 (Mini manual p.155).
-            wg::panel(g, th, vx, wg::kPanelY, vwid, kEditListH);
-            wg::key(g, th, wg::columnX(7) + 6, 40, wg::columnW() - 12, 56, "Edit", !ro, wg::kThemeColour,
-                    th.slot(slot::kFocusFrame));
-        } else if (row == 1) {
-            listColumn(g, th, vc, 2, kOffOn, 2, mc.bipolar ? 1 : 0, kEditListH);
-        } else if (row >= 2 && (row - 2) % 2 == 1 && (row - 2) / 2 < count && mc.targets[(row - 2) / 2].param >= 0) {
-            barColumn(g, th, vc, patchBitsToFloat(mc.targets[(row - 2) / 2].amountBits) / 2.0f, true, !ro, kEditListH,
+        static const char* const kPolarity[2] = {"Unipolar", "Bipolar"};
+        int m = 0, j = 0;
+        macroRowAt(row, &m, &j);
+        const PatchMacro& mc = p.macros[m];
+        if (j < 0) listColumn(g, th, vc, 2, kPolarity, 2, mc.bipolar ? 1 : 0, kEditListH);
+        else
+            barColumn(g, th, vc, patchBitsToFloat(mc.targets[j].amountBits) / 2.0f, true, !ro, kEditListH,
                       wg::kThemeColour, 2);
-        } else {
-            wg::panel(g, th, vx, wg::kPanelY, vwid, kEditListH);
-        }
     } else {
         const int idx = sec[section].params[row];
         const synthui::ParamUi* u = synthui::paramUi(eng, idx);
@@ -1629,9 +1832,10 @@ void SynthScreen::drawEdit(Gfx& g) {
             barColumn(g, th, vc, synthui::valueFrac(eng, idx, val), false, !ro, kEditListH, wg::kThemeColour, 2);
         }
     }
-    // The focused column (Config's red frame).
+    // The focused column (Config's red frame); the macro list while it is open.
     if (!ro) {
-        const int fx = editCol == 0 ? 1 : (editCol == 1 ? lx : vx), fw = editCol == 0 ? 197 : (editCol == 1 ? lw : vwid);
+        const int col = toMacro >= 0 ? 2 : editCol;
+        const int fx = col == 0 ? 1 : (col == 1 ? lx : vx), fw = col == 0 ? 197 : (col == 1 ? lw : vwid);
         wg::focusFrame(g, th, fx, 31, fx + fw, wg::kPanelY + kEditListH - 1);
     }
     drawHelp(g, sec, n);
@@ -1861,9 +2065,10 @@ void SynthScreen::update(uint32_t now) {
         if (e != shownEngine_ && (view == View::Edit || view == View::Params)) {
             shownEngine_ = e;
             const synthui::Section* sec = nullptr;
-            if (section >= synthui::sections(e, &sec)) section = 0;
+            if (section >= editSections(&sec, nullptr)) section = 0;
             row = clampi(row, 0, rows() > 0 ? rows() - 1 : 0);
             listTop_ = 0;
+            toMacro = -1;
             helpValid_ = false;   // the new engine's help file
         }
         shownEngine_ = e;

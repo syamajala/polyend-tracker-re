@@ -187,6 +187,7 @@ struct Lint {
     int param = -1;                       // the current setting's parameter, -1 none
     std::vector<std::string> seen;        // "section/setting/choice" keys
     int tips = 0;                         // items of the current number setting
+    bool macros = false;                  // under "## Macros"
 
     void error(int line, const std::string& msg) {
         std::printf("  %s:%d: %s\n", path.c_str(), line, msg.c_str());
@@ -219,6 +220,12 @@ struct Lint {
         switch (e.level) {
             case sh::kSection:
                 sec = nullptr, param = -1;
+                if (name == "Macros") {   // [I] the Macros section's line (#176), optional, no settings
+                    once(e.lineNo, name), checkLine(e, name, line);
+                    macros = true;
+                    break;
+                }
+                macros = false;
                 for (int i = 0; i < d->sectionCount; ++i)
                     if (d->sections[i].macro < 0 && name == d->sections[i].longName) sec = &d->sections[i];
                 if (!sec) error(e.lineNo, "## '" + name + "': no such section");
@@ -226,6 +233,10 @@ struct Lint {
                 break;
             case sh::kSetting:
                 param = -1, tips = 0;
+                if (macros) {
+                    error(e.lineNo, "### '" + name + "': the Macros section has no settings");
+                    break;
+                }
                 if (!sec) {
                     error(e.lineNo, "### '" + name + "' outside a section");
                     break;

@@ -612,6 +612,107 @@ tap DOWN
 wait 300
 EOF
 
+# Edit Patch on B-Type (#176): F4 To Macro on Channel > Distortion, and the
+# Macros section after F4 put Distortion and the next setting on M1.
+shot to-macro empty <<'EOF'
+wait 300
+press INSTR
+wait 400
+enc -70
+release INSTR
+wait 100
+tap INSTRPARAMS
+wait 200
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap UP               # Model: the last (Arc-Type), then B-Type
+wait 2500
+tap F8
+wait 300
+tap RIGHT
+tap DOWN
+tap F4
+wait 300
+EOF
+
+shot edit-patch-macros empty <<'EOF'
+wait 300
+press INSTR
+wait 400
+enc -70
+release INSTR
+wait 100
+tap INSTRPARAMS
+wait 200
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap UP               # Model: the last (Arc-Type), then B-Type
+wait 2500
+tap F8
+wait 300
+tap RIGHT
+tap DOWN             # Distortion
+tap F4
+wait 200
+tap F4               # Add to M1
+wait 300
+tap DOWN
+tap F4
+wait 200
+tap F4               # and the next setting too
+wait 300
+tap LEFT
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap RIGHT
+wait 300
+EOF
+
 shot dx7-macros empty <<'EOF'
 wait 300
 press INSTR
