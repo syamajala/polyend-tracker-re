@@ -49,15 +49,13 @@ moves:
 - On one of its settings: the amount in the value column, −2.00 to +2.00; **F3 Remove**
   takes the setting off the macro; **Delete** puts the amount back to the Init patch's.
 
-![The Macros section, M1 Grit](../images/edit-patch-macros.png)
+![The Macros section, M1 Distortion](../images/edit-patch-macros.png)
 
 The **Synth Macros** page lists under each bar the settings its macro moves, with **+** or
 **−** for the direction, or "not set".
 
-New patches come with their macros already set on some synths: B-Type's Init patch has
-Grit (Distortion), Clock (down), Decay (Decay and Release), Vibrato (depth and rate), Arp
-(the arp chord) and Hi-Pass (Hi-Pass and HP Freq); DX7's has Bright, Feedback, Attack,
-Release, LFO Depth and Detune.
+An Init patch starts with no macros set; DX7 voices come with M1–M6 on the six Tone
+controls (see [DX7](dx7.md)).
 
 ## The help box
 

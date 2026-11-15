@@ -613,7 +613,7 @@ wait 300
 EOF
 
 # Edit Patch on B-Type (#176): F4 To Macro on Channel > Distortion, and the
-# Macros section on M1 Grit.
+# Macros section after F4 put Distortion and the next setting on M1.
 shot to-macro empty <<'EOF'
 wait 300
 press INSTR
@@ -686,6 +686,18 @@ tap UP               # Model: the last (Arc-Type), then B-Type
 wait 2500
 tap F8
 wait 300
+tap RIGHT
+tap DOWN             # Distortion
+tap F4
+wait 200
+tap F4               # Add to M1
+wait 300
+tap DOWN
+tap F4
+wait 200
+tap F4               # and the next setting too
+wait 300
+tap LEFT
 tap UP
 tap UP
 tap UP
