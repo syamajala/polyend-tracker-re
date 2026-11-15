@@ -61,6 +61,25 @@ bool isOtherBlock(const char* s, int len) {
     return i > 0 && i + 1 < len && (s[i] == '.' || s[i] == ')') && s[i + 1] == ' ';
 }
 
+// "# Settings": the start of the reference.
+bool isReferenceHeading(const char* s, int n) {
+    while (n > 0 && (s[n - 1] == '\r' || isSpace(s[n - 1]))) --n;
+    return n == 10 && std::strncmp(s, "# Settings", 10) == 0;
+}
+
+bool hasReference(const char* text, uint32_t len) {
+    bool fence = false;
+    for (uint32_t p = 0; p < len;) {
+        uint32_t q = p;
+        while (q < len && text[q] != '\n') ++q;
+        const int n = int(q - p);
+        if (isFence(text + p, n)) fence = !fence;
+        else if (!fence && isReferenceHeading(text + p, n)) return true;
+        p = q + 1;
+    }
+    return false;
+}
+
 bool same(const char* a, int aLen, const char* b) {
     return int(std::strlen(b)) == aLen && std::strncmp(a, b, size_t(aLen)) == 0;
 }
@@ -74,7 +93,9 @@ void walk(const char* text, uint32_t len, char* buf, int cap, Visit visit, void*
     sc.ctx = ctx;
     sc.buf = buf;
     sc.cap = cap;
-    bool fence = false, docsOnly = false;
+    // The reference starts after "# Settings" when the file has the guide too.
+    const bool marked = hasReference(text, len);
+    bool fence = false, docsOnly = false, inRef = !marked;
     int lineNo = 0;
     for (uint32_t p = 0; p < len;) {
         const char* s = text + p;
@@ -85,6 +106,11 @@ void walk(const char* text, uint32_t len, char* buf, int cap, Visit visit, void*
         ++lineNo;
         if (n > 0 && s[n - 1] == '\r') --n;
 
+        if (!inRef) {   // the guide: up to "# Settings" (not inside fenced code)
+            if (isFence(s, n)) fence = !fence;
+            else if (!fence && isReferenceHeading(s, n)) inRef = true;
+            continue;
+        }
         if (fence) {
             if (isFence(s, n)) fence = false;
             continue;
@@ -98,6 +124,11 @@ void walk(const char* text, uint32_t len, char* buf, int cap, Visit visit, void*
         while (h < n && s[h] == '#') ++h;
         if (h > 0 && h < n && s[h] == ' ') {
             sc.flush();
+            if (h == 1) {   // the reference ends at the next # heading (no reference: skipped)
+                if (marked) break;
+                docsOnly = false;
+                continue;
+            }
             docsOnly = h > kSetting;
             if (!docsOnly) sc.start(Level(h), s + h + 1, n - h - 1, lineNo);
             continue;
@@ -157,9 +188,6 @@ void findVisit(void* ctx, const Entry& e) {
     Find& f = *static_cast<Find*>(ctx);
     if (f.done) return;
     switch (e.level) {
-        case kEngine:
-            f.inSection = f.inSetting = false;
-            break;
         case kSection:
             f.inSection = f.section && same(e.name, e.nameLen, f.section);
             f.inSetting = false;

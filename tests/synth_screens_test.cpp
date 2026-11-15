@@ -1943,7 +1943,7 @@ TEST(edit_patch_help_box) {
     Harness h;
     App& a = *h.app;
     const char kHelp[] =
-        "# ACD\n\n## Filter\nShapes the tone.\n\n### Cutoff\nWhere the filter closes.\n\n"
+        "# Settings\n\n## Filter\nShapes the tone.\n\n### Cutoff\nWhere the filter closes.\n\n"
         "- Low is dark, high is bright.\n\n### Type\nThe filter's slope.\n\n- LP SVF 12dB: gentle.\n"
         "- LP SVF 24dB: steep.\n- LP RD3: rounded.\n";
     openSlot(h, 1);

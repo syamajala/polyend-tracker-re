@@ -430,11 +430,13 @@ firmware: all
 	@echo "Help/:     $(BUILD)/Help/Synths/*.md"
 .PHONY: firmware
 
-# [I] The synth help files (help/<NAME>.md) of the image's and the card's modules.
+# [I] The synth help files (help/<NAME>.md) of the image's and the card's modules:
+# their "# Settings" reference only, the part the help box reads (modules/synth_help.h).
 HELP_FILES := $(wildcard $(addsuffix /help/*.md,$(foreach i,$(MOD_IDS),$(MOD_DIR_$(i))) $(MOD_CARD_DIRS)))
 help:
 	@mkdir -p $(BUILD)/Help/Synths
-	$(if $(HELP_FILES),cp $(HELP_FILES) $(BUILD)/Help/Synths/,@echo "profile $(PROFILE) has no help files")
+	@$(if $(HELP_FILES),,echo "profile $(PROFILE) has no help files")
+	$(foreach f,$(HELP_FILES),python3 -I tools/synth_help_card.py $(f) $(BUILD)/Help/Synths/$(notdir $(f)) &&) true
 .PHONY: help
 
 # [I] The synths' hot rows (fork #21): every mode of every synth under the QEMU bench

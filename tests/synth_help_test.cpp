@@ -22,9 +22,16 @@ namespace {
 
 const char kSample[] =
     "# Demo\n"
-    "A demo engine.\n"
+    "A demo engine: the guide, for the docs only.\n"
     "\n"
-    "Docs only: a second paragraph.\n"
+    "## Osc\n"
+    "A guide heading, not the reference.\n"
+    "```\n"
+    "# Settings\n"
+    "```\n"
+    "# Settings\n"
+    "\n"
+    "## Extra\n"
     "\n"
     "#### Try this\n"
     "## Not a section, inside the docs-only part? No: a ## ends it.\n"
@@ -47,7 +54,10 @@ const char kSample[] =
     "### Level\r\n"
     "| a table first |\r\n"
     "\r\n"
-    "- low is quiet: high is loud\r\n";
+    "- low is quiet: high is loud\r\n"
+    "# Appendix\n"
+    "## Osc\n"
+    "After the reference: docs only.\n";
 
 std::string findStr(const char* sec, const char* set, const char* choice) {
     char out[sh::kMaxLine];
@@ -69,6 +79,10 @@ TEST(reader_lines) {
     CHECK(findStr("Osc", "Level", "") == "low is quiet: high is loud");
     CHECK(findStr("Wave", nullptr, nullptr) == "");                    // a setting is no section
     CHECK(findStr("Not a section, inside the docs-only part? No: a ## ends it.", nullptr, nullptr) == "");
+    // Without "# Settings" the whole text is the reference (a hand-made card file).
+    const char bare[] = "## Osc\nThe oscillator.\n";
+    char out[64];
+    CHECK_EQ(sh::find(bare, sizeof(bare) - 1, "Osc", nullptr, nullptr, out, sizeof(out)), 15);
 }
 
 TEST(reader_walk_order) {
@@ -84,7 +98,7 @@ TEST(reader_walk_order) {
              },
              &got);
     const std::vector<std::string> want = {
-        "1:Demo|A demo engine.",
+        "2:Extra|",
         "2:Not a section, inside the docs-only part? No: a ## ends it.|",
         "2:Osc|The oscillator, on two source lines.",
         "3:Wave|The wave shape.",
@@ -172,7 +186,6 @@ struct Lint {
     const synthui::Section* sec = nullptr;
     int param = -1;                       // the current setting's parameter, -1 none
     std::vector<std::string> seen;        // "section/setting/choice" keys
-    bool engineSeen = false;
     int tips = 0;                         // items of the current number setting
 
     void error(int line, const std::string& msg) {
@@ -204,14 +217,6 @@ struct Lint {
     void visit(const sh::Entry& e) {
         const std::string name(e.name, size_t(e.nameLen)), line(e.line, size_t(e.lineLen));
         switch (e.level) {
-            case sh::kEngine: {
-                const char* want = d->displayName ? d->displayName : d->name;
-                if (engineSeen) error(e.lineNo, "a second # heading");
-                if (name != want) error(e.lineNo, "# '" + name + "': the engine is '" + want + "'");
-                engineSeen = true;
-                sec = nullptr, param = -1;
-                break;
-            }
             case sh::kSection:
                 sec = nullptr, param = -1;
                 for (int i = 0; i < d->sectionCount; ++i)
@@ -266,7 +271,6 @@ struct Lint {
                 if (s == key) return true;
             return false;
         };
-        if (!engineSeen) error(1, "no # heading");
         for (int i = 0; i < d->sectionCount; ++i) {
             const synthui::Section& s = d->sections[i];
             if (s.macro >= 0) continue;   // macros: their own help later (#176)
@@ -316,6 +320,11 @@ TEST(help_files_match_descriptors) {
             std::string text;
             if (!readFile(lint.path, &text)) continue;
             ++files;
+            // The guide's title is the engine; the reference follows "# Settings".
+            const char* want = d->displayName ? d->displayName : d->name;
+            if (text.compare(0, text.find('\n'), std::string("# ") + want) != 0)
+                lint.error(1, std::string("the first line is not '# ") + want + "'");
+            if (text.find("\n# Settings\n") == std::string::npos) lint.error(0, "no '# Settings' reference");
             char buf[sh::kMaxLine];
             sh::walk(text.data(), uint32_t(text.size()), buf, sizeof(buf),
                      [](void* ctx, const sh::Entry& e) { static_cast<Lint*>(ctx)->visit(e); }, &lint);
