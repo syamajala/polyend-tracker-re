@@ -28,7 +28,8 @@ card() {   # card KIND DIR
     mkdir -p "$2/Performance/Scenes"   # an example scene bank (#70)
     printf '# OpenTracker scene bank\ncolumn 1 = LP cutoff: -25 -50 -80\ncolumn 2 = Step Repeater: 8 11 13\ncolumn 3 = Reverb send: 30 60 100\ncolumn 4 = DJ filter: -50 40 80\nscene 2 = 2 0 2 0\nscene 3 = 0 3 0 2\na = 1\nb = 2\n' \
         > "$2/Performance/Scenes/Example kit.txt"
-    mkdir -p "$2/Help/Synths"   # the synth help files' card copies (make help)
+    mkdir -p "$2/Help/Synths"   # the help files' card copies (make help)
+    python3 -I "$root/tools/synth_help_card.py" "$root/help/Config.md" "$2/Help/Config.md"
     for f in "${MODULES_DIR:-$root/../../opentracker-synths}"/modules/*/help/*.md; do
         [ -f "$f" ] && python3 -I "$root/tools/synth_help_card.py" "$f" "$2/Help/Synths/$(basename "$f")"
     done

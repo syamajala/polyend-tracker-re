@@ -700,7 +700,6 @@ public:
         int count;          // picker entries (numeric: max - min + 1)
         int min;            // numeric minimum (stored value of picker index 0)
         int displayOffset;  // numeric: shown value = stored + displayOffset
-        const char* help;   // help box text (spec 15 §3.2), nullptr if none
     };
     static int categoryCount();
     static const char* categoryName(int cat);

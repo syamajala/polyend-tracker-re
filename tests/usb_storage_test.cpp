@@ -5,6 +5,7 @@
 #include "test.h"
 #include "ui_fakes.h"
 
+#include "config_help.h"
 #include "ui/screens.h"
 
 using namespace ot;
@@ -40,7 +41,7 @@ TEST(usb_row_in_config) {
     CHECK(ConfigScreen::optionInfo(kUsbCat, 0, &o));
     CHECK_STR(o.name, "USB Storage");
     CHECK_EQ(o.count, 2);
-    CHECK(o.help != nullptr);
+    CHECK(!configHelpOf(kUsbCat, 0).empty());
     char t[16];
     cfg(h).optionText(kUsbCat, 0, t, sizeof t);
     CHECK_STR(t, "Off");

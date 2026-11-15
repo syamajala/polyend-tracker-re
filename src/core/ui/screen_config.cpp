@@ -9,7 +9,8 @@
 #include "build_id.h"
 #include "sdram_bss.h"
 #include "remote/remote.h"
-#include "ui/config_help.h"
+#include "formats/file_io.h"
+#include "modules/synth_help.h"
 #include "ui/notes.h"
 #include "ui/screens.h"
 #include "ot_profile.h"
@@ -275,6 +276,21 @@ bool gThemeMode = false;
 static_assert(kThemeListMax * (kThemeNameMax + 1) <= kBrowserListBytes, "Theme list");
 bool isThemeOpt(const Opt& o) { return o.store == kCfg && o.off == offsetof(Config, theme); }
 
+// [I] The help box texts (spec 15 §3.2; OpenTracker's own wording) come from
+// Help/Config.md on the card (help/Config.md in the repository, make help; the
+// help file format of modules/synth_help.h: ## category, ### option). Read
+// after the theme list in the browser lists whenever a picker opens.
+constexpr size_t kHelpAt = (kThemeListMax * (kThemeNameMax + 1) + kBrowserListAlign - 1) / kBrowserListAlign * kBrowserListAlign;
+static_assert(kHelpAt + synthhelp::kMaxFile <= kBrowserListBytes, "Config help");
+uint32_t gHelpLen = 0;
+void loadHelp(App& a) {
+    gHelpLen = 0;
+    uint32_t got = 0;
+    if (!a.usbStorageActive() && a.hal().storage &&
+        readWholeFile(a.fs(), "Help/Config.md", g_browserLists + kHelpAt, synthhelp::kMaxFile, &got) == FmtStatus::Ok)
+        gHelpLen = got;
+}
+
 // Factory-test entry sequences (spec 06 §7.6).
 const uint8_t kCodeKeys[4] = {btn::F8, btn::F1, btn::F7, btn::F2};
 const uint8_t kCodePads[4] = {47, 10, 45, 8};
@@ -452,6 +468,7 @@ void ConfigScreen::enter() {
     if (o.kind == kNum || o.kind == kEnum) {
         editing = true;
         picker = optIndex(a, o);
+        loadHelp(a);
         if (isThemeOpt(o)) {
             // [I] 2.x: the card's theme files after the stock three (never
             // while the computer owns the card).
@@ -780,8 +797,11 @@ void ConfigScreen::draw(Gfx& g) {
         wg::panel(g, th, 401, 34, 194, 389);
         const char* title = gFwMode ? "Firmware update" : o.name;
         g.text(215, 46, kFont1, textC, title, IDisplay::kOptCenterY);
-        const char* help = gFwMode ? nullptr : configHelp(category, option);
-        if (help) wg::textBox(g, th, 210, kHelpTop, 185, 413 - kHelpTop, kFont5, help, 19 - fontHeight(kFont5), textC);
+        char help[synthhelp::kMaxLine];
+        if (!gFwMode && gHelpLen &&
+            synthhelp::find(reinterpret_cast<const char*>(g_browserLists + kHelpAt), gHelpLen, c.name, o.name, nullptr,
+                            help, sizeof help) > 0)
+            wg::textBox(g, th, 210, kHelpTop, 185, 413 - kHelpTop, kFont5, help, 19 - fontHeight(kFont5), textC);
         ListCtx x{&a, nullptr, gFwMode ? nullptr : &o};
         wg::ListView pv;
         pv.x = 401;
@@ -933,7 +953,6 @@ bool ConfigScreen::optionInfo(int cat, int i, OptionInfo* out) {
     out->count = (o.kind == kNum || o.kind == kEnum) ? optCount(o) : 0;
     out->min = o.kind == kNum ? o.min : 0;
     out->displayOffset = o.kind == kNum ? o.displayOffset : 0;
-    out->help = configHelp(cat, i);
     return true;
 }
 

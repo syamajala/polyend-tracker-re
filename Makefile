@@ -18,8 +18,8 @@
 # make card          -> [I] the profile's card modules as build/<profile>/otm/<name>.otm (fork #21)
 # make firmware      -> [I] the image, the card modules and the synth help files (all + card + help):
 #                    Firmware/, Modules/ and Help/Synths/ on the card
-# make help       -> [I] build/<profile>/Help/Synths/<NAME>.md, the profile modules' help files
-#                    (modules/synth_help.h), for the card's Help/Synths/ folder
+# make help       -> [I] build/<profile>/Help/: Synths/<NAME>.md, the profile modules' help files
+#                    (modules/synth_help.h), and Config.md (help/Config.md), for the card's Help/
 # make hot-rows      -> [I] tools/hot_rows/*.hot, the synths' hot code for the fast block (fork #21)
 # make otm OTM_MODULE=<path> -> [I] build/<profile>/otm/<name>.otm, a module loadable from the card
 #                    (fork #21; <path> as in a profile, relative to MODULES_DIR; tools/make_otm.py)
@@ -437,6 +437,7 @@ help:
 	@mkdir -p $(BUILD)/Help/Synths
 	@$(if $(HELP_FILES),,echo "profile $(PROFILE) has no help files")
 	$(foreach f,$(HELP_FILES),python3 -I tools/synth_help_card.py $(f) $(BUILD)/Help/Synths/$(notdir $(f)) &&) true
+	python3 -I tools/synth_help_card.py help/Config.md $(BUILD)/Help/Config.md
 .PHONY: help
 
 # [I] The synths' hot rows (fork #21): every mode of every synth under the QEMU bench
