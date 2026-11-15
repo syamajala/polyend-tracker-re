@@ -2,7 +2,9 @@
 # Pull requests: build it (--strict: broken links and missing pages fail).
 # Pushes to main: publish it as version "dev" with mike, on the gh-pages branch
 # (Settings > Pages > Source: Deploy from a branch, gh-pages / root).
-# Release tags will add their own versions later.
+# Release tags (v*, as release.yml): publish the tag as its own version with the
+# alias "latest", the site's default page; "dev" stays in the version menu. Until
+# the first tagged release is published here, "dev" is the default.
 # [I] The Synths pages come from the synth module repository's help files
 # (tools/docs_synth_pages.py); a help change there is published by the next run
 # here (a push to main, or Run workflow).
@@ -11,13 +13,15 @@ name: Docs
 on:
   push:
     branches: [main]
+    tags: ['v*']   # paths don't apply to tags: every release tag publishes
     paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml', 'tools/docs_synth_pages.py']
   pull_request:
     paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml', 'tools/docs_synth_pages.py']
   workflow_dispatch:
 
 concurrency:
-  group: docs-${{ github.ref }}
+  # One queue for everything that pushes to gh-pages (main and tags), one per PR.
+  group: ${{ github.event_name == 'pull_request' && format('docs-{0}', github.ref) || 'docs-publish' }}
   cancel-in-progress: false   # never interrupt a push to gh-pages
 
 permissions:
@@ -43,9 +47,18 @@ jobs:
       - name: Build
         run: mkdocs build --strict
       - name: Publish "dev"
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref_type == 'branch'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           mike deploy --push dev
-          mike set-default --push dev
+          # The default stays on the latest release once there is one.
+          git fetch -q origin gh-pages
+          git show origin/gh-pages:versions.json | grep -q '"latest"' || mike set-default --push dev
+      - name: Publish the release
+        if: github.event_name != 'pull_request' && github.ref_type == 'tag'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          mike deploy --push --update-aliases "$GITHUB_REF_NAME" latest
+          mike set-default --push latest

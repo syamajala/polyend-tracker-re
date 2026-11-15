@@ -38,8 +38,13 @@ Publishing uses [mike](https://github.com/jimporter/mike), which keeps one copy 
 site per version on the `gh-pages` branch:
 
 - every push to `main` updates **dev**;
-- once the fork makes releases, each release tag will add its version, and the version
-  picker at the top will switch between them.
+- every release tag (`v*`, the same tags that make a release) adds its own version,
+  named after the tag, and moves the **latest** alias to it. The site opens on
+  **latest**, so readers get the docs for the firmware they can download; the version
+  picker at the top switches to **dev** or an older release.
+
+A release's Synths pages come from the synth repository's `main` at the time of the tag,
+as its card modules do (`release.yml`).
 
 ## Synth help files
 
