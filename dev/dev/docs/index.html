@@ -1211,6 +1211,9 @@ for the docs, then the <code># Settings</code> reference that the Edit Patch hel
   <code>Modules.zip</code>.</li>
 <li><code>make host-test</code> (<code>tests/synth_help_test.cpp</code>) checks every help file of the profile's
   modules against the descriptor: names, full coverage, no markup, the widest font fits.</li>
+<li>Config's help box texts work the same way: <code>help/Config.md</code> in this repository (<code>##</code> a
+  category, <code>###</code> an option), on the card as <code>Help/Config.md</code>; <code>tests/config_screen_test.cpp</code>
+  checks it against the Config menu.</li>
 <li>Describe what a setting does. Wording about how something sounds goes in only after it
   has been heard on the device.</li>
 </ul>
