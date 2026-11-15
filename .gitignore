@@ -3,6 +3,7 @@ __pycache__/
 
 # MkDocs (docs/dev/docs.md)
 /site/
+/docs/synths/
 /.venv/
 tools/make_demo/make_demo
 dist/
