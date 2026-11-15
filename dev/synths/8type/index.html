@@ -1,0 +1,3733 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Open-source firmware for the original Polyend Tracker, with live resampling, Performance scenes, song arrangement and a DX7 synth.">
+      
+      
+      
+        <link rel="canonical" href="https://syamajala.github.io/polyend-tracker-re/dev/synths/8type/">
+      
+      
+        <link rel="prev" href="../">
+      
+      
+        <link rel="next" href="../atype/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+    
+    
+      
+        <title>8-Type - OpenTracker (syamajala fork)</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="red">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#8-type" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="OpenTracker (syamajala fork)" class="md-header__button md-logo" aria-label="OpenTracker (syamajala fork)" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            OpenTracker (syamajala fork)
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              8-Type
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="red"  aria-label="Light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="black" data-md-color-accent="red"  aria-label="Dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/syamajala/polyend-tracker-re" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    syamajala/polyend-tracker-re
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="OpenTracker (syamajala fork)" class="md-nav__button md-logo" aria-label="OpenTracker (syamajala fork)" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    OpenTracker (syamajala fork)
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/syamajala/polyend-tracker-re" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    syamajala/polyend-tracker-re
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install and go back
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    User guide
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    User guide
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/dx7/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DX7 synth
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/edit-patch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Edit Patch and synth help
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/master-fx/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Master effects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/resampling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live resampling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/performance/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Performance mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/song-mode/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Song mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/track-timing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Track timing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/midi-lfo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MIDI instrument LFO
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/midi-presets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MIDI presets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/multisample/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multisample instruments
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/usb-audio/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    USB audio
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/more/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    More features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/remote-control/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Remote control
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guide/troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Synths
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Synths
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    8-Type
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    8-Type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oscillator-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Oscillator 1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Oscillator 1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wave" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PW
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pwm-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PWM Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Level
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semi
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clean
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oscillator-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Oscillator 2
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Oscillator 2">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wave_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pw_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PW
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pwm-depth_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PWM Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#level_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Level
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semi_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semi
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fine_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ring_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sync_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filt_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clean_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clean
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oscillator-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Oscillator 3
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Oscillator 3">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wave_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pw_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PW
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pwm-depth_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PWM Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#level_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Level
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semi_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semi
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fine_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ring_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sync_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filt_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clean_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clean
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filter
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Filter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cutoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cutoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resonance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resonance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#curve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Curve
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dirt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dirt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-track" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Track
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#env-amt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Env Amt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#env-decay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Env Decay
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Envelope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Envelope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#attack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attack
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sustain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sustain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#voice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Voice
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Voice">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pwm-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PWM Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#glide-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Glide Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#glide-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Glide Time
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#volume" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Volume
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#width" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Width
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spread" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spread
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chip-tricks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chip Tricks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chip Tricks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arp-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arp Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arp-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arp Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arp-note-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arp Note 2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arp-note-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arp Note 3
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vib-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vib Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vib-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vib Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vib-delay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vib Delay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#slide-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slide Start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#slide-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slide Time
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../atype/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A-Type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../acd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ACD
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../arctype/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Arc-Type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../btype/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    B-Type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cstype/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CS-Type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dtype/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    D-Type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dx7/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DX7
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fat/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FAT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../fm4/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    FM4
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../handtype/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hand-Type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ju6/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JU6
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../perc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PERC
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ttype/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    T-Type
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../vap/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VAP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../wtfm/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    WTFM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Developers
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Developers
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/building/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/simulator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/testing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Testing and CI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/memory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/workflow/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow and file formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../dev/docs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Settings
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Settings">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#oscillator-1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Oscillator 1
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Oscillator 1">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wave" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pw" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PW
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pwm-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PWM Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#level" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Level
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semi
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fine" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ring" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clean" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clean
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oscillator-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Oscillator 2
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Oscillator 2">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wave_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pw_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PW
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pwm-depth_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PWM Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#level_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Level
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semi_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semi
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fine_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ring_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sync_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filt_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clean_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clean
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#oscillator-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Oscillator 3
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Oscillator 3">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#wave_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wave
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pw_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PW
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pwm-depth_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PWM Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#level_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Level
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#semi_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Semi
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fine_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fine
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ring_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ring
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sync_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sync
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filt_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#clean_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clean
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#filter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Filter
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Filter">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#cutoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cutoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#resonance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Resonance
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#curve" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Curve
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dirt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Dirt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#key-track" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Track
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#env-amt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Env Amt
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#env-decay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Env Decay
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#envelope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Envelope
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Envelope">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#attack" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attack
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#decay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Decay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sustain" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sustain
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#release" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#voice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Voice
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Voice">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#pwm-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PWM Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#grit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Grit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#glide-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Glide Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#glide-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Glide Time
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#volume" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Volume
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#width" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Width
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spread" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spread
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chip-tricks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chip Tricks
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Chip Tricks">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arp-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arp Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arp-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arp Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arp-note-2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arp Note 2
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arp-note-3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Arp Note 3
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vib-rate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vib Rate
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vib-depth" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vib Depth
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#vib-delay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vib Delay
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#slide-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slide Start
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#slide-time" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slide Time
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="8-type">8-Type<a class="headerlink" href="#8-type" title="Permanent link">&para;</a></h1>
+<p>A chip-style synth in the spirit of the 3-voice sound chips of 8-bit home computers:
+three oscillators with combined waves, ring modulation and sync, one multimode filter,
+a stepped envelope and the chip tricks.</p>
+<p>8-Type is our own design from general knowledge of such chips, not a copy of any chip.</p>
+<h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
+<p>Each note plays <strong>three oscillators</strong>. Each one has a <strong>Wave</strong>: triangle, saw, pulse,
+noise, or a <strong>combined</strong> wave where the pulse switches the other wave on and off
+(Tri+Pulse, Saw+Pulse), or Tri+Saw, half of each. <strong>Off</strong> silences it. <strong>PW</strong> sets the
+pulse width and <strong>PWM Depth</strong> how far the slot's PWM LFO (<strong>PWM Rate</strong> in Voice)
+sweeps it.</p>
+<p>Each oscillator links to the one before it: oscillator 2 to 1, 3 to 2, and 1 to 3.
+<strong>Sync</strong> restarts it each time that one starts a cycle. <strong>Ring</strong> flips its wave each
+time that one's square flips, and works on the waves with a triangle in them (Tri,
+Tri+Pulse, Tri+Saw).</p>
+<p><strong>Filt</strong> sends an oscillator through the filter or around it. The filter is a 12 dB
+multimode: <strong>Mode</strong> picks low-pass, band-pass, high-pass or a mix of them. Its
+<strong>Resonance</strong> has 16 steps and never sings on its own. <strong>Dirt</strong> drives it harder. A
+simple <strong>filter envelope</strong> jumps up at each note and falls back over <strong>Env Decay</strong>;
+<strong>Env Amt</strong> sets how far, up or down.</p>
+<p><strong>Grit</strong> steps the oscillators' mix to fewer bits, like a small converter; an
+oscillator with <strong>Clean</strong> On skips it. The volume <strong>Envelope</strong> is an ADSR with 16
+steps per stage, timed from a table. The <strong>Chip Tricks</strong> add the chip arpeggio, a
+stepped vibrato and a slide into each note.</p>
+<p>The Init patch plays oscillator 1 alone, a square through the low-pass filter.
+Oscillators 2 and 3 are Off.</p>
+<h2 id="settings">Settings<a class="headerlink" href="#settings" title="Permanent link">&para;</a></h2>
+<p>What each setting does, as the Edit Patch help box shows it.</p>
+<h3 id="oscillator-1">Oscillator 1<a class="headerlink" href="#oscillator-1" title="Permanent link">&para;</a></h3>
+<p>Oscillator 1: syncs and rings to oscillator 3.</p>
+<h4 id="wave">Wave<a class="headerlink" href="#wave" title="Permanent link">&para;</a></h4>
+<p>The oscillator's waveform.</p>
+<ul>
+<li>Tri: a triangle wave.</li>
+<li>Saw: a saw wave.</li>
+<li>Pulse: a pulse wave; PW sets its width.</li>
+<li>Noise: noise from a shift register, pitched by the note.</li>
+<li>Tri+Pulse: the triangle, switched on and off by the pulse.</li>
+<li>Saw+Pulse: the saw, switched on and off by the pulse.</li>
+<li>Tri+Saw: half triangle, half saw.</li>
+<li>Off: the oscillator is silent.</li>
+</ul>
+<h4 id="pw">PW<a class="headerlink" href="#pw" title="Permanent link">&para;</a></h4>
+<p>The pulse width, for Pulse and the combined waves.</p>
+<ul>
+<li>0 % is a square; 100 % is a thin 2 % pulse.</li>
+</ul>
+<h4 id="pwm-depth">PWM Depth<a class="headerlink" href="#pwm-depth" title="Permanent link">&para;</a></h4>
+<p>How far the PWM LFO moves the pulse width (PWM Rate in Voice).</p>
+<ul>
+<li>0 % keeps the width still; higher values sweep it.</li>
+</ul>
+<h4 id="level">Level<a class="headerlink" href="#level" title="Permanent link">&para;</a></h4>
+<p>The oscillator's level in the mix.</p>
+<ul>
+<li>0 % is silent.</li>
+</ul>
+<h4 id="semi">Semi<a class="headerlink" href="#semi" title="Permanent link">&para;</a></h4>
+<p>The oscillator's tuning in semitones.</p>
+<ul>
+<li>0 is the note; +7 is a 5th up, +12 an octave.</li>
+</ul>
+<h4 id="fine">Fine<a class="headerlink" href="#fine" title="Permanent link">&para;</a></h4>
+<p>The oscillator's fine tune, in cents.</p>
+<ul>
+<li>A few cents off the others makes them beat.</li>
+</ul>
+<h4 id="ring">Ring<a class="headerlink" href="#ring" title="Permanent link">&para;</a></h4>
+<p>Ring modulation from oscillator 3.</p>
+<ul>
+<li>Off: no ring modulation.</li>
+<li>On: flips this wave with oscillator 3's square; needs a triangle wave.</li>
+</ul>
+<h4 id="sync">Sync<a class="headerlink" href="#sync" title="Permanent link">&para;</a></h4>
+<p>Hard sync to oscillator 3.</p>
+<ul>
+<li>Off: runs free.</li>
+<li>On: restarts each time oscillator 3 starts a cycle.</li>
+</ul>
+<h4 id="filt">Filt<a class="headerlink" href="#filt" title="Permanent link">&para;</a></h4>
+<p>Whether the oscillator goes through the filter.</p>
+<ul>
+<li>Off: around the filter, unfiltered.</li>
+<li>On: through the filter.</li>
+</ul>
+<h4 id="clean">Clean<a class="headerlink" href="#clean" title="Permanent link">&para;</a></h4>
+<p>Whether the oscillator skips Grit.</p>
+<ul>
+<li>Off: stepped by Grit with the others.</li>
+<li>On: skips Grit.</li>
+</ul>
+<h3 id="oscillator-2">Oscillator 2<a class="headerlink" href="#oscillator-2" title="Permanent link">&para;</a></h3>
+<p>Oscillator 2: syncs and rings to oscillator 1.</p>
+<h4 id="wave_1">Wave<a class="headerlink" href="#wave_1" title="Permanent link">&para;</a></h4>
+<p>The oscillator's waveform.</p>
+<ul>
+<li>Tri: a triangle wave.</li>
+<li>Saw: a saw wave.</li>
+<li>Pulse: a pulse wave; PW sets its width.</li>
+<li>Noise: noise from a shift register, pitched by the note.</li>
+<li>Tri+Pulse: the triangle, switched on and off by the pulse.</li>
+<li>Saw+Pulse: the saw, switched on and off by the pulse.</li>
+<li>Tri+Saw: half triangle, half saw.</li>
+<li>Off: the oscillator is silent.</li>
+</ul>
+<h4 id="pw_1">PW<a class="headerlink" href="#pw_1" title="Permanent link">&para;</a></h4>
+<p>The pulse width, for Pulse and the combined waves.</p>
+<ul>
+<li>0 % is a square; 100 % is a thin 2 % pulse.</li>
+</ul>
+<h4 id="pwm-depth_1">PWM Depth<a class="headerlink" href="#pwm-depth_1" title="Permanent link">&para;</a></h4>
+<p>How far the PWM LFO moves the pulse width (PWM Rate in Voice).</p>
+<ul>
+<li>0 % keeps the width still; higher values sweep it.</li>
+</ul>
+<h4 id="level_1">Level<a class="headerlink" href="#level_1" title="Permanent link">&para;</a></h4>
+<p>The oscillator's level in the mix.</p>
+<ul>
+<li>0 % is silent.</li>
+</ul>
+<h4 id="semi_1">Semi<a class="headerlink" href="#semi_1" title="Permanent link">&para;</a></h4>
+<p>The oscillator's tuning in semitones.</p>
+<ul>
+<li>0 is the note; +7 is a 5th up, +12 an octave.</li>
+</ul>
+<h4 id="fine_1">Fine<a class="headerlink" href="#fine_1" title="Permanent link">&para;</a></h4>
+<p>The oscillator's fine tune, in cents.</p>
+<ul>
+<li>A few cents off the others makes them beat.</li>
+</ul>
+<h4 id="ring_1">Ring<a class="headerlink" href="#ring_1" title="Permanent link">&para;</a></h4>
+<p>Ring modulation from oscillator 1.</p>
+<ul>
+<li>Off: no ring modulation.</li>
+<li>On: flips this wave with oscillator 1's square; needs a triangle wave.</li>
+</ul>
+<h4 id="sync_1">Sync<a class="headerlink" href="#sync_1" title="Permanent link">&para;</a></h4>
+<p>Hard sync to oscillator 1.</p>
+<ul>
+<li>Off: runs free.</li>
+<li>On: restarts each time oscillator 1 starts a cycle.</li>
+</ul>
+<h4 id="filt_1">Filt<a class="headerlink" href="#filt_1" title="Permanent link">&para;</a></h4>
+<p>Whether the oscillator goes through the filter.</p>
+<ul>
+<li>Off: around the filter, unfiltered.</li>
+<li>On: through the filter.</li>
+</ul>
+<h4 id="clean_1">Clean<a class="headerlink" href="#clean_1" title="Permanent link">&para;</a></h4>
+<p>Whether the oscillator skips Grit.</p>
+<ul>
+<li>Off: stepped by Grit with the others.</li>
+<li>On: skips Grit.</li>
+</ul>
+<h3 id="oscillator-3">Oscillator 3<a class="headerlink" href="#oscillator-3" title="Permanent link">&para;</a></h3>
+<p>Oscillator 3: syncs and rings to oscillator 2.</p>
+<h4 id="wave_2">Wave<a class="headerlink" href="#wave_2" title="Permanent link">&para;</a></h4>
+<p>The oscillator's waveform.</p>
+<ul>
+<li>Tri: a triangle wave.</li>
+<li>Saw: a saw wave.</li>
+<li>Pulse: a pulse wave; PW sets its width.</li>
+<li>Noise: noise from a shift register, pitched by the note.</li>
+<li>Tri+Pulse: the triangle, switched on and off by the pulse.</li>
+<li>Saw+Pulse: the saw, switched on and off by the pulse.</li>
+<li>Tri+Saw: half triangle, half saw.</li>
+<li>Off: the oscillator is silent.</li>
+</ul>
+<h4 id="pw_2">PW<a class="headerlink" href="#pw_2" title="Permanent link">&para;</a></h4>
+<p>The pulse width, for Pulse and the combined waves.</p>
+<ul>
+<li>0 % is a square; 100 % is a thin 2 % pulse.</li>
+</ul>
+<h4 id="pwm-depth_2">PWM Depth<a class="headerlink" href="#pwm-depth_2" title="Permanent link">&para;</a></h4>
+<p>How far the PWM LFO moves the pulse width (PWM Rate in Voice).</p>
+<ul>
+<li>0 % keeps the width still; higher values sweep it.</li>
+</ul>
+<h4 id="level_2">Level<a class="headerlink" href="#level_2" title="Permanent link">&para;</a></h4>
+<p>The oscillator's level in the mix.</p>
+<ul>
+<li>0 % is silent.</li>
+</ul>
+<h4 id="semi_2">Semi<a class="headerlink" href="#semi_2" title="Permanent link">&para;</a></h4>
+<p>The oscillator's tuning in semitones.</p>
+<ul>
+<li>0 is the note; +7 is a 5th up, +12 an octave.</li>
+</ul>
+<h4 id="fine_2">Fine<a class="headerlink" href="#fine_2" title="Permanent link">&para;</a></h4>
+<p>The oscillator's fine tune, in cents.</p>
+<ul>
+<li>A few cents off the others makes them beat.</li>
+</ul>
+<h4 id="ring_2">Ring<a class="headerlink" href="#ring_2" title="Permanent link">&para;</a></h4>
+<p>Ring modulation from oscillator 2.</p>
+<ul>
+<li>Off: no ring modulation.</li>
+<li>On: flips this wave with oscillator 2's square; needs a triangle wave.</li>
+</ul>
+<h4 id="sync_2">Sync<a class="headerlink" href="#sync_2" title="Permanent link">&para;</a></h4>
+<p>Hard sync to oscillator 2.</p>
+<ul>
+<li>Off: runs free.</li>
+<li>On: restarts each time oscillator 2 starts a cycle.</li>
+</ul>
+<h4 id="filt_2">Filt<a class="headerlink" href="#filt_2" title="Permanent link">&para;</a></h4>
+<p>Whether the oscillator goes through the filter.</p>
+<ul>
+<li>Off: around the filter, unfiltered.</li>
+<li>On: through the filter.</li>
+</ul>
+<h4 id="clean_2">Clean<a class="headerlink" href="#clean_2" title="Permanent link">&para;</a></h4>
+<p>Whether the oscillator skips Grit.</p>
+<ul>
+<li>Off: stepped by Grit with the others.</li>
+<li>On: skips Grit.</li>
+</ul>
+<h3 id="filter">Filter<a class="headerlink" href="#filter" title="Permanent link">&para;</a></h3>
+<p>The 12 dB multimode filter, its envelope and how hard it's driven.</p>
+<h4 id="cutoff">Cutoff<a class="headerlink" href="#cutoff" title="Permanent link">&para;</a></h4>
+<p>Where the filter cuts.</p>
+<ul>
+<li>Low is dark and muffled; high lets everything through.</li>
+</ul>
+<h4 id="resonance">Resonance<a class="headerlink" href="#resonance" title="Permanent link">&para;</a></h4>
+<p>How much the filter rings at the cutoff, in 16 steps.</p>
+<ul>
+<li>0 is smooth; 15 rings the most, but never on its own.</li>
+</ul>
+<h4 id="mode">Mode<a class="headerlink" href="#mode" title="Permanent link">&para;</a></h4>
+<p>Which parts of the filter you hear.</p>
+<ul>
+<li>LP: low-pass: cuts the highs.</li>
+<li>BP: band-pass: keeps a band around the cutoff.</li>
+<li>HP: high-pass: cuts the lows.</li>
+<li>LP+BP: low-pass and band-pass together.</li>
+<li>Notch: low-pass and high-pass together: cuts around the cutoff.</li>
+<li>BP+HP: band-pass and high-pass together.</li>
+<li>All: all three outputs mixed.</li>
+</ul>
+<h4 id="curve">Curve<a class="headerlink" href="#curve" title="Permanent link">&para;</a></h4>
+<p>How the Cutoff setting maps to the filter's frequency.</p>
+<ul>
+<li>Bright: the full range, up to 12 kHz.</li>
+<li>Dark: a flatter curve that tops out near 3.6 kHz.</li>
+</ul>
+<h4 id="dirt">Dirt<a class="headerlink" href="#dirt" title="Permanent link">&para;</a></h4>
+<p>Drives the filter harder and clips its output.</p>
+<ul>
+<li>0 % is clean.</li>
+</ul>
+<h4 id="key-track">Key Track<a class="headerlink" href="#key-track" title="Permanent link">&para;</a></h4>
+<p>How much the cutoff follows the note played.</p>
+<ul>
+<li>100 % moves the cutoff an octave per octave; 0 % keeps it fixed.</li>
+</ul>
+<h4 id="env-amt">Env Amt<a class="headerlink" href="#env-amt" title="Permanent link">&para;</a></h4>
+<p>How far the filter envelope moves the cutoff; minus moves it down.</p>
+<ul>
+<li>0 % is off; 100 % is 4 octaves at the start of the note.</li>
+</ul>
+<h4 id="env-decay">Env Decay<a class="headerlink" href="#env-decay" title="Permanent link">&para;</a></h4>
+<p>How long the filter envelope takes to fall back.</p>
+<ul>
+<li>Short is a blip; long is a slow sweep.</li>
+</ul>
+<h3 id="envelope">Envelope<a class="headerlink" href="#envelope" title="Permanent link">&para;</a></h3>
+<p>The volume envelope: an ADSR with 16 steps per stage.</p>
+<h4 id="attack">Attack<a class="headerlink" href="#attack" title="Permanent link">&para;</a></h4>
+<p>How long a note takes to reach full volume.</p>
+<ul>
+<li>2 ms: reaches full volume in 2 ms.</li>
+<li>8 ms: reaches full volume in 8 ms.</li>
+<li>13 ms: reaches full volume in 13 ms.</li>
+<li>22 ms: reaches full volume in 22 ms.</li>
+<li>35 ms: reaches full volume in 35 ms.</li>
+<li>58 ms: reaches full volume in 58 ms.</li>
+<li>94 ms: reaches full volume in 94 ms.</li>
+<li>155 ms: reaches full volume in 155 ms.</li>
+<li>253 ms: reaches full volume in 253 ms.</li>
+<li>414 ms: reaches full volume in 414 ms.</li>
+<li>679 ms: reaches full volume in 679 ms.</li>
+<li>1.1 s: reaches full volume in 1.1 s.</li>
+<li>1.8 s: reaches full volume in 1.8 s.</li>
+<li>3.0 s: reaches full volume in 3.0 s.</li>
+<li>4.9 s: reaches full volume in 4.9 s.</li>
+<li>8 s: reaches full volume in 8 s.</li>
+</ul>
+<h4 id="decay">Decay<a class="headerlink" href="#decay" title="Permanent link">&para;</a></h4>
+<p>How long a note takes to fall from full volume to Sustain.</p>
+<ul>
+<li>6 ms: falls to Sustain in about 6 ms.</li>
+<li>24 ms: falls to Sustain in about 24 ms.</li>
+<li>39 ms: falls to Sustain in about 39 ms.</li>
+<li>64 ms: falls to Sustain in about 64 ms.</li>
+<li>106 ms: falls to Sustain in about 106 ms.</li>
+<li>173 ms: falls to Sustain in about 173 ms.</li>
+<li>283 ms: falls to Sustain in about 283 ms.</li>
+<li>463 ms: falls to Sustain in about 463 ms.</li>
+<li>759 ms: falls to Sustain in about 759 ms.</li>
+<li>1.2 s: falls to Sustain in about 1.2 s.</li>
+<li>2.0 s: falls to Sustain in about 2.0 s.</li>
+<li>3.3 s: falls to Sustain in about 3.3 s.</li>
+<li>5.5 s: falls to Sustain in about 5.5 s.</li>
+<li>8.9 s: falls to Sustain in about 8.9 s.</li>
+<li>15 s: falls to Sustain in about 15 s.</li>
+<li>24 s: falls to Sustain in about 24 s.</li>
+</ul>
+<h4 id="sustain">Sustain<a class="headerlink" href="#sustain" title="Permanent link">&para;</a></h4>
+<p>The volume held while the note is down, in 16 steps.</p>
+<ul>
+<li>0 dies away after Decay; 15 stays at full volume.</li>
+</ul>
+<h4 id="release">Release<a class="headerlink" href="#release" title="Permanent link">&para;</a></h4>
+<p>How long the note fades after it ends.</p>
+<ul>
+<li>6 ms: fades out in about 6 ms.</li>
+<li>24 ms: fades out in about 24 ms.</li>
+<li>39 ms: fades out in about 39 ms.</li>
+<li>64 ms: fades out in about 64 ms.</li>
+<li>106 ms: fades out in about 106 ms.</li>
+<li>173 ms: fades out in about 173 ms.</li>
+<li>283 ms: fades out in about 283 ms.</li>
+<li>463 ms: fades out in about 463 ms.</li>
+<li>759 ms: fades out in about 759 ms.</li>
+<li>1.2 s: fades out in about 1.2 s.</li>
+<li>2.0 s: fades out in about 2.0 s.</li>
+<li>3.3 s: fades out in about 3.3 s.</li>
+<li>5.5 s: fades out in about 5.5 s.</li>
+<li>8.9 s: fades out in about 8.9 s.</li>
+<li>15 s: fades out in about 15 s.</li>
+<li>24 s: fades out in about 24 s.</li>
+</ul>
+<h3 id="voice">Voice<a class="headerlink" href="#voice" title="Permanent link">&para;</a></h3>
+<p>The PWM LFO, Grit, glide, volume and stereo.</p>
+<h4 id="pwm-rate">PWM Rate<a class="headerlink" href="#pwm-rate" title="Permanent link">&para;</a></h4>
+<p>How fast the PWM LFO sweeps the pulse widths (PWM Depth).</p>
+<ul>
+<li>Low values sweep slowly; high values fast.</li>
+</ul>
+<h4 id="grit">Grit<a class="headerlink" href="#grit" title="Permanent link">&para;</a></h4>
+<p>How many bits the oscillators' mix is stepped to, like a small converter.</p>
+<ul>
+<li>12 is clean; 4 is the coarsest.</li>
+</ul>
+<h4 id="glide-mode">Glide Mode<a class="headerlink" href="#glide-mode" title="Permanent link">&para;</a></h4>
+<p>When one note slides into the next.</p>
+<ul>
+<li>Always: every note slides from the last one.</li>
+<li>Overlap: slides only when a note starts before the last one ends.</li>
+<li>Legato: every note slides; overlapping notes don't restart the envelope.</li>
+<li>Legato Overlap: only overlapping notes slide, and they don't restart the envelope.</li>
+</ul>
+<h4 id="glide-time">Glide Time<a class="headerlink" href="#glide-time" title="Permanent link">&para;</a></h4>
+<p>How long a glide takes.</p>
+<ul>
+<li>0 is no glide; longer values slide slowly between notes.</li>
+</ul>
+<h4 id="volume">Volume<a class="headerlink" href="#volume" title="Permanent link">&para;</a></h4>
+<p>The patch's own level.</p>
+<ul>
+<li>100 % is normal.</li>
+</ul>
+<h4 id="width">Width<a class="headerlink" href="#width" title="Permanent link">&para;</a></h4>
+<p>How wide the sound is in stereo.</p>
+<ul>
+<li>0 % is mono; 100 % is wide.</li>
+</ul>
+<h4 id="spread">Spread<a class="headerlink" href="#spread" title="Permanent link">&para;</a></h4>
+<p>Spreads different notes left and right.</p>
+<ul>
+<li>0 % keeps every note in the middle.</li>
+</ul>
+<h3 id="chip-tricks">Chip Tricks<a class="headerlink" href="#chip-tricks" title="Permanent link">&para;</a></h3>
+<p>The chip arpeggio, a stepped vibrato and a slide into each note.</p>
+<h4 id="arp-mode">Arp Mode<a class="headerlink" href="#arp-mode" title="Permanent link">&para;</a></h4>
+<p>Plays a fast chord from one note, the classic chip arpeggio.</p>
+<ul>
+<li>Off: no arpeggio.</li>
+<li>Oct: the note and the octave above.</li>
+<li>Maj: a major chord: root, major 3rd, 5th.</li>
+<li>Min: a minor chord: root, minor 3rd, 5th.</li>
+<li>Sus4: root, 4th and 5th.</li>
+<li>Dom7: a major chord with a minor 7th.</li>
+<li>Maj7: a major chord with a major 7th.</li>
+<li>Min7: a minor chord with a minor 7th.</li>
+<li>Dim: root, minor 3rd, diminished 5th.</li>
+<li>Aug: root, major 3rd, augmented 5th.</li>
+<li>Pow5: root and 5th.</li>
+<li>Custom: your own notes from Arp Note 2 and Arp Note 3.</li>
+</ul>
+<h4 id="arp-rate">Arp Rate<a class="headerlink" href="#arp-rate" title="Permanent link">&para;</a></h4>
+<p>How fast the arp steps through its notes.</p>
+<ul>
+<li>50 Hz: the European TV frame rate.</li>
+<li>60 Hz: the US and Japan TV frame rate.</li>
+<li>100 Hz: twice the European rate.</li>
+<li>120 Hz: twice the US and Japan rate.</li>
+<li>1/32: a step every 32nd note, locked to the tempo.</li>
+<li>1/48: 32nd-note triplets, locked to the tempo.</li>
+<li>1/64: a step every 64th note, locked to the tempo.</li>
+<li>1/96: 64th-note triplets, locked to the tempo.</li>
+<li>1/128: a step every 128th note, locked to the tempo.</li>
+</ul>
+<h4 id="arp-note-2">Arp Note 2<a class="headerlink" href="#arp-note-2" title="Permanent link">&para;</a></h4>
+<p>The second arp note, in semitones above the played one (Custom).</p>
+<ul>
+<li>+3 minor 3rd, +4 major 3rd, +7 5th, +12 octave.</li>
+</ul>
+<h4 id="arp-note-3">Arp Note 3<a class="headerlink" href="#arp-note-3" title="Permanent link">&para;</a></h4>
+<p>The third arp note, in semitones above the played one (Custom).</p>
+<ul>
+<li>+3 minor 3rd, +4 major 3rd, +7 5th, +12 octave.</li>
+</ul>
+<h4 id="vib-rate">Vib Rate<a class="headerlink" href="#vib-rate" title="Permanent link">&para;</a></h4>
+<p>How fast the vibrato goes up and down.</p>
+<ul>
+<li>Low values are slow; high values fast.</li>
+</ul>
+<h4 id="vib-depth">Vib Depth<a class="headerlink" href="#vib-depth" title="Permanent link">&para;</a></h4>
+<p>How far the vibrato moves the pitch, in semitones.</p>
+<ul>
+<li>0 is off; higher values move the pitch further.</li>
+</ul>
+<h4 id="vib-delay">Vib Delay<a class="headerlink" href="#vib-delay" title="Permanent link">&para;</a></h4>
+<p>How long a note holds before the vibrato starts.</p>
+<ul>
+<li>0 starts the vibrato at once; longer values wait first.</li>
+</ul>
+<h4 id="slide-start">Slide Start<a class="headerlink" href="#slide-start" title="Permanent link">&para;</a></h4>
+<p>Starts this many semitones away and slides to the note.</p>
+<ul>
+<li>Minus slides up into the note, plus slides down; 0 is off.</li>
+</ul>
+<h4 id="slide-time">Slide Time<a class="headerlink" href="#slide-time" title="Permanent link">&para;</a></h4>
+<p>How long that slide takes.</p>
+<ul>
+<li>Short is a blip at the start; long is a swoop.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../" class="md-footer__link md-footer__link--prev" aria-label="Previous: Overview">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Overview
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../atype/" class="md-footer__link md-footer__link--next" aria-label="Next: A-Type">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                A-Type
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.top", "navigation.footer", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+    
+  </body>
+</html>
