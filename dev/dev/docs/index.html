@@ -1732,9 +1732,13 @@ generated example DX7 bank. No third-party content goes into the images.</p>
 site per version on the <code>gh-pages</code> branch:</p>
 <ul>
 <li>every push to <code>main</code> updates <strong>dev</strong>;</li>
-<li>once the fork makes releases, each release tag will add its version, and the version
-  picker at the top will switch between them.</li>
+<li>every release tag (<code>v*</code>, the same tags that make a release) adds its own version,
+  named after the tag, and moves the <strong>latest</strong> alias to it. The site opens on
+  <strong>latest</strong>, so readers get the docs for the firmware they can download; the version
+  picker at the top switches to <strong>dev</strong> or an older release.</li>
 </ul>
+<p>A release's Synths pages come from the synth repository's <code>main</code> at the time of the tag,
+as its card modules do (<code>release.yml</code>).</p>
 <h2 id="synth-help-files">Synth help files<a class="headerlink" href="#synth-help-files" title="Permanent link">&para;</a></h2>
 <p>Each synth's help lives next to its code in the module repository,
 <code>modules/&lt;synth&gt;/help/&lt;NAME&gt;.md</code> (<code>NAME</code> = the descriptor's name, e.g. <code>BTYPE</code>): a guide
