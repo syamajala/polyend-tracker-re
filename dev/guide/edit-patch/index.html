@@ -471,6 +471,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#macros" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Macros
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-help-box" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1109,6 +1120,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#macros" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Macros
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-help-box" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1167,7 +1189,7 @@ you're on.</p>
 <tbody>
 <tr>
 <td>Sections</td>
-<td>the synth's groups of settings (Channel, Envelope, Macro 1 …)</td>
+<td>the synth's groups of settings (Channel, Envelope …), then <strong>Macros</strong></td>
 </tr>
 <tr>
 <td>Settings</td>
@@ -1187,8 +1209,33 @@ you're on.</p>
   the frame is.</li>
 <li><strong>Delete</strong> puts the selected setting back to its Init value.</li>
 <li><strong>F1 Save</strong>, <strong>F2 Save As</strong>, <strong>F3 Init Patch</strong> and <strong>F8 Back</strong> work as before.</li>
+<li><strong>F4 To Macro</strong> puts the selected setting on a macro (below).</li>
 <li><strong>All 48 pads play</strong> the synth while you edit (stock picks the section with the pads).</li>
 </ul>
+<h2 id="macros">Macros<a class="headerlink" href="#macros" title="Permanent link">&para;</a></h2>
+<p>A macro is one knob that moves several settings at once: M1–M6 are the knobs on the
+<strong>Synth Macros</strong> page (Instrument Params again) and the pattern's FX columns A–F, M7 follows
+the Volume column. With a macro at +1.00 on a setting, turning the knob all the way up moves
+that setting across its whole range; −1.00 moves it the other way.</p>
+<p><strong>Put a setting on a macro:</strong> select the setting, press <strong>F4 To Macro</strong>. The value column
+lists M1–M6 with how many settings each one moves, and <strong>on</strong> where this setting already is.
+Pick one with <strong>Up / Down</strong> or the knob and press <strong>F4</strong> again: <strong>Add</strong> puts the setting on
+it at +1.00, <strong>Remove</strong> takes it off. <strong>F8</strong> cancels. A macro without a name of its own takes
+the setting's name. A macro moves at most five settings.</p>
+<p><img alt="F4 To Macro on B-Type's Distortion" src="../../images/to-macro.png" /></p>
+<p><strong>The Macros section</strong>, the last in the list, shows every macro with the settings it
+moves:</p>
+<ul>
+<li>On a macro's row: <strong>Unipolar</strong> (the knob goes from 0 up) or <strong>Bipolar</strong> (the middle is
+  0) in the value column; <strong>F8 Rename</strong> names it.</li>
+<li>On one of its settings: the amount in the value column, −2.00 to +2.00; <strong>F3 Remove</strong>
+  takes the setting off the macro; <strong>Delete</strong> puts the amount back to the Init patch's.</li>
+</ul>
+<p><img alt="The Macros section, M1 Distortion" src="../../images/edit-patch-macros.png" /></p>
+<p>The <strong>Synth Macros</strong> page lists under each bar the settings its macro moves, with <strong>+</strong> or
+<strong>−</strong> for the direction, or "not set".</p>
+<p>An Init patch starts with no macros set; DX7 voices come with M1–M6 on the six Tone
+controls (see <a href="../dx7/">DX7</a>).</p>
 <h2 id="the-help-box">The help box<a class="headerlink" href="#the-help-box" title="Permanent link">&para;</a></h2>
 <p>Under the columns, three lines:</p>
 <ol>
