@@ -28,6 +28,10 @@ card() {   # card KIND DIR
     mkdir -p "$2/Performance/Scenes"   # an example scene bank (#70)
     printf '# OpenTracker scene bank\ncolumn 1 = LP cutoff: -25 -50 -80\ncolumn 2 = Step Repeater: 8 11 13\ncolumn 3 = Reverb send: 30 60 100\ncolumn 4 = DJ filter: -50 40 80\nscene 2 = 2 0 2 0\nscene 3 = 0 3 0 2\na = 1\nb = 2\n' \
         > "$2/Performance/Scenes/Example kit.txt"
+    mkdir -p "$2/Help/Synths"   # the synth help files' card copies (make help)
+    for f in "${MODULES_DIR:-$root/../../opentracker-synths}"/modules/*/help/*.md; do
+        [ -f "$f" ] && python3 -I "$root/tools/synth_help_card.py" "$f" "$2/Help/Synths/$(basename "$f")"
+    done
     if [ "$1" = project ]; then
         cp -R "$songs/." "$2/"
         mkdir -p "$2/Workspace"
@@ -394,7 +398,32 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
-tap DOWN             # Model: DX7
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP               # Model: the last (Arc-Type), then up to DX7
 wait 2500
 EOF
 
@@ -412,6 +441,31 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP               # Model: the last (Arc-Type), then up to DX7
 wait 2500
 tap F7               # Load Patch
 wait 400
@@ -431,6 +485,31 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP               # Model: the last (Arc-Type), then up to DX7
 wait 2500
 tap F7
 wait 300
@@ -457,10 +536,78 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP               # Model: the last (Arc-Type), then up to DX7
 wait 2500
 tap F8               # Edit Patch
 wait 300
-tap RIGHT            # Tone
+tap DOWN             # Tone (the section column has the focus)
+wait 300
+EOF
+
+# Edit Patch on B-Type (#176): the three columns and the help box, the value
+# column focused on Channel > Distortion = Poly5.
+shot edit-patch empty <<'EOF'
+wait 300
+press INSTR
+wait 400
+enc -70
+release INSTR
+wait 100
+tap INSTRPARAMS
+wait 200
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap UP               # Model: the last (Arc-Type), then B-Type
+wait 2500
+tap F8
+wait 300
+tap RIGHT
+tap DOWN
+tap RIGHT
+tap DOWN
+tap DOWN
 wait 300
 EOF
 
@@ -478,6 +625,31 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP               # Model: the last (Arc-Type), then up to DX7
 wait 2500
 tap INSTRPARAMS      # Synth Macros
 wait 200

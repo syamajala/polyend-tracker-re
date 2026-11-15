@@ -94,7 +94,32 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
-tap DOWN             # Model: ACD -> DX7 (the last one)
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap DOWN
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP
+tap UP               # Model: the last (Arc-Type), then up to DX7
 wait 200
 tap PLAY
 wait 200
@@ -106,7 +131,7 @@ tap F8               # Edit Patch: Voice (Volume, Mono)
 wait 200
 budget-reset
 wait 1300
-budget dx7-edit-play 760   # 710 with the three columns and the help box (#176; was 680)
+budget dx7-edit-play 680
 fragcheck dx7-edit-play
 tap DOWN             # Tone: the controls on top of the voice (the section column has the focus)
 wait 200

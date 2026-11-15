@@ -32,10 +32,11 @@ firmware image: they are **card modules**, `.otm` files the Tracker loads from t
 The five Mini synths (ACD, FAT, VAP, WTFM, PERC) are built in and need nothing.
 
 1. Download **`Modules.zip`** from the same release as the firmware.
-2. Unzip it. It holds one folder, `Modules`, with the `.otm` files.
-3. Copy the **`Modules`** folder to the top of the SD card, so the files sit in
-   `/Modules/` (for example `/Modules/dx7.otm`). If a `Modules` folder is already there,
-   **replace all of its files**.
+2. Unzip it. It holds two folders: `Modules`, with the `.otm` files, and `Help`, with the
+   synths' help texts for [Edit Patch](guide/edit-patch.md).
+3. Copy both folders to the top of the SD card, so the files sit in `/Modules/` (for
+   example `/Modules/dx7.otm`) and `/Help/Synths/`. If the folders are already there,
+   **replace all of their files**.
 4. Restart the Tracker.
 
 What's in it:

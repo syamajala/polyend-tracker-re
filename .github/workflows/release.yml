@@ -68,13 +68,15 @@ jobs:
         run: make -j"$(nproc)" VERSION=${{ steps.ver.outputs.version }}
       - name: Flash, stack headroom and libm checks
         run: python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size build/full/opentracker.elf
-      # [I] #21 the card modules (DX7), as the card folder Modules/.
+      # [I] #21 the card modules (DX7), as the card folder Modules/, and #176 the
+      # synth help files (make help) as Help/Synths/, in one zip.
       - name: Card modules zip
         run: |
-          make card VERSION=${{ steps.ver.outputs.version }}
-          mkdir -p build/card/Modules
+          make card help VERSION=${{ steps.ver.outputs.version }}
+          mkdir -p build/card/Modules build/card/Help
           cp build/full/otm/*.otm build/card/Modules/
-          (cd build/card && zip -r ../Modules.zip Modules)
+          cp -R build/full/Help/Synths build/card/Help/
+          (cd build/card && zip -r ../Modules.zip Modules Help)
       # [I] #13 the example MIDI presets, as the card folder MidiPresets/.
       - name: MIDI presets zip
         run: |

@@ -39,3 +39,19 @@ site per version on the `gh-pages` branch:
 - every push to `main` updates **dev**;
 - once the fork makes releases, each release tag will add its version, and the version
   picker at the top will switch between them.
+
+## Synth help files
+
+Each synth's help lives next to its code in the module repository,
+`modules/<synth>/help/<NAME>.md` (`NAME` = the descriptor's name, e.g. `BTYPE`): a guide
+for the docs, then the `# Settings` reference that the Edit Patch help box reads
+(format in `src/core/modules/synth_help.h`, user view in
+[Edit Patch and synth help](../guide/edit-patch.md)).
+
+- `make help` (and `make firmware`) writes the card copies, the reference only, to
+  `build/<profile>/Help/Synths/` (`tools/synth_help_card.py`); the release puts them in
+  `Modules.zip`.
+- `make host-test` (`tests/synth_help_test.cpp`) checks every help file of the profile's
+  modules against the descriptor: names, full coverage, no markup, the widest font fits.
+- Describe what a setting does. Wording about how something sounds goes in only after it
+  has been heard on the device.
