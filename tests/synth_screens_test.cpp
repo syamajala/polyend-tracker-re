@@ -54,6 +54,17 @@ void openEngineSlot(Harness& h, int s, int32_t engineId) {
     h.tap(btn::InstrParams);
 }
 
+// [I] Edit Patch (#176): the first setting of section `sec` with the value
+// focused (Left to the sections, Up to the first, Down to `sec`, Right twice).
+void editValue(Harness& h, int sec) {
+    h.tap(btn::Left);
+    h.tap(btn::Left);
+    for (int i = 0; i < 16; ++i) h.tap(btn::Up);
+    for (int i = 0; i < sec; ++i) h.tap(btn::Down);
+    h.tap(btn::Right);
+    h.tap(btn::Right);
+}
+
 std::vector<uint8_t> encode(const SynthPatch& p) {
     std::vector<uint8_t> out(kPatchMaxFileSize);
     size_t n = 0;
@@ -112,27 +123,35 @@ TEST(page_and_view_navigation) {
     CHECK(s.param == 2);
     h.tap(btn::Right);
     CHECK(s.param == 3);
-    // F8 Edit Patch: sections by Left / Right and by the pads.
+    // [I] F8 Edit Patch (#176): sections, settings and the value in columns
+    // as Config; Left / Right move the focus, Up / Down inside the column.
     h.tap(btn::F8);
     CHECK(s.view == SynthScreen::View::Edit);
     CHECK(frameHas(h, "Edit Patch: Init"));
-    CHECK(frameHas(h, "Osc"));
-    CHECK(frameHas(h, "M7"));
-    h.tap(btn::Right);
-    CHECK(s.section == 1);
-    h.pad(2);   // third cell of the first row: Amp Env
-    CHECK(s.section == 2);
-    h.pad(12);  // second row, first cell: Voice (ACD: Osc Filter AmpEnv Env1 / LFO1 Voice M1 M2 ...)
-    CHECK(s.section == 4);
+    CHECK(frameHas(h, "Oscillator"));
+    CHECK(frameHas(h, "Macro 1"));
+    CHECK_EQ(s.editCol, 0);
     h.tap(btn::Down);
-    CHECK(s.row == 1);
-    // Pad LEDs: the section block is lit, the current one full.
-    uint8_t lv[48] = {};
+    CHECK(s.section == 1 && s.row == 0);
+    h.tap(btn::Right);
+    CHECK_EQ(s.editCol, 1);
+    h.tap(btn::Down);
+    CHECK(s.row == 1 && s.section == 1);
+    h.tap(btn::Right);
+    h.tap(btn::Right);
+    CHECK_EQ(s.editCol, 2);
+    h.tap(btn::Left);
+    h.tap(btn::Left);
+    h.tap(btn::Left);
+    CHECK_EQ(s.editCol, 0);
+    // Every pad plays: no section pads; the pads light as on the other pages.
+    h.pad(2);
+    CHECK(s.section == 1);
+    uint8_t lv[48] = {}, lp[48] = {};
     s.padLeds(lv);
-    CHECK(lv[12] == a.cfg.padFull());
-    CHECK(lv[0] == a.cfg.padDim());
-    CHECK(lv[4] == 0);
     h.tap(btn::F8);
+    s.padLeds(lp);
+    CHECK(std::memcmp(lv, lp, sizeof lv) == 0);
     CHECK(s.view == SynthScreen::View::Params);
     // F7 Load Patch: the popup; F7 Cancel.
     h.tap(btn::F7);
@@ -333,7 +352,7 @@ TEST(parameter_edit_dirty_and_saved) {
     CHECK(!a.synthPatchDirty(1));
     SynthScreen& s = synth(a);
     h.tap(btn::F8);    // Edit Patch
-    h.tap(btn::Right); // Filter: Cutoff first
+    editValue(h, 1); // Filter: Cutoff first
     CHECK(s.section == 1 && s.row == 0);
     const float c0 = audio::synthParamGet(a.synthPatch(1), 9);
     h.enc(24);         // one octave up
@@ -464,7 +483,7 @@ TEST(load_popup_preview_cancel_confirm) {
     SynthScreen& s = synth(a);
     // An edited (dirty) patch in the slot.
     h.tap(btn::F8);
-    h.tap(btn::Right);
+    editValue(h, 1);
     h.enc(5);
     h.tap(btn::F8);
     const float own = audio::synthParamGet(a.synthPatch(1), 9);
@@ -551,7 +570,7 @@ TEST(init_patch_with_confirmation) {
     App& a = *h.app;
     openSlot(h, 1);
     h.tap(btn::F8);
-    h.tap(btn::Right);
+    editValue(h, 1);
     h.enc(10);
     const float edited = audio::synthParamGet(a.synthPatch(1), 9);
     CHECK(edited != 400.0f);
@@ -581,6 +600,7 @@ TEST(macro_section_editing) {
     CHECK(m1 >= 0);
     s.section = m1;
     s.row = 0;
+    s.editCol = 2;   // the value; F5 / F7 move the row
     // Name row: F8 "Edit" (Mini manual p.155) opens the naming keyboard; the
     // value column above F8 shows the Edit key.
     h.app->ui.dirty();
@@ -601,7 +621,7 @@ TEST(macro_section_editing) {
     CHECK(std::strcmp(a.synthPatch(1).macros[0].name, "cut") == 0);
     CHECK(a.synthPatch(1).macros[0].nameLen == 3);
     // Bipolar toggles; F8 is Back again off the Name row.
-    h.tap(btn::Down);
+    h.tap(btn::F7);
     h.app->ui.dirty();
     h.run(40);
     CHECK_STR(a.ui.bar.label[7].top, "Back");
@@ -629,11 +649,11 @@ TEST(macro_section_editing) {
     CHECK(mc.targets[count].param == 0);
     CHECK(frameHas(h, "Osc Saw Mix"));
     // Its amount.
-    h.tap(btn::Down);
+    h.tap(btn::F7);
     h.enc(-50);
     CHECK(std::fabs(patchBitsToFloat(mc.targets[count].amountBits) - 0.5f) < 1e-4f);
     // Back to Unassigned removes the trailing target.
-    h.tap(btn::Up);
+    h.tap(btn::F5);
     h.enc(-1);
     CHECK(audio::synthMacroTargets(mc) == count);
     CHECK(a.synthPatchDirty(1));
@@ -711,6 +731,7 @@ TEST(fat_slot_is_live) {
     const float f0 = audio::synthParamGet(a.synthPatch(0), 0);
     h.tap(btn::F8);
     CHECK(s.view == SynthScreen::View::Edit);
+    editValue(h, 0);
     h.enc(5);
     CHECK(audio::synthParamGet(a.synthPatch(0), 0) > f0);
     h.tap(btn::F8);
@@ -1056,7 +1077,8 @@ TEST(edit_patch_bar_follows_manual) {
     for (int i = 0; i < n; ++i)
         if (sec[i].macro == 0) m1 = i;
     s.section = m1;
-    s.row = 0;
+    s.row = 11;   // the list scrolls to the last row
+    s.editCol = 2;
     CHECK_EQ(s.rows(), 12);
     CHECK(frameHas(h, "Parameter 5"));
     CHECK(!frameHas(h, "Parameter 6"));
@@ -1124,7 +1146,7 @@ TEST(patch_io_confirmations) {
     CHECK(h.fs.files.count("Patches/ACD/keep.patch") == 1);
     const std::vector<uint8_t> kept = h.fs.files["Patches/ACD/keep.patch"];
     // Edit, then Save As the same name: asks; Cancel writes nothing.
-    h.tap(btn::Right);
+    editValue(h, 1);
     h.enc(10);
     h.tap(btn::F2);
     for (int i = 0; i < 40; ++i) h.tap(btn::Delete);
@@ -1162,7 +1184,7 @@ TEST(patch_io_confirmations) {
     CHECK(s.view == SynthScreen::View::Params);
     // A model change with edits asks too.
     h.tap(btn::F8);   // Edit Patch
-    h.tap(btn::Right);
+    editValue(h, 1);
     h.enc(3);
     h.tap(btn::F8);
     h.tap(btn::F1);
@@ -1177,7 +1199,7 @@ TEST(patch_io_confirmations) {
     a.setSynthModel(1, int(SynthModel::ACD));
     CHECK(a.loadSynthLibraryPatch(1, "keep"));
     h.tap(btn::F8);
-    h.tap(btn::Right);
+    editValue(h, 1);
     h.enc(-7);
     h.tap(btn::F2);
     h.tap(btn::F8);   // the keyboard starts with the record name "keep"
@@ -1258,7 +1280,7 @@ TEST(edit_patch_delete_resets_to_init) {
     SynthPatch init;
     CHECK(patchInit(kSynthEngineAcd, &init));
     h.tap(btn::F8);
-    h.tap(btn::Right);   // Filter: Cutoff (index 9)
+    editValue(h, 1);   // Filter: Cutoff (index 9)
     h.enc(10);
     CHECK(audio::synthParamGet(a.synthPatch(1), 9) != patchBitsToFloat(init.params[9].bits));
     h.tap(btn::Delete);
@@ -1310,11 +1332,11 @@ TEST(edit_patch_delete_resets_to_init) {
     s.row = 2;
     h.enc(3);   // a target on M1 (Init has none)
     CHECK_EQ(audio::synthMacroTargets(mc), 1);
-    h.tap(btn::Down);
+    h.tap(btn::F7);       // the next row (the value keeps the focus)
     h.enc(-25);
     h.tap(btn::Delete);   // amount: 1.00 (a new target's amount)
     CHECK(patchBitsToFloat(mc.targets[0].amountBits) == 1.0f);
-    h.tap(btn::Up);
+    h.tap(btn::F5);
     h.tap(btn::Delete);   // Parameter 1: back to Unassigned
     CHECK_EQ(audio::synthMacroTargets(mc), 0);
     // M7 Velocity: its Init target (Volume, +1) comes back.
@@ -1364,6 +1386,7 @@ TEST(macro_targets_stay_packed) {
     for (int i = 0; i < n; ++i)
         if (sec[i].macro == 1) m2 = i;
     s.section = m2;
+    s.editCol = 2;
     PatchMacro& mc = a.synthPatch(1).macros[1];
     mc.count = 0;
     for (auto& t : mc.targets) t = PatchTarget{0, 0};
@@ -1564,6 +1587,11 @@ TEST(synth_edit_wheel_hint_lists_and_values) {
     if (s.view != SynthScreen::View::Params) h.tap(btn::InstrParams);
     h.tap(btn::F8);
     CHECK(s.view == SynthScreen::View::Edit);
+    // [I] The section and setting columns are lists; the value column follows the row.
+    CHECK(a.ui.encoderOnList());
+    s.editCol = 1;
+    CHECK(a.ui.encoderOnList());
+    s.editCol = 2;
     const synthui::Section* sec = nullptr;
     const int n = synthui::sections(s.engine(), &sec);
     int lists = 0, values = 0;
@@ -1761,6 +1789,7 @@ TEST(synth_edit_wheel_hint_on_off_rows_are_lists) {
         if (s.view != SynthScreen::View::Params) h.tap(btn::InstrParams);
         h.tap(btn::F8);
         CHECK(s.view == SynthScreen::View::Edit);
+        s.editCol = 2;   // the value column
         const synthui::Section* sec = nullptr;
         const int n = synthui::sections(s.engine(), &sec);
         for (int i = 0; i < n; ++i) {
@@ -1856,6 +1885,7 @@ TEST(width_and_stereo_rows) {
         h.tap(btn::F8);   // Edit view
         s.section = voice;
         s.row = sec[voice].count - 2;
+        s.editCol = 2;
         CHECK(frameHas(h, "Width"));
         CHECK(frameHas(h, "Spread"));
         CHECK(frameHas(h, "0 %"));
@@ -1903,4 +1933,45 @@ TEST(macro_names_hide_control_bytes) {
     for (const std::string& l : h.disp.last) raw |= l.find('\r') != std::string::npos;
     CHECK(!raw);
     CHECK_EQ(int(a.synthPatch(1).macros[0].nameLen), 7);   // stored as read
+}
+
+// [I] The Edit Patch help box (#176): the section, setting and choice lines
+// of Help/Synths/<NAME>.md (modules/synth_help.h); without the file a
+// notice names it. Delete's Init patch and the patch browser share the
+// memory: the box reads the file again after them.
+TEST(edit_patch_help_box) {
+    Harness h;
+    App& a = *h.app;
+    const char kHelp[] =
+        "# ACD\n\n## Filter\nShapes the tone.\n\n### Cutoff\nWhere the filter closes.\n\n"
+        "- Low is dark, high is bright.\n\n### Type\nThe filter's slope.\n\n- LP SVF 12dB: gentle.\n"
+        "- LP SVF 24dB: steep.\n- LP RD3: rounded.\n";
+    openSlot(h, 1);
+    SynthScreen& s = synth(a);
+    h.tap(btn::F8);
+    CHECK(frameHas(h, "No help file:"));
+    CHECK(frameHas(h, "Help/Synths/ACD.md on the card"));
+    h.fs.files["Help/Synths/ACD.md"] = std::vector<uint8_t>(kHelp, kHelp + sizeof(kHelp) - 1);
+    h.tap(btn::F8);   // Params, then Edit Patch again: the file is read
+    h.tap(btn::F8);
+    editValue(h, 1);   // Filter, Cutoff
+    CHECK(frameHas(h, "Shapes the tone."));
+    CHECK(frameHas(h, "Where the filter closes."));
+    CHECK(frameHas(h, "Low is dark, high is bright."));
+    h.tap(btn::Delete);   // the Init patch is built after the help text
+    CHECK(frameHas(h, "Where the filter closes."));
+    // An enum row: the current choice's line.
+    const synthui::Section* sec = nullptr;
+    synthui::sections(s.engine(), &sec);
+    for (int r = 0; r < sec[1].count; ++r)
+        if (std::strcmp(synthui::paramUi(s.engine(), sec[1].params[r])->label, "Type") == 0) s.row = r;
+    CHECK(frameHas(h, "The filter's slope."));
+    CHECK(frameHas(h, "gentle.") || frameHas(h, "steep.") || frameHas(h, "rounded."));
+    // The patch browser borrows the memory: back in Edit Patch the box reads again.
+    h.tap(btn::F8);
+    h.tap(btn::F7);
+    CHECK(s.view == SynthScreen::View::Browser);
+    h.tap(btn::F7);
+    h.tap(btn::F8);
+    CHECK(frameHas(h, "The filter's slope."));
 }

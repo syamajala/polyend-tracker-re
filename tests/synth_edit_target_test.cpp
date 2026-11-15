@@ -556,13 +556,15 @@ TEST(edit_patch_edits_the_preset_and_sets_its_dirty_bit) {
     h.tap(btn::F8);   // Edit Patch
     CHECK(synthScreen(a).view == SynthScreen::View::Edit);
     CHECK(drawn(h, "Edit Patch: Bells"));
+    h.tap(btn::Right);   // [I] the value column (#176)
+    h.tap(btn::Right);
     const SynthPatch own = a.synthPatch(0);
     const SynthPatch before = a.synthPreset(1);
     bool moved = false;
     for (int r = 0; r < 8 && !moved; ++r) {   // the first row that moves
         h.enc(3);
         moved = std::memcmp(&before, &a.synthPreset(1), sizeof before) != 0;
-        if (!moved) h.tap(btn::Down);
+        if (!moved) h.tap(btn::F7);
     }
     CHECK(moved);
     CHECK(std::memcmp(&own, &a.synthPatch(0), sizeof own) == 0);   // the slot's own patch is untouched
@@ -814,6 +816,8 @@ TEST(a_question_for_the_old_sound_goes_when_the_slot_moves) {
     sound(h, 0);
     h.run(20);
     h.tap(btn::F8);   // Edit Patch: an edit of P1 marks it
+    h.tap(btn::Right);
+    h.tap(btn::Right);
     h.enc(3);
     h.tap(btn::F8);   // back to Params
     h.tap(btn::F1);
@@ -893,10 +897,12 @@ TEST(edit_marks_go_with_a_stored_cleared_or_new_preset_and_a_new_project) {
     sound(h, 0);
     h.run(20);
     h.tap(btn::F8);
+    h.tap(btn::Right);
+    h.tap(btn::Right);
     const SynthPatch before = a.synthPatch(0);
     for (int r = 0; r < 8 && std::memcmp(&before, &a.synthPatch(0), sizeof before) == 0; ++r) {
         h.enc(3);
-        h.tap(btn::Down);
+        h.tap(btn::F7);
     }
     h.tap(btn::F8);
     CHECK(sy.view == SynthScreen::View::Params);

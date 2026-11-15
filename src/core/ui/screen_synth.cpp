@@ -13,6 +13,12 @@
 // at once and saved; otherwise the slot's own patch and record. Edit on the
 // Presets list opens one preset the same way, whatever the slot is playing,
 // until Instrument Params goes back to the list or the page is left.
+//
+// [I] Edit Patch is laid out like Config (#176): the sections, the section's
+// settings and the selected setting's value in three columns, Left / Right
+// moving the focus between them; all 48 pads play; a help box under them
+// explains the section, the setting and the choice from the engine's help
+// file (modules/synth_help.h).
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -22,10 +28,12 @@
 #include "app/app.h"
 #include "audio/synth_engine.h"
 #include "audio/synth_params.h"
+#include "formats/file_io.h"
 #include "formats/patch_pb.h"
 #include "sdram_bss.h"
 #include "modules/module.h"
 #include "modules/synth_descriptor.h"
+#include "modules/synth_help.h"
 #include "modules/synth_models.h"
 #include "ui/screens.h"
 
@@ -51,18 +59,24 @@ void namesItem(void* ctx, int i, char* out, int cap) {
 }
 
 void barColumn(Gfx& g, const Theme& th, int col, float v, bool bipolar, bool enabled, int h = wg::kPanelH,
-               uint32_t fill = wg::kThemeColour) {
+               uint32_t fill = wg::kThemeColour, int span = 1) {
     wg::ValueBarStyle st;
     st.bipolar = bipolar;
     st.fill = enabled ? fill : th.slot(slot::kBottomLabelOff);
     if (!bipolar && v < kMinBar) v = kMinBar;
-    wg::valueBar(g, th, wg::columnX(col), wg::kPanelY, wg::columnW(), h, v, st);
+    wg::valueBar(g, th, wg::columnX(col), wg::kPanelY, wg::columnW(span), h, v, st);
 }
 
-void listColumn(Gfx& g, const Theme& th, int col, int span, const char* const* items, int count, int sel) {
+void sectionItem(void* ctx, int i, char* out, int cap) {
+    std::snprintf(out, size_t(cap), "%s", static_cast<const synthui::Section*>(ctx)[i].longName);
+}
+
+void listColumn(Gfx& g, const Theme& th, int col, int span, const char* const* items, int count, int sel,
+                int h = wg::kPanelH) {
     wg::ListView v;
     v.x = wg::columnX(col);
     v.w = wg::columnW(span);
+    v.h = h;
     v.count = count;
     v.sel = sel;
     v.top = wg::listFollow(sel, count, wg::listVisibleRows(v.h), 0);
@@ -126,9 +140,12 @@ int setMacroTarget(PatchMacro& mc, int k, int np, uint32_t newAmountBits) {
 }
 
 // The engine's Init patch (Delete in Edit Patch), built in the browsers' list
-// memory (screens.h): Edit Patch is never on screen with the patch browser,
-// and every browser rebuilds its list when it opens. Main loop only.
-static_assert(sizeof(SynthPatch) <= kBrowserListBytes && alignof(SynthPatch) <= kBrowserListAlign, "the Init patch fits the browser lists");
+// memory (screens.h) after Edit Patch's help text: Edit Patch is never on
+// screen with the patch browser, and every browser rebuilds its list when it
+// opens. Main loop only.
+constexpr size_t kInitPatchAt = (synthhelp::kMaxFile + 1 + kBrowserListAlign - 1) / kBrowserListAlign * kBrowserListAlign;
+static_assert(kInitPatchAt + sizeof(SynthPatch) <= kBrowserListBytes && alignof(SynthPatch) <= kBrowserListAlign,
+              "the help text and the Init patch fit the browser lists");
 
 bool sortName(const char* a, const char* b) {
     for (;; ++a, ++b) {
@@ -231,6 +248,7 @@ void SynthScreen::start(int opt) {
     // Edit Patch starts at its first section (the index may belong to
     // another slot's / model's section list).
     section = row = 0;
+    editCol = 0;
     listTop_ = 0;
     // [3.x] Opened for a preset instrument: the slot that plays it (its
     // pages show the preset), else its row on the Presets page.
@@ -249,6 +267,7 @@ void SynthScreen::start(int opt) {
 }
 
 void SynthScreen::stop() {
+    helpValid_ = false;   // other screens use the browser lists
     audition(false, 0);
     closeOpened();
     if (view == View::Browser) closeBrowser();   // leaving the screen cancels the popup
@@ -523,7 +542,7 @@ void SynthScreen::resetEditRow() {
     const synthui::Section* sec = nullptr;
     const int n = synthui::sections(engine(), &sec);
     if (section < 0 || section >= n || row < 0 || row >= rows()) return;
-    SynthPatch& init = *new (browserListMem()) SynthPatch();
+    SynthPatch& init = *new (static_cast<unsigned char*>(browserListMem()) + kInitPatchAt) SynthPatch();
     if (!patchInit(engine(), &init)) return;
     SynthPatch& p = app_.synthTargetPatch(slot, et_);
     if (sec[section].macro < 0) {
@@ -1065,6 +1084,7 @@ void SynthScreen::onButton(uint8_t id, uint8_t state) {
                 if (section >= n) section = row = 0;
                 row = clampi(row, 0, rows() > 0 ? rows() - 1 : 0);
                 listTop_ = 0;
+                editCol = 0;
             } else if (id == btn::Up || id == btn::Down) {
                 // The model list moves like a list (Up = previous), the values like bars.
                 const int d = id == btn::Up ? 1 : -1;
@@ -1104,12 +1124,14 @@ void SynthScreen::onButton(uint8_t id, uint8_t state) {
                 if (nameRow()) macroNameKeyboard();
                 else view = View::Params;
             } else if (id == btn::Left || id == btn::Right) {
-                section = clampi(section + (id == btn::Right ? 1 : -1), 0, n - 1);
-                row = 0;
-                listTop_ = 0;
-            } else if (id == btn::Up || id == btn::Down || id == btn::F5 || id == btn::F7) {
-                const bool down = id == btn::Down || id == btn::F7;
-                row = clampi(row + (down ? 1 : -1), 0, rows() - 1);
+                // [I] Config-style focus: sections, settings, the value (#176).
+                editCol = clampi(editCol + (id == btn::Right ? 1 : -1), 0, 2);
+            } else if (id == btn::Up || id == btn::Down) {
+                // A list moves down with Down; a value bar goes up with Up.
+                const bool down = id == btn::Down;
+                editMove(editCol == 2 && !editValueIsList() ? (down ? -1 : 1) : (down ? 1 : -1));
+            } else if (id == btn::F5 || id == btn::F7) {
+                row = clampi(row + (id == btn::F7 ? 1 : -1), 0, rows() - 1);
             } else if (id == btn::Delete) {
                 resetSelected();
             } else if (!btn::isFKey(id)) {
@@ -1161,6 +1183,11 @@ bool SynthScreen::encoderOnList() const {
     }
 #endif
     if (view != View::Edit || !available()) return false;
+    return editCol < 2 || editValueIsList();   // the section and setting lists
+}
+#endif
+
+bool SynthScreen::editValueIsList() const {
     const synthui::Section* sec = nullptr;
     const int n = synthui::sections(engine(), &sec);
     if (section < 0 || section >= n) return false;
@@ -1172,14 +1199,32 @@ bool SynthScreen::encoderOnList() const {
     // as lists (tester report: the wheel ran backwards on On / Off rows).
     return u && (u->fmt == synthui::kFmtEnum || u->fmt == synthui::kFmtOnOff);
 }
-#endif
+
+void SynthScreen::editMove(int d) {
+    if (editCol == 2) {
+        editChange(d);
+        return;
+    }
+    if (editCol == 0) {
+        const synthui::Section* sec = nullptr;
+        const int n = synthui::sections(engine(), &sec);
+        const int ns = clampi(section + d, 0, n > 0 ? n - 1 : 0);
+        if (ns == section) return;
+        section = ns;
+        row = 0;
+        listTop_ = 0;
+    } else {
+        row = clampi(row + d, 0, rows() > 0 ? rows() - 1 : 0);
+    }
+    refreshBar();
+}
 
 void SynthScreen::onEncoder(int d) {
     retarget();
     switch (view) {
         case View::Params: paramsChange(param == 0 ? (d > 0 ? 1 : -1) : d); break;
         case View::Macros: macroChange(d); break;
-        case View::Edit: editChange(d); break;
+        case View::Edit: editMove(d); break;
         case View::Presets: row = clampi(row + d, 0, kSynthPresetCount - 1); break;
         case View::Insert:
 #if OT_SLOT_INSERTS
@@ -1195,25 +1240,10 @@ void SynthScreen::onEncoder(int d) {
 
 void SynthScreen::onPad(uint8_t pad, uint8_t state) {
     retarget();
-    // Edit Patch: the 4 x 4 block at the left of the pad grid selects the
-    // section (manual p.153 "select using the lit pads").
-    if (view == View::Edit && pad < kPadCount) {
-        const int c = pad % kPadCols, r = pad / kPadCols;
-        const synthui::Section* sec = nullptr;
-        const int n = synthui::sections(engine(), &sec);
-        // (A release falls through: the pad may have been pressed in
-        // another view and still hold its note.)
-        if (c < 4 && r * 4 + c < n && state == kPress) {
-            section = r * 4 + c;
-            row = 0;
-            listTop_ = 0;
-            refreshBar();
-            ui_.dirty();
-            return;
-        }
-    }
     // Pads audition the slot (scale map of the pad grid), a chord up to its
-    // polyphony; in Load Patch the highlighted patch (Tracker+ 1.0).
+    // polyphony; in Load Patch the highlighted patch (Tracker+ 1.0). [I] In
+    // Edit Patch too (#176; stock picks the section with the 4 x 4 block at
+    // the left, manual p.153).
     if (pad >= kPadCount) return;
     if (state == kPress) {
         if (view == View::Browser && !previewHighlighted()) return;
@@ -1229,15 +1259,7 @@ void SynthScreen::onPad(uint8_t pad, uint8_t state) {
     }
 }
 
-void SynthScreen::padLeds(uint8_t* lv) {
-    if (view != View::Edit) {
-        pianoLeds(lv);   // [I] the pads play the slot
-        return;
-    }
-    const synthui::Section* sec = nullptr;
-    const int n = synthui::sections(engine(), &sec);
-    for (int i = 0; i < n; ++i) lv[(i / 4) * kPadCols + i % 4] = i == section ? app_.cfg.padFull() : app_.cfg.padDim();
-}
+void SynthScreen::padLeds(uint8_t* lv) { pianoLeds(lv); }   // [I] the pads play the slot (Edit Patch too, #176)
 
 // ---------------------------------------------------------------------------
 // Drawing
@@ -1446,38 +1468,117 @@ void SynthScreen::drawMacros(Gfx& g) {
     }
 }
 
+// [I] Edit Patch (#176): sections x 1..197, settings x 201..597 (names left,
+// values right as Config), the value x 601..797 (a list or a bar), all
+// kEditListH high; the help box under them to the bottom bar.
+constexpr int kEditListH = 288;                        // 10 rows
+constexpr int kHelpY = wg::kPanelY + kEditListH + 4;   // 321
+constexpr int kHelpH = wg::kPanelY + wg::kPanelH - kHelpY;
+
+const char* SynthScreen::helpText(uint32_t* len) {
+    const int32_t eng = engine();
+    if (!helpValid_ || helpEngine_ != eng) {
+        helpValid_ = true;
+        helpEngine_ = eng;
+        helpLen_ = 0;
+        char path[48];
+        std::snprintf(path, sizeof(path), "Help/Synths/%s.md", synthEngineFolder(eng));
+        uint8_t* buf = static_cast<uint8_t*>(browserListMem());
+        uint32_t got = 0;
+        if (eng && readWholeFile(app_.fs(), path, buf, synthhelp::kMaxFile, &got) == FmtStatus::Ok) helpLen_ = got;
+    }
+    *len = helpLen_;
+    return helpLen_ ? static_cast<const char*>(browserListMem()) : nullptr;
+}
+
+void SynthScreen::drawHelp(Gfx& g, const synthui::Section* sec, int n) {
+    const Theme& th = ui_.th();
+    wg::panel(g, th, 1, kHelpY, 797, kHelpH);
+    const uint32_t white = th.slot(slot::kList + 4), dim = th.slot(slot::kBottomLabel);
+    const int pitch = (kHelpH - 8) / 3;
+    auto line = [&](int i, const char* name, const char* text) {
+        const int y = kHelpY + 4 + pitch / 2 + pitch * i;
+        int x = 13;
+        if (name && name[0]) {
+            g.text(x, y, synthhelp::kHelpFont, white, name, IDisplay::kOptCenterY);
+            x += textWidth(synthhelp::kHelpFont, name) + synthhelp::kHelpNameGap;
+        }
+        if (text && text[0]) g.text(x, y, synthhelp::kHelpFont, dim, text, IDisplay::kOptCenterY);
+    };
+    uint32_t len = 0;
+    const char* help = helpText(&len);
+    if (!help) {
+        char t[64];
+        std::snprintf(t, sizeof(t), "Help/Synths/%s.md on the card", synthEngineFolder(engine()));
+        line(0, "No help file:", t);
+        return;
+    }
+    if (section < 0 || section >= n) return;
+    const synthui::Section& s = sec[section];
+    char t[synthhelp::kMaxLine];
+    synthhelp::find(help, len, s.longName, nullptr, nullptr, t, sizeof(t));
+    line(0, s.longName, t);
+    if (s.macro >= 0 || row < 0 || row >= s.count) return;   // macros: no help yet
+    const int idx = s.params[row];
+    const synthui::ParamUi* u = synthui::paramUi(engine(), idx);
+    if (!u) return;
+    synthhelp::find(help, len, s.longName, u->label, nullptr, t, sizeof(t));
+    line(1, u->label, t);
+    // The choice: its own line for a list, the low / high tip for a number.
+    const float v = audio::synthParamGet(app_.synthTargetPatch(slot, et_), idx);
+    const char* choice = "";
+    char val[40];
+    if (u->fmt == synthui::kFmtEnum && u->names && u->nameCount > 0)
+        choice = u->names[clampi(int(std::lround(v)), 0, u->nameCount - 1)];
+    else if (u->fmt == synthui::kFmtOnOff)
+        choice = kOffOn[v >= 0.5f ? 1 : 0];
+    synthhelp::find(help, len, s.longName, u->label, choice, t, sizeof(t));
+    if (!choice[0]) {
+        synthui::formatValue(engine(), idx, v, val, sizeof(val));
+        choice = val;
+    }
+    line(2, choice, t);
+}
+
 void SynthScreen::drawEdit(Gfx& g) {
     const Theme& th = ui_.th();
     const SynthPatch& p = app_.synthTargetPatch(slot, et_);
     const SynthSlotRecord r = app_.synthTargetRecord(slot, et_);
     const int32_t eng = engine();
+    const bool ro = !available();
     char t[64];
     std::snprintf(t, sizeof(t), "Edit Patch: %s", r.patchName[0] ? shown(r.patchName) : "-");
     title(g, t);
-    // Section grid (4 x 4, mirrors the lit pads), columns 0..3.
-    wg::panel(g, th, 1, wg::kPanelY, wg::columnW(4), wg::kPanelH);
     const synthui::Section* sec = nullptr;
     const int n = synthui::sections(eng, &sec);
-    for (int i = 0; i < n; ++i) {
-        const int x = 9 + 97 * (i % 4), y = 40 + 64 * (i / 4);
-        wg::key(g, th, x, y, 91, 56, sec[i].name, i == section, wg::kThemeColour, th.slot(slot::kFocusFrame));
-    }
-    // Parameter list above F5..F7: label left, value right.
-    const int lx = wg::columnX(4), lw = wg::columnW(3);
+    const int visible = wg::listVisibleRows(kEditListH);
+    // Sections.
+    wg::ListView sv;
+    sv.h = kEditListH;
+    sv.count = n;
+    sv.sel = section;
+    sv.top = wg::listFollow(section, n, visible, 0);
+    sv.selStyle = wg::ListSel::kWhite;
+    sv.item = sectionItem;
+    sv.ctx = const_cast<synthui::Section*>(sec);
+    wg::list(g, th, sv);
+    // Settings: label left, value right.
+    const int lx = wg::columnX(2), lw = wg::columnW(4);
     const int nr = rows();
     wg::ListView v;
     v.x = lx;
     v.w = lw;
+    v.h = kEditListH;
     v.count = nr;
     v.sel = row;
-    listTop_ = wg::listFollow(row, nr, wg::listVisibleRows(v.h), listTop_);
+    listTop_ = wg::listFollow(row, nr, visible, listTop_);
     v.top = listTop_;
     v.selStyle = wg::ListSel::kWhite;
     wg::list(g, th, v);   // background, selection and scroll bar; the rows are drawn here
     const bool macroSec = section < n && sec[section].macro >= 0;
-    const int innerW = lw - (nr > wg::listVisibleRows(v.h) ? 13 : 6);
+    const int innerW = lw - (nr > visible ? 13 : 6);
     const uint32_t white = th.slot(slot::kList + 4), dim = th.slot(slot::kBottomLabel);
-    for (int k = 0; k < wg::listVisibleRows(v.h) && listTop_ + k < nr; ++k) {
+    for (int k = 0; k < visible && listTop_ + k < nr; ++k) {
         const int i = listTop_ + k;
         char lab[40], val[40];
         if (macroSec) macroRowText(sec[section].macro, i, lab, sizeof(lab), val, sizeof(val));
@@ -1494,40 +1595,46 @@ void SynthScreen::drawEdit(Gfx& g) {
         g.text(lx + 13, y, kFont1, white, lab, IDisplay::kOptCenterY);
         g.text(lx + innerW - 6, y, kFont1, i == row ? white : dim, val, IDisplay::kOptCenterY | IDisplay::kOptRightX);
     }
-    // The selected value above F8 (manual p.152 "above screen button 8").
-    const bool ro = !available();
+    // The selected setting's value: a list or a bar.
+    const int vc = 6, vx = wg::columnX(vc), vwid = wg::columnW(2);
     if (section >= n || row >= nr) {
-        wg::panelColumn(g, th, 7);
+        wg::panel(g, th, vx, wg::kPanelY, vwid, kEditListH);
     } else if (macroSec) {
         const PatchMacro& mc = p.macros[sec[section].macro];
         const int count = audio::synthMacroTargets(mc);
         if (row == 0) {
             // The Name row's "Edit" key above F8 (Mini manual p.155).
-            wg::panelColumn(g, th, 7);
+            wg::panel(g, th, vx, wg::kPanelY, vwid, kEditListH);
             wg::key(g, th, wg::columnX(7) + 6, 40, wg::columnW() - 12, 56, "Edit", !ro, wg::kThemeColour,
                     th.slot(slot::kFocusFrame));
         } else if (row == 1) {
-            listColumn(g, th, 7, 1, kOffOn, 2, mc.bipolar ? 1 : 0);
+            listColumn(g, th, vc, 2, kOffOn, 2, mc.bipolar ? 1 : 0, kEditListH);
         } else if (row >= 2 && (row - 2) % 2 == 1 && (row - 2) / 2 < count && mc.targets[(row - 2) / 2].param >= 0) {
-            barColumn(g, th, 7, patchBitsToFloat(mc.targets[(row - 2) / 2].amountBits) / 2.0f, true, !ro);
+            barColumn(g, th, vc, patchBitsToFloat(mc.targets[(row - 2) / 2].amountBits) / 2.0f, true, !ro, kEditListH,
+                      wg::kThemeColour, 2);
         } else {
-            wg::panelColumn(g, th, 7);
+            wg::panel(g, th, vx, wg::kPanelY, vwid, kEditListH);
         }
     } else {
         const int idx = sec[section].params[row];
         const synthui::ParamUi* u = synthui::paramUi(eng, idx);
         const float val = audio::synthParamGet(p, idx);
         if (u && u->fmt == synthui::kFmtEnum && u->names) {
-            listColumn(g, th, 7, 1, u->names, u->nameCount, clampi(int(std::lround(val)), 0, u->nameCount - 1));
+            listColumn(g, th, vc, 2, u->names, u->nameCount, clampi(int(std::lround(val)), 0, u->nameCount - 1), kEditListH);
         } else if (u && u->fmt == synthui::kFmtOnOff) {
-            listColumn(g, th, 7, 1, kOffOn, 2, val >= 0.5f ? 1 : 0);
+            listColumn(g, th, vc, 2, kOffOn, 2, val >= 0.5f ? 1 : 0, kEditListH);
         } else if (synthui::valueBipolar(eng, idx)) {
-            barColumn(g, th, 7, synthui::valueFrac(eng, idx, val) * 2.0f - 1.0f, true, !ro);
+            barColumn(g, th, vc, synthui::valueFrac(eng, idx, val) * 2.0f - 1.0f, true, !ro, kEditListH, wg::kThemeColour, 2);
         } else {
-            barColumn(g, th, 7, synthui::valueFrac(eng, idx, val), false, !ro);
+            barColumn(g, th, vc, synthui::valueFrac(eng, idx, val), false, !ro, kEditListH, wg::kThemeColour, 2);
         }
     }
-    (void)dim;
+    // The focused column (Config's red frame).
+    if (!ro) {
+        const int fx = editCol == 0 ? 1 : (editCol == 1 ? lx : vx), fw = editCol == 0 ? 197 : (editCol == 1 ? lw : vwid);
+        wg::focusFrame(g, th, fx, 31, fx + fw, wg::kPanelY + kEditListH - 1);
+    }
+    drawHelp(g, sec, n);
     // F5 / F7 of the bottom bar: the row arrows (manual p.153).
     const uint32_t arrow = th.slot(slot::kBottomLabel);
     g.icon(450 - kIconSize / 2, 451 - kIconSize / 2, kIconArrowUp, arrow);
@@ -1757,6 +1864,7 @@ void SynthScreen::update(uint32_t now) {
             if (section >= synthui::sections(e, &sec)) section = 0;
             row = clampi(row, 0, rows() > 0 ? rows() - 1 : 0);
             listTop_ = 0;
+            helpValid_ = false;   // the new engine's help file
         }
         shownEngine_ = e;
         ui_.dirty();
@@ -1783,6 +1891,7 @@ void SynthScreen::update(uint32_t now) {
 
 void SynthScreen::draw(Gfx& g) {
     retarget();
+    if (view != View::Edit) helpValid_ = false;   // the patch browser and Delete use the lists
     refreshBar();   // FX CC overrides and the governor cap change from outside
     switch (view) {
         case View::Params: drawParams(g); break;

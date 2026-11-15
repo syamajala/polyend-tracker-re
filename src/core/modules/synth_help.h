@@ -29,6 +29,7 @@ constexpr uint8_t kHelpFont = kFont5;
 constexpr int kHelpLineW = 760;
 constexpr int kHelpNameGap = 6;   // px between the name and the text
 constexpr int kMaxLine = 256;     // find(): longer device lines are cut
+constexpr uint32_t kMaxFile = 16384;   // a help file's bytes (the screen reads no more)
 
 enum Level : uint8_t { kEngine = 1, kSection = 2, kSetting = 3, kChoice = 4 };
 
