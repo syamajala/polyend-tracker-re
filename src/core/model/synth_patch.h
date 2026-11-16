@@ -26,6 +26,10 @@ enum SynthEngineId : int32_t {
     // before the module used 0x40: read as 0xF0.
     kSynthEngineDx7 = 0xF0,
     kSynthEngineDx7Legacy = 0x40,
+    // [I] Off: no sound, no settings (opentracker-synths modules/off, built into
+    // the image): a New Project's synth slots start on it, so nothing loads
+    // from the card until a model is picked.
+    kSynthEngineOff = 0xF1,
 };
 
 constexpr int kPatchMaxParams = 84;      // PERC has the most (spec 21 §8.1)

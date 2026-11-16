@@ -27,9 +27,11 @@ The firmware image is a single file named like `PolyendTrackerOTv300.ptf` (for v
 
 ## Install the modules
 
-DX7, the other extra synths and the [master effects](guide/master-fx.md) aren't in the
-firmware image: they are **card modules**, `.otm` files the Tracker loads from the SD card.
-The five Mini synths (ACD, FAT, VAP, WTFM, PERC) are built in and need nothing.
+The synths and the [master effects](guide/master-fx.md) aren't in the firmware image: they
+are **card modules**, `.otm` files the Tracker loads from the SD card. That includes the five
+Mini synths (ACD, FAT, VAP, WTFM, PERC). The only synth built in is **Off**: no sound and
+no settings. A new project's three synth slots start on Off, so nothing loads from the card
+until you pick a synth in a slot's **Model** list (Off is at the top of it).
 
 1. Download **`Modules.zip`** from the same release as the firmware.
 2. Unzip it. It holds two folders: `Modules`, with the `.otm` files, and `Help`, with the
@@ -43,7 +45,7 @@ What's in it:
 
 | Kind | Modules |
 |---|---|
-| Synths | `dx7` (DX7), `fm4` (FM4), `ju6` (JU6), `dtype` (D-Type), `cstype` (CS-Type), `atype` (A-Type), `ttype` (T-Type drums), `eight` (8-Type), `hand` (Hand-Type), `btype` (B-Type), `arc` (Arc-Type) |
+| Synths | `acd` (ACD), `fat` (FAT), `vap` (VAP), `wtfm` (WTFM), `perc` (PERC), `dx7` (DX7), `fm4` (FM4), `ju6` (JU6), `dtype` (D-Type), `cstype` (CS-Type), `atype` (A-Type), `ttype` (T-Type drums), `eight` (8-Type), `hand` (Hand-Type), `btype` (B-Type), `arc` (Arc-Type) |
 | Effects | `dirt`, `lofi`, `chorus`, `bbd`, `echo`, `tape` |
 
 - The card synths show in a synth slot's **Model** list, and the effects in the
@@ -55,8 +57,12 @@ What's in it:
 - In [USB Storage mode](guide/more.md#usb-storage-mode) you can copy synth modules without
   a restart: leaving USB Storage mode reads `/Modules/` again. A changed effect module
   needs a restart.
-- Without the folder the Tracker works as before, without those synths and effects. A
-  project that uses a missing synth opens with "Synth N (name) not available" on that slot.
+- Without the folder the Tracker plays samples and MIDI as before, with no synths and no
+  master effects. A project that uses a missing synth opens with "Synth N (name) not
+  available" on that slot.
+- A stock or Tracker Mini project that uses ACD, FAT, VAP, WTFM or PERC loads them from the
+  card. All three synths of a Mini project may not fit in the card memory together: a slot
+  that doesn't fit says so, and Config > Memory shows why.
 
 ## Go back to stock firmware
 

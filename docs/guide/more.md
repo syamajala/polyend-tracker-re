@@ -153,7 +153,7 @@ Params, then **More**):
 **Config > Memory** shows what fills the Tracker's memory, for when something won't load.
 For example, with DX7 on a synth slot, turning on the last card effects can fail with
 "Card memory full". The page shows DX7 taking 18 KB of the card memory, so you know to turn
-off an effect or switch the slot to a built-in synth.
+off an effect or switch a slot to another synth (or to Off).
 
 - **Card modules**: the card synths and effects that are loaded (DX7, Echo …), what uses
   them (`synth, slot 2`, `synth, P3` for a synth preset, `effect`) and their size. Ones

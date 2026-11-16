@@ -84,12 +84,13 @@ endif
 # [I] #21 shared fast pool (src/core/modules/hot_rows.h): the built-in
 # synths' hot code is linked in flash as rows (tools/hot_rows/<name>.hot) and
 # one SRAM_L block is the pool every synth shares, built in or from the card.
-# On by default when the profile compiles in a synth with a row (not core, not
-# the OT_POOL_TEST image); OT_HOT_POOL=0 builds the old layout (each synth's
-# .fastrun code in SRAM_L) in build/<profile>/nopool, the fallback image.
+# On by default when the profile compiles in a synth with a row or [I] has card
+# modules (their fast parts share it; not core, not the OT_POOL_TEST image);
+# OT_HOT_POOL=0 builds the old layout (each synth's .fastrun code in SRAM_L)
+# in build/<profile>/nopool, the fallback image.
 HOT_ROWS  := tools/hot_rows
 HOT_ROWS_IN := $(strip $(foreach i,$(MOD_IDS),$(wildcard $(HOT_ROWS)/$(notdir $(MOD_DIR_$(i))).hot)))
-OT_HOT_POOL ?= $(if $(filter 1,$(OT_POOL_TEST)),0,$(if $(HOT_ROWS_IN),1,0))
+OT_HOT_POOL ?= $(if $(filter 1,$(OT_POOL_TEST)),0,$(if $(HOT_ROWS_IN)$(MOD_CARD_DIRS),1,0))
 # The block's size: profiles/<name>.toml hot_pool_bytes (tools/profile.py).
 HOT_POOL_BYTES := $(or $(OT_HOT_POOL_BYTES),13696)
 ifeq ($(OT_HOT_POOL),1)

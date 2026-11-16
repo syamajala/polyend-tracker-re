@@ -50,14 +50,14 @@ void padUp(Harness& h, uint8_t p) {
     h.audio.pump(2);
 }
 
-// Poly engines of this build. Not the kit engines (PERC, T-Type:
+// Poly engines of this build, not Off. Not the kit engines (PERC, T-Type:
 // kSynthFlagKitState): every hit hands the whole kit, its ringing drums
 // included, to the newest voice, so their chords are not counted in voices.
 template <typename F>
 void forEachPolyEngine(F f) {
     for (int k = 0; k < synthModelListCount(); ++k) {
         const int32_t id = synthModelListEngine(k);
-        if (!id || !audio::synthEngineFor(id)) continue;
+        if (!id || id == kSynthEngineOff || !audio::synthEngineFor(id)) continue;   // [I] Off: silent
         const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(id);
         if (id == kSynthEnginePerc || (d && (d->flags & mod::kSynthFlagKitState))) continue;
         f(id);

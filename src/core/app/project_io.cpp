@@ -19,6 +19,8 @@
 #include "formats/file_io.h"
 #include "formats/ot3.h"
 #include "modules/synth_models.h"
+#include "modules/module.h"
+#include "modules/module_files.h"
 #include "formats/pattern_mtp.h"
 #include "formats/patterns_metadata.h"
 #include "formats/instrument_pti.h"
@@ -680,6 +682,16 @@ bool App::newProject() {
     std::memset(extKeep_, 0, sizeof(extKeep_));
     loadNotice_[0] = 0;
     resetSidecar();
+    // [I] A slot whose Mini default (WTFM / ACD / VAP) isn't built in would
+    // load it from the card: with Off built in, it starts on Off instead, so
+    // nothing loads until a model is picked. project.mt keeps the Mini
+    // default for stock firmware.
+    mod::ModuleHost& host = mod::ModuleHost::instance();
+    if (host.synthDescriptor(kSynthEngineOff))
+        for (int s = 0; s < kSynthSlotCount; ++s) {
+            const int32_t e = slotEngineId(s);
+            if (!host.synthDescriptor(e) || mod::cardEngine(e)) setSlotEngine(s, kSynthEngineOff);
+        }
     resetSynthPresets();
     setPresent(1, true);
     assemblePattern(1, pattern());
@@ -693,6 +705,8 @@ bool App::newProject() {
     ok = saveMultiMapsFile(f, path) == FmtStatus::Ok && ok;
     ok = saveTimingSide(path) && ok;   // [I] #43 / #83: none yet, removes a stale file
     timingDirty_ = false;
+    sidecarPath(path, sizeof(path), kWorkspace);
+    ok = saveSidecarFile(path) && ok;   // [I] the slots' Off engine
     // Synth slots: the default records' patches (library "Init", else the
     // built-in Init), written to Workspace/N.patch like the Mini.
     g_patchKept = 0;
