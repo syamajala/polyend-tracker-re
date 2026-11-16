@@ -1502,6 +1502,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#synths-on-the-card-2026-11-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Synths on the card (2026-11-15)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#flash-on-2026-11-11" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1677,6 +1688,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#synths-on-the-card-2026-11-15" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Synths on the card (2026-11-15)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#flash-on-2026-11-11" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1779,6 +1801,16 @@ the remote-control link. Fork: syamajala/polyend-tracker-re <code>main</code> (a
 on 2.1.1); upstream: sandlbn/polyend-tracker-re <code>v2</code> at 2.1.2 (177150b).
 Fork figures corrected the same day from clean builds: the first version
 listed the fork's room above <code>_ebss</code> as upstream's.</em></p>
+<h2 id="synths-on-the-card-2026-11-15">Synths on the card (2026-11-15)<a class="headerlink" href="#synths-on-the-card-2026-11-15" title="Permanent link">&para;</a></h2>
+<p>The <code>full</code> profile builds no synth into the image except <strong>Off</strong> (opentracker-synths
+<code>modules/off</code>, engine 0xF1: silent, one hidden Volume parameter, no Edit Patch sections).
+ACD, FAT, VAP, PERC and WTFM are card modules like the others (<code>card = true</code>), which takes
+the image from 831,488 B to 741,376 B. The SRAM_L fast block (13,696 B) stays: the Makefile
+keeps <code>OT_HOT_POOL</code> on when the profile has card modules, not only built-in rows, since the
+card synths' hot parts share it. A New Project's slot starts on Off when its Mini default
+isn't built in (<code>App::newProject</code>); <code>project.mt</code> keeps WTFM / ACD / VAP for stock firmware.
+Host builds (tests, sim) compile every module in, so they keep the Mini defaults; Off leads
+the Model list there too.</p>
 <h2 id="flash-on-2026-11-11">Flash on 2026-11-11<a class="headerlink" href="#flash-on-2026-11-11" title="Permanent link">&para;</a></h2>
 <p><em><code>main</code> b2bec6e (3.x, gcc 14.2), <code>full</code>: 794,624 B (.text 787,796 + .data
 6,828); upstream <code>v3</code> 13438f6: 737,280 B. The upstream 3.x merge comes to

@@ -1754,9 +1754,11 @@ rename the <code>.ptf</code> file.</p>
 <li>If the screen stays dark after the update, press the power button once.</li>
 </ol>
 <h2 id="install-the-modules">Install the modules<a class="headerlink" href="#install-the-modules" title="Permanent link">&para;</a></h2>
-<p>DX7, the other extra synths and the <a href="../guide/master-fx/">master effects</a> aren't in the
-firmware image: they are <strong>card modules</strong>, <code>.otm</code> files the Tracker loads from the SD card.
-The five Mini synths (ACD, FAT, VAP, WTFM, PERC) are built in and need nothing.</p>
+<p>The synths and the <a href="../guide/master-fx/">master effects</a> aren't in the firmware image: they
+are <strong>card modules</strong>, <code>.otm</code> files the Tracker loads from the SD card. That includes the five
+Mini synths (ACD, FAT, VAP, WTFM, PERC). The only synth built in is <strong>Off</strong>: no sound and
+no settings. A new project's three synth slots start on Off, so nothing loads from the card
+until you pick a synth in a slot's <strong>Model</strong> list (Off is at the top of it).</p>
 <ol>
 <li>Download <strong><code>Modules.zip</code></strong> from the same release as the firmware.</li>
 <li>Unzip it. It holds two folders: <code>Modules</code>, with the <code>.otm</code> files, and <code>Help</code>, with the
@@ -1777,7 +1779,7 @@ The five Mini synths (ACD, FAT, VAP, WTFM, PERC) are built in and need nothing.<
 <tbody>
 <tr>
 <td>Synths</td>
-<td><code>dx7</code> (DX7), <code>fm4</code> (FM4), <code>ju6</code> (JU6), <code>dtype</code> (D-Type), <code>cstype</code> (CS-Type), <code>atype</code> (A-Type), <code>ttype</code> (T-Type drums), <code>eight</code> (8-Type), <code>hand</code> (Hand-Type), <code>btype</code> (B-Type), <code>arc</code> (Arc-Type)</td>
+<td><code>acd</code> (ACD), <code>fat</code> (FAT), <code>vap</code> (VAP), <code>wtfm</code> (WTFM), <code>perc</code> (PERC), <code>dx7</code> (DX7), <code>fm4</code> (FM4), <code>ju6</code> (JU6), <code>dtype</code> (D-Type), <code>cstype</code> (CS-Type), <code>atype</code> (A-Type), <code>ttype</code> (T-Type drums), <code>eight</code> (8-Type), <code>hand</code> (Hand-Type), <code>btype</code> (B-Type), <code>arc</code> (Arc-Type)</td>
 </tr>
 <tr>
 <td>Effects</td>
@@ -1795,8 +1797,12 @@ The five Mini synths (ACD, FAT, VAP, WTFM, PERC) are built in and need nothing.<
 <li>In <a href="../guide/more/#usb-storage-mode">USB Storage mode</a> you can copy synth modules without
   a restart: leaving USB Storage mode reads <code>/Modules/</code> again. A changed effect module
   needs a restart.</li>
-<li>Without the folder the Tracker works as before, without those synths and effects. A
-  project that uses a missing synth opens with "Synth N (name) not available" on that slot.</li>
+<li>Without the folder the Tracker plays samples and MIDI as before, with no synths and no
+  master effects. A project that uses a missing synth opens with "Synth N (name) not
+  available" on that slot.</li>
+<li>A stock or Tracker Mini project that uses ACD, FAT, VAP, WTFM or PERC loads them from the
+  card. All three synths of a Mini project may not fit in the card memory together: a slot
+  that doesn't fit says so, and Config &gt; Memory shows why.</li>
 </ul>
 <h2 id="go-back-to-stock-firmware">Go back to stock firmware<a class="headerlink" href="#go-back-to-stock-firmware" title="Permanent link">&para;</a></h2>
 <p>Keep Polyend's stock image, <code>PolyendTracker_1.9.2.ptf</code>, in <code>/Firmware</code> too. Then either:</p>
