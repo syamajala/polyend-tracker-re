@@ -2328,6 +2328,10 @@ bool App::jobUnit(uint32_t& cost) {
         case kLPatterns: {
             const int n = pj_.idx++;
             if (n > kPatternCount) {
+                // [I] The card synths of the slots the patterns use, now known.
+                scanSynthSlotsUsed();
+                syncCardSynths(false);
+                cost += kJobSmallCost;
                 pj_.stage = kLFinish;
                 pj_.idx = 0;
                 pj_.phase = 0;

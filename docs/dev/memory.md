@@ -16,7 +16,10 @@ keeps `OT_HOT_POOL` on when the profile has card modules, not only built-in rows
 card synths' hot parts share it. A New Project's slot starts on Off when its Mini default
 isn't built in (`App::newProject`); `project.mt` keeps WTFM / ACD / VAP for stock firmware.
 Host builds (tests, sim) compile every module in, so they keep the Mini defaults; Off leads
-the Model list there too.
+the Model list there too. A slot loads its card synth only when the project uses it
+(`App::synthSlotsUsed_`: a stored pattern step plays it at Open, or it was picked as the
+instrument or given a model since), so an older project's unused default slots take no card
+memory.
 
 ## Flash on 2026-11-11
 

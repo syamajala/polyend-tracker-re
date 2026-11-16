@@ -1156,6 +1156,16 @@ private:
     // the same set) and since when the current set waits (cardWantedEngines).
     int32_t cardTried_[kCardWanted] = {};
     int32_t cardWaiting_[kCardWanted] = {};
+    // [I] The synth slots the project uses (bit s): a pattern step plays the
+    // slot, or it was picked as the instrument or given a model since the
+    // project opened. Only these load a card synth (cardWantedEngines), so
+    // an older project's unused default slots (WTFM / ACD / VAP) take no
+    // card memory. Sticky until the next project.
+    uint8_t synthSlotsUsed_ = 0;
+    void markSynthSlotUsed(int s) {
+        if (s >= 0 && s < kSynthSlotCount) synthSlotsUsed_ = uint8_t(synthSlotsUsed_ | (1u << s));
+    }
+    void scanSynthSlotsUsed();   // the stored patterns and the current instrument (project open)
     uint32_t cardSince_ = 0;
     uint32_t cardLoads_ = 0;   // [I] #159
     bool modulesStale_ = false;   // [I] #21: Modules/ may have changed (USB storage): boot() rescans
