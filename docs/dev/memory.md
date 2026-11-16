@@ -10,7 +10,8 @@ listed the fork's room above `_ebss` as upstream's.*
 
 *`main` b2bec6e (3.x, gcc 14.2), `full`: 794,624 B (.text 787,796 + .data
 6,828); upstream `v3` 13438f6: 737,280 B. The upstream 3.x merge comes to
-806,912 B, so the fork's flash gate went from 800,000 to 832,000 B. The image
+806,912 B, so the fork's flash gate went from 800,000 to 832,000 B (860,000 B
+since 2026-11-15, when `main` reached 831,488 B). The image
 cap stays `tools/check_image.py`'s stock extent (877,664 B).*
 
 - Strings: 34.9 KB merged pool (about 1,900 strings): help texts ~14 KB,

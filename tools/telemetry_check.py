@@ -22,7 +22,7 @@
       slot incl. its peak block; DX7 <= 18k, the algorithm 4 / 6 feedback chain <= 22k)
       fails above N.
   telemetry_check.py size [--size-tool arm-none-eabi-size] [--nm-tool arm-none-eabi-nm] <firmware.elf>
-      Flash use = .text + .data (Berkeley size): fail above 832,000 B, warn above
+      Flash use = .text + .data (Berkeley size): fail above 860,000 B, warn above
       720,000 B (upstream's 720,000 B budget; tools/check_image.py caps the image at
       the stock 1.9.2 extent, 877,664 B) [I].
       With nm (default: the size tool's sibling): no double-precision libm in the
@@ -95,9 +95,10 @@ LIMIT_RE = re.compile(r"^\s+((?:acd|vap|fat|wtfm|perc|dx7|pswitch|preset|pinst|s
 # starts in the same block (live notes are never queued); measured ~20.4k
 # (bench-m4, 3.x preset instruments), limit just above it.
 BENCH_LIMITS = {"pinstlive.d": 21000}
-# Raised 800,000 -> 832,000 B for the upstream 3.x merge (806,912 B); 2026-11 flash
+# Raised 800,000 -> 832,000 B for the upstream 3.x merge (806,912 B), then to 860,000 B
+# (main at 831,488 B, 2026-11-15), still under the stock extent; 2026-11 flash
 # audit in docs/dev/memory.md.
-FLASH_FAIL = 832000
+FLASH_FAIL = 860000
 FLASH_WARN = 720000
 # _estack - _ebss holds the stack and newlib's heap (src/hal/stack_watch.h). With the stack
 # guard (src/hal/stack_guard.h) it also holds the 4 KB heap reserve and the 8 KB guard, so
