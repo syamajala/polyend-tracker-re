@@ -69,9 +69,11 @@ TEST(module_engine_in_model_list) {
     reg();
     const int n = synthModelListCount();
     CHECK(n >= 6);
-    for (int i = 0; i < 5; ++i) CHECK_EQ(synthModelListEngine(i), synthEngineId(SynthModel(i)));
+    // [I] Off leads the list when the image has it (opentracker-synths modules/off).
+    const int lead = synthModelListEngine(0) == kSynthEngineOff ? 1 : 0;
+    for (int i = 0; i < 5; ++i) CHECK_EQ(synthModelListEngine(lead + i), synthEngineId(SynthModel(i)));
     const int k = synthModelListIndex(kTestEng);
-    CHECK(k >= 5);
+    CHECK(k >= lead + 5);
     CHECK_STR(synthModelListName(k), "TENG");
     CHECK_STR(synthEngineFolder(kTestEng), "TENG");
     SynthPatch p;

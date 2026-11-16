@@ -157,9 +157,11 @@ TEST(module_host_synth_descriptors_are_consistent) {
         // [OT] extension parameters (Width first): a range and a shown row each.
         CHECK(d->extCount <= kPatchExtMax && (d->extCount == 0 || d->ext != nullptr));
         for (int k = 0; k < d->extCount; ++k) CHECK(d->ui[d->paramCount + k].label != nullptr);
-        CHECK(d->sectionCount >= 7 && d->sectionCount <= synthui::kMaxSections);
+        // [I] Off (opentracker-synths modules/off): nothing to edit, no sections.
+        if (d->engineId == kSynthEngineOff) CHECK_EQ(int(d->sectionCount), 0);
+        else CHECK(d->sectionCount >= 7 && d->sectionCount <= synthui::kMaxSections);
         // Parameter sections first, then the 7 macro sections M1..M7 in order.
-        const int firstMacro = d->sectionCount - 7;
+        const int firstMacro = d->sectionCount ? d->sectionCount - 7 : 0;
         for (int s = 0; s < d->sectionCount; ++s) {
             const synthui::Section& sec = d->sections[s];
             if (s < firstMacro) {

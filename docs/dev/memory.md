@@ -6,6 +6,18 @@ on 2.1.1); upstream: sandlbn/polyend-tracker-re `v2` at 2.1.2 (177150b).
 Fork figures corrected the same day from clean builds: the first version
 listed the fork's room above `_ebss` as upstream's.*
 
+## Synths on the card (2026-11-15)
+
+The `full` profile builds no synth into the image except **Off** (opentracker-synths
+`modules/off`, engine 0xF1: silent, one hidden Volume parameter, no Edit Patch sections).
+ACD, FAT, VAP, PERC and WTFM are card modules like the others (`card = true`), which takes
+the image from 831,488 B to 741,376 B. The SRAM_L fast block (13,696 B) stays: the Makefile
+keeps `OT_HOT_POOL` on when the profile has card modules, not only built-in rows, since the
+card synths' hot parts share it. A New Project's slot starts on Off when its Mini default
+isn't built in (`App::newProject`); `project.mt` keeps WTFM / ACD / VAP for stock firmware.
+Host builds (tests, sim) compile every module in, so they keep the Mini defaults; Off leads
+the Model list there too.
+
 ## Flash on 2026-11-11
 
 *`main` b2bec6e (3.x, gcc 14.2), `full`: 794,624 B (.text 787,796 + .data

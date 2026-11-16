@@ -345,7 +345,13 @@ TEST(model_change_loads_init) {
     h.tap(btn::F1);
     CHECK(a.synthSlot(1).model == uint32_t(SynthModel::PERC));
     // 3.x: module engines (modules/synth_models.h) follow the Mini models.
-    for (int k = kSynthModelCount; k < synthModelListCount(); ++k) {
+    // [I] Off (when built in) leads the list: the wrap passes it first.
+    const int lead = synthModelListIndex(kSynthEngineAcd);
+    for (int k = lead + kSynthModelCount; k < synthModelListCount(); ++k) {
+        h.tap(btn::F1);
+        CHECK_EQ(a.slotEngineId(1), synthModelListEngine(k));
+    }
+    for (int k = 0; k < lead; ++k) {
         h.tap(btn::F1);
         CHECK_EQ(a.slotEngineId(1), synthModelListEngine(k));
     }
@@ -353,9 +359,9 @@ TEST(model_change_loads_init) {
     CHECK(a.synthSlot(1).model == uint32_t(SynthModel::ACD));
     CHECK_EQ(a.slotEngineId(1), int32_t(kSynthEngineAcd));
     CHECK(a.synthPatch(1).engine == kSynthEngineAcd);
-    // The list stops at its ends.
-    h.tap(btn::Up);
-    CHECK(a.synthSlot(1).model == uint32_t(SynthModel::ACD));
+    // The list stops at its ends ([I] Off, when built in, is the first).
+    for (int k = 0; k <= lead; ++k) h.tap(btn::Up);
+    CHECK_EQ(a.slotEngineId(1), synthModelListEngine(0));
 }
 
 TEST(parameter_edit_dirty_and_saved) {

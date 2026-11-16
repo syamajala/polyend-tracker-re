@@ -45,7 +45,7 @@ on:
   bank says **Not enough sample memory**.
 - Card effects and card synths share the card memory (about 45 KB). When it is full, an effect
   doesn't load and the bank says **Card memory full**, naming the biggest module loaded
-  (e.g. DX7); turn off another effect or pick a built-in synth. **Config >
+  (e.g. DX7); turn off another effect or set a synth slot to Off. **Config >
   [Memory](more.md#memory)** lists what is in it.
 
 Without the `Modules/` folder there are no master effects; projects still open and play.
