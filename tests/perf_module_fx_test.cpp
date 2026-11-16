@@ -111,6 +111,12 @@ TEST(module_fx_column_plays_the_parameter) {
     char nm[32];
     p.columnName(0, nm, sizeof(nm));
     CHECK_STR(nm, "Echo Feedback");
+    // The FX bank panel says it stays loaded for Performance (MasterFx::perf).
+    App::MasterFx fx;
+    int k = 0;
+    while (a.masterFx(k, fx) && std::strcmp(fx.id, "ECHO") != 0) ++k;
+    CHECK(fx.perf);
+    CHECK(a.masterFx(0, fx) && (std::strcmp(fx.id, "ECHO") == 0) == fx.perf);
     r.setRow(12, 1);    // row 1: Feedback 0 (the first step from off)
     r.setRow(24, 61);   // row 2: Feedback 60
     r.h.tap(btn::Rec);

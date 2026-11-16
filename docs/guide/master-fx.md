@@ -39,6 +39,9 @@ on:
 - **Turn on** loads it from the card. While the song plays it loads at the next **Stop**
   (the bank says **At Stop**).
 - **Turn off** silences it at once; it leaves memory at the next Stop.
+- An effect a [Performance](performance.md) Master FX column plays stays loaded while it is
+  off, so a pad brings it in at once: the bank says **Off** and the panel **Kept for
+  Performance**. It takes card memory in every project while Performance uses it.
 - A project remembers its effects and their settings: opening it loads the ones that are on.
 - **Echo** borrows **48 KB of sample memory** while it is loaded (about half a second of
   mono sample). Samples come first: when they fill the memory, Echo doesn't load and the

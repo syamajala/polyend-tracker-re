@@ -1077,7 +1077,8 @@ void MixerScreen::draw(Gfx& g) {
         } else if (fx.pending) {
             g.text(x, y, kFontText, th.dim, "Loads at Stop");
         } else if (fx.card >= 0 && fx.module && !fx.on) {
-            g.text(x, y, kFontText, th.dim, "Leaves memory at the next Stop");
+            // [I] #159 Performance's Master FX columns keep theirs loaded, ready for a pad.
+            g.text(x, y, kFontText, th.dim, fx.perf ? "Kept for Performance" : "Leaves memory at the next Stop");
         } else if (fx.card >= 0 && !fx.module) {
             g.text(x, y, kFontText, th.dim, "Turn on loads it");
         }
