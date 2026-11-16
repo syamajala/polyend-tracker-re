@@ -228,6 +228,7 @@ void SongScreen::refreshBar() {
     BottomBar& b = ui_.bar;
     b.clear();
     if (progOpen) {   // [I] #121
+        b.set(0, previewing_ ? "Stop" : "Preview");   // [I] F1 / Play: hear it first
         b.set(4, "Insert", "Pattern");   // [I] #123 the progression as one pattern
         b.set(5, "Voicing", prog::voicingName(progVoicing));
         b.set(6, "Cancel", nullptr);
@@ -456,12 +457,10 @@ void SongScreen::onButton(uint8_t id, uint8_t state) {
     const bool press = state == kPress;
     const bool pressOrHold = state != kRelease;
     if (progOpen) {   // [I] #121 the Progression list
-        if (id == btn::Play) {
-            if (press) onButton(ui_.shift() ? btn::F1 : btn::F2, kPress);
-            return;
-        }
         if (!press) return;
         switch (id) {
+            case btn::Play:   // [I] the preview, as F1
+            case btn::F1: togglePreview(); break;
             case btn::Up: progMove(-1); break;
             case btn::Down: progMove(1); break;
             case btn::F5: insertSelectedProgression(true); break;
@@ -470,7 +469,10 @@ void SongScreen::onButton(uint8_t id, uint8_t state) {
             case btn::Insert: insertSelectedProgression(); break;
             case btn::F7:
             case btn::Left:
-            case btn::Rec: progOpen = false; break;
+            case btn::Rec:
+                stopPreview();
+                progOpen = false;
+                break;
             default: return;
         }
         refreshBar();
@@ -754,6 +756,11 @@ void SongScreen::progMove(int d) {
         c = nc;
         --n;
     }
+    if (c != progCursor && previewing_) {   // [I] the new progression from its first chord
+        previewChord_ = 0;
+        previewPrevCount_ = 0;
+        previewNext_ = 0;
+    }
     progCursor = c;
 }
 
@@ -788,8 +795,94 @@ void SongScreen::nextVoicing() {
     ui_.notify(t, 2500);
 }
 
+// [I] Progression preview. Audition ids 0x68.. (App's kAudition* ids are
+// 0x60..0x63, the pads 0..47, MIDI input 0x100..): one per chord note.
+namespace {
+constexpr uint16_t kPreviewVoice = 0x68;
+}
+
+void SongScreen::togglePreview() {
+    if (previewing_) {
+        stopPreview();
+        return;
+    }
+    App& a = app_;
+    if (a.seq.isPlaying()) {   // the chords alone, as Insert would play them
+        a.seq.stop();
+        a.allVoicesOff();
+    }
+    previewing_ = true;
+    previewChord_ = 0;
+    previewPrevCount_ = 0;
+    previewNext_ = 0;   // the first chord on the next update
+}
+
+void SongScreen::stopPreview() {
+    for (int j = 0; j < previewNotes_; ++j) app_.previewOff(uint16_t(kPreviewVoice + j));
+    previewNotes_ = 0;
+    if (!previewing_) return;
+    previewing_ = false;
+    refreshBar();
+    ui_.dirty();
+}
+
+void SongScreen::servicePreview(uint32_t now) {
+    App& a = app_;
+    if (!progOpen || a.seq.isPlaying()) {   // the list closed, or the song started
+        stopPreview();
+        return;
+    }
+    if (previewNext_ && int32_t(now - previewNext_) < 0) return;
+    prog::Progression p;
+    if (progCursor < 0 || progCursor >= progRows || g_progRow[progCursor] < 0 ||
+        !prog::parse(g_progs.line[g_progRow[progCursor]], p) || p.count == 0) {
+        stopPreview();
+        return;
+    }
+    for (int j = 0; j < previewNotes_; ++j) a.previewOff(uint16_t(kPreviewVoice + j));
+    if (previewChord_ >= p.count) {   // the loop starts again: Smooth from the first chord
+        previewChord_ = 0;
+        previewPrevCount_ = 0;
+    }
+    uint8_t scale = a.project.u8(pf::kScale);
+    if (scale >= kScaleCount) scale = 0;
+    const prog::Tonic tn = prog::tonic(p, a.project.u8(pf::kRootNote), scale);
+    int notes[prog::kMaxVoiced];
+    const int k = prog::voice(p, previewChord_, tn, progVoicing, previewPrev_, previewPrevCount_, notes);
+    // The instruments Insert writes: the current one, per track (pops::mapInstrument).
+    const uint8_t ins = a.currentInstrument();
+    for (int j = 0; j < k; ++j) {
+        a.previewOn(uint16_t(kPreviewVoice + j), pops::mapInstrument(j, ins), uint8_t(notes[j]), 127);
+        previewPrev_[j] = notes[j];
+    }
+    previewNotes_ = k;
+    previewPrevCount_ = k;
+    // The chord's name and notes, as F6 shows them ("Am  A4 C5 E5").
+    char t[64];
+    int n = 0;
+    prog::chordName(p, previewChord_, tn, t, sizeof(t));
+    n = int(std::strlen(t));
+    for (int j = 0; j < k && n < int(sizeof(t)); ++j) {
+        char nn[4];
+        noteName(int8_t(notes[j]), nn);
+        n += std::snprintf(t + n, sizeof(t) - size_t(n), "%s%s", j ? " " : "  ", nn);
+    }
+    // A bar a chord (Insert Pattern's: the metronome's bar), 15000 / BPM ms a step.
+    float bpm = a.seq.effectiveTempo();
+    if (!(bpm > 0.0f)) bpm = 120.0f;
+    const uint32_t barMs = uint32_t(float(a.resampleBarSteps()) * 15000.0f / bpm + 0.5f);
+    ui_.notify(t, barMs);
+    // On the bar grid; after a stall (a save, a load) from now, not in a burst.
+    const bool onGrid = previewNext_ && now - previewNext_ < barMs;
+    previewNext_ = (onGrid ? previewNext_ : now) + barMs;
+    if (!previewNext_) previewNext_ = 1;
+    ++previewChord_;
+    refreshBar();
+}
+
 void SongScreen::insertSelectedProgression(bool asPattern) {
     if (progCursor < 0 || progCursor >= progRows || g_progRow[progCursor] < 0) return;
+    stopPreview();
     prog::Progression p;
     if (!prog::parse(g_progs.line[g_progRow[progCursor]], p)) return;
     const char* why = nullptr;
@@ -840,6 +933,7 @@ void SongScreen::stop() {
     // The stock action lives on the sequencer and survives a screen switch;
     // run a still-pending one now rather than lose it.
     if (togglePending_) applyLoopToggle();
+    stopPreview();
     progOpen = false;   // [I] #121
 }
 
@@ -850,6 +944,7 @@ void SongScreen::update(uint32_t now) {
         loopInSong_ = false;
         ui_.dirty();
     }
+    if (previewing_) servicePreview(now);   // [I] bar-exact, not on the 100 ms redraw tick
     if (now - lastUpdate_ < 100) return;   // spec 06 §2.6
     lastUpdate_ = now;
     // [I] The Count column shows the playing slot's pass: redraw when it moves.

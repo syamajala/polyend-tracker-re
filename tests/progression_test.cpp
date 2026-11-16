@@ -665,3 +665,63 @@ TEST(progression_song_screen_voicing_key) {
     h.tap(btn::Insert);
     CHECK_EQ(s.progVoicing, prog::kWide);
 }
+
+// [I] Preview (F1 / Play in the list): the chords a bar each through the
+// audition with the current instrument (here a MIDI one, so the notes show
+// as MIDI out), looping; nothing is written; Down restarts on the next
+// progression; F1 or closing the list stops it.
+TEST(progression_song_screen_preview) {
+    Harness h;
+    App& a = *h.app;
+    setKey(a, kRootA, kMinor);
+    a.cfg.midiOut = 1;
+    a.setCurrentInstrument(uint8_t(kFirstMidiInstrument));   // M1: channel 1
+    a.project.setTempo(120.0f);   // a bar of 16 steps: 2 s
+    h.tap(btn::Song);
+    SongScreen& s = song(h);
+    h.tap(btn::Rec);
+    h.tap(btn::Insert);
+    CHECK(s.progOpen);
+    h.run(50);
+    CHECK(h.disp.lastHasText("Preview"));
+    auto ons = [&h]() {
+        std::vector<int> v;
+        for (size_t i = 0; i + 2 < h.midi.sent.size(); i += 3)
+            if ((h.midi.sent[i] & 0xF0) == 0x90 && h.midi.sent[i + 2]) v.push_back(h.midi.sent[i + 1]);
+        return v;
+    };
+    h.midi.sent.clear();
+    h.tap(btn::F1);   // DnB i VI III VII: Am F C G, Smooth
+    h.run(50);
+    CHECK(h.disp.lastHasText("Stop"));
+    CHECK(h.disp.lastHasText("Am  A4 C5 E5"));
+    CHECK(ons() == (std::vector<int>{57, 60, 64}));   // the Tracker's A4 C5 E5
+    CHECK(!a.seq.isPlaying());
+    h.midi.sent.clear();
+    h.run(2000);   // the next bar: F, the notes closest to Am's
+    CHECK(ons() == (std::vector<int>{57, 60, 65}));
+    for (int i = 0; i < 3; ++i) h.run(2000);   // C, G, then Am again
+    CHECK(h.disp.lastHasText("Am  A4 C5 E5"));
+    // Nothing written.
+    CHECK_EQ(a.project.playlist[1], 0);
+    CHECK_STR(a.names.get(1), "");
+    // F1 stops: every note let go.
+    h.midi.sent.clear();
+    h.tap(btn::F1);
+    h.run(50);
+    CHECK(ons().empty());
+    CHECK(h.disp.lastHasText("Preview"));
+    h.midi.sent.clear();
+    h.run(4000);
+    CHECK(ons().empty());
+    // Play starts it too; closing the list stops it.
+    h.tap(btn::Play);
+    h.run(50);
+    CHECK(!ons().empty());
+    CHECK(!a.seq.isPlaying());
+    h.tap(btn::F7);
+    CHECK(!s.progOpen);
+    h.midi.sent.clear();
+    h.run(4000);
+    CHECK(ons().empty());
+}
