@@ -60,9 +60,11 @@ What's in it:
 - Without the folder the Tracker plays samples and MIDI as before, with no synths and no
   master effects. A project that uses a missing synth opens with "Synth N (name) not
   available" on that slot.
-- A stock or Tracker Mini project that uses ACD, FAT, VAP, WTFM or PERC loads them from the
-  card. All three synths of a Mini project may not fit in the card memory together: a slot
-  that doesn't fit says so, and Config > Memory shows why.
+- A synth only loads for a slot the project uses: a pattern plays it, or you pick it as the
+  instrument or give it a model. An older project whose slots were left on WTFM / ACD / VAP
+  but never played loads none of them. A stock or Tracker Mini project that plays ACD, FAT,
+  VAP, WTFM or PERC loads them from the card; if they don't all fit in the card memory, a
+  slot that doesn't fit says so, and Config > Memory shows why.
 
 ## Go back to stock firmware
 

@@ -154,6 +154,7 @@ void App::setSynthSlotRecord(int s, const SynthSlotRecord& r) {
 
 void App::setSynthEngine(int s, int32_t engineId) {
     if (s < 0 || s >= kSynthSlotCount) return;
+    markSynthSlotUsed(s);   // [I] a model picked: its synth loads
     if (engineId < 0x80) {
         for (int m = 0; m < kSynthModelCount; ++m)
             if (synthEngineId(SynthModel(m)) == engineId) setSynthModel(s, m);
@@ -171,6 +172,7 @@ void App::setSynthEngine(int s, int32_t engineId) {
 
 void App::setSynthModel(int s, int model) {
     if (s < 0 || s >= kSynthSlotCount || model < 0 || model >= kSynthModelCount) return;
+    markSynthSlotUsed(s);   // [I] a model picked: its synth loads
     if (previewSlot_ == s) endSynthPreview();
     setSlotEngine(s, 0);
     SynthSlotRecord r = project.synthSlot(s);
@@ -358,11 +360,29 @@ const char* App::cardSlotState(int s) const {
 }
 
 void App::cardWantedEngines(int32_t* out) const {
-    for (int s = 0; s < kSynthSlotCount; ++s) out[s] = slotEngineId(s);
+    // [I] A slot the project doesn't use loads nothing (synthSlotsUsed_).
+    for (int s = 0; s < kSynthSlotCount; ++s) out[s] = (synthSlotsUsed_ >> s) & 1 ? slotEngineId(s) : 0;
     // A Z or a preset instrument plays a preset on a slot: its synth is
     // loaded while the preset names it, as a slot's is.
     for (int n = 1; n <= kSynthPresetCount; ++n)
         out[kSynthSlotCount + n - 1] = synthPresetUsed(n) ? synthPreset(n).engine : 0;
+}
+
+void App::scanSynthSlotsUsed() {
+    const uint8_t cur = currentInstrument();
+    if (isSynthSlotInstrument(cur)) markSynthSlotUsed(cur - kFirstSynthInstrument);
+    auto scan = [this](const Track& t) {
+        for (const Step& st : t.steps)
+            if (st.note != kNoteEmpty && isSynthSlotInstrument(st.instrument)) markSynthSlotUsed(st.instrument - kFirstSynthInstrument);
+    };
+    // The store, not pattern(): at Open the edit buffer still holds the last
+    // project's pattern (the new one is assembled after this).
+    for (int n = 1; n <= kPatternCount && synthSlotsUsed_ != (1u << kSynthSlotCount) - 1; ++n) {
+        if (!patternPresent(n)) continue;
+        for (const Track& t : storedStock(n).tracks) scan(t);
+        for (int e = 0; e < kExtTrackCount; ++e)
+            if (const Track* t = ext_.find(n, e)) scan(*t);
+    }
 }
 
 void App::serviceCardSynths(uint32_t now) {

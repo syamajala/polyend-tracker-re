@@ -136,13 +136,30 @@ TEST(card_synth_loads_with_the_project) {
     a.setSynthEngine(0, kCardEng);
     h.run(400);
     CHECK(cardEngineLoaded(kCardEng));
+    a.setCurrentInstrument(0);   // [I] no pattern step plays Synth 1 yet
+    CHECK(a.saveProjectAs("Unused"));
+    // [I] A step of Synth 1: the slot is used.
+    a.pattern().tracks[0].steps[0].note = 60;
+    a.pattern().tracks[0].steps[0].instrument = uint8_t(kFirstSynthInstrument);
+    a.patternEdited();
     CHECK(a.saveProjectAs("Card"));
     CHECK(a.newProject());
     h.run(400);
     CHECK(!cardEngineLoaded(kCardEng));   // New Project names no card synth
     CHECK(a.openProject("Projects", "Card"));
-    CHECK(cardEngineLoaded(kCardEng));    // before the patches: the slot's patch is its own
+    CHECK(cardEngineLoaded(kCardEng));    // a pattern plays the slot
     CHECK_EQ(a.slotEngineId(0), kCardEng);
+    CHECK_EQ(a.synthPatch(0).engine, kCardEng);
+    // [I] The slot names it but nothing plays it: it waits until the slot is
+    // picked (as the instrument, or a model), with its own patch.
+    CHECK(a.openProject("Projects", "Unused"));
+    h.run(400);
+    CHECK(!cardEngineLoaded(kCardEng));
+    CHECK_EQ(a.slotEngineId(0), kCardEng);
+    CHECK_EQ(a.synthPatch(0).engine, kCardEng);
+    a.setCurrentInstrument(kFirstSynthInstrument);
+    h.run(400);
+    CHECK(cardEngineLoaded(kCardEng));
     CHECK_EQ(a.synthPatch(0).engine, kCardEng);
 }
 

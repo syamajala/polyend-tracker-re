@@ -1093,6 +1093,7 @@ void App::setCurrentInstrument(int i) {
     // 2.x: synth slots 64..66 are instruments too (Tracker Mini); [3.x] and
     // the presets P1..P8 (67..74).
     if (i > kLastPresetInstrument) i = kLastPresetInstrument;
+    if (isSynthSlotInstrument(uint8_t(i))) markSynthSlotUsed(i - kFirstSynthInstrument);   // [I] its synth loads
     if (project.u8(pf::kCurInstrument) != i) {
         project.setU8(pf::kCurInstrument, uint8_t(i));
         markProjectDirty();

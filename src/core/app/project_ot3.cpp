@@ -318,6 +318,7 @@ bool App::sidecarDirty() const {
 
 void App::resetSidecar() {
     releaseCardFx();   // [I] the last project's card effects leave first (samples first)
+    synthSlotsUsed_ = 0;   // [I] the next project's patterns say (scanSynthSlotsUsed)
     for (int s = 0; s < kSynthSlotCount; ++s) {
         slotEngine_[s] = 0;
         engine.synth().setSlotEngine(s, 0);
