@@ -703,6 +703,7 @@ public:
         bool fromCard;          // a card module (also compiled-in ones in host builds)
         bool on;
         bool pending;           // Turn on while playing: loads at the next Stop
+        bool perf;              // [I] #159 a Performance Master FX column uses it: stays loaded
         uint32_t sdramBytes;
         FxError error;          // why the last load of it failed
     };

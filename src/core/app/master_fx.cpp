@@ -59,17 +59,19 @@ void listIds(FxIds& l) {
     }
 }
 
-// [I] #159 card effect k is named by an FX column of the Performance
-// source in use.
-bool perfUses(const App& app, int k) {
+// [I] #159 An FX column of the Performance source in use plays effect `id`
+// (perfUses: card effect k).
+bool perfUsesId(const App& app, const char* id) {
     App& a = const_cast<App&>(app);   // perf::select reads only here
     const perf::Source src = perf::select(a.cfg.perfPresets, a.cfg, a.project);
     if (!src.valid()) return false;
-    const int rank = mod::ModuleHost::chainRank(mod::cardFxAt(k)->id);
+    const int rank = mod::ModuleHost::chainRank(id);
     for (int s = 0; s < perf::kSlots; ++s)
         if (src.type(s) == perf::kModuleFx && perf::targetRank(src.target(s)) == rank) return true;
     return false;
 }
+
+bool perfUses(const App& app, int k) { return perfUsesId(app, mod::cardFxAt(k)->id); }
 
 // "Echo: Card memory full (DX7 18.8 KB)": why card effect k didn't load,
 // naming the card module that takes the most room ([I] the Memory page).
@@ -116,6 +118,7 @@ bool App::masterFx(int k, MasterFx& out) const {
         out.fromCard = true;
     }
     out.pending = (g_fx.pending & insertBit(out.card)) != 0;
+    out.perf = perfUsesId(*this, out.id);
     out.error = out.card >= 0 ? g_fx.error[out.card] : FxError::kNone;
     return true;
 }
