@@ -14,6 +14,7 @@
 #include "modules/module.h"
 #include "modules/synth_descriptor.h"
 #include "ui/loader_list.h"
+#include "ui/progression.h"
 #include "ui/ui.h"
 #if __has_include("ot_profile.h")
 #include "ot_profile.h"
@@ -276,6 +277,19 @@ private:
     void refreshBar();
     void progMove(int d);
     void nextVoicing();
+    // [I] Preview (F1 / Play in the list): the selected progression a bar a
+    // chord at the song tempo, looping, through the pads' audition with the
+    // current instrument; nothing is written. Up / Down restart it on the
+    // new progression, F6 voices the next chord anew.
+    void togglePreview();
+    void stopPreview();
+    void servicePreview(uint32_t now);
+    bool previewing_ = false;
+    int previewChord_ = 0;          // the chord the next bar plays
+    int previewNotes_ = 0;          // audition voices sounding (ids kPreviewVoice + j)
+    uint32_t previewNext_ = 0;      // when the next chord starts (ms)
+    int previewPrev_[prog::kMaxVoiced] = {};   // the last chord's notes (Smooth)
+    int previewPrevCount_ = 0;
     void drawProgressions(Gfx& g);
     void setPattern(int slot, int num);
     int passShown_ = -1;   // [I] playing slot * 32 + pass last drawn

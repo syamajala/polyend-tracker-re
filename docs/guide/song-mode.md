@@ -95,6 +95,12 @@ or change the voicing.
   title) on the right, under a heading per file. **Up / Down** or the encoder pick one,
   **F8** or **Insert** adds it as a slot per chord, **F5** as one pattern (below), **F7** or
   **Left** closes the list.
+- **F1 Preview** (or **Play**) plays the selected progression before you add it: a chord a
+  bar at the song tempo, looping, with the current instrument, and the notice shows each
+  chord's notes. Move to another progression and it starts over on that one; press **F6
+  Voicing** and the next chord plays in the new shape, so you can try Smooth against Wide
+  on the same chords. **F1** again, closing the list or adding the progression stops it.
+  Nothing is written, and a playing song stops first.
 - A chord that already has a pattern named after it reuses that pattern (only the name's
   first word is checked, so a pattern you called `F` counts as F). A chord that comes twice
   in a progression gets one pattern.
