@@ -72,6 +72,7 @@ OpenTracker (one MIT exception below).
 - Audio changes: `make perf-gate`. Size checks: `tools/telemetry_check.py size` and `frames`.
 - Test in the simulator and on the host first. Use the device only for sound, real CPU and
   stack use, pads/LEDs, codec and SD timing, and batch device tests into one flash.
+- Say which profile you measured when you quote memory numbers.
 - Games (the NES player) are gone since the 3.x merge, as upstream.
 - Stack guard: `/Firmware/ot_noguard.txt` on the card turns it off, and
   `make OT_STACK_GUARD_TEST=1` builds the overflow self-test image.
@@ -87,17 +88,23 @@ OpenTracker (one MIT exception below).
   They run before SDRAM is up: `tools/check_ctors.py` fails the build if one touches SDRAM.
   Check: `arm-none-eabi-nm -C build/full/opentracker.elf | grep _GLOBAL__sub_I`, compared with `main`.
 - **Memory:** only per-block audio state goes in SRAM. Data, UI state and buffers go in
-  SDRAM (`.sdram_bss`). New audio code starts in flash, not `OT_FASTRUN_FN`, unless
+  SDRAM (`.sdram_bss`, trivially constructible). New audio code starts in flash, not `OT_FASTRUN_FN`, unless
   perf-gate shows it's needed. Check the CI size report on every PR. See `docs/dev/memory.md`.
 - **Audio path:** no allocation, no I/O, no locks.
 - `src/core` is platform-independent (firmware, sim, host tests); `src/hal` is the K66 layer.
 - Mark fork-only behaviour with `[I]` comments, and reverse-engineered stock behaviour
   with spec references.
+- **One firmware per profile:** a song must play on every image that has its synths. Don't
+  fix a memory or CPU problem with a profile variant; find the room in the image.
+- **Stack floor:** the card-module pool and new SRAM state come out of the stack. Keep the
+  stack headroom (`_estack - _ebss`) above `telemetry_check.STACK_MIN`: `tools/size_report.py`
+  prints it, with its limit.
 
 ## Compatibility
 
 - Stock files (`project.mt`, patterns, `.pti`, `.patch`) keep their exact stock/Mini layout.
-  Fork data goes in side files (see `docs/dev/workflow.md`). These have no installed base
+  Fork data goes in side files (see `docs/dev/workflow.md`); v3 data (modules, inserts,
+  presets) goes in the `project.ot3x` sidecar. These have no installed base
   yet, so their layouts can change without migration.
 
 ## Branches and PRs

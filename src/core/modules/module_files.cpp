@@ -18,11 +18,10 @@ namespace {
 struct Names {
     char name[OtmLoadReport::kMax][40];
     int n;
-    int skipped;   // .otm files past the first kMax (set up before each listing)
+    int skipped;   // .otm files past the first kMax
 };
-// One list at a time (main loop): SDRAM, not the stack; a trivial type (no
-// static constructor), reset before each use.
-OT_SDRAM_BSS Names g_names;
+// One list at a time (main loop), at the scratch's end (scratchTail): not
+// the stack or the SDRAM block.
 
 bool isOtm(const char* s) {
     const size_t n = std::strlen(s);
@@ -154,17 +153,34 @@ struct CutTable {
 };
 static_assert(sizeof(CutTable) == kOtmCutScratchBytes, "kOtmCutScratchBytes");
 
-// The cut table at the scratch's end, *cap cut to what is left for the file.
-// nullptr (scratch untouched) = no fast block to share, or no room for it:
-// the modules then run from the pool alone.
-CutTable* cutTable(const OtmPool& pool, uint8_t* scratch, uint32_t* cap) {
-    if (!pool.fastMem || !pool.fastCap || *cap < sizeof(CutTable) + alignof(CutTable)) return nullptr;
+// A T at the scratch's end, *cap cut to what is left for the file; nullptr
+// (scratch untouched) = no room for it. Only while loading (main loop).
+// minLeft: what the file needs at least (else nullptr too).
+template <class T>
+T* scratchTail(uint8_t* scratch, uint32_t* cap, uint32_t minLeft = 0) {
+    if (!scratch || *cap < sizeof(T) + alignof(T)) return nullptr;
     const uintptr_t base = reinterpret_cast<uintptr_t>(scratch);
-    const uintptr_t at = (base + *cap - sizeof(CutTable)) & ~(uintptr_t(alignof(CutTable)) - 1);
-    if (at - base < 256) return nullptr;   // a file needs more than that
+    const uintptr_t at = (base + *cap - sizeof(T)) & ~(uintptr_t(alignof(T)) - 1);
+    if (at - base < minLeft) return nullptr;
     *cap = uint32_t(at - base);
-    return reinterpret_cast<CutTable*>(at);
+    return reinterpret_cast<T*>(at);
 }
+
+// The cut table at the scratch's end. nullptr = no fast block to share, or no
+// room for it: the modules then run from the pool alone.
+CutTable* cutTable(const OtmPool& pool, uint8_t* scratch, uint32_t* cap) {
+    if (!pool.fastMem || !pool.fastCap) return nullptr;
+    return scratchTail<CutTable>(scratch, cap, 256);   // a file needs more than that
+}
+
+// [I] The modules a rescan keeps (rescanCardSynths), at the scratch's end.
+struct Kept {
+    OtmLoadReport::Item item[OtmLoadReport::kMax];
+};
+static_assert(sizeof(Names) + alignof(Names) <= kOtmListScratchBytes, "kOtmListScratchBytes");
+static_assert(sizeof(Names) + alignof(Names) + sizeof(Kept) + alignof(Kept) + sizeof(OtmLoadReport) +
+                      alignof(OtmLoadReport) <= kOtmScanScratchBytes,
+              "kOtmScanScratchBytes");
 
 void copyName(char* out, size_t cap, const char* s) { std::snprintf(out, cap, "%s", s ? s : ""); }
 
@@ -234,9 +250,13 @@ bool listEngines(IModule& m, int i) {
     return synth;
 }
 
-// [I] Lists m as item i's master effect; false = not one.
+// [I] Lists m as item i's master effect; false = not one. A module that
+// is also a synth slot insert (Dirt, BBD) is not: it loads at boot for
+// good, so a slot insert never points into a module that left, and the
+// slot inserts Open resolves are there.
 bool listFx(IModule& m, int i) {
     if (!m.masterInsert() && !m.page()) return false;
+    if (m.effect(0)) return false;
     const ModuleInfo& in = m.info();
     // A compiled-in module or an earlier file with the id wins.
     if (ModuleHost::instance().find(in.id) || cardFxIndex(in.id) >= 0 || g_card.nFx >= kMaxCardFx) return true;
@@ -292,8 +312,10 @@ void dropCardSynths() {
 
 int loadModuleFiles(IStorage& fs, const OtmPool& pool, uint8_t* scratch, uint32_t scratchCap,
                     OtmLoadReport* report) {
-    static OT_SDRAM_BSS OtmLoadReport local;   // no report given (tests)
-    OtmLoadReport& r = report ? *report : local;
+    // No report given (tests): one at the scratch's end.
+    OtmLoadReport* local = report ? nullptr : scratchTail<OtmLoadReport>(scratch, &scratchCap);
+    if (!report && !local) return 0;
+    OtmLoadReport& r = report ? *report : *local;
     // A scan again: the pool's start and the fast block are rewritten below,
     // so no engine may still point into them.
     restoreHotRows();
@@ -319,7 +341,9 @@ int loadModuleFiles(IStorage& fs, const OtmPool& pool, uint8_t* scratch, uint32_
     for (int k = 0; k < hotRowCount(); ++k)
         if (hotRowCheck(pool.hotRows->rows[k])) g_card.hotOk |= uint8_t(1u << k);
     // Name order, so the master inserts chain the same way on every boot.
-    Names& names = g_names;
+    Names* list = scratchTail<Names>(scratch, &scratchCap);
+    if (!list) return 0;
+    Names& names = *list;
     names.n = names.skipped = 0;
     if (fs.listDir(kModulesDir, &collect, &names) < 0 || names.n == 0) return 0;
     r.skipped = names.skipped;
@@ -553,7 +577,10 @@ int rescanCardSynths(IStorage& fs, uint8_t* scratch, uint32_t scratchCap) {
     const OtmPool& pool = *g_card.pool;
     OtmLoadReport& r = *g_card.r;
     ++r.serial;
-    Names& names = g_names;
+    Names* list = scratchTail<Names>(scratch, &scratchCap);
+    Kept* keptMem = scratchTail<Kept>(scratch, &scratchCap);
+    if (!list || !keptMem) return g_card.nEng;
+    Names& names = *list;
     names.n = names.skipped = 0;
     if (fs.listDir(kModulesDir, &collect, &names) < 0) names.n = names.skipped = 0;
     // The pool grows first: no room (the stack), and the list and the card
@@ -566,7 +593,7 @@ int rescanCardSynths(IStorage& fs, uint8_t* scratch, uint32_t scratchCap) {
     g_card.nEng = 0;
     g_card.nFx = 0;
     // The modules loaded for good stay where they are, in the report too.
-    static OT_SDRAM_BSS OtmLoadReport::Item kept[OtmLoadReport::kMax];   // main loop only
+    OtmLoadReport::Item* kept = keptMem->item;
     int nKept = 0;
     for (int i = 0; i < r.n; ++i)
         if (r.items[i].loaded) kept[nKept++] = r.items[i];

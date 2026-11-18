@@ -441,6 +441,7 @@ void LoaderScreen::list() {
 }
 
 void LoaderScreen::start(int opt) {
+    app_.sampleTailHeld = true;   // previews and the trim decode into the free sample memory
     trim = false;
     if (opt > 0) {
         insCursor = clampi(opt - 1, 0, 47);
@@ -455,6 +456,7 @@ void LoaderScreen::start(int opt) {
 }
 
 void LoaderScreen::stop() {
+    app_.sampleTailHeld = false;
     previewStreamStop(app_);
     trimPlaying_ = false;
     app_.previewAllOff();

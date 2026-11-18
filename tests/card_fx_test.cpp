@@ -54,12 +54,14 @@ public:
     void adjust(int i, int d) override {
         if (i == 0) on = d > 0;
         else level += d;
+        dirt = true;
     }
     // Section: on + level.
     uint16_t tag() const override { return 0x4F10; }
     uint16_t version() const override { return 1; }
-    bool dirty() const override { return true; }
+    bool dirty() const override { return dirt; }
     uint32_t encode(uint8_t* b, uint32_t cap) override {
+        dirt = false;   // as the shipped effects: written = clean
         if (cap < 2 || (!on && level == 50)) return 0;
         b[0] = on;
         b[1] = uint8_t(level);
@@ -76,6 +78,7 @@ public:
         level = 50;
     }
     bool process(float*, float*, uint32_t) override { return false; }
+    bool dirt = false;
     int attached = 0;
     uint8_t* line = nullptr;
     bool on = false;
@@ -292,4 +295,90 @@ TEST(config_memory_page_draws_read_only) {
     h.tap(btn::Right);
     h.run(100);
     CHECK_STR(a.ui.bar.label[7].top, "");
+}
+
+// An edit, then the effect leaves (Off: at the next Stop): the edit is
+// still saved with the project.
+TEST(card_fx_edit_then_leave_is_saved) {
+    FxRig rig;
+    Harness h;
+    App& a = *h.app;
+    CHECK(a.newProject());
+    CHECK(a.turnMasterFx(bankRow(a), true) == nullptr);
+    CHECK(a.saveProjectAs("Fx"));
+    CHECK(a.openProject("Projects", "Fx"));
+    h.run(400);
+    g_fx.adjust(1, 5);     // the page: Level
+    g_fx.adjust(0, -1);    // the page: Off
+    h.run(400);
+    CHECK(!ModuleHost::instance().find("CFX1"));
+    CHECK(a.sidecarDirty());
+    CHECK(a.saveProject());
+    CHECK(a.newProject());
+    CHECK(a.openProject("Projects", "Fx"));
+    h.run(400);
+    CHECK(a.turnMasterFx(bankRow(a), true) == nullptr);
+    CHECK_EQ(g_fx.level, 55);
+}
+
+// Open of a project with a card effect's data: no "not in this build".
+TEST(card_fx_open_has_no_missing_module_notice) {
+    FxRig rig;
+    Harness h;
+    App& a = *h.app;
+    CHECK(a.newProject());
+    CHECK(a.turnMasterFx(bankRow(a), true) == nullptr);
+    CHECK(a.saveProjectAs("Fx"));
+    CHECK(a.newProject());
+    CHECK(a.openProject("Projects", "Fx"));
+    h.run(100);
+    CHECK(ModuleHost::instance().find("CFX1"));
+    CHECK(std::strstr(a.ui.notice(), "not in this build") == nullptr);
+}
+
+// The top of the sample memory in use (here: lent to Games; a recording or
+// a preview decode alike): Turn on waits, the effect loads once it is free.
+TEST(card_fx_waits_while_the_free_sample_memory_is_in_use) {
+    FxRig rig;
+    Harness h;
+    App& a = *h.app;
+    CHECK(a.newProject());
+    a.sampleBankLent = true;
+    CHECK(a.turnMasterFx(bankRow(a), true) == nullptr);
+    h.run(400);
+    CHECK(!ModuleHost::instance().find("CFX1"));
+    CHECK_EQ(int(a.bank.moduleHold()), 0);
+    a.sampleBankLent = false;
+    h.run(400);
+    CHECK(ModuleHost::instance().find("CFX1"));
+    CHECK(inChain(a));
+}
+
+// A screen that keeps data there (a finished Recorder take): a load that
+// waits for the Stop waits until the screen closes.
+TEST(card_fx_waits_while_a_screen_holds_the_free_sample_memory) {
+    FxRig rig;
+    Harness h;
+    App& a = *h.app;
+    CHECK(a.newProject());
+    a.sampleTailHeld = true;
+    CHECK(a.turnMasterFx(bankRow(a), true) == nullptr);
+    h.run(400);
+    CHECK(!ModuleHost::instance().find("CFX1"));
+    a.sampleTailHeld = false;
+    h.run(400);
+    CHECK(ModuleHost::instance().find("CFX1"));
+}
+
+// The screens that keep data in the free sample memory hold it while open.
+TEST(card_fx_recorder_loader_editor_hold_the_free_sample_memory) {
+    FxRig rig;
+    Harness h;
+    App& a = *h.app;
+    for (int m : {kModRecorder, kModLoader, kModEditor}) {
+        a.ui.switchTo(m);
+        CHECK(a.sampleTailHeld);
+        a.ui.switchTo(kModPattern);
+        CHECK(!a.sampleTailHeld);
+    }
 }

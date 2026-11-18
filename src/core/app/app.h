@@ -146,6 +146,7 @@ struct AppMemory {
     uint32_t scratchBytes = 0;
     PerfPatternMemory* perfPatterns = nullptr;   // per-track pattern overrides (spec 12 §C.1)
     audio::StemBlock* exportStems = nullptr;     // optional: WAV export stem buffer (else allocated per export)
+    audio::ExportResampler::History* exportHistory = nullptr;   // [I] optional: its 44.1 kHz history (kMaxStems)
 };
 
 // Main-loop members of App that live in the SDRAM on the device (CPU round 3,
@@ -263,7 +264,7 @@ public:
     audio::SampleBank& bank;          // engine.bank(): spec 02 §8.2 packing
     Config cfg;
     Sequencer seq;
-    PadNotes padNotes;
+    OT_APP_SDRAM_MEMBER(PadNotes, padNotes);   // [I] pad -> note map and key lights (main loop)
     UndoRing undo;
     FileUndo fileUndo;
     Ui ui;
@@ -662,6 +663,11 @@ public:
     static constexpr int kCardWanted = kSynthSlotCount + kSynthPresetCount;
     void cardWantedEngines(int32_t* out) const;   // every slot's engine, then every preset's (0 = none)
     bool syncCardSynths(bool initPatches);
+    // [I] The free top of the sample memory is in use (a recording, a preview
+    // decode, a render, Games): a card effect's SDRAM hold waits for it.
+    bool sampleTailBusy() const {
+        return sampleBankLent || sampleTailHeld || rendering_ || capture.active() || engine.previewBufferActive();
+    }
     // [I] After USB storage mode: Modules/ listed anew (rescanCardSynths),
     // before boot() reopens the Workspace.
     void rescanCardSynths();
@@ -832,6 +838,9 @@ public:
     // to the NES emulator; the periodic autosave is held so garbage sample
     // data is never written. The lender reloads the Workspace afterwards.
     bool sampleBankLent = false;
+    // [I] A screen keeps data in the free sample memory while it is open (the
+    // Recorder's take, the Loader's trim, the Editor's undo and preview).
+    bool sampleTailHeld = false;
     // External background job with the progress popup `title` (spec 11
     // §0.1 import / export state machines); false when another job runs.
     bool startExternalJob(const char* title, JobUnitFn unit, JobPercentFn percent, void* unitCtx,

@@ -91,6 +91,10 @@ public:
     // The Instruments list picked the current instrument with the cursor
     // here (Rec off): the module keys keep it instead of the step's (Ui::switchTo).
     bool pickedHere() const;
+    // FX a-f on a synth step set the slot's macros 1-6 (spec 2x-05 §4.3):
+    // the macro's name there ("M1 Cutoff", "Macro 6" without a name);
+    // false for other FX or steps (MIDI CC A-F).
+    bool fxMacroName(uint8_t type, char* out, int cap) const;
     int page = 0;
     bool fillOpen = false;
     void fillValueText(int val, char* out) const;   // From/To display text (8 bytes)
@@ -188,6 +192,13 @@ private:
     uint32_t colKeyAt_ = 0;
     uint8_t pickerKey_ = 0;
     int pickTrack_ = -1, pickStep_ = -1, pickPattern_ = -1;   // where the list picked (-1 none)
+    // Issue #186: the column key down now, the column before it, and whether
+    // it was used as a modifier (a pad, its hold popup): then its release goes
+    // back to that column.
+    uint8_t heldColKey_ = 0;
+    int8_t colBefore_ = -1;
+    bool colKeyUsed_ = false;
+    void releaseColKey(uint8_t id);
     int noteBase_ = 48;             // Note popup: note under F1 (window of 8)
     uint8_t noteKeysOn_ = 0;        // Note popup F-keys sounding (bit = F-key)
     bool encUsedInHold_ = false;
@@ -641,6 +652,7 @@ public:
     void doNew();
     void doOpenSelected();
     void list();
+    const char* browserPath() const;   // the Open / Save browser's folder
 
     // Project cover preview (spec 05 appendix E1.6, spec 13 §I.3): 0 idle,
     // 1 waiting for the 2 s hold, 2 loaded (drawn), 3 no/invalid image.

@@ -315,7 +315,7 @@ the whole 2.x line (2.0 to 2.2.5); the full list is in the release notes of the
   manual (live-record velocity, Slice-mode pads, Performance labels, MIDI CC lists and more).
 - **User-report fixes:** live recording (first note with Pre-roll, OFF steps, red cursor), MIDI
   channels on the pads, a crack in the headphones at power-on, headphone level +1 dB.
-- **More free memory:** Games is no longer built into the image (`make OT_GAMES=1` brings it
+- **More free memory:** Games is no longer built into the image (on 2.x `make OT_GAMES=1` brings it
   back), and the file browsers share one buffer (PR #28, syamajala).
 
 ### New in 2.0
@@ -439,12 +439,14 @@ says "Loads at Stop"). Every load stops the synth voices. A synth that doesn't f
 pool (all the room the 25 KB stack floor leaves, about 45 KB) stays unloaded, with "Card
 memory full" on its slot; the slots get the room first, then the presets, and two slots on one engine load it once. A profile entry with `card = true`
 stays out of the image, and `make card` builds it into `build/<profile>/otm/`; the host
-builds (tests, simulator, tools) compile it in. `full` lists the ten synths it doesn't
-build in (FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type, ARC) as card
-modules, so its image stays the same and any of them can come from the card.
+builds (tests, simulator, tools) compile it in. `full` builds in only Off; its other
+synths (ACD, FAT, VAP, PERC, WTFM, DX7, FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type,
+8-Type, Hand, B-Type, ARC, 1-Type, V-Type) and all its effects are card modules. 1-Type's .sy1 patches convert on a computer with `tools/sy1_to_patch`
+(Patches/1TYPE/). An effect that is also a synth slot insert (Dirt, BBD, Phaser, Tremolo,
+Bitcrush) loads at boot for good, not while it is on.
 Leaving USB Storage mode lists `Modules/` again, so a synth module added, replaced or
-removed from a computer takes effect without a restart; an effect module stays as the
-boot loaded it and still needs one.
+removed from a computer takes effect without a restart; a module loaded for good at boot
+(an effect) stays as the boot loaded it and still needs one.
 
 A synth's `.otm` carries its **hot row**: the functions that do most of its work, hottest
 first, from `tools/hot_rows/<module>.hot`. When the image has a fast block in SRAM_L, the

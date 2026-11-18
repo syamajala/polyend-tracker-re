@@ -156,6 +156,10 @@ CORE_C    := $(wildcard $(CORE)/*.c)
 CORE_CXX  := $(filter-out $(CORE)/main.cpp $(CORE)/usb_audio.cpp,$(wildcard $(CORE)/*.cpp))
 APP_C     := $(shell find src -name '*.c') third_party/fatfs/ff.c third_party/fatfs/ffunicode.c
 APP_CXX   := $(shell find src -name '*.cpp')
+# [I] src/core/remote stays in the image: the fork's remote control and its
+# display command export run on the Tracker (upstream builds the recorder
+# for the simulator and host tests only, as its copy of the inline IDisplay
+# helpers can be the one the linker keeps).
 OBJS      := $(patsubst %,$(BUILD)/%.o,$(CORE_C) $(CORE_CXX) $(APP_C) $(APP_CXX))
 # Profile modules (profile.mk): sources from MODULES_DIR and the generated
 # registry, found through vpath; -O2 (audio path).
@@ -264,7 +268,7 @@ $(BUILD)/%.cpp.o: %.cpp
 
 $(BUILD)/mod/%.cpp.o: %.cpp
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(ROWDEF) -fstack-usage -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(ROWDEF) -c $< -o $@
 
 $(HOT_LD): $(HOT_ROW_OBJS) $(wildcard $(HOT_ROWS)/*.hot) tools/hot_pool.py tools/make_otm.py
 	@mkdir -p $(dir $@)
@@ -344,6 +348,7 @@ perf-gate:
 	    { $(MAKE) -s $(BUILD)/opentracker.elf > $(PERF_OUT)/firmware_build.txt 2>&1 || \
 	      { tail -20 $(PERF_OUT)/firmware_build.txt; exit 1; }; } && \
 	    python3 tools/telemetry_check.py size --size-tool $(SIZE) $(BUILD)/opentracker.elf && \
+	    python3 tools/telemetry_check.py frames --objects $(OBJS) && \
 	    $(SIZE) $(MOD_OBJS) > $(PERF_OUT)/module_sizes.txt && \
 	    python3 -I tools/profile.py sizes --profile profiles/$(PROFILE).toml --modules-dir $(MODULES_DIR) \
 	        --size-output $(PERF_OUT)/module_sizes.txt && \
@@ -447,7 +452,7 @@ help:
 hot-rows:
 	$(MAKE) -C tests bench-m4-synth-modes PROFILE=allsynths
 	python3 -I tools/synth_hot.py build/allsynths/bench/audio_bench_m4_modes.elf build/allsynths/bench/synth_modes_hot.txt \
-	    --modes build/allsynths/bench/synth_modes.txt --emit-hot $(HOT_ROWS)
+	    --modes build/allsynths/bench/synth_modes.txt --modules-dir $(MODULES_DIR) --emit-hot $(HOT_ROWS)
 .PHONY: hot-rows
 
 # Synth preset pack (tools/make_patches/PRESETS.md): build/patches/Patches/<MODEL>/.
