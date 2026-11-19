@@ -1810,7 +1810,10 @@ keeps <code>OT_HOT_POOL</code> on when the profile has card modules, not only bu
 card synths' hot parts share it. A New Project's slot starts on Off when its Mini default
 isn't built in (<code>App::newProject</code>); <code>project.mt</code> keeps WTFM / ACD / VAP for stock firmware.
 Host builds (tests, sim) compile every module in, so they keep the Mini defaults; Off leads
-the Model list there too.</p>
+the Model list there too. A slot loads its card synth only when the project uses it
+(<code>App::synthSlotsUsed_</code>: a stored pattern step plays it at Open, or it was picked as the
+instrument or given a model since), so an older project's unused default slots take no card
+memory.</p>
 <h2 id="flash-on-2026-11-11">Flash on 2026-11-11<a class="headerlink" href="#flash-on-2026-11-11" title="Permanent link">&para;</a></h2>
 <p><em><code>main</code> b2bec6e (3.x, gcc 14.2), <code>full</code>: 794,624 B (.text 787,796 + .data
 6,828); upstream <code>v3</code> 13438f6: 737,280 B. The upstream 3.x merge comes to
