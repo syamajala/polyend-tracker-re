@@ -442,8 +442,12 @@ stays out of the image, and `make card` builds it into `build/<profile>/otm/`; t
 builds (tests, simulator, tools) compile it in. `full` builds in only Off; its other
 synths (ACD, FAT, VAP, PERC, WTFM, DX7, FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type,
 8-Type, Hand, B-Type, ARC, 1-Type, V-Type) and all its effects are card modules. 1-Type's .sy1 patches convert on a computer with `tools/sy1_to_patch`
-(Patches/1TYPE/). An effect that is also a synth slot insert (Dirt, BBD, Phaser, Tremolo,
-Bitcrush) loads at boot for good, not while it is on.
+(Patches/1TYPE/). The fork's pool has about 9 KB less room than upstream's, so 1-Type and
+V-Type don't fit together: the second says "Card memory full". The fork's `full` has no synth
+slot inserts (`slot_inserts = false`; upstream's has them), so its effects are all master
+effects and Phaser, Tremolo and Bitcrush aren't built. In a profile with slot inserts, an
+effect that is also one (Dirt, BBD, Phaser, Tremolo, Bitcrush) loads at boot for good, not
+while it is on.
 Leaving USB Storage mode lists `Modules/` again, so a synth module added, replaced or
 removed from a computer takes effect without a restart; a module loaded for good at boot
 (an effect) stays as the boot loaded it and still needs one.

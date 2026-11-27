@@ -148,12 +148,21 @@ TEST(card_fx_with_a_slot_effect_loads_at_boot) {
     FxRig rig;
     Harness h;
     App& a = *h.app;
+#if OT_SLOT_INSERTS
     CHECK(ModuleHost::instance().find("CFX1"));
     CHECK(ModuleHost::instance().effectById("CDRV") == &g_drive);
     CHECK_EQ(mod::cardFxIndex("CFX1"), -1);
     CHECK(bankRow(a) >= 0);   // still in the FX bank, as a built-in one
+#else
+    // [I] No slot inserts (the fork's full): a card master effect like the
+    // others, loaded only while it is on.
+    CHECK(!ModuleHost::instance().find("CFX1"));
+    CHECK(mod::cardFxIndex("CFX1") >= 0);
+    CHECK(bankRow(a) >= 0);
+#endif
 }
 
+#if OT_SLOT_INSERTS
 TEST(card_fx_slot_insert_stays_bound_after_off) {
     FxRig rig;
     Harness h;
@@ -187,3 +196,4 @@ TEST(card_fx_slot_insert_bound_after_open) {
     CHECK(a.engine.synth().slotInsert(0) == &g_drive);
     CHECK(std::strstr(a.ui.notice(), "not in this build") == nullptr);
 }
+#endif  // OT_SLOT_INSERTS

@@ -322,13 +322,15 @@ TEST(boot_scan_again_puts_moved_rows_back_in_flash) {
 }
 
 
-// [I] The card pool with two large card synths (the built card modules,
-// OT_OTM_DIR: make PROFILE=full card; skipped without them): 1-Type in the
-// first slot and V-Type in the second take their main spans back to back,
-// and each card effect alone still fits after them, none of the rows in the
-// fast block (the worst case). The pool's room comes from the image built
-// beside the modules (OT_OTM_DIR/../opentracker.map), as the device works it
-// out (hal/stack_guard.cpp modulePoolMaxBytes).
+// [I] The card pool with a large card synth (the built card modules,
+// OT_OTM_DIR: make PROFILE=full card; skipped without them): 1-Type or
+// V-Type takes its main span, and each card effect alone still fits after it,
+// none of the rows in the fast block (the worst case). Upstream also fits
+// 1-Type and V-Type together; the fork's SRAM leaves about 9 KB less room, so
+// the pair is only printed (the device says "doesn't fit" for the second one).
+// The pool's room comes from the image built beside the modules
+// (OT_OTM_DIR/../opentracker.map), as the device works it out
+// (hal/stack_guard.cpp modulePoolMaxBytes).
 namespace {
 // The address of a linker symbol in a GNU ld map ("0x... sym = ."), 0 if absent.
 uint32_t mapSymbol(const std::string& map, const char* sym) {
@@ -368,7 +370,7 @@ uint32_t placeAfter(uint32_t used, const OtmHeader& h) {
 }
 }  // namespace
 
-TEST(card_pool_holds_vtype_beside_onetype_and_an_effect) {
+TEST(card_pool_holds_onetype_or_vtype_and_an_effect) {
     const char* dir = std::getenv("OT_OTM_DIR");
     OtmHeader one, vty;
     if (!dir || !otmHeaderOf(dir, "onetype.otm", &one) || !otmHeaderOf(dir, "vtype.otm", &vty)) {
@@ -382,14 +384,17 @@ TEST(card_pool_holds_vtype_beside_onetype_and_an_effect) {
     }
     CHECK(std::memcmp(vty.id, "VTY1", 4) == 0);
     CHECK(std::memcmp(one.id, "1TY1", 4) == 0);
-    const uint32_t two = placeAfter(placeAfter(0, one), vty);
-    std::printf("  pool: 1-Type + V-Type %u of %u B\n", unsigned(two), unsigned(kFullPool));
-    CHECK(two <= kFullPool);
-    for (const char* fx : {"echo.otm", "lofi.otm", "chorus.otm"}) {
-        OtmHeader e;
-        if (!otmHeaderOf(dir, fx, &e)) continue;
-        const uint32_t all = placeAfter(two, e);
-        std::printf("  pool: + %s %u B\n", fx, unsigned(all));
-        CHECK(all <= kFullPool);
+    std::printf("  pool: 1-Type + V-Type %u of %u B (not required on the fork)\n",
+                unsigned(placeAfter(placeAfter(0, one), vty)), unsigned(kFullPool));
+    for (const OtmHeader* synth : {&one, &vty}) {
+        const uint32_t used = placeAfter(0, *synth);
+        CHECK(used <= kFullPool);
+        for (const char* fx : {"echo.otm", "lofi.otm", "chorus.otm"}) {
+            OtmHeader e;
+            if (!otmHeaderOf(dir, fx, &e)) continue;
+            const uint32_t all = placeAfter(used, e);
+            std::printf("  pool: %.4s + %s %u B\n", synth->id, fx, unsigned(all));
+            CHECK(all <= kFullPool);
+        }
     }
 }

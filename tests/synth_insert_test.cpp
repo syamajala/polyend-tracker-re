@@ -304,7 +304,7 @@ TEST(slot_inserts_not_in_this_build) { CHECK(true); }
 #include "modules/module.h"
 TEST(full_image_has_slot_inserts) {
     if (std::strcmp(OT_PROFILE_NAME, "full") != 0) return;
-    CHECK(OT_SLOT_INSERTS == 1);
+    if (!OT_SLOT_INSERTS) return;   // [I] the fork's full has none (profiles/full.toml)
     for (const char* id : {"DRIV", "BBDC", "PHAS", "TREM", "CRSH"}) CHECK(ot::mod::ModuleHost::instance().effectById(id) != nullptr);
 }
 #endif

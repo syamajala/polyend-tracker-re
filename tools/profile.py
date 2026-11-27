@@ -173,12 +173,16 @@ def sram_of(m):
 
 # Synth slot inserts: on when a module offers an effect (module.toml effects)
 # and the profile does not set slot_inserts = false. The core then reserves
-# one delay line per synth slot in the SDRAM block (3 x 512 B).
+# one delay line per synth slot in the SDRAM block (3 x 512 B). [I] Card
+# modules count too: an effect that is also a slot insert loads from the card
+# at boot (module_files.cpp listFx), so a profile with every effect on the card
+# still has inserts.
 SLOT_INSERT_SDRAM = 3 * 512
 
 
 def slot_inserts(prof, mods):
-    return bool(prof.get("slot_inserts", True)) and any(m["man"].get("effects") for m in mods)
+    return bool(prof.get("slot_inserts", True)) and any(
+        m["man"].get("effects") for m in list(mods) + prof["card"])
 
 
 def core_sdram(prof, mods):
