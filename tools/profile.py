@@ -173,12 +173,16 @@ def sram_of(m):
 
 # Synth slot inserts: on when a module offers an effect (module.toml effects)
 # and the profile does not set slot_inserts = false. The core then reserves
-# one delay line per synth slot in the SDRAM block (3 x 512 B).
+# one delay line per synth slot in the SDRAM block (3 x 512 B). [I] Card
+# modules count too: an effect that is also a slot insert loads from the card
+# at boot (module_files.cpp listFx), so a profile with every effect on the card
+# still has inserts.
 SLOT_INSERT_SDRAM = 3 * 512
 
 
 def slot_inserts(prof, mods):
-    return bool(prof.get("slot_inserts", True)) and any(m["man"].get("effects") for m in mods)
+    return bool(prof.get("slot_inserts", True)) and any(
+        m["man"].get("effects") for m in list(mods) + prof["card"])
 
 
 def core_sdram(prof, mods):
@@ -235,6 +239,12 @@ def hot_pool_bytes(prof, profile_path):
     return n
 
 
+def card_room(n):
+    """[I] Card file / card effect table sizes: n plus room for more, in steps
+    of 8 (0 -> 8, 16 -> 24): the loader's tables are sized by the profile."""
+    return (n // 8 + 1) * 8
+
+
 def gen(args):
     prof, mods = load(args.profile, args.modules_dir, host=args.host)
     out = os.path.abspath(args.out)
@@ -286,6 +296,11 @@ def gen(args):
         f"#define OT_PROFILE_MODULE_COUNT {len(mods)}",
         f"#define OT_PROFILE_SDRAM_BYTES {sums['sdram_bytes'] + core_sdram(prof, mods)}",
         f"#define OT_SLOT_INSERTS {1 if slot_inserts(prof, mods) else 0}",
+        # [I] modules/module_files.h: Modules/*.otm files and card effects listed
+        # at least 16, as v3 read on every image: any image reads the card set
+        f"#define OT_PROFILE_CARD_FILES {max(16, card_room(len(prof['card'])))}",
+        f"#define OT_PROFILE_CARD_FX "
+        f"{card_room(sum(1 for m in prof['card'] if 'synthEngine' not in m['man'].get('caps', [])))}",
         f'#define OT_MODULES_REV "{rev}"',
     ] + [f"#define OT_MOD_{i} 1" for i in ids]
     changed |= write_if_changed(os.path.join(out, "ot_profile.h"), "\n".join(h) + "\n")

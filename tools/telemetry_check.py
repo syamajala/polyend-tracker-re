@@ -562,6 +562,15 @@ SAMPLE_BENCH_LIMITS = """\
 
 
 def selftest():
+    su = ["a.cpp:1:6:void f()\t6032\tstatic", "b.cpp:2:6:void g()\t96\tstatic", "c.c:3:6:h\t40\tdynamic,bounded"]
+    ok, deep = check_frames(su, 8192, quiet=True)
+    assert ok and deep == 6032, deep
+    assert not check_frames(su + ["d.cpp:4:6:void big()\t8192\tstatic"], 8192, quiet=True)[0]
+    assert not check_frames(su + ["d.cpp:4:6:void big()\t8100\tstatic"], 8192, quiet=True)[0]
+    assert check_frames(su + ["d.cpp:4:6:void big()\t7935\tstatic"], 8192, quiet=True)[0]
+    assert not check_frames(su + ["e.cpp:5:6:void vla(int)\t16\tdynamic"], 8192, quiet=True)[0]
+    assert not check_frames([], 8192, quiet=True)[0]
+    assert guard_bytes() == 8192
     ok, fails, ws = check_log(SAMPLE_OK.splitlines(), quiet=True)
     assert ok and len(ws) == 2, (ok, fails)
     assert ws[0]["io"]["read"] == 4194304 and ws[0]["io"]["cache"] == "on"   # loading window: 140 ms allowed
@@ -677,6 +686,23 @@ def main(argv):
             if a.bench:
                 with open(a.bench, errors="replace") as b:
                     cpi_report(log_lines, b.read().splitlines())
+        elif a.cmd == "frames":
+            su, missing = [], []
+            if a.objects:
+                su, missing = read_su(a.objects)
+            elif a.build_dir:
+                for root, _, files in os.walk(a.build_dir):
+                    for name in files:
+                        if name.endswith(".su"):
+                            with open(os.path.join(root, name), errors="replace") as f:
+                                su.extend(f.read().splitlines())
+            else:
+                fr.error("give a build dir or --objects")
+            ok, _ = check_frames(su, guard_bytes(a.guard_header))
+            if missing:
+                print(f"frames: FAIL {len(missing)} of {len(a.objects)} objects have no .su file "
+                      f"(built before -fstack-usage? make clean), e.g. {missing[0]}")
+                ok = False
         elif a.cmd == "cpi":
             with open(a.log, errors="replace") as f, open(a.bench, errors="replace") as b:
                 overall, _ = cpi_report(f.read().splitlines(), b.read().splitlines(), a.top)

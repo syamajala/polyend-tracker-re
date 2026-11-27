@@ -14,6 +14,7 @@
 #include "audio/cpu_meter.h"
 #include "audio/effects.h"
 #include "audio/master_fx.h"
+#include "audio/export_resampler.h"
 #include "audio/governor.h"
 #include "audio/inserts.h"
 #include "audio/stream_source.h"
@@ -381,7 +382,13 @@ public:
                       void* ctx, bool resampleTo44100);
     // Stem block buffer for exportWav (~7 KB; SDRAM on the device). Without
     // one, exportWav allocates it for the export.
-    void setExportScratch(StemBlock* s) { exportScratch_ = s; }
+    // Export buffers from the memory layout (on the device the SDRAM layout,
+    // app_main.cpp): the stems and the 44.1 kHz conversion's history
+    // (ExportResampler::kMaxStems). Null: allocated per export.
+    void setExportScratch(StemBlock* s, ExportResampler::History* h = nullptr) {
+        exportScratch_ = s;
+        exportHistory_ = h;
+    }
 
     // Meters.
     float limiterGainReduction() const { return limL_.meanGain(); }
@@ -431,6 +438,7 @@ public:
     void synthApplyFx(uint8_t track, uint8_t type, uint8_t value) override;
     void synthMacroFx(uint8_t slot, uint8_t macro, uint8_t value) override;
     bool synthPreset(uint8_t slot, uint8_t n) override;
+    int synthPresetOf(uint8_t slot) override { return synth_.presetOf(slot); }
     void synthExpect(const SynthExpectNote* notes, int count) override;
     void synthTransportStop() override;
 
@@ -499,6 +507,7 @@ private:
 
     PreBlockFn hook_ = nullptr;
     StemBlock* exportScratch_ = nullptr;
+    ExportResampler::History* exportHistory_ = nullptr;   // [I] kMaxStems, or null
     void* hookCtx_ = nullptr;
     IMidiPort* midi_ = nullptr;
     const int16_t* lineIn_ = nullptr;

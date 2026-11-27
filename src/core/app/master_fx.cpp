@@ -30,6 +30,8 @@ struct FxState {
 };
 OT_SDRAM_BSS FxState g_fx;
 
+static_assert(mod::kMaxCardFx <= 32, "FxState keeps the card effects as bits of a word");
+
 uint32_t insertBit(int k) { return k >= 0 && k < 32 ? 1u << k : 0u; }
 
 bool fxOn(const mod::IModule* m) { return m && mod::pageOn(const_cast<mod::IModule*>(m)->page()); }
@@ -148,10 +150,10 @@ const char* App::turnMasterFx(int k, bool on) {
     }
     g_fx.pending |= insertBit(fx.card);
     g_fx.error[fx.card] = FxError::kNone;
-    if (seq.isPlaying() || seq.isArmed() || jobBusy()) return nullptr;   // loads at the next Stop
+    if (seq.isPlaying() || seq.isArmed() || jobBusy() || sampleTailBusy()) return nullptr;   // loads at the next Stop, or once the sample memory is free
     syncCardSynths(true);
     if (g_fx.error[fx.card] != FxError::kNone) {
-        static char t[64];
+        OT_SDRAM_BSS static char t[64];   // main-loop text: SDRAM on the device
         fxNotice(*this, fx.name, g_fx.error[fx.card], t, sizeof t);
         return t;
     }

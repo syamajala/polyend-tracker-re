@@ -4,7 +4,10 @@ name = "full"
 variant = "v"                 # image PolyendTrackerOTv<ver>.ptf (24 characters)
 display_name = "Full"         # shown with the version: boot splash, Config, diag log
 flash_modules_max = 125000     # sum of the modules' declared flash_max_bytes
-slot_inserts = false           # no synth slot inserts: the stack headroom has no room for their state
+# [I] No synth slot inserts on the fork (the fork has master, per-track and
+# Performance FX): the effects stay card master effects, and the slot-only
+# Phaser, Tremolo and Bitcrush aren't built. Upstream's Full has them on.
+slot_inserts = false
 
 modules = [
     # [I] Off (no sound, no settings): the only synth built in; a New Project's
@@ -28,6 +31,8 @@ modules = [
     { id = "HND1", path = "modules/hand", card = true },
     { id = "BTY1", path = "modules/btype", card = true },
     { id = "ARC1", path = "modules/arc", card = true },
+    { id = "1TY1", path = "modules/onetype", card = true },   # 1-Type (tools/sy1_to_patch for .sy1 patches)
+    { id = "VTY1", path = "modules/vtype", card = true },
     # [I] Effects (opentracker-fx, next to opentracker-synths) as card modules:
     # each loads while it is on (the FX bank, Shift + Master); the master chain
     # runs them in a fixed order (ModuleHost::chainOrder).

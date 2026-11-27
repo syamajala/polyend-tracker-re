@@ -13,3 +13,5 @@ dist/
 tools/theory_check/node_modules/
 build/
 syncv3.sh
+__pycache__/
+*.orig

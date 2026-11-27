@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""RAM_DL check on the FT81x emulator (#71): replays frames saved by
+"""RAM_DL check on the FT81x emulator: replays frames saved by
 opentracker-sim --frames on Bridgetek's EVE emulator and fails when a frame
 faults the coprocessor, builds more than 2048 RAM_DL words, or differs from
 the UI's own count by more than --tol words.
@@ -8,7 +8,7 @@ the UI's own count by more than --tol words.
 
 Each FRAMES_DIR holds NAME.otf files and index.txt ("NAME WORDS": the UI's
 RAM_DL count of that frame without the driver's font setup). `make -C sim
-eve-check` records them from the display budget scripts and runs this.
+eve-check` records them from the display budget script and runs this.
 
 The emulator (bt8xxemu.dll, Windows x64, Bridgetek's licence: free for EVE
 development, not redistributable on its own) is downloaded at a pinned
@@ -99,7 +99,7 @@ def main():
                 index[name] = int(words)   # a repeated name: the last frame
         otfs = [os.path.join(d, n + ".otf") for n in sorted(index)]
         # NAME.text.otf: the same screen with its text as CMD_TEXT, the pixel
-        # reference for the glyph runs (#71 part 4).
+        # reference for the glyph runs.
         refs = {n for n in index if os.path.exists(os.path.join(d, n + ".text.otf"))}
         otfs += [os.path.join(d, n + ".text.otf") for n in sorted(refs)]
         cmd_dir = os.path.join(d, "cmd")
