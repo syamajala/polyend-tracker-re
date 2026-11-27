@@ -361,8 +361,7 @@ TEST(mini_slot_sanitiser) {
         float f;
     };
     const float nan = std::nanf("");
-    // Model 5 is the first bad model (stock; the fork's DX7 is a module engine
-    // since #21, in project.ot3x).
+    // Model 5 is the first bad model (stock; module engines are in project.ot3x).
     const Bad bad[] = {
         {0x00, 0, true, 12.01f},  {0x00, 0, true, -96.5f}, {0x00, 0, true, nan},
         {0x04, 9, false, 0},      {0x08, 5, false, 0},      {0x08, 0xFFFFFFFFu, false, 0},

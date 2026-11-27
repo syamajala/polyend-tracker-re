@@ -62,4 +62,4 @@ enc 1                    # Length: 1 bar
 tap F8                   # Record (starts on the next bar)
 wait 5000
 expect-resample 1 3000
-expect-instrument 1 80000 Resample USB
+expect-instrument 1 80000 Resample USB 001

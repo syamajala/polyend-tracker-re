@@ -4,7 +4,7 @@
 #   make testsongs && make -C sim && tools/docs_screens.sh [NAME ...]
 # Two scratch cards: "project" (the generated test songs, with "BG World 1"
 # open as the workspace) and "empty" (a fresh project, plus the generated
-# example DX7 bank, sim/fixtures/make_dx7_bank.py). No third-party content.
+# example bank of DX7 voices for 6-Type, sim/fixtures/make_dx7_bank.py). No third-party content.
 # Each shot is its own run from a fresh card, so they don't depend on each
 # other. PNGs are optimised with Pillow when it is installed.
 set -eu
@@ -20,8 +20,8 @@ mkdir -p "$out"
 
 card() {   # card KIND DIR
     rm -rf "$2" "$2.eeprom"   # the sim keeps Config in DIR.eeprom: start clean
-    mkdir -p "$2/Patches/DX7"
-    python3 "$root/sim/fixtures/make_dx7_bank.py" "$2/Patches/DX7/Example bank.syx"
+    mkdir -p "$2/Patches/6TYPE"
+    python3 "$root/sim/fixtures/make_dx7_bank.py" "$2/Patches/6TYPE/Example bank.syx"
     mkdir -p "$2/MidiPresets"   # an example MIDI preset (#13)
     printf '# OpenTracker MIDI preset\nslot A = 74\nslot B = 71\nslot C = 73\nslot D = 72\nslot E = 1\nslot F = PC\ncc 1 = Mod\ncc 3 = LFO Rate\ncc 71 = Resonance\ncc 72 = Release\ncc 73 = Attack\ncc 74 = Cutoff\ncc 75 = Decay\ncc 76 = Fine Tune\nlfo target = slot A\nlfo depth = 30\n' \
         > "$2/MidiPresets/Example synth.txt"
@@ -384,9 +384,9 @@ tap F6
 wait 600
 EOF
 
-# DX7: Synth 1 switched to DX7 on a fresh project, then Load Patch with the
+# 6-Type: Synth 1 switched to 6-Type on a fresh project, then Load Patch with the
 # example bank, and the bank opened.
-shot dx7-params empty <<'EOF'
+shot sixtype-params empty <<'EOF'
 wait 300
 press INSTR
 wait 400
@@ -414,21 +414,11 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
-tap DOWN
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP               # Model: the last (Arc-Type), then up to DX7
+tap DOWN             # Model: the last (6-Type)
 wait 2500
 EOF
 
-shot dx7-load empty <<'EOF'
+shot sixtype-load empty <<'EOF'
 wait 300
 press INSTR
 wait 400
@@ -456,23 +446,13 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
-tap DOWN
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP               # Model: the last (Arc-Type), then up to DX7
+tap DOWN             # Model: the last (6-Type)
 wait 2500
 tap F7               # Load Patch
 wait 400
 EOF
 
-shot dx7-bank empty <<'EOF'
+shot sixtype-bank empty <<'EOF'
 wait 300
 press INSTR
 wait 400
@@ -500,17 +480,7 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
-tap DOWN
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP               # Model: the last (Arc-Type), then up to DX7
+tap DOWN             # Model: the last (6-Type)
 wait 2500
 tap F7
 wait 300
@@ -521,9 +491,9 @@ tap DOWN
 wait 300
 EOF
 
-# DX7 Edit Patch: the Tone section (the controls on top of the voice), and
+# 6-Type Edit Patch: the Tone section (the controls on top of the voice), and
 # the Synth Macros page with M1-M6 aimed at them.
-shot dx7-tone empty <<'EOF'
+shot sixtype-tone empty <<'EOF'
 wait 300
 press INSTR
 wait 400
@@ -551,17 +521,7 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
-tap DOWN
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP               # Model: the last (Arc-Type), then up to DX7
+tap DOWN             # Model: the last (6-Type)
 wait 2500
 tap F8               # Edit Patch
 wait 300
@@ -713,7 +673,7 @@ tap RIGHT
 wait 300
 EOF
 
-shot dx7-macros empty <<'EOF'
+shot sixtype-macros empty <<'EOF'
 wait 300
 press INSTR
 wait 400
@@ -741,17 +701,7 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
-tap DOWN
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP               # Model: the last (Arc-Type), then up to DX7
+tap DOWN             # Model: the last (6-Type)
 wait 2500
 tap INSTRPARAMS      # Synth Macros
 wait 200

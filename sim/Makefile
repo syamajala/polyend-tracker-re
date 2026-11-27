@@ -121,11 +121,11 @@ check: $(BIN) $(JPEG_CHECK) $(HOST_STORAGE_CHECK) visual-diff keyflow-check
 	rm -rf $(OUT)/check-dl $(OUT)/check-dl.eeprom
 	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/check-dl \
 	    --script scripts/display_budget.txt
-	# The fork's own screens (#38): Resample, Performance master FX, DX7 and its
-	# .syx bank browser, MIDI LFO. A test tone on line in, a synthetic DX7 bank.
+	# The fork's own screens (#38): Resample, Performance master FX, 6-Type and its
+	# .syx bank browser, MIDI LFO. A test tone on line in, a synthetic DX7-format bank.
 	rm -rf $(OUT)/check-fork $(OUT)/check-fork.eeprom
-	mkdir -p $(OUT)/check-fork/Patches/DX7
-	python3 fixtures/make_dx7_bank.py $(OUT)/check-fork/Patches/DX7/testbank.syx
+	mkdir -p $(OUT)/check-fork/Patches/6TYPE
+	python3 fixtures/make_dx7_bank.py $(OUT)/check-fork/Patches/6TYPE/testbank.syx
 	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/check-fork --line-in-tone 440 \
 	    --script scripts/fork_screens.txt
 	# Resampling end to end (#38): takes into instruments, placed on a track, played.
@@ -164,10 +164,10 @@ TESTSONGS_STEMS_SECONDS ?= 20
 # emulator is downloaded (pinned, checksummed) into build/eve_emu.
 eve-check: $(BIN)
 	rm -rf $(OUT)/eve $(OUT)/eve-dl $(OUT)/eve-dl.eeprom $(OUT)/eve-fork $(OUT)/eve-fork.eeprom
-	mkdir -p $(OUT)/eve/budget $(OUT)/eve/fork $(OUT)/eve-fork/Patches/DX7
+	mkdir -p $(OUT)/eve/budget $(OUT)/eve/fork $(OUT)/eve-fork/Patches/6TYPE
 	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/eve-dl \
 	    --script scripts/display_budget.txt --frames $(OUT)/eve/budget
-	python3 fixtures/make_dx7_bank.py $(OUT)/eve-fork/Patches/DX7/testbank.syx
+	python3 fixtures/make_dx7_bank.py $(OUT)/eve-fork/Patches/6TYPE/testbank.syx
 	SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy $(BIN) --sd $(OUT)/eve-fork --line-in-tone 440 \
 	    --script scripts/fork_screens.txt --frames $(OUT)/eve/fork
 	python3 $(ROOT)/tools/eve_emu/check.py $(OUT)/eve/budget $(OUT)/eve/fork

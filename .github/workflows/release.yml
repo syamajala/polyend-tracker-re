@@ -68,7 +68,7 @@ jobs:
         run: make -j"$(nproc)" VERSION=${{ steps.ver.outputs.version }}
       - name: Flash, stack headroom and libm checks
         run: python3 tools/telemetry_check.py size --size-tool arm-none-eabi-size build/full/opentracker.elf
-      # [I] #21 the card modules (DX7), as the card folder Modules/, and #176 the
+      # [I] #21 the card modules (6-Type ...), as the card folder Modules/, and #176 the
       # help files (make help: Help/Synths/, Help/Config.md), in one zip.
       - name: Card modules zip
         run: |

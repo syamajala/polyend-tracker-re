@@ -54,8 +54,8 @@ moves:
 The **Synth Macros** page lists under each bar the settings its macro moves, with **+** or
 **−** for the direction, or "not set".
 
-An Init patch starts with no macros set; DX7 voices come with M1–M6 on the six Tone
-controls (see [DX7](dx7.md)).
+An Init patch starts with no macros set; 6-Type voices come with M1–M6 on the six Tone
+controls (see [6-Type](sixtype.md)).
 
 ## The help box
 

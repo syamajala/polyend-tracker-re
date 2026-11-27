@@ -21,15 +21,13 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 | Live resampling | Performance scenes and master FX |
 |---|---|
 | ![Resample screen](screenshots/fork/resample.png) | ![Performance FX with scenes](screenshots/fork/performance.png) |
-| **DX7 synth: Load Patch with .syx banks** | **DX7 synth: a bank's voices** |
-| ![DX7 Load Patch](screenshots/fork/dx7-load.png) | ![DX7 bank voices](screenshots/fork/dx7-bank.png) |
 | **MIDI instrument LFO** | **Pattern** |
 | ![MIDI Instrument LFO](screenshots/fork/midi-lfo.png) | ![Pattern](screenshots/fork/pattern.png) |
 
 ### Card synths and effects
 - Synths and effects as **card modules** (`.otm` files in `Modules/` on the SD card; see
-  Install): eleven synths (DX7, FM4, JU6, D-Type, CS-Type, A-Type, T-Type drums, 8-Type,
-  Hand-Type, B-Type, Arc-Type) and six master effects (Dirt, LoFi, Chorus, BBD chorus, Echo,
+  Install): every synth but Off (ACD, FAT, VAP, WTFM, PERC, FM4, JU6, D-Type, CS-Type, A-Type,
+  T-Type drums, 8-Type, Hand-Type, B-Type, Arc-Type, 1-Type, V-Type, 6-Type) and six master effects (Dirt, LoFi, Chorus, BBD chorus, Echo,
   Tape). A module loads only while the project uses it, into a shared card memory (about 45 KB:
   what the stack floor leaves).
 - **Master effects:** the **FX bank** (Shift + Master) turns the card effects on and off and
@@ -45,36 +43,6 @@ Screenshots are from the desktop simulator, which runs the same code as the firm
 ### Instrument library
 - **Save** a set-up sample instrument to `Instruments/<name>.pti` and **Load** it into any
   project (Instrument Effects page, F6 / F7). The files are stock `.pti` instruments.
-
-### DX7 FM synth
-- A **6-operator FM engine that plays Yamaha DX7 voices**, a card synth next to ACD, FAT,
-  VAP, WTFM and PERC: copy `dx7.otm` to `Modules/` and pick **DX7** in a synth slot's Model
-  list.
-- **Load Patch** lists the `.syx` files in `Patches/DX7/`:
-  - 32-voice banks come first and open like folders. Pick a voice, Preview it, Confirm;
-    **Left** goes back to the folder.
-  - Single-voice `.syx` files sit with the patches and preview and load directly.
-  - A loaded voice is named after the voice. **Save** writes it as a normal `.patch` file
-    (the voice is stored inside it).
-- The sound core is a port of Google's Music Synthesizer for Android (msfa, Apache 2.0),
-  checked against Dexed. Our additions: amplitude modulation, the feedback loops of
-  algorithms 4 and 6, key sync.
-- **Edit Patch** has controls that work on top of any loaded voice, without an operator
-  editor:
-  - **Voice:** Volume, and **Mono** for polyphony 1 slots: **Retrigger** (default; every
-    note restarts like a new voice) or **Legato** (a note that overlaps the held one only
-    moves the pitch).
-  - **Tone:** **Brightness** (modulator levels, ±12 dB), **Feedback** (±7 on the voice's
-    own), **Attack** and **Release** (envelope rates, + = slower / longer), **LFO Depth**
-    (0–200 % of the voice's vibrato and tremolo, up to the DX7's maximum) and **Detune**
-    (spreads the operators up to ±7 cents).
-  - A DX7 patch's **macros M1–M6** come aimed at the six Tone controls, named after them,
-    so a voice can be shaped from the Synth Macros page or with step FX.
-- **Velocity** (the Volume step FX) works as on a DX7: through each operator's velocity
-  sensitivity in the voice, so it can change the tone as well as the level. Voices with
-  sensitivity 0 ignore it; aim M7 (Velocity) at Volume on those if you want it.
-- About 6 % CPU per voice (estimated).
-- A Tracker Mini has no DX7 model: it resets a DX7 slot to its default.
 
 ### Live resampling
 - Record **the master mix, one track (including the synth it plays) or Line in** while the
@@ -394,7 +362,7 @@ the whole 2.x line (2.0 to 2.2.5); the full list is in the release notes of the
    after the update, press the power button once.
 3. **Modules:** download `Modules.zip` from the same release, unzip it and copy its
    `Modules` folder to the top of the SD card (replace all files of an existing
-   `Modules` folder), then restart. This adds DX7 and the other card synths and the master
+   `Modules` folder), then restart. This adds the card synths and the master
    effects. Modules only load on the firmware version they came with, so copy the new set
    with every update. Details:
    [Install the modules](https://syamajala.github.io/polyend-tracker-re/install/#install-the-modules).
@@ -440,8 +408,8 @@ pool (all the room the 25 KB stack floor leaves, about 45 KB) stays unloaded, wi
 memory full" on its slot; the slots get the room first, then the presets, and two slots on one engine load it once. A profile entry with `card = true`
 stays out of the image, and `make card` builds it into `build/<profile>/otm/`; the host
 builds (tests, simulator, tools) compile it in. `full` builds in only Off; its other
-synths (ACD, FAT, VAP, PERC, WTFM, DX7, FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type,
-8-Type, Hand, B-Type, ARC, 1-Type, V-Type) and all its effects are card modules. 1-Type's .sy1 patches convert on a computer with `tools/sy1_to_patch`
+synths (ACD, FAT, VAP, PERC, WTFM, FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type,
+8-Type, Hand, B-Type, ARC, 1-Type, V-Type, 6-Type) and all its effects are card modules. 1-Type's .sy1 patches convert on a computer with `tools/sy1_to_patch`
 (Patches/1TYPE/). The fork's pool has about 9 KB less room than upstream's, so 1-Type and
 V-Type don't fit together: the second says "Card memory full". The fork's `full` has no synth
 slot inserts (`slot_inserts = false`; upstream's has them), so its effects are all master
@@ -451,6 +419,17 @@ while it is on.
 Leaving USB Storage mode lists `Modules/` again, so a synth module added, replaced or
 removed from a computer takes effect without a restart; a module loaded for good at boot
 (an effect) stays as the boot loaded it and still needs one.
+
+**Patch files of another format.** A synth module's descriptor may name a file type of its
+own (`PatchImport` in `src/core/modules/synth_descriptor.h`, for example a 6-Type `.syx`
+bank), and Load Patch then lists those files in `Patches/<engine>/` beside the `.patch`
+files. A file of at least the module's bank size comes first and opens like a folder (F8
+or Right; Left goes back): its patches preview, play on the pads and load like `.patch`
+files. A smaller file sits with the patches and loads at once. A loaded patch is the
+engine's Init patch plus what the module reads from the file, named after it, and Save
+writes it as a normal `.patch`. The descriptor's `initPatch` adds the engine's own data to
+its Init patch; modules keep such data in patch fields of their own
+(`patchOpaqueBytes` / `patchSetOpaqueBytes`, exported to card modules).
 
 A synth's `.otm` carries its **hot row**: the functions that do most of its work, hottest
 first, from `tools/hot_rows/<module>.hot`. When the image has a fast block in SRAM_L, the

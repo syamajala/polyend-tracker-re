@@ -87,7 +87,7 @@ constexpr uint32_t synthSlotOff(int s) { return kSynthSlots + kSynthSlotSize * u
 }  // namespace mt
 
 // Slot model index (spec 21 §3.3 +0x08) and its patch engine id (§7, §8).
-// Module engines (DX7 too, fork #21) keep a Mini model here and their engine
+// Module engines (6-Type too) keep a Mini model here and their engine
 // id in project.ot3x (App::slotEngineId).
 enum class SynthModel : uint8_t { ACD = 0, FAT = 1, VAP = 2, WTFM = 3, PERC = 4 };
 constexpr int kSynthModelCount = 5;

@@ -48,7 +48,7 @@ Projects must keep opening in stock firmware, upstream OpenTracker and the Track
 | `usb_audio.bin` | the Global Mixer USB level and mute, and whether the Sample Recorder records USB |
 | `timing.bin` | each pattern's per-track Speed and Groove (#43 / #83), one record per pattern off the defaults |
 | `multisample.bin` | the root notes of each multisample instrument's zones and whether it plays in Multi mode (the `.pti` is a plain Slice instrument) |
-| `.patch` field 100 | a DX7 voice (155 bytes), past every Mini field |
+| `.patch` field 100 | a 6-Type (DX7) voice (155 bytes), past every Mini field |
 
 - Side files are versioned and written only when they hold something. The fork has no
   installed base yet, so their layouts can still change without migration code; stock

@@ -37,7 +37,7 @@ until you pick a synth in a slot's **Model** list (Off is at the top of it).
 2. Unzip it. It holds two folders: `Modules`, with the `.otm` files, and `Help`, with the
    help texts of [Edit Patch](guide/edit-patch.md) and of Config.
 3. Copy both folders to the top of the SD card, so the files sit in `/Modules/` (for
-   example `/Modules/dx7.otm`) and `/Help/`. If the folders are already there, **replace all
+   example `/Modules/sixtype.otm`) and `/Help/`. If the folders are already there, **replace all
    of their files**.
 4. Restart the Tracker.
 
@@ -45,7 +45,7 @@ What's in it:
 
 | Kind | Modules |
 |---|---|
-| Synths | `acd` (ACD), `fat` (FAT), `vap` (VAP), `wtfm` (WTFM), `perc` (PERC), `dx7` (DX7), `fm4` (FM4), `ju6` (JU6), `dtype` (D-Type), `cstype` (CS-Type), `atype` (A-Type), `ttype` (T-Type drums), `eight` (8-Type), `hand` (Hand-Type), `btype` (B-Type), `arc` (Arc-Type) |
+| Synths | `acd` (ACD), `fat` (FAT), `vap` (VAP), `wtfm` (WTFM), `perc` (PERC), `fm4` (FM4), `ju6` (JU6), `dtype` (D-Type), `cstype` (CS-Type), `atype` (A-Type), `ttype` (T-Type drums), `eight` (8-Type), `hand` (Hand-Type), `btype` (B-Type), `arc` (Arc-Type), `onetype` (1-Type), `vtype` (V-Type), `sixtype` (6-Type) |
 | Effects | `dirt`, `lofi`, `chorus`, `bbd`, `echo`, `tape` |
 
 - The card synths show in a synth slot's **Model** list, and the effects in the

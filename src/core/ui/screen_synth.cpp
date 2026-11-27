@@ -189,6 +189,10 @@ constexpr size_t kInitPatchAt = (synthhelp::kMaxFile + 1 + kBrowserListAlign - 1
 static_assert(kInitPatchAt + sizeof(SynthPatch) <= kBrowserListBytes && alignof(SynthPatch) <= kBrowserListAlign,
               "the help text and the Init patch fit the browser lists");
 
+// [I] The patch browser's names and kinds share the browser lists.
+static_assert(SynthScreen::kBrowserMax * (SynthScreen::kBrowserEntryMax + 1 + sizeof(SynthScreen::Entry)) <= kBrowserListBytes,
+              "the patch browser fits the browser lists");
+
 bool sortName(const char* a, const char* b) {
     for (;; ++a, ++b) {
         char x = *a, y = *b;
@@ -419,6 +423,7 @@ void SynthScreen::retarget() {
     if (app_.synthPresetsEpoch() != shownEpoch_) {
         shownEpoch_ = app_.synthPresetsEpoch();
         editedBits_ = 0;
+        importedBits_ = 0;
         opened_ = 0;
     }
     if (opened_ && !app_.synthPresetUsed(opened_)) opened_ = 0;
@@ -542,7 +547,7 @@ void SynthScreen::refreshBar() {
         case View::Browser:
             // Tracker+ 1.0 Load Patch popup: F5-F6 Preview, F7 Cancel, F8 Confirm.
             for (int i = 0; i < 4; ++i) b.label[i].hidden = true;
-            // [I] A highlighted bank (DX7 .syx) shows Open, nothing to preview.
+            // [I] A highlighted bank (6-Type .syx) shows Open, nothing to preview.
             const bool onBank = browserSel >= 0 && browserSel < browserCount && browserKind[browserSel] == Entry::Bank;
             b.setWide(4, "Preview", nullptr, browserCount > 0 && !ro && !onBank);
             b.set(6, "Cancel");
@@ -783,9 +788,8 @@ void SynthScreen::listBrowser() {
     std::snprintf(dir, sizeof(dir), "Patches/%s", synthEngineFolder(eng));
     struct Ctx {
         SynthScreen* s;
-        const mod::PatchImport* im;   // [I] the engine's other patch files (DX7 .syx), or nullptr
-    } ctx{this, nullptr};
-    if (const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(eng)) ctx.im = d->import;
+        const mod::PatchImport* im;   // [I] the engine's other patch files (6-Type .syx), or nullptr
+    } ctx{this, mod::ModuleHost::instance().patchImport(eng)};
     app_.fs().listDir(dir, [](const IStorage::DirEntry& e, void* c) {
         auto* x = static_cast<Ctx*>(c);
         SynthScreen* s = x->s;
@@ -801,7 +805,7 @@ void SynthScreen::listBrowser() {
         Entry kind = Entry::Patch;
         if (hasExt(".patch", 6) && n - 6 <= size_t(kBrowserNameMax)) len = 6;
         else if (x->im && hasExt(x->im->ext, std::strlen(x->im->ext)) && n <= size_t(kBrowserEntryMax))
-            // Whole name; a file of a bank's size lists as a bank (DX7: a
+            // Whole name; a file of a bank's size lists as a bank (6-Type: a
             // 32-voice dump is 4104 bytes, a single voice 163).
             kind = e.size >= x->im->bankBytes ? Entry::Bank : Entry::Single;
         else return true;
@@ -870,6 +874,7 @@ void SynthScreen::applyModel() {
     if (pendingModel_ < 0) return;
     audition(false, 0);
     editedBits_ = uint16_t(editedBits_ & ~editBit());
+    importedBits_ = uint16_t(importedBits_ & ~editBit());
     app_.setSynthTargetEngine(slot, synthModelListEngine(pendingModel_), et_);
     pendingModel_ = -1;
     section = row = 0;
@@ -952,6 +957,7 @@ bool SynthScreen::loadSelectedNow() {
     previewSel_ = -1;
     const uint16_t bit = editBit();
     bool ok;
+    const bool imported = browserKind[browserSel] == Entry::Voice || browserKind[browserSel] == Entry::Single;
     switch (browserKind[browserSel]) {
         case Entry::Voice: ok = app_.loadImportPatch(slot, browserSel, et_); break;
         case Entry::Single: ok = app_.openPatchImport(slot, browser[browserSel], et_) > 0 && app_.loadImportPatch(slot, 0, et_); break;
@@ -960,6 +966,7 @@ bool SynthScreen::loadSelectedNow() {
     if (ok) {
         bank[0] = 0;
         editedBits_ = uint16_t(editedBits_ & ~bit);
+        importedBits_ = uint16_t(imported ? importedBits_ | bit : importedBits_ & ~bit);
         view = View::Params;   // Confirm closes the popup
         ui_.closePopupHeader();
     }
@@ -977,6 +984,7 @@ void SynthScreen::initPatch() {
                 auto* s = static_cast<SynthScreen*>(c);
                 if (key != btn::F8 || s->askStale()) return;
                 s->editedBits_ = uint16_t(s->editedBits_ & ~s->editBit());
+                s->importedBits_ = uint16_t(s->importedBits_ & ~s->editBit());
                 s->app_.initSynthTargetPatch(s->slot, s->et_);
                 s->section = s->row = 0;
                 s->ui_.notify("Init patch loaded");
@@ -992,15 +1000,40 @@ void SynthScreen::savePatch() {
         savePatchAs();
         return;
     }
+    if (importedBits_ & editBit()) {   // not saved yet: a library patch of its name is another one
+        std::snprintf(pendingName_, sizeof(pendingName_), "%s", r.patchName);
+        bindAsk();
+        saveNamed();
+        return;
+    }
     const bool ok = app_.saveSynthLibraryPatch(slot, r.patchName, et_);
     if (ok) editedBits_ = uint16_t(editedBits_ & ~editBit());
     ui_.notify(ok ? "Patch saved" : "Patch could not be saved");
     refreshBar();
 }
 
+void SynthScreen::saveNamed() {
+    char path[96];
+    std::snprintf(path, sizeof(path), "Patches/%s/%s.patch", synthEngineFolder(app_.synthTargetEngine(slot, et_)), pendingName_);
+    if (app_.fs().exists(path)) {
+        askBound_ = true;   // the target the question is about (askStale kept it)
+        ui_.ask("Patch exists", "Overwrite?", nullptr, "Cancel", "Overwrite",
+                [](void* c, int key) {
+                    auto* s = static_cast<SynthScreen*>(c);
+                    if (key == btn::F8 && !s->askStale()) s->saveAsNow();
+                },
+                this);
+        return;
+    }
+    saveAsNow();
+}
+
 void SynthScreen::saveAsNow() {
     const bool ok = app_.saveSynthLibraryPatch(slot, pendingName_, et_);
-    if (ok) editedBits_ = uint16_t(editedBits_ & ~editBit());
+    if (ok) {
+        editedBits_ = uint16_t(editedBits_ & ~editBit());
+        importedBits_ = uint16_t(importedBits_ & ~editBit());
+    }
     ui_.notify(ok ? "Patch saved" : "Patch could not be saved");
     refreshBar();
     ui_.dirty();
@@ -1027,20 +1060,7 @@ void SynthScreen::savePatchAs() {
                     }
                     for (char* q = name; *q; ++q)
                         if (*q == '/' || *q == '\\') *q = '_';
-                    char path[96];
-                    std::snprintf(path, sizeof(path), "Patches/%s/%s.patch", synthEngineFolder(s->app_.synthTargetEngine(s->slot, s->et_)),
-                                  name);
-                    if (s->app_.fs().exists(path)) {
-                        s->askBound_ = true;   // the target of the keyboard (askStale kept it)
-                        s->ui_.ask("Patch exists", "Overwrite?", nullptr, "Cancel", "Overwrite",
-                                   [](void* c2, int key) {
-                                       auto* s2 = static_cast<SynthScreen*>(c2);
-                                       if (key == btn::F8 && !s2->askStale()) s2->saveAsNow();
-                                   },
-                                   s);
-                        return;
-                    }
-                    s->saveAsNow();
+                    s->saveNamed();
                 },
                 this);
 }
@@ -1237,7 +1257,7 @@ void SynthScreen::onButton(uint8_t id, uint8_t state) {
             } else if (id == btn::Up || id == btn::Down) {
                 browserSel = clampi(browserSel + (id == btn::Down ? 1 : -1), 0, browserCount > 0 ? browserCount - 1 : 0);
             } else if (id == btn::Left) {
-                if (bank[0]) closeBank();   // out of a bank (DX7 .syx)
+                if (bank[0]) closeBank();   // out of a bank (6-Type .syx)
             } else if (id == btn::Right) {
                 if (!ro && browserSel < browserCount && browserKind[browserSel] == Entry::Bank) loadSelected();
             } else if (!btn::isFKey(id)) {

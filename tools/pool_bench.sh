@@ -15,7 +15,7 @@ port=$1
 image=$2
 shift 2
 mkdir -p "bench/$image"
-names="ACD PERC FM4S CS-Type 8-Type DX7 VAP FAT WTFM JU6 D-Type A-Type T-Type Hand B-Type ARC"
+names="ACD PERC FM4S CS-Type 8-Type 6-Type VAP FAT WTFM JU6 D-Type A-Type T-Type Hand B-Type ARC"
 for n in "$@"; do
     name=$(echo $names | cut -d' ' -f"$n")
     [ -n "$name" ] || { echo "pool_bench: no song $n (1..16)"; exit 1; }

@@ -13,7 +13,7 @@ import statistics
 import sys
 
 CPU = re.compile(r"telemetry: cpu avg=[\d.]+% peak=[\d.]+% overruns=(\d+) .*synth_voices=(\d+) cyc_per_voice=(\d+)")
-SONGS = ["ACD", "PERC", "FM4S", "CS-Type", "8-Type", "DX7", "VAP", "FAT", "WTFM",
+SONGS = ["ACD", "PERC", "FM4S", "CS-Type", "8-Type", "6-Type", "VAP", "FAT", "WTFM",
          "JU6", "D-Type", "A-Type", "T-Type", "Hand", "B-Type", "ARC"]
 
 

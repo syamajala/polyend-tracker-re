@@ -314,6 +314,10 @@ bool patchOpaqueBytes(const SynthPatch& p, uint32_t field, const uint8_t** data,
 }
 
 bool patchSetOpaqueBytes(SynthPatch& p, uint32_t field, const uint8_t* data, size_t len) {
+    // A valid field number that encodePatch does not write itself (it would
+    // be written twice, and the decoder would take it for its own).
+    if (field == 0 || field > 0x1FFFFFFFu) return false;
+    if (field == 1 || (field >= 6 && field <= 9) || field == kPatchExtField) return false;
     if (p.opaqueLen > kPatchOpaqueMax) return false;
     uint8_t enc[kPatchOpaqueMax];
     Writer w{enc, enc + sizeof(enc)};
@@ -369,8 +373,6 @@ PatchStatus decodePatch(const uint8_t* data, size_t len, SynthPatch* out) {
             case 1:
                 PB_EXPECT_WT(wt, kWtVarint);
                 PB_TRY(readInt32(r, &out->engine));
-                // [I] DX7 patches from before it became a module (fork #21).
-                if (out->engine == kSynthEngineDx7Legacy) out->engine = kSynthEngineDx7;
                 break;
             case 6: {
                 PB_EXPECT_WT(wt, kWtLen);
@@ -589,8 +591,6 @@ const char* patchEngineName(int32_t engine) {
         case kSynthEngineVap: return "VAP";
         case kSynthEngineWtfm: return "WTFM";
         case kSynthEnginePerc: return "PERC";
-        // [I] Named without its card module too: "Synth 1 (DX7) not available".
-        case kSynthEngineDx7: return "DX7";
         default: break;
     }
     const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(engine);
@@ -636,7 +636,7 @@ bool patchInit(int32_t engine, SynthPatch* out) {
         m.targets[0].amountBits = patchFloatToBits(1.0f);
     }
     out->extraPresent = true;
-    // [I] The engine's own additions (DX7: the voice, macro presets).
+    // [I] The engine's own additions (its descriptor's initPatch).
     const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(engine);
     if (d && d->initPatch) d->initPatch(*out);
     return true;

@@ -51,16 +51,13 @@ OT_SDRAM_BSS uint8_t g_previewPreset;   // [3.x] 1..8: the preview plays in that
 // [I] The open import file (openPatchImport; main loop only): its name, the
 // engine whose folder and format it is, its patch count and length. Its
 // bytes live in the scratch, which jobs share: every preview / load reads
-// the file again.
-char g_importFile[64];
-int32_t g_importEngine = 0;
-int g_importCount = 0;
-uint32_t g_importLen = 0;
+// the file again. Main-loop data: SDRAM on the device.
+OT_SDRAM_BSS char g_importFile[64];
+OT_SDRAM_BSS int32_t g_importEngine;
+OT_SDRAM_BSS int g_importCount;
+OT_SDRAM_BSS uint32_t g_importLen;
 
-const mod::PatchImport* importOf(int32_t engine) {
-    const mod::SynthDescriptor* d = mod::ModuleHost::instance().synthDescriptor(engine);
-    return d ? d->import : nullptr;
-}
+const mod::PatchImport* importOf(int32_t engine) { return mod::ModuleHost::instance().patchImport(engine); }
 }  // namespace
 
 SynthPatch* App::scratchPatch() {
@@ -225,7 +222,7 @@ int App::readPatchImport() {
     g_importLen = 0;
     const char* file = g_importFile;
     const mod::PatchImport* im = importOf(g_importEngine);
-    if (!im || im->maxBytes > kPatchMaxFileSize) return 0;
+    if (!im) return 0;   // none, or incomplete (ModuleHost::patchImport)
     if (!mem_.scratch || mem_.scratchBytes < kPatchTmpOff + sizeof(SynthPatch)) return 0;
     if (!file[0] || std::strchr(file, '/')) return 0;
     if (jobBusy()) finishJob();   // the job shares the scratch
@@ -251,8 +248,8 @@ void App::importPatchName(int k, char* out, int cap) const {
     int n = 0;
     for (; out[n]; ++n) {
         const char c = out[n];
-        // Printable ASCII; path separators would make a bad file name on Save.
-        if (c < 0x20 || c > 0x7E || c == '/' || c == '\\') out[n] = '_';
+        // Printable ASCII that a FAT file name can hold (Save names the file after it).
+        if (c < 0x20 || c > 0x7E || std::strchr("/\\*?<>|:\"", c)) out[n] = '_';
     }
     if (!n) std::snprintf(out, size_t(cap), "Voice %d", k + 1);
 }

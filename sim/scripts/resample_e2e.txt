@@ -22,7 +22,7 @@ enc 1                # Place on: Track 1
 tap F8               # Record (starts on the next bar)
 wait 5000            # <= 1 bar to the start + 1 bar at 125 BPM (1.92 s each)
 expect-resample 1 3000
-expect-instrument 1 80000 Resample Line in
+expect-instrument 1 80000 Resample Line in 001
 tap PLAY
 wait 300
 line-in off
@@ -46,5 +46,5 @@ enc -1               # Place on: Off
 tap F8
 wait 5000
 expect-resample 2 1000
-expect-instrument 2 80000 Resample Master
+expect-instrument 2 80000 Resample Master 001
 tap PLAY

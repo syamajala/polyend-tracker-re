@@ -1,51 +1,51 @@
-# DX7 synth
+# 6-Type synth
 
-A **6-operator FM engine that plays Yamaha DX7 voices**, a synth model next to ACD, FAT,
-VAP, WTFM and PERC. Thousands of free DX7 voices exist as SysEx (`.syx`) files; the
+**6-Type** is a **6-operator FM engine that plays Yamaha DX7 voices**, a synth model next to
+ACD, FAT, VAP, WTFM and PERC. Thousands of free DX7 voices exist as SysEx (`.syx`) files; the
 Tracker plays them directly.
 
 ## Install it
 
-DX7 comes as a file on the SD card rather than in the firmware, which leaves room for
+6-Type comes as a file on the SD card rather than in the firmware, which leaves room for
 other features:
 
-1. Copy **`dx7.otm`** (in `Modules.zip` on the release page) into **`Modules/`** on the
+1. Copy **`sixtype.otm`** (in `Modules.zip` on the release page) into **`Modules/`** on the
    SD card.
 2. Restart the Tracker, or if you copied the file in USB storage mode, just leave USB
-   storage mode. DX7 now shows in the **Model** list. It loads when a project
+   storage mode. 6-Type now shows in the **Model** list. It loads when a project
    uses it: pick it as the Model and it's ready a moment later (while the song plays,
    it loads when you press Stop).
 
-Without the file, a project that uses DX7 still opens, with the notice
-"Synth 1 (DX7) not available"; put the file back to play it.
+Without the file, a project that uses 6-Type still opens, with a notice that the synth
+isn't available; put the file back to play it.
 
-DX7 takes about 18 KB of the card memory (about 45 KB) that card synths and
-[card effects](master-fx.md) share, so with DX7 loaded not every effect fits.
+6-Type takes about 25 KB of the card memory (about 46 KB) that card synths and
+[card effects](master-fx.md) share, so with 6-Type loaded not every effect fits.
 **Config > [Memory](more.md#memory)** shows what is loaded.
 
-![Synth Parameters with the DX7 model](../images/dx7-params.png)
+![Synth Parameters with the 6-Type model](../images/sixtype-params.png)
 
 ## Use a DX7 voice
 
-1. Put `.syx` files in **`Patches/DX7/`** on the SD card. Both kinds work:
+1. Put `.syx` files in **`Patches/6TYPE/`** on the SD card. Both kinds work:
     - **32-voice banks** (4,104 bytes, the usual "bank" files);
     - **single-voice dumps** (163 bytes).
 2. Select a synth instrument (S1–S3): hold **Instrument** and turn the encoder.
-3. Press **Instrument Params**. On **Synth Parameters**, set **Model** to **DX7**
-   (after the built-in models in the list).
+3. Press **Instrument Params**. On **Synth Parameters**, set **Model** to **6-Type**
+   (the last in the list).
 4. Press **Load Patch** (F7).
 
-![Load Patch: banks are listed first](../images/dx7-load.png)
+![Load Patch: banks are listed first](../images/sixtype-load.png)
 
 5. Banks come first in the list and open like folders: highlight one and press **Open**
    (F8). Pick a voice, **Preview** (F5, hold) to hear it, **Confirm** (F8) to load it.
    **Left** goes back to the bank list. Single-voice files sit with the patches and
    preview and load directly.
 
-![A bank's voices](../images/dx7-bank.png)
+![A bank's voices](../images/sixtype-bank.png)
 
 The loaded voice is named after the DX7 voice. **Save** (in Edit Patch) writes it as an
-ordinary `.patch` file in `Patches/DX7/`, with the voice stored inside it; the project
+ordinary `.patch` file in `Patches/6TYPE/`, with the voice stored inside it; the project
 keeps it too.
 
 ## Shape a voice
@@ -53,7 +53,7 @@ keeps it too.
 There's no operator editor yet, but **Edit Patch** has controls that work **on top of any
 loaded voice**, without changing the voice itself:
 
-![Edit Patch: the Tone section](../images/dx7-tone.png)
+![Edit Patch: the Tone section](../images/sixtype-tone.png)
 
 | Section | Control | What it does |
 |---|---|---|
@@ -66,20 +66,20 @@ loaded voice**, without changing the voice itself:
 | Tone | **LFO Depth** | 0–200 % of the voice's vibrato and tremolo, up to the DX7's maximum. |
 | Tone | **Detune** | 0–100 %: spreads the operators up to ±7 cents apart (chorus-like beating). |
 
-Each loaded DX7 voice comes with **macros M1–M6 aimed at the six Tone controls** and
+Each loaded voice comes with **macros M1–M6 aimed at the six Tone controls** and
 named after them (M1 Bright, M2 Feedback … M6 Detune). So a voice can be shaped from the
 **Synth Macros** page (Instrument Params again), or per step with the **macro FX**
 (columns A–F), without opening Edit Patch. To aim them elsewhere, use **F4 To Macro** and
 the **Macros** section in [Edit Patch](edit-patch.md#macros).
 
-![Synth Macros: M1 Bright raised a little](../images/dx7-macros.png)
+![Synth Macros: M1 Bright raised a little](../images/sixtype-macros.png)
 
 How much a control changes depends on the voice: Brightness does nothing on a voice
 without modulators, and Feedback is only heard when the feedback operator is audible.
 
 ## Playing
 
-- DX7 slots play from any track like the other synths: notes, the step FX for pitch
+- 6-Type slots play from any track like the other synths: notes, the step FX for pitch
   (Glide, Slide, Tune, Micro-tune), the Volume FX and the macro FX.
 - **Polyphony** is set on Synth Parameters. On a **polyphony 1** slot, **Mono** decides
   what a new note does:
@@ -92,17 +92,18 @@ without modulators, and Feedback is only heard when the feedback operator is aud
   on others mostly the tone (a velocity-sensitive modulator gets brighter with
   velocity). Voices whose operators have sensitivity 0 ignore it. To make one respond in
   level anyway, aim **M7 (Velocity)** at Volume on its Edit Patch page.
-    - A Volume FX on a step **without** a note doesn't change a held DX7 note: velocity
+    - A Volume FX on a step **without** a note doesn't change a held note: velocity
       only counts when a note starts.
-- **CPU:** about 6 % per voice (estimated). The voice limiter cuts synth voices first if
-  the audio gets close to its limit.
+- **CPU:** the voice limiter cuts synth voices first if the audio gets close to its limit.
 
 ## Good to know
 
 - The sound core is a port of Google's Music Synthesizer for Android (msfa, Apache 2.0),
-  checked against [Dexed](https://asb2m10.github.io/dexed/) note by note. Our additions:
-  amplitude modulation, the feedback loops of algorithms 4 and 6, and key sync.
+  first checked against [Dexed](https://asb2m10.github.io/dexed/) note by note. Added to
+  msfa: amplitude modulation, the feedback loops of algorithms 4 and 6, and key sync.
+- 6-Type started as this fork's DX7 synth and is now upstream OpenTracker's. Its `.syx`
+  files moved from `Patches/DX7/` to `Patches/6TYPE/`.
 - For deeper edits, edit the voice in a DX7 editor on a computer (Dexed works) and copy the
   `.syx` file over.
-- A Tracker Mini has no DX7 model: it resets a DX7 slot to its default when it opens the
-  project.
+- A Tracker Mini has no 6-Type model: it resets a 6-Type slot to its default when it opens
+  the project.
