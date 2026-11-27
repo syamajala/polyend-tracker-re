@@ -21,9 +21,6 @@
 #else
 #define OT_PATCH_TABLES 0
 #endif
-#if defined(OT_MOD_DX7S)   // [I] the DX7 card module (host builds compile it in)
-#include "dx7_patch.h"
-#endif
 
 namespace fs = std::filesystem;
 using namespace ot;
@@ -31,9 +28,6 @@ using namespace ot;
 namespace {
 
 const int32_t kEngines[] = {kSynthEngineAcd, kSynthEngineFat, kSynthEngineVap, kSynthEngineWtfm, kSynthEnginePerc,
-#if defined(OT_MOD_DX7S)
-                            kSynthEngineDx7
-#endif
 };
 
 struct VendorFile {
@@ -246,15 +240,12 @@ TEST(init_patch_per_engine) {
         CHECK(t != nullptr);
         CHECK_EQ(int(p.paramCount), n);
         CHECK_EQ(validatePatch(p, nullptr, 0), 0);
-        // DX7: M1-M6 come aimed at its controls (engine_dx7_test).
-        CHECK(macroName(p.macros[0]) == (e == kSynthEngineDx7 ? "Bright" : "Macro 1"));
-        CHECK(macroName(p.macros[5]) == (e == kSynthEngineDx7 ? "Detune" : "Macro 6"));
+        CHECK(macroName(p.macros[0]) == "Macro 1");
+        CHECK(macroName(p.macros[5]) == "Macro 6");
         CHECK(macroName(p.macros[6]) == "Velocity");
         CHECK(macroName(p.macros[7]) == "Pressure");
         int vol = patchVolumeParam(e);
-        if (e == kSynthEngineDx7) {
-            CHECK_EQ(p.macros[6].count, 0);   // velocity through the voice (engine_dx7_test)
-        } else if (vol >= 0) {
+        if (vol >= 0) {
             CHECK_EQ(p.macros[6].count, 1);
             CHECK_EQ(p.macros[6].targets[0].param, vol);
             CHECK(patchBitsToFloat(p.macros[6].targets[0].amountBits) == 1.0f);
@@ -284,9 +275,6 @@ TEST(init_patch_per_engine) {
 #if OT_PATCH_TABLES   // needs the engine descriptors (synth modules)
 TEST(engine_param_counts) {
     const int want[] = {29, 25, 60, 63, 84,
-#if defined(OT_MOD_DX7S)
-                        int(kDx7ParamCount)
-#endif
     };
     for (int i = 0; i < int(sizeof(want) / sizeof(want[0])); ++i) {
         int n = 0;
@@ -371,78 +359,6 @@ TEST(unknown_fields_kept_in_order) {
 }
 #endif
 
-#if defined(OT_MOD_DX7S)
-// DX7 patches keep the voice in top-level field 100 (opentracker-synths modules/dx7, dx7_patch.h).
-TEST(dx7_voice_field) {
-    SynthPatch p;
-    CHECK(patchInit(kSynthEngineDx7, &p));
-    uint8_t v[kDx7VoiceBytes];
-    CHECK(patchDx7Voice(p, v));
-    CHECK(std::memcmp(v, kDx7InitVoice, kDx7VoiceBytes) == 0);
-    CHECK(std::memcmp(kDx7InitVoice + 145, "INIT VOICE", 10) == 0);
-    CHECK_EQ(int(p.opaqueLen), 4 + kDx7VoiceBytes);   // tag A2 06, length 9B 01
-    // Written after Extra (no known field above 9), read back unchanged.
-    std::vector<uint8_t> b = encode(p);
-    CHECK_BYTES(b.data() + b.size() - kDx7VoiceBytes - 4, 0xA2, 0x06, 0x9B, 0x01);
-    SynthPatch q;
-    CHECK(decodePatch(b.data(), b.size(), &q) == PatchStatus::kOk);
-    CHECK(samePatch(p, q));
-    // A new voice replaces the field in place; other unknown fields keep
-    // their order around it.
-    const uint8_t f3[] = {0x18, 0x07};
-    std::memmove(q.opaque + 2, q.opaque, q.opaqueLen);
-    std::memcpy(q.opaque, f3, 2);
-    q.opaqueLen = uint16_t(q.opaqueLen + 2);
-    const uint8_t f11[] = {0x58, 0x2A};
-    std::memcpy(q.opaque + q.opaqueLen, f11, 2);
-    q.opaqueLen = uint16_t(q.opaqueLen + 2);
-    uint8_t w[kDx7VoiceBytes];
-    for (int i = 0; i < kDx7VoiceBytes; ++i) w[i] = uint8_t(i % 100);
-    CHECK(patchSetDx7Voice(q, w));
-    CHECK_EQ(int(q.opaqueLen), 2 + 4 + kDx7VoiceBytes + 2);
-    CHECK_BYTES(q.opaque, 0x18, 0x07, 0xA2, 0x06, 0x9B, 0x01, 0, 1, 2);
-    CHECK_BYTES(q.opaque + q.opaqueLen - 2, 0x58, 0x2A);
-    CHECK(patchDx7Voice(q, v));
-    CHECK(std::memcmp(v, w, kDx7VoiceBytes) == 0);
-    b = encode(q);
-    SynthPatch r;
-    CHECK(decodePatch(b.data(), b.size(), &r) == PatchStatus::kOk);
-    CHECK(patchDx7Voice(r, v));
-    CHECK(std::memcmp(v, w, kDx7VoiceBytes) == 0);
-    CHECK(encode(r) == b);
-    // No field, or one of another length: the init voice, false.
-    SynthPatch a;
-    patchInit(kSynthEngineAcd, &a);
-    CHECK(!patchDx7Voice(a, v));
-    CHECK(std::memcmp(v, kDx7InitVoice, kDx7VoiceBytes) == 0);
-    const uint8_t shortVoice[3] = {1, 2, 3};
-    CHECK(patchSetOpaqueBytes(a, kPatchFieldDx7Voice, shortVoice, 3));
-    CHECK(!patchDx7Voice(a, v));
-    const uint8_t* d = nullptr;
-    size_t n = 0;
-    CHECK(patchOpaqueBytes(a, kPatchFieldDx7Voice, &d, &n));
-    CHECK_EQ(int(n), 3);
-    // Overflow: refused, the patch unchanged.
-    uint8_t big[kPatchOpaqueMax] = {};
-    const uint16_t before = r.opaqueLen;
-    CHECK(!patchSetOpaqueBytes(r, 12, big, sizeof(big) - 100));
-    CHECK_EQ(int(r.opaqueLen), int(before));
-}
-
-// [I] A DX7 patch from before the module (engine 0x40) reads as 0xF0.
-TEST(dx7_legacy_engine_id) {
-    SynthPatch p;
-    CHECK(patchInit(kSynthEngineDx7, &p));
-    std::vector<uint8_t> b = encode(p);
-    CHECK_BYTES(b.data(), 0x08, 0xF0, 0x01);   // field 1 varint 240
-    std::vector<uint8_t> old = {0x08, 0x40};
-    old.insert(old.end(), b.begin() + 3, b.end());
-    SynthPatch q;
-    CHECK(decodePatch(old.data(), old.size(), &q) == PatchStatus::kOk);
-    CHECK_EQ(int(q.engine), int(kSynthEngineDx7));
-    CHECK(samePatch(p, q));
-}
-#endif
 
 #if OT_PATCH_TABLES   // needs the engine descriptors (synth modules)
 TEST(error_cases) {

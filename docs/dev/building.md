@@ -37,8 +37,8 @@ compiled into the image: `full` has ACD, FAT, VAP, PERC and WTFM; `core` has non
 `make card` builds it as `build/<profile>/otm/<name>.otm` for the card's `Modules/` folder,
 and the host builds (`make host-test`, the simulator, the tools) compile it in, as a device
 with the card's modules would have it. `in_tree = true` takes the module's path from this
-repository instead of `MODULES_DIR`. `full` builds in the five Mini synths (ACD, FAT,
-VAP, PERC, WTFM); its other synths are card modules: DX7 (`modules/dx7` in opentracker-synths), FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type and ARC, and
+repository instead of `MODULES_DIR`. `full` builds in only Off; its other
+synths are card modules: ACD, FAT, VAP, PERC, WTFM, FM4S, JU6S, D-Type, CS-Type, A-Type, T-Type, 8-Type, Hand, B-Type, ARC, 1-Type, V-Type and 6-Type (`modules/sixtype` in opentracker-synths, DX7 voices), and
 every master effect of opentracker-fx (Dirt, LoFi, Chorus, BBD, Echo, Tape). No image has
 those built in.
 

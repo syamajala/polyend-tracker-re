@@ -1382,12 +1382,12 @@ public:
     int editCol = 0;        // Edit: the focused column, 0 sections, 1 settings, 2 the value
     int toMacro = -1;       // Edit: [I] F4 To Macro's list, the macro selected (0..5); -1 closed
     // Browser (Patches/<MODEL>/*.patch, sorted). [I] An engine with patch
-    // files of another format (synth_descriptor.h PatchImport: DX7 .syx) lists
-    // those too: banks first, like folders (an open bank lists its patches),
-    // single-patch files with the patches (they play / load as one).
+    // files of another format (synth_descriptor.h PatchImport, e.g. 6-Type .syx)
+    // lists those too: banks first, like folders (an open bank lists its
+    // patches), single-patch files with the patches (they play / load as one).
     static constexpr int kBrowserMax = 128;
     static constexpr int kBrowserNameMax = 32;    // patch names (Save As)
-    static constexpr int kBrowserEntryMax = 63;   // list entries: .syx bank file names run long
+    static constexpr int kBrowserEntryMax = 63;   // list entries: bank file names run long
     enum class Entry : uint8_t { Patch, Bank, Single, Voice };
     int browserCount = 0;
     int browserSel = 0;
@@ -1443,10 +1443,14 @@ private:
     bool openBank(const char* file);   // its patches into the list (false: not the engine's format)
     void closeBank();                  // back to the folder, the bank highlighted
     void saveAsNow();         // pendingName_ (after "Overwrite?")
+    void saveNamed();         // pendingName_, asking "Overwrite?" when that library patch exists
     // Patch edits since the last load / init / save / model change, per edit
     // target ("Discard edits?" before Load or a model change): bit s = slot
     // s's own patch, bit kSynthSlotCount + n - 1 = [3.x] preset n.
     uint16_t editedBits_ = 0;
+    // The edit targets whose patch came from an import file and was not saved
+    // since (its first Save asks before it replaces a library patch).
+    uint16_t importedBits_ = 0;
     uint16_t editBit() const;
     // [3.x] What the page showed last (update: a Z or the chase moved the target).
     uint8_t shownTarget_ = 0;

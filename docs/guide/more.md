@@ -151,12 +151,12 @@ Params, then **More**):
 ## Memory
 
 **Config > Memory** shows what fills the Tracker's memory, for when something won't load.
-For example, with DX7 on a synth slot, turning on the last card effects can fail with
-"Card memory full". The page shows DX7 taking 18 KB of the card memory, so you know to turn
+For example, with 6-Type on a synth slot, turning on the last card effects can fail with
+"Card memory full". The page shows 6-Type taking about 25 KB of the card memory, so you know to turn
 off an effect or switch a slot to another synth (or to Off). The two biggest card synths,
 **1-Type** and **V-Type**, don't fit together: put only one of them in a project.
 
-- **Card modules**: the card synths and effects that are loaded (DX7, Echo …), what uses
+- **Card modules**: the card synths and effects that are loaded (6-Type, Echo …), what uses
   them (`synth, slot 2`, `synth, P3` for a synth preset, `effect`) and their size. Ones
   that are wanted but not in are listed too, with why: **loads at Stop**, **no room** (red), **didn't load**.
 - **Sample memory**: the samples, plus what is borrowed from it: card effects' buffers
@@ -164,7 +164,7 @@ off an effect or switch a slot to another synth (or to Off). The two biggest car
 - The bar turns red at 90 %. The page is read-only.
 
 When a card module doesn't fit, the notice names the biggest one loaded, e.g. "Echo: Card
-memory full (DX7 18.3 KB)", and the FX bank shows how much card memory is used. In the
+memory full (6-Type 25.1 KB)", and the FX bank shows how much card memory is used. In the
 simulator the card modules are built in, so the page lists only the sample memory.
 
 ## Colour themes
@@ -213,7 +213,7 @@ The 2.x line brings the newer Tracker features to the original hardware. In shor
 - Engines: **ACD** (acid bass and lead, 24 dB and ladder-style filters, glide), **VAP**
   (virtual-analog poly, morphing oscillators, hard sync, 15 filter types, a 6-slot
   modulation matrix), **PERC** (a drum kit), **FAT** (unison supersaw), **WTFM**
-  (two-operator wavetable FM), and in this fork **[DX7](dx7.md)** (from the card).
+  (two-operator wavetable FM), and **[6-Type](sixtype.md)** (from the card).
 - **Macros:** FX columns A–F drive macros 1–6, and Volume drives macro 7.
 - **Voices:** a shared pool of 4 by default, adjustable in **Config > General > Synth
   voices** (1–8). If the audio gets close to its limit, only synth voices are cut; sample

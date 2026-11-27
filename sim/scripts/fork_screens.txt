@@ -1,5 +1,5 @@
 # Display budget for the fork's own screens (issue #38), run by `make check`
-# with a test tone on line in and a synthetic DX7 bank in Patches/DX7
+# with a test tone on line in and a synthetic DX7-format bank in Patches/6TYPE
 # (fixtures/make_dx7_bank.py). Same rules as display_budget.txt: the largest
 # display-list upload per frame must stay inside the budget (measured steady
 # state plus ~20 %; the Performance pages keep the stock page's 1950), and the
@@ -76,7 +76,7 @@ wait 1500
 budget perf-scene-fade 1950
 tap PLAY
 wait 200
-# DX7 on Synth 1 (ACD): Down steps the Model list to its last entry. The
+# 6-Type on Synth 1 (ACD): Down steps the Model list to its last entry. The
 # synth page while playing, then the Load Patch popup with the bank (listed
 # like a folder) and the bank opened.
 tap PATTERN
@@ -109,49 +109,39 @@ tap DOWN
 tap DOWN
 tap DOWN
 tap DOWN
-tap DOWN
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP
-tap UP               # Model: the last (Arc-Type), then up to DX7
+tap DOWN             # Model: the last (6-Type)
 wait 200
 tap PLAY
 wait 200
 budget-reset
 wait 1500
-budget dx7-params-play 1120
-fragcheck dx7-params-play
+budget sixtype-params-play 1120
+fragcheck sixtype-params-play
 tap F8               # Edit Patch: Voice (Volume, Mono)
 wait 200
 budget-reset
 wait 1300
-budget dx7-edit-play 680
-fragcheck dx7-edit-play
+budget sixtype-edit-play 680
+fragcheck sixtype-edit-play
 tap DOWN             # Tone: the controls on top of the voice (the section column has the focus)
 wait 200
 budget-reset
 wait 900              # (longer: the play time's second turns between fragcheck's renders)
-budget dx7-tone-play 760
-fragcheck dx7-tone-play
+budget sixtype-tone-play 760
+fragcheck sixtype-tone-play
 tap F8               # Back
 wait 200
 tap F7               # Load Patch: the bank first
 wait 200
 budget-reset
 wait 1500
-budget dx7-load-play 1190
+budget sixtype-load-play 1190
 tap F8               # Open the bank
 wait 300
 budget-reset
 wait 1500
-budget dx7-bank-play 1400
-fragcheck dx7-bank-play
+budget sixtype-bank-play 1400
+fragcheck sixtype-bank-play
 tap F7
 tap F7
 tap PLAY

@@ -53,7 +53,7 @@ enum class SongId : uint8_t {
     PoolFm4 = 25,
     PoolCsType = 26,
     PoolEight = 27,
-    PoolDx7 = 28,
+    PoolSixType = 28,
     PoolVap = 29,
     PoolFat = 30,
     PoolWtfm = 31,

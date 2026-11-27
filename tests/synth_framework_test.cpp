@@ -3,7 +3,7 @@
 // bipolar, empty targets, M7), voice allocation / stealing / caps, mono
 // legato, Stop resetting macro overrides, the governor cutting synth voices
 // only, sequencer dispatch of instruments 64..66, the slot mixer and the
-// Synth 1..3 stems, unsupported models, the DX7 voice in its patch.
+// Synth 1..3 stems, unsupported models.
 #include "test.h"
 
 #include <algorithm>
@@ -13,10 +13,6 @@
 #include <vector>
 
 #include "audio/engine.h"
-#if defined(OT_MOD_DX7S)   // [I] the DX7 card module (host builds compile it in)
-#include "dx7.h"
-#include "dx7_patch.h"
-#endif
 #include "acd.h"
 #include "perc.h"
 #include "audio/synth_bank.h"
@@ -43,6 +39,11 @@ struct SpyEngine : ISynthEngine {
     const char* name() const override { return "SPY"; }
     void prepare(SynthSlotScratch& s, const SynthParams& p) override { ++prepares; inner->prepare(s, p); }
     void slotReset(SynthSlotScratch& s) override { ++resets; inner->slotReset(s); }
+    std::vector<const SynthPatch*> loads;   // the patches loadPatch received, in order
+    void loadPatch(SynthSlotScratch& s, const SynthPatch& p) override {
+        loads.push_back(&p);
+        inner->loadPatch(s, p);
+    }
     void noteOn(SynthVoice& v, const SynthParams& p, const SynthNote& n) override {
         ons.push_back(n);
         inner->noteOn(v, p, n);
@@ -412,6 +413,75 @@ TEST(synth_mono_legato_and_track_release) {
     CHECK_EQ(r.bank.voicesOf(2), 0);
 }
 
+// Every pool record knows its place (engines with voice state beyond
+// SynthVoice::state index their own arrays by it), also after a reset.
+TEST(synth_voice_index_is_the_pool_record) {
+    BankRig r(4, 4, 4, 8);
+    for (int round = 0; round < 2; ++round) {
+        for (int t = 0; t < 8; ++t) r.on(t, t % 3, 48 + t);
+        r.block();
+        unsigned seen = 0;
+        for (int t = 0; t < 8; ++t) {
+            const SynthVoice* v = r.bank.voiceOfTrack(t);
+            CHECK(v != nullptr);
+            if (!v) continue;
+            CHECK(v->index < kSynthMaxVoices);
+            seen |= 1u << v->index;
+        }
+        CHECK_EQ(seen, 0xFFu);   // eight voices, eight different records
+        r.bank.reset();
+    }
+}
+
+// loadPatch gets the patch the slot plays: its own, or the preset it is on
+// (also one of another engine), on every reload and again after Stop.
+TEST(synth_load_patch_gets_the_bound_patch) {
+    BankRig r(2, 2, 2, 4);
+    SynthPatch presets[kSynthPresetCount] = {};
+    CHECK(patchInit(kSynthEngineAcd, &presets[0]));
+    CHECK(patchInit(kSynthEngineFat, &presets[1]));
+    r.bank.bindPresets(presets);
+    auto has = [&](const SynthPatch* p) {
+        for (const SynthPatch* q : r.spy.loads)
+            if (q == p) return true;
+        return false;
+    };
+    // The slot's own patch, on an edit.
+    r.spy.loads.clear();
+    r.bank.patchChanged(0);
+    r.block();
+    CHECK(!r.spy.loads.empty());
+    CHECK(has(&r.patch[0]));
+    // A preset of the same engine.
+    r.spy.loads.clear();
+    CHECK(r.bank.presetSelect(0, 1));
+    r.block();
+    CHECK(!r.spy.loads.empty());
+    CHECK(has(&presets[0]));
+    CHECK(!has(&r.patch[0]));
+    // A preset of another engine.
+    r.spy.loads.clear();
+    CHECK(r.bank.presetSelect(0, 2));
+    r.block();
+    CHECK(!r.spy.loads.empty());
+    CHECK(has(&presets[1]));
+    CHECK(!has(&r.patch[0]));
+    CHECK(!has(&presets[0]));
+    // Stop: every slot's engine gets its patch back, slot 0 still the preset's.
+    r.spy.loads.clear();
+    r.bank.stopAll();
+    CHECK(has(&presets[1]));
+    CHECK(has(&r.patch[1]));
+    CHECK(has(&r.patch[2]));
+    CHECK(!has(&r.patch[0]));
+    // Back on its own patch.
+    r.spy.loads.clear();
+    CHECK(r.bank.presetSelect(0, 0));
+    r.block();
+    CHECK(has(&r.patch[0]));
+    CHECK(!has(&presets[1]));
+}
+
 TEST(synth_pitch_fx_hooks) {
     BankRig r(1, 1, 1);
     r.on(0, 0, 60, -1, StepFx{40, 36});   // Tune +12: bend +12 (the note stays 60)
@@ -523,102 +593,6 @@ TEST(synth_stop_resets_macro_overrides) {
     CHECK_EQ(r.bank.slotView(1).macro[0], 0);
 }
 
-#if defined(OT_MOD_DX7S)
-// DX7 (the DX7S module, engine 0xF0, fork #21): the slot plays the voice in
-// its patch (field 100, ISynthEngine::loadPatch), and a voice edit reaches
-// the next note.
-TEST(synth_dx7_voice_from_patch) {
-    CHECK(synthEngineFor(kSynthEngineDx7) == dx7::engine());
-    BankRig r;
-    r.bank.setEngineOverride(nullptr);
-    r.bank.setSlotEngine(0, kSynthEngineDx7);
-    CHECK(patchInit(kSynthEngineDx7, &r.patch[0]));
-    // The macro values at their neutral points, as the app sets them on a
-    // patch load (synth_slots.cpp resetMacros): the DX7 Init patch's M1-M5
-    // are bipolar (63 = no change).
-    SynthSlotRecord rc = rec(SynthModel::ACD, 4);   // a module engine keeps a Mini model
-    for (int k = 0; k < kSynthSeqMacros; ++k) rc.macros[k] = synthMacroDefault(r.patch[0].macros[k].bipolar);
-    r.bank.setSlotRecord(0, rc);
-    r.block();
-    CHECK(r.bank.slotAvailable(0));
-    CHECK_STR(r.bank.slotView(0).model, "DX7");
-    // Energy and the high-frequency share (first differences) of one note.
-    auto note = [&](double* hf) {
-        r.on(0, 0, 57);
-        double e = 0.0, d = 0.0;
-        float last = 0.0f;
-        for (int k = 0; k < 40; ++k) {
-            r.block();
-            for (uint32_t i = 0; i < kBlock; ++i) {
-                e += double(r.L[i]) * r.L[i];
-                d += double(r.L[i] - last) * (r.L[i] - last);
-                last = r.L[i];
-            }
-        }
-        r.bank.stopAll();
-        r.block();
-        *hf = e > 0.0 ? d / e : 0.0;
-        return e;
-    };
-    double hfInit = 0.0, hfFm = 0.0, hfHalf = 0.0, hfAgain = 0.0;
-    const double eInit = note(&hfInit);   // INIT VOICE: a sine
-    CHECK(eInit > 1.0);
-    // Stop (stopAll: every engine's slotReset) keeps the voice: the next
-    // note sounds the same without a patch change (device bug: the slot
-    // went silent for good after the first Stop).
-    const double eAgain = note(&hfAgain);
-    CHECK_NEAR(eAgain / eInit, 1.0, 0.01);
-    // Operator 2 modulating operator 1 at level 90: brighter.
-    uint8_t v[kDx7VoiceBytes];
-    std::memcpy(v, kDx7InitVoice, sizeof v);
-    v[4 * 21 + 16] = 90;
-    CHECK(patchSetDx7Voice(r.patch[0], v));
-    r.bank.patchChanged(0);
-    r.block();
-    const double eFm = note(&hfFm);
-    CHECK(eFm > 1.0);
-    CHECK(hfFm > hfInit * 4.0);
-    // Volume (parameter 0) halves the level.
-    synthParamSet(r.patch[0], 0, 0.5f);
-    r.bank.patchChanged(0);
-    r.block();
-    const double eHalf = note(&hfHalf);
-    CHECK_NEAR(std::sqrt(eHalf / eFm), 0.5, 0.05);
-    CHECK_NEAR(hfHalf, hfFm, hfFm * 0.01);
-}
-
-// DX7 velocity (Volume FX) acts once, through the voice's operator velocity
-// sensitivities as on a DX7: the Init patch's M7 doesn't scale Volume too.
-TEST(synth_dx7_velocity_counts_once) {
-    auto level = [](int sens, int vol) {
-        BankRig r;
-        r.bank.setEngineOverride(nullptr);
-        r.bank.setSlotEngine(0, kSynthEngineDx7);
-        CHECK(patchInit(kSynthEngineDx7, &r.patch[0]));
-        uint8_t v[kDx7VoiceBytes];
-        std::memcpy(v, kDx7InitVoice, sizeof v);
-        v[5 * 21 + 15] = uint8_t(sens);   // operator 1 velocity sensitivity
-        CHECK(patchSetDx7Voice(r.patch[0], v));
-        SynthSlotRecord rc = rec(SynthModel::ACD, 4);
-        for (int k = 0; k < kSynthSeqMacros; ++k) rc.macros[k] = synthMacroDefault(r.patch[0].macros[k].bipolar);
-        r.bank.setSlotRecord(0, rc);
-        r.block();
-        r.on(0, 0, 57, vol);
-        double e = 0.0;
-        for (int k = 0; k < 40; ++k) {
-            r.block();
-            if (k >= 10)
-                for (uint32_t i = 0; i < kBlock; ++i) e += double(r.L[i]) * r.L[i];
-        }
-        return e;
-    };
-    // Sensitivity 0: the Volume FX leaves the level alone.
-    CHECK_NEAR(level(0, 50) / level(0, 100), 1.0, 0.01);
-    // Sensitivity 7 at Volume 50: the engine's -15.8 dB only (not -21.8).
-    const double db = 10.0 * std::log10(level(7, 50) / level(7, 100));
-    CHECK(db < -14.0 && db > -18.0);
-}
-#endif
 
 TEST(synth_macro_release_hands_back_to_the_page_value) {
     // A hand edit of a macro on the Synth Macros page takes over from an FX
@@ -740,9 +714,8 @@ TEST(synth_fat_available_and_sounding) {
 }
 
 TEST(synth_voice_memory_budget) {
-    // Voice state in SRAM: the pool is at most 2.25 KB (DX7: 256 B of engine
-    // state per voice).
-    CHECK(sizeof(SynthVoice) * kSynthMaxVoices <= 2304);
+    // Voice state in SRAM: the pool is at most 1.5 KB.
+    CHECK(sizeof(SynthVoice) * kSynthMaxVoices <= 1536);
     CHECK_EQ(kSynthDefaultVoices, 4);
     CHECK_EQ(Governor::kDefaultBudget, 4);
 }

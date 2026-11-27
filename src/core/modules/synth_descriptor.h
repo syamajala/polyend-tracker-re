@@ -15,7 +15,8 @@ namespace ot {
 
 // [I] Patch fields beyond the Tracker Mini's (formats/patch_pb.h, exported to
 // card modules): the payload of length-delimited field `field` in the
-// patch's unknown fields, and storing one (false: no room, p unchanged).
+// patch's unknown fields, and storing one (false: no room, or a field
+// number of the patch's own or none at all; p unchanged).
 bool patchOpaqueBytes(const SynthPatch& p, uint32_t field, const uint8_t** data, size_t* len);
 bool patchSetOpaqueBytes(SynthPatch& p, uint32_t field, const uint8_t* data, size_t len);
 
@@ -85,7 +86,7 @@ enum : uint8_t {
     kSynthFlagNotePriority = 1u << 1,
 };
 
-// [I] Patch files of another format in the engine's folder (DX7 .syx banks):
+// [I] Patch files of another format in the engine's folder (6-Type .syx banks):
 // the core lists them in Load Patch, reads a file whole into its scratch and
 // asks the module about it (main loop; the file's bytes, len <= maxBytes).
 struct PatchImport {
@@ -130,7 +131,8 @@ struct SynthDescriptor {
     // Volume): the engine's own additions (patch data in unknown fields,
     // macro presets). nullptr = none.
     void (*initPatch)(SynthPatch& p) = nullptr;
-    // [I] Patch files of another format (Load Patch), or nullptr.
+    // [I] Patch files of another format (Load Patch), or nullptr. One without
+    // an extension, functions or maxBytes counts as none (ModuleHost::patchImport).
     const PatchImport* import = nullptr;
 };
 

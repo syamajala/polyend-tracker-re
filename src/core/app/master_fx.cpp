@@ -75,7 +75,7 @@ bool perfUsesId(const App& app, const char* id) {
 
 bool perfUses(const App& app, int k) { return perfUsesId(app, mod::cardFxAt(k)->id); }
 
-// "Echo: Card memory full (DX7 18.8 KB)": why card effect k didn't load,
+// "Echo: Card memory full (6-Type 25.1 KB)": why card effect k didn't load,
 // naming the card module that takes the most room ([I] the Memory page).
 void fxNotice(const App& a, const char* name, App::FxError e, char* out, int cap) {
     char why[48];

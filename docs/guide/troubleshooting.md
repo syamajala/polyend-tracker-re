@@ -28,8 +28,8 @@ seconds. The diag log records "reset reason: core lockup".
 - **A synth slot is silent and shows "not available":** its model is a card module that
   isn't on the card, or is from another firmware version. Copy the release's `Modules`
   folder to the card ([Install the modules](../install.md#install-the-modules)).
-- **DX7 voice sounds different from a hardware DX7:** report the voice (`.syx` file) in an
-  issue; the engine is checked against Dexed, not hardware.
+- **A 6-Type voice sounds different from a hardware DX7:** report the voice (`.syx` file)
+  in an issue; the engine is checked against Dexed, not hardware.
 
 ## The diag log and telemetry
 

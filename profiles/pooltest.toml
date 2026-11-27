@@ -2,7 +2,7 @@
 # synths built in that the card copies replace (OT_POOL_TEST), to read the same
 # synth from flash, from the SRAM_U pool and with its hot part in SRAM_L. No VAP /
 # FAT: their .fastrun room in SRAM_L goes to the 12 KB fast block. DX7 was a core
-# engine when this ran (2026-11-07); it is a card module now (song 6 needs dx7.otm).
+# engine when this ran (2026-11-07); song 6 is 6-Type now (needs sixtype.otm).
 # Test songs 23-28 (tools/make_testsongs/poolsong.inc).
 # Paths are relative to MODULES_DIR (default: ../../opentracker-synths from reimpl/).
 name = "pooltest"

@@ -634,8 +634,8 @@ public:
     bool previewSynthLibraryPatch(int s, const char* name, uint8_t t = kTargetNow);
     void endSynthPreview();
     // [I] Patch files of another format (modules/synth_descriptor.h
-    // PatchImport; DX7 .syx banks, issue #20): Patches/<engine>/<file> of slot
-    // s's engine, one file at a time. Returns its patches, 0 when the file is
+    // PatchImport, e.g. 6-Type .syx banks): Patches/<engine>/<file> of slot s's
+    // engine, one file at a time. Returns its patches, 0 when the file is
     // missing, too large or not the engine's format. The names are valid
     // right after (the file sits in the job scratch). Patch k plays / loads
     // into the slot as the engine's Init patch with the file's patch k, named
@@ -731,7 +731,7 @@ public:
         static constexpr int kMaxRows = 16;   // 3 synth slots + 6 effects + boot modules; 10 are shown
         enum class State : uint8_t { kLoaded, kWaiting, kNoRoom, kFailed };
         struct Row {
-            char name[20];   // "DX7", "Echo"
+            char name[20];   // "6-Type", "Echo"
             char what[24];   // "synth, slot 2", "effect"
             uint32_t bytes;  // loaded: its room; else about what it needs
             State state;
@@ -745,7 +745,7 @@ public:
         uint32_t reservedBytes;       // resampling / tape stop
     };
     void memoryUse(MemoryUse& out) const;
-    // "Card memory full (DX7 18.8 KB)": the largest loaded card module named.
+    // "Card memory full (6-Type 25.1 KB)": the largest loaded card module named.
     void cardFullText(char* out, int cap) const;
     // [I] #159 Performance FX columns (perf::kModuleFx): the page of a
     // column's effect (perf::fxTarget), nullptr while it isn't loaded. A
@@ -1198,13 +1198,13 @@ private:
     // and dirty flag; the saved patch lives in the SDRAM (OT_SDRAM_BSS).
     int8_t previewSlot_ = -1;
     PatchSource previewSrc_ = PatchSource::None;
+    bool previewDirty_ = false;
+    const SynthPatch* readSynthLibraryPatch(int32_t engineId, const char* name);
+    SynthPatch* scratchPatch();   // the scratch decode slot (nullptr: no scratch)
     bool previewSynthPatch(int s, const SynthPatch& p, uint8_t t = kTargetNow);
     void loadSynthPatch(int s, const SynthPatch& p, const char* name);
     const SynthPatch* importPatch(int32_t engineId, int k);   // into the scratch decode slot
     int readPatchImport();
-    bool previewDirty_ = false;
-    const SynthPatch* readSynthLibraryPatch(int32_t engineId, const char* name);
-    SynthPatch* scratchPatch();   // the scratch decode slot (nullptr: no scratch)
     void dropSynthPreview();      // [3.x] forget a preview without putting anything back (presets reset)
     // previewOn voice holding the synth audition track (kNoSynthAudition: none).
     static constexpr uint16_t kNoSynthAudition = 0xFFFF;

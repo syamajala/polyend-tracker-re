@@ -3,11 +3,13 @@
 // (06 §1.9), PERF marker, hold popups, Fill and focus rules.
 #include <cstring>
 #include <string>
+#include <vector>
 
 #include "test.h"
 #include "ui_fakes.h"
 
 #include "app/project_fields.h"
+#include "formats/wav.h"
 #include "sequencer/seq_tables.h"
 #include "ui/fx_text.h"
 #include "ui/screens.h"
@@ -405,14 +407,20 @@ TEST(pattern_pads_latch_on_f1_tap) {
     }
     CHECK(on > 0);
     CHECK(off > 0);
-    // Play keeps the pads on patterns; a pad then queues the pattern, its
-    // pad lit full while the current one keeps blinking.
+    // Play keeps the pads on patterns; a pad then switches at once, as with
+    // F1 held. A Right queue lights its pad full while the current one
+    // keeps blinking.
     h.tap(btn::Play);
     CHECK_EQ(pe(h).focus, 0);
+    h.audio.pump(4);
     h.pad(6);
-    CHECK_EQ(a.seq.queuedPattern(), 7);
+    h.audio.pump(1);
+    CHECK_EQ(a.patternNumber(), 7);
+    CHECK_EQ(a.seq.queuedPattern(), 0);
+    h.tap(btn::Right);
+    CHECK_EQ(a.seq.queuedPattern(), 8);
     h.run(10);
-    CHECK_EQ(h.leds.level[6], full);
+    CHECK_EQ(h.leds.level[7], full);
     h.tap(btn::Play);
     h.tap(btn::F1);
     CHECK_EQ(pe(h).focus, -1);
@@ -445,6 +453,33 @@ TEST(pattern_latch_ends_through_the_rec_arm_page) {
     CHECK_EQ(pe(h).focus, 0);
     h.tap(btn::F1);
     CHECK_EQ(pe(h).focus, -1);
+}
+
+TEST(pattern_pads_switch_at_once_while_playing) {
+    // spec 06 §1.7 / 16 §A.2: Pattern held + pad goes through 0x3d548 like
+    // Up/Down, so while playing it changes the pattern at once (the next
+    // step plays it) and keeps the step position; only Left/Right queue.
+    Harness h;
+    App& a = *h.app;
+    h.tap(btn::Play);
+    CHECK(a.seq.isPlaying());
+    h.audio.pump(300);
+    const int st = a.seq.step(0);
+    CHECK(st > 0);
+    h.down(btn::F1);
+    h.pad(4);
+    h.audio.pump(1);
+    CHECK_EQ(a.patternNumber(), 5);
+    CHECK_EQ(a.seq.queuedPattern(), 0);
+    CHECK(a.seq.isPlaying());
+    CHECK(a.seq.step(0) >= st);         // no restart from step 0
+    h.pad(1);
+    h.audio.pump(1);
+    CHECK_EQ(a.patternNumber(), 2);
+    h.up(btn::F1);
+    CHECK_EQ(a.patternNumber(), 2);
+    CHECK_EQ(a.seq.queuedPattern(), 0);
+    h.tap(btn::Play);
 }
 
 TEST(pattern_up_down_switch_immediately_while_playing) {
@@ -849,4 +884,31 @@ TEST(stop_clears_the_queued_pattern_on_f1) {
     CHECK_STR(a.ui.bar.label[0].bottom, cur);
     CHECK_EQ(a.patternNumber(), num);
     CHECK(!a.ui.bar.label[0].highlight);
+}
+
+// Issue #214: with the sequencer stopped and edit mode on, a pad in the
+// Instr column writes the instrument and auditions it at note 60, as stock
+// 1.9.2 does (and as it already did while playing or with edit mode off).
+TEST(instr_column_pad_auditions_in_edit_mode_when_stopped) {
+    Harness h;
+    App& a = *h.app;
+    std::vector<int16_t> s(20000);
+    for (size_t i = 0; i < s.size(); ++i) s[i] = int16_t((i % 100) * 300 - 15000);
+    std::vector<uint8_t> wav(s.size() * 2 + 64);
+    wav.resize(wavEncode(s.data(), uint32_t(s.size()), 1, wav.data(), wav.size()));
+    h.fs.files["tone.wav"] = wav;
+    CHECK(a.importSample("tone.wav", 2));
+    PatternScreen& p = pe(h);
+    a.setStepJump(1);
+    h.tap(btn::Rec);
+    CHECK(a.editMode);
+    CHECK(!a.seq.isPlaying());
+    h.tap(btn::Instr);
+    CHECK_EQ(p.col, 1);
+    h.push(InputEvent::kPadDown, 2);
+    CHECK_EQ(int(a.pattern().tracks[0].steps[0].instrument), 2);
+    CHECK_EQ(a.currentInstrument(), 2);
+    CHECK(a.auditionTrack(2) >= 0);
+    h.push(InputEvent::kPadUp, 2);
+    CHECK(a.auditionTrack(2) < 0);
 }

@@ -73,7 +73,11 @@ const SongInfo kSongs[kSongCount] = {
 #else
     {SongId::PoolEight, "OT Pool 5 - 8-Type", "the 8-Type module", false},
 #endif
-    {SongId::PoolDx7, "OT Pool 6 - DX7", "M3 (synth engines)", kHasSynths},
+#if defined(OT_MOD_6TY1)
+    {SongId::PoolSixType, "OT Pool 6 - 6-Type", "the 6-Type module", kHasSynths},
+#else
+    {SongId::PoolSixType, "OT Pool 6 - 6-Type", "the 6-Type module", false},
+#endif
     {SongId::PoolVap, "OT Pool 7 - VAP", "M3 (synth engines)", kHasSynths},
     {SongId::PoolFat, "OT Pool 8 - FAT", "M3 (synth engines)", kHasSynths},
     {SongId::PoolWtfm, "OT Pool 9 - WTFM", "M3 (synth engines)", kHasSynths},
@@ -1162,7 +1166,7 @@ bool generateSong(App& app, IStorage& fs, SongId id, const GenOptions& opt, std:
         case SongId::PoolFm4: built = pooltest::poolSong(g, 0x80); break;
         case SongId::PoolCsType: built = pooltest::poolSong(g, 0x83); break;
         case SongId::PoolEight: built = pooltest::poolSong(g, 0x86); break;
-        case SongId::PoolDx7: built = pooltest::poolSong(g, kSynthEngineDx7); break;
+        case SongId::PoolSixType: built = pooltest::poolSong(g, 0x8C); break;
         case SongId::PoolVap: built = pooltest::poolSong(g, kSynthEngineVap); break;
         case SongId::PoolFat: built = pooltest::poolSong(g, kSynthEngineFat); break;
         case SongId::PoolWtfm: built = pooltest::poolSong(g, kSynthEngineWtfm); break;

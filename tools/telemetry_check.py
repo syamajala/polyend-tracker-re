@@ -16,10 +16,10 @@
   telemetry_check.py bench --baseline tests/perf_baseline.txt <bench_m4 output>
       bench-m4 instruction counts per block against the baseline: fail above +5 %
       (--tolerance). Placeholder ("-") or missing scenarios are reported, never fail.
-      Absolute engine limits: every acd.* / vap* / fat* / perc* / dx7.* line that prints
+      Absolute engine limits: every acd.* / vap* / fat* / perc* line that prints
       "limit N" (docs/OPTIMIZATION_2X.md item 10: ACD and VAP Init <= 12k, worst <= 18k
       instructions per voice per block, FAT Init <= 12k, worst <= 22k, PERC <= 30k per
-      slot incl. its peak block; DX7 <= 18k, the algorithm 4 / 6 feedback chain <= 22k)
+      slot incl. its peak block; module benches: their own <module>.unit limits)
       fails above N.
   telemetry_check.py size [--size-tool arm-none-eabi-size] [--nm-tool arm-none-eabi-nm] <firmware.elf>
       Flash use = .text + .data (Berkeley size): fail above 832,000 B, warn above
@@ -85,9 +85,8 @@ BENCH_PK_RE = re.compile(r"^\s+block\s+\d+ \(song pos \d+, step \d+\):\s+(\d+) M
 DEVICE_CPI = 1.94
 # "<name> <value> ... limit <N>" lines of the engines, pswitch, the SD stream
 # and the module benches ("<module>.unit...", tests/bench_api.h).
-LIMIT_RE = re.compile(r"^\s+((?:acd|vap|fat|wtfm|perc|dx7|pswitch|preset|pinst|stream)[\w.]*|[a-z][a-z0-9]*\.unit[\w.]*)\s+(\d+(?:\.\d+)?)\s.*\blimit (\d+)\b")
-# [I] The fork's remote control and Performance mode add flash over upstream (DX7
-# left the image for the card in #21):
+LIMIT_RE = re.compile(r"^\s+((?:acd|vap|fat|wtfm|perc|pswitch|preset|pinst|stream)[\w.]*|[a-z][a-z0-9]*\.unit[\w.]*)\s+(\d+(?:\.\d+)?)\s.*\blimit (\d+)\b")
+# [I] The fork's remote control and Performance mode add flash over upstream:
 # upstream's fail line (720,000 B) is the fork's warning. The hard ceiling is
 # check_image.py's STOCK_END (877,664 B), past which the update bootloader's data lies.
 # Limits kept here as well as in the bench line (the lower one counts).

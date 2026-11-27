@@ -33,7 +33,7 @@ The order is fixed, so every project sounds the same on every Tracker.
 ## Effects on the card
 
 The effects are **card modules**: copy them from `Modules.zip` on the release page into
-**`Modules/`** on the SD card (as [DX7](dx7.md)). An effect only takes memory while it is
+**`Modules/`** on the SD card (as [6-Type](sixtype.md)). An effect only takes memory while it is
 on:
 
 - **Turn on** loads it from the card. While the song plays it loads at the next **Stop**
@@ -48,7 +48,7 @@ on:
   bank says **Not enough sample memory**.
 - Card effects and card synths share the card memory (about 45 KB). When it is full, an effect
   doesn't load and the bank says **Card memory full**, naming the biggest module loaded
-  (e.g. DX7); turn off another effect or set a synth slot to Off. **Config >
+  (e.g. 6-Type); turn off another effect or set a synth slot to Off. **Config >
   [Memory](more.md#memory)** lists what is in it.
 
 Without the `Modules/` folder there are no master effects; projects still open and play.

@@ -2,7 +2,7 @@
 # Preview: pip install "mkdocs<2" mkdocs-material mike; mkdocs serve
 # Published by .github/workflows/docs.yml ("dev" = main).
 site_name: OpenTracker (syamajala fork)
-site_description: Open-source firmware for the original Polyend Tracker, with live resampling, Performance scenes, song arrangement and a DX7 synth.
+site_description: Open-source firmware for the original Polyend Tracker, with live resampling, Performance scenes, song arrangement and card synths.
 site_url: https://syamajala.github.io/polyend-tracker-re/
 repo_url: https://github.com/syamajala/polyend-tracker-re
 repo_name: syamajala/polyend-tracker-re
@@ -50,7 +50,7 @@ nav:
   - Home: index.md
   - Install and go back: install.md
   - User guide:
-      - DX7 synth: guide/dx7.md
+      - 6-Type synth: guide/sixtype.md
       - Edit Patch and synth help: guide/edit-patch.md
       - Master effects: guide/master-fx.md
       - Live resampling: guide/resampling.md
@@ -67,6 +67,7 @@ nav:
   # Written by tools/docs_synth_pages.py from the synth module repository's help files.
   - Synths:
       - Overview: synths/index.md
+      - 6-Type: synths/6type.md
       - 8-Type: synths/8type.md
       - A-Type: synths/atype.md
       - ACD: synths/acd.md
@@ -74,7 +75,6 @@ nav:
       - B-Type: synths/btype.md
       - CS-Type: synths/cstype.md
       - D-Type: synths/dtype.md
-      - DX7: synths/dx7.md
       - FAT: synths/fat.md
       - FM4: synths/fm4.md
       - Hand-Type: synths/handtype.md

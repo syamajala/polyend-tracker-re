@@ -30,7 +30,7 @@ tools/docs_screens.sh            # all of them, or: tools/docs_screens.sh song p
 
 Each shot in `tools/docs_screens.sh` is a short simulator script run on a fresh scratch
 card: either the generated test songs with "BG World 1" open, or an empty project with a
-generated example DX7 bank. No third-party content goes into the images.
+generated example bank of DX7 voices (for 6-Type). No third-party content goes into the images.
 
 ## Versions
 
